@@ -1,3 +1,14 @@
+using System.ComponentModel.DataAnnotations;
+using APITemplate.Application.Validators;
+
 namespace APITemplate.Application.DTOs;
 
-public sealed record CreateProductRequest(string Name, string? Description, decimal Price);
+public sealed record CreateProductRequest(
+    [property: NotEmpty(ErrorMessage = "Product name is required.")]
+    [property: MaxLength(200, ErrorMessage = "Product name must not exceed 200 characters.")]
+    string Name,
+
+    string? Description,
+
+    [property: Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than zero.")]
+    decimal Price) : IProductRequest;
