@@ -20,9 +20,9 @@ public sealed class ProductsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetAll(CancellationToken ct)
+    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetAll([FromQuery] ProductFilter filter, CancellationToken ct)
     {
-        var products = await _productService.GetAllAsync(ct);
+        var products = await _productService.GetAllAsync(filter, ct);
         return Ok(products);
     }
 

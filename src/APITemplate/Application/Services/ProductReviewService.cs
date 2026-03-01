@@ -1,4 +1,5 @@
 using APITemplate.Application.DTOs;
+using APITemplate.Application.Extensions;
 using APITemplate.Application.Interfaces;
 using APITemplate.Application.Mappings;
 using APITemplate.Domain.Entities;
@@ -24,9 +25,15 @@ public sealed class ProductReviewService : IProductReviewService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IReadOnlyList<ProductReviewResponse>> GetAllAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<ProductReviewResponse>> GetAllAsync(ProductReviewFilter filter, CancellationToken ct = default)
     {
         return await _reviewRepository.AsQueryable()
+            .WhereIf(filter.ProductId.HasValue,                          r => r.ProductId == filter.ProductId!.Value)
+            .WhereIf(!string.IsNullOrWhiteSpace(filter.ReviewerName),    r => r.ReviewerName.Contains(filter.ReviewerName!))
+            .WhereIf(filter.MinRating.HasValue,    r => r.Rating >= filter.MinRating!.Value)
+            .WhereIf(filter.MaxRating.HasValue,    r => r.Rating <= filter.MaxRating!.Value)
+            .WhereIf(filter.CreatedFrom.HasValue,  r => r.CreatedAt >= filter.CreatedFrom!.Value)
+            .WhereIf(filter.CreatedTo.HasValue,    r => r.CreatedAt <= filter.CreatedTo!.Value)
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt))
             .ToListAsync(ct);

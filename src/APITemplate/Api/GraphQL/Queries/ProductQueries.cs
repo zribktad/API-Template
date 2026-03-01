@@ -6,10 +6,11 @@ namespace APITemplate.Api.GraphQL.Queries;
 public class ProductQueries
 {
     public async Task<IReadOnlyList<ProductResponse>> GetProducts(
+        ProductFilter filter,
         [Service] IProductService productService,
         CancellationToken ct)
     {
-        return await productService.GetAllAsync(ct);
+        return await productService.GetAllAsync(filter, ct);
     }
 
     public async Task<ProductResponse?> GetProductById(

@@ -20,9 +20,9 @@ public sealed class ProductReviewsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductReviewResponse>>> GetAll(CancellationToken ct)
+    public async Task<ActionResult<IEnumerable<ProductReviewResponse>>> GetAll([FromQuery] ProductReviewFilter filter, CancellationToken ct)
     {
-        var reviews = await _reviewService.GetAllAsync(ct);
+        var reviews = await _reviewService.GetAllAsync(filter, ct);
         return Ok(reviews);
     }
 
