@@ -141,10 +141,15 @@ public class ProductServiceTests
             new() { Id = Guid.NewGuid(), Name = "Product 2", Price = 20m, CreatedAt = DateTime.UtcNow }
         };
 
-        var mockQueryable = products.BuildMock();
-        _repositoryMock.Setup(r => r.AsQueryable()).Returns(mockQueryable);
+        var responses = products
+            .Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.CreatedAt))
+            .ToList();
 
-        var result = await _sut.GetAllAsync();
+        _repositoryMock
+            .Setup(r => r.ListAsync(It.IsAny<Ardalis.Specification.ISpecification<Product, ProductResponse>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(responses);
+
+        var result = await _sut.GetAllAsync(new ProductFilter());
 
         result.Count.ShouldBe(2);
     }

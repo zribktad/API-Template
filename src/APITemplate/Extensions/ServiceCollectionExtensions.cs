@@ -7,6 +7,7 @@ using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Repositories;
 using Asp.Versioning;
 using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -40,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITokenService, TokenService>();
         services.AddScoped<IUserService, UserService>();
         services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
+        services.AddFluentValidationAutoValidation();
 
         return services;
     }

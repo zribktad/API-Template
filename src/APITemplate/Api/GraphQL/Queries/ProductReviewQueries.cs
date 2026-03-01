@@ -7,11 +7,11 @@ namespace APITemplate.Api.GraphQL.Queries;
 public class ProductReviewQueries
 {
     public async Task<IReadOnlyList<ProductReviewResponse>> GetReviews(
-        ProductReviewFilter filter,
+        ProductReviewFilter? filter,
         [Service] IProductReviewService reviewService,
         CancellationToken ct)
     {
-        return await reviewService.GetAllAsync(filter, ct);
+        return await reviewService.GetAllAsync(filter ?? new ProductReviewFilter(), ct);
     }
 
     public async Task<ProductReviewResponse?> GetReviewById(

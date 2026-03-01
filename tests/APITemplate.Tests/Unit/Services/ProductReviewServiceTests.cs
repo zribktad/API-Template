@@ -34,10 +34,15 @@ public class ProductReviewServiceTests
             new() { Id = Guid.NewGuid(), ProductId = Guid.NewGuid(), ReviewerName = "Bob", Rating = 3, CreatedAt = DateTime.UtcNow }
         };
 
-        var mockQueryable = reviews.BuildMock();
-        _reviewRepoMock.Setup(r => r.AsQueryable()).Returns(mockQueryable);
+        var responses = reviews
+            .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt))
+            .ToList();
 
-        var result = await _sut.GetAllAsync();
+        _reviewRepoMock
+            .Setup(r => r.ListAsync(It.IsAny<Ardalis.Specification.ISpecification<ProductReview, ProductReviewResponse>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(responses);
+
+        var result = await _sut.GetAllAsync(new ProductReviewFilter());
 
         result.Count.ShouldBe(2);
     }
@@ -102,8 +107,8 @@ public class ProductReviewServiceTests
         var request = new CreateProductReviewRequest(product.Id, "Alice", "Great!", 5);
 
         _productRepoMock
-            .Setup(r => r.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(product);
+            .Setup(r => r.AsQueryable())
+            .Returns(new List<Product> { product }.BuildMock());
 
         _reviewRepoMock
             .Setup(r => r.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()))
@@ -124,8 +129,8 @@ public class ProductReviewServiceTests
     public async Task CreateAsync_WhenProductNotFound_ThrowsNotFoundException()
     {
         _productRepoMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Product?)null);
+            .Setup(r => r.AsQueryable())
+            .Returns(new List<Product>().BuildMock());
 
         var request = new CreateProductReviewRequest(Guid.NewGuid(), "Alice", null, 3);
 

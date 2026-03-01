@@ -11,6 +11,7 @@
     <PackageReference Include="Ardalis.Specification" Version="9.3.1" />
     <PackageReference Include="Ardalis.Specification.EntityFrameworkCore" Version="9.3.1" />
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="15.1.12" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
