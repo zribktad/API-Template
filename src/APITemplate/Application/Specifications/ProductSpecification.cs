@@ -1,23 +1,32 @@
-using System.Linq.Expressions;
+using Ardalis.Specification;
 using APITemplate.Application.DTOs;
 using APITemplate.Domain.Entities;
 
 namespace APITemplate.Application.Specifications;
 
-public sealed class ProductSpecification : ISpecification<Product>
+public sealed class ProductSpecification : Specification<Product, ProductResponse>
 {
-    private readonly ProductFilter _filter;
-
     public ProductSpecification(ProductFilter filter)
     {
-        _filter = filter;
-    }
+        if (!string.IsNullOrWhiteSpace(filter.Name))
+            Query.Where(p => p.Name.Contains(filter.Name));
 
-    public Expression<Func<Product, bool>> Criteria => p =>
-        (string.IsNullOrWhiteSpace(_filter.Name)        || p.Name.Contains(_filter.Name)) &&
-        (string.IsNullOrWhiteSpace(_filter.Description) || (p.Description != null && p.Description.Contains(_filter.Description))) &&
-        (!_filter.MinPrice.HasValue    || p.Price >= _filter.MinPrice.Value) &&
-        (!_filter.MaxPrice.HasValue    || p.Price <= _filter.MaxPrice.Value) &&
-        (!_filter.CreatedFrom.HasValue || p.CreatedAt >= _filter.CreatedFrom.Value) &&
-        (!_filter.CreatedTo.HasValue   || p.CreatedAt <= _filter.CreatedTo.Value);
+        if (!string.IsNullOrWhiteSpace(filter.Description))
+            Query.Where(p => p.Description != null && p.Description.Contains(filter.Description));
+
+        if (filter.MinPrice.HasValue)
+            Query.Where(p => p.Price >= filter.MinPrice.Value);
+
+        if (filter.MaxPrice.HasValue)
+            Query.Where(p => p.Price <= filter.MaxPrice.Value);
+
+        if (filter.CreatedFrom.HasValue)
+            Query.Where(p => p.CreatedAt >= filter.CreatedFrom.Value);
+
+        if (filter.CreatedTo.HasValue)
+            Query.Where(p => p.CreatedAt <= filter.CreatedTo.Value);
+
+        Query.OrderByDescending(p => p.CreatedAt)
+             .Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.CreatedAt));
+    }
 }

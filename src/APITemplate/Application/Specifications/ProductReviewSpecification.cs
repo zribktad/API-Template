@@ -1,23 +1,32 @@
-using System.Linq.Expressions;
+using Ardalis.Specification;
 using APITemplate.Application.DTOs;
 using APITemplate.Domain.Entities;
 
 namespace APITemplate.Application.Specifications;
 
-public sealed class ProductReviewSpecification : ISpecification<ProductReview>
+public sealed class ProductReviewSpecification : Specification<ProductReview, ProductReviewResponse>
 {
-    private readonly ProductReviewFilter _filter;
-
     public ProductReviewSpecification(ProductReviewFilter filter)
     {
-        _filter = filter;
-    }
+        if (filter.ProductId.HasValue)
+            Query.Where(r => r.ProductId == filter.ProductId.Value);
 
-    public Expression<Func<ProductReview, bool>> Criteria => r =>
-        (!_filter.ProductId.HasValue                       || r.ProductId == _filter.ProductId.Value) &&
-        (string.IsNullOrWhiteSpace(_filter.ReviewerName)   || r.ReviewerName.Contains(_filter.ReviewerName)) &&
-        (!_filter.MinRating.HasValue    || r.Rating >= _filter.MinRating.Value) &&
-        (!_filter.MaxRating.HasValue    || r.Rating <= _filter.MaxRating.Value) &&
-        (!_filter.CreatedFrom.HasValue  || r.CreatedAt >= _filter.CreatedFrom.Value) &&
-        (!_filter.CreatedTo.HasValue    || r.CreatedAt <= _filter.CreatedTo.Value);
+        if (!string.IsNullOrWhiteSpace(filter.ReviewerName))
+            Query.Where(r => r.ReviewerName.Contains(filter.ReviewerName));
+
+        if (filter.MinRating.HasValue)
+            Query.Where(r => r.Rating >= filter.MinRating.Value);
+
+        if (filter.MaxRating.HasValue)
+            Query.Where(r => r.Rating <= filter.MaxRating.Value);
+
+        if (filter.CreatedFrom.HasValue)
+            Query.Where(r => r.CreatedAt >= filter.CreatedFrom.Value);
+
+        if (filter.CreatedTo.HasValue)
+            Query.Where(r => r.CreatedAt <= filter.CreatedTo.Value);
+
+        Query.OrderByDescending(r => r.CreatedAt)
+             .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt));
+    }
 }

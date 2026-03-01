@@ -26,13 +26,7 @@ public sealed class ProductReviewService : IProductReviewService
     }
 
     public async Task<IReadOnlyList<ProductReviewResponse>> GetAllAsync(ProductReviewFilter filter, CancellationToken ct = default)
-    {
-        return await _reviewRepository.AsQueryable()
-            .Where(new ProductReviewSpecification(filter).Criteria)
-            .OrderByDescending(r => r.CreatedAt)
-            .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt))
-            .ToListAsync(ct);
-    }
+        => await _reviewRepository.ListAsync(new ProductReviewSpecification(filter), ct);
 
     public async Task<IReadOnlyList<ProductReviewResponse>> GetByProductIdAsync(Guid productId, CancellationToken ct = default)
     {

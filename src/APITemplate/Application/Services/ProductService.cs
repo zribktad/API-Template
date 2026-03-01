@@ -5,7 +5,6 @@ using APITemplate.Application.Specifications;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace APITemplate.Application.Services;
 
@@ -27,13 +26,7 @@ public sealed class ProductService : IProductService
     }
 
     public async Task<IReadOnlyList<ProductResponse>> GetAllAsync(ProductFilter filter, CancellationToken ct = default)
-    {
-        return await _repository.AsQueryable()
-            .Where(new ProductSpecification(filter).Criteria)
-            .OrderByDescending(p => p.CreatedAt)
-            .Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.CreatedAt))
-            .ToListAsync(ct);
-    }
+        => await _repository.ListAsync(new ProductSpecification(filter), ct);
 
     public async Task<ProductResponse> CreateAsync(CreateProductRequest request, CancellationToken ct = default)
     {
