@@ -25,12 +25,9 @@ public abstract class RepositoryBase<T> : IRepository<T> where T : class
         return await DbContext.Set<T>().FindAsync([id], ct);
     }
 
-    public virtual async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default)
+    public virtual IQueryable<T> AsQueryable()
     {
-        return await DbContext.Set<T>()
-            // AsNoTracking skips the change-tracker overhead — safe here because we only read, never mutate.
-            .AsNoTracking()
-            .ToListAsync(ct);
+        return DbContext.Set<T>().AsNoTracking();
     }
 
     public virtual async Task<T> AddAsync(T entity, CancellationToken ct = default)

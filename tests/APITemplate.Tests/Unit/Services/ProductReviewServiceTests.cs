@@ -2,6 +2,7 @@ using APITemplate.Application.DTOs;
 using APITemplate.Application.Services;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
+using MockQueryable;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -30,9 +31,8 @@ public class ProductReviewServiceTests
             new() { Id = Guid.NewGuid(), ProductId = Guid.NewGuid(), ReviewerName = "Bob", Rating = 3, CreatedAt = DateTime.UtcNow }
         };
 
-        _reviewRepoMock
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(reviews);
+        var mockQueryable = reviews.BuildMock();
+        _reviewRepoMock.Setup(r => r.AsQueryable()).Returns(mockQueryable);
 
         var result = await _sut.GetAllAsync();
 
@@ -83,9 +83,8 @@ public class ProductReviewServiceTests
             new() { Id = Guid.NewGuid(), ProductId = productId, ReviewerName = "Alice", Rating = 5, CreatedAt = DateTime.UtcNow }
         };
 
-        _reviewRepoMock
-            .Setup(r => r.GetByProductIdAsync(productId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(reviews);
+        var mockQueryable = reviews.BuildMock();
+        _reviewRepoMock.Setup(r => r.AsQueryable()).Returns(mockQueryable);
 
         var result = await _sut.GetByProductIdAsync(productId);
 

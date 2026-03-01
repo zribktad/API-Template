@@ -11,8 +11,8 @@ public interface IRepository<T> where T : class
     /// <summary>Returns the entity with the given id, or null if not found.</summary>
     Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Returns all entities. Implementations should use AsNoTracking for read-only queries.</summary>
-    Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default);
+    /// <summary>Returns a no-tracking queryable so callers can compose WHERE/ORDER/SELECT before materializing.</summary>
+    IQueryable<T> AsQueryable();
 
     /// <summary>Persists a new entity and returns it after saving.</summary>
     Task<T> AddAsync(T entity, CancellationToken ct = default);

@@ -64,28 +64,22 @@ public class ProductRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAllAsync_ReturnsAllProductsOrderedByCreatedAtDesc()
+    public async Task AsQueryable_ReturnsProducts()
     {
-        var older = CreateProduct("Older", 10m);
-        older.CreatedAt = DateTime.UtcNow.AddDays(-1);
-
-        var newer = CreateProduct("Newer", 20m);
-        newer.CreatedAt = DateTime.UtcNow;
-
-        _dbContext.Products.AddRange(older, newer);
+        var p1 = CreateProduct("Alpha", 10m);
+        var p2 = CreateProduct("Beta", 20m);
+        _dbContext.Products.AddRange(p1, p2);
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.GetAllAsync();
+        var result = _sut.AsQueryable().ToList();
 
         result.Count.ShouldBe(2);
-        result[0].Name.ShouldBe("Newer");
-        result[1].Name.ShouldBe("Older");
     }
 
     [Fact]
-    public async Task GetAllAsync_WhenEmpty_ReturnsEmptyList()
+    public void AsQueryable_WhenEmpty_ReturnsEmptyQueryable()
     {
-        var result = await _sut.GetAllAsync();
+        var result = _sut.AsQueryable().ToList();
 
         result.ShouldBeEmpty();
     }

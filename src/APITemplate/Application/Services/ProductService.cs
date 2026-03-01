@@ -2,6 +2,7 @@ using APITemplate.Application.DTOs;
 using APITemplate.Application.Interfaces;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace APITemplate.Application.Services;
 
@@ -22,8 +23,10 @@ public sealed class ProductService : IProductService
 
     public async Task<IReadOnlyList<ProductResponse>> GetAllAsync(CancellationToken ct = default)
     {
-        var products = await _repository.GetAllAsync(ct);
-        return products.Select(MapToResponse).ToList();
+        return await _repository.AsQueryable()
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.CreatedAt))
+            .ToListAsync(ct);
     }
 
     public async Task<ProductResponse> CreateAsync(CreateProductRequest request, CancellationToken ct = default)

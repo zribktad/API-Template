@@ -2,6 +2,7 @@ using APITemplate.Application.DTOs;
 using APITemplate.Application.Interfaces;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using KeyNotFoundException = System.Collections.Generic.KeyNotFoundException;
 
 namespace APITemplate.Application.Services;
@@ -19,14 +20,19 @@ public sealed class ProductReviewService : IProductReviewService
 
     public async Task<IReadOnlyList<ProductReviewResponse>> GetAllAsync(CancellationToken ct = default)
     {
-        var reviews = await _reviewRepository.GetAllAsync(ct);
-        return reviews.Select(MapToResponse).ToList();
+        return await _reviewRepository.AsQueryable()
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt))
+            .ToListAsync(ct);
     }
 
     public async Task<IReadOnlyList<ProductReviewResponse>> GetByProductIdAsync(Guid productId, CancellationToken ct = default)
     {
-        var reviews = await _reviewRepository.GetByProductIdAsync(productId, ct);
-        return reviews.Select(MapToResponse).ToList();
+        return await _reviewRepository.AsQueryable()
+            .Where(r => r.ProductId == productId)
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt))
+            .ToListAsync(ct);
     }
 
     public async Task<ProductReviewResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)

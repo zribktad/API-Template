@@ -2,6 +2,7 @@ using APITemplate.Application.DTOs;
 using APITemplate.Application.Services;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
+using MockQueryable;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -134,9 +135,8 @@ public class ProductServiceTests
             new() { Id = Guid.NewGuid(), Name = "Product 2", Price = 20m, CreatedAt = DateTime.UtcNow }
         };
 
-        _repositoryMock
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(products);
+        var mockQueryable = products.BuildMock();
+        _repositoryMock.Setup(r => r.AsQueryable()).Returns(mockQueryable);
 
         var result = await _sut.GetAllAsync();
 
