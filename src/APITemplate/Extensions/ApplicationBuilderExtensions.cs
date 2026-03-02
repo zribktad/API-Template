@@ -20,7 +20,10 @@ public static class ApplicationBuilderExtensions
     {
         await using var scope = app.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await dbContext.Database.MigrateAsync();
+
+        // InMemory provider (used in tests) does not support migrations — skip.
+        if (dbContext.Database.IsRelational())
+            await dbContext.Database.MigrateAsync();
     }
 
     public static WebApplication UseCustomMiddleware(this WebApplication app)
