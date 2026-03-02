@@ -11,7 +11,7 @@ try
 {
     Log.Information("Starting APITemplate");
 
-    var builder = WebApplication.CreateBuilder(args); 
+    var builder = WebApplication.CreateBuilder(args);
 
     builder.Host.UseSerilog();
 

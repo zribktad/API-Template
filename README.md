@@ -94,7 +94,7 @@ classDiagram
     class Product {
         +Guid Id
         +string Name
-        +string? Description
+        +string Description
         +decimal Price
         +DateTime CreatedAt
         +ICollection~ProductReview~ Reviews
@@ -104,13 +104,13 @@ classDiagram
         +Guid Id
         +Guid ProductId
         +string ReviewerName
-        +string? Comment
+        +string Comment
         +int Rating
         +DateTime CreatedAt
         +Product Product
     }
 
-    Product "1" *-- "0..*" ProductReview : owns >
+    Product "1" *-- "0..*" ProductReview : owns
 ```
 
 ---
