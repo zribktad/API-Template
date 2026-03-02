@@ -1,5 +1,8 @@
 using APITemplate.Api.Middleware;
+using APITemplate.Infrastructure.Database;
+using APITemplate.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
 using Serilog;
@@ -9,6 +12,22 @@ namespace APITemplate.Extensions;
 
 public static class ApplicationBuilderExtensions
 {
+    /// <summary>
+    /// Applies pending EF Core migrations, then runs all embedded SQL function
+    /// scripts via <see cref="DatabaseFunctionBootstrapper"/>.
+    /// Call this once at startup before <c>app.Run()</c>.
+    /// </summary>
+    public static async Task UseDatabaseAsync(this WebApplication app)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await dbContext.Database.MigrateAsync();
+
+        var bootstrapper = scope.ServiceProvider.GetRequiredService<DatabaseFunctionBootstrapper>();
+        await bootstrapper.ApplyAsync();
+    }
+
     public static WebApplication UseCustomMiddleware(this WebApplication app)
     {
         app.UseMiddleware<GlobalExceptionHandlerMiddleware>();

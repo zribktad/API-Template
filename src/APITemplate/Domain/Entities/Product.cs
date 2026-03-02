@@ -21,5 +21,9 @@ public sealed class Product
     /// <summary>UTC timestamp of when the product was created. Defaults to now() in the database.</summary>
     public DateTime CreatedAt { get; set; }
 
+    public Guid? CategoryId { get; set; }
+
+    public Category? Category { get; set; }
+
     public ICollection<ProductReview> Reviews { get; set; } = [];
 }

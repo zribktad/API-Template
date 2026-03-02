@@ -41,6 +41,7 @@ public sealed class ProductService : IProductService
             Name = request.Name,
             Description = request.Description,
             Price = request.Price,
+            CategoryId = request.CategoryId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -57,6 +58,7 @@ public sealed class ProductService : IProductService
         product.Name = request.Name;
         product.Description = request.Description;
         product.Price = request.Price;
+        product.CategoryId = request.CategoryId;
 
         await _repository.UpdateAsync(product, ct);
         await _unitOfWork.CommitAsync(ct);

@@ -11,4 +11,6 @@ public sealed record UpdateProductRequest(
     string? Description,
 
     [property: Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than zero.")]
-    decimal Price) : IProductRequest;
+    decimal Price,
+
+    Guid? CategoryId = null) : IProductRequest;

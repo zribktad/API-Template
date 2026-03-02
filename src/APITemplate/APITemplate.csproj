@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- SQL function scripts — compiled into the assembly as embedded resources.
+         Applied idempotently at startup by DatabaseFunctionBootstrapper. -->
+    <EmbeddedResource Include="Infrastructure\Database\Functions\*.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- OpenAPI + Scalar -->
     <PackageReference Include="Ardalis.Specification" Version="9.3.1" />
     <PackageReference Include="Ardalis.Specification.EntityFrameworkCore" Version="9.3.1" />

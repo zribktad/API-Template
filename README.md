@@ -199,6 +199,119 @@ mutation {
 
 ---
 
+## 🗄 Stored Procedure Pattern (EF Core + PostgreSQL)
+
+EF Core's `FromSql()` lets you call stored procedures while still getting full object materialisation and parameterised queries. The pattern below is used for the `GET /api/v1/categories/{id}/stats` endpoint.
+
+### When to use a stored procedure
+
+| Situation | Use LINQ | Use Stored Procedure |
+|-----------|----------|----------------------|
+| Simple CRUD filtering / paging | ✅ | |
+| Complex multi-table aggregations | | ✅ |
+| Reusable DB-side business logic | | ✅ |
+| Query needs full EF change tracking | ✅ | |
+
+### 4-step implementation
+
+**Step 1 — Keyless entity** (no backing table, only a result-set shape)
+
+```csharp
+// Domain/Entities/ProductCategoryStats.cs
+public sealed class ProductCategoryStats
+{
+    public Guid   CategoryId    { get; set; }
+    public string CategoryName  { get; set; } = string.Empty;
+    public long   ProductCount  { get; set; }
+    public decimal AveragePrice { get; set; }
+    public long   TotalReviews  { get; set; }
+}
+```
+
+**Step 2 — EF configuration** (`HasNoKey` + `ExcludeFromMigrations`)
+
+```csharp
+// Infrastructure/Persistence/Configurations/ProductCategoryStatsConfiguration.cs
+public sealed class ProductCategoryStatsConfiguration : IEntityTypeConfiguration<ProductCategoryStats>
+{
+    public void Configure(EntityTypeBuilder<ProductCategoryStats> builder)
+    {
+        builder.HasNoKey();
+        // No backing table — skip this type during 'dotnet ef migrations add'
+        builder.ToTable("ProductCategoryStats", t => t.ExcludeFromMigrations());
+    }
+}
+```
+
+**Step 3 — Migration** (create the PostgreSQL function in `Up`, drop it in `Down`)
+
+```csharp
+migrationBuilder.Sql("""
+    CREATE OR REPLACE FUNCTION get_product_category_stats(p_category_id UUID)
+    RETURNS TABLE(
+        category_id UUID, category_name TEXT,
+        product_count BIGINT, average_price NUMERIC, total_reviews BIGINT
+    )
+    LANGUAGE plpgsql AS $$
+    BEGIN
+        RETURN QUERY
+        SELECT c."Id", c."Name"::TEXT,
+               COUNT(DISTINCT p."Id"),
+               COALESCE(AVG(p."Price"), 0),
+               COUNT(pr."Id")
+        FROM "Categories" c
+        LEFT JOIN "Products"       p  ON p."CategoryId" = c."Id"
+        LEFT JOIN "ProductReviews" pr ON pr."ProductId"  = p."Id"
+        WHERE c."Id" = p_category_id
+        GROUP BY c."Id", c."Name";
+    END;
+    $$;
+    """);
+
+// Down:
+migrationBuilder.Sql("DROP FUNCTION IF EXISTS get_product_category_stats(UUID);");
+```
+
+**Step 4 — Repository call** via `FromSql` (auto-parameterised, injection-safe)
+
+```csharp
+// Infrastructure/Repositories/CategoryRepository.cs
+public Task<ProductCategoryStats?> GetStatsByIdAsync(Guid categoryId, CancellationToken ct = default)
+{
+    // The interpolated {categoryId} is converted to a @p0 parameter by EF Core —
+    // never use string concatenation here.
+    return AppDb.ProductCategoryStats
+        .FromSql($"SELECT * FROM get_product_category_stats({categoryId})")
+        .FirstOrDefaultAsync(ct);
+}
+```
+
+### Full request flow
+
+```
+GET /api/v1/categories/{id}/stats
+        │
+        ▼
+CategoriesController.GetStats()
+        │
+        ▼
+CategoryService.GetStatsAsync()
+        │
+        ▼
+CategoryRepository.GetStatsByIdAsync()
+        │  FromSql($"SELECT * FROM get_product_category_stats({id})")
+        ▼
+PostgreSQL  →  get_product_category_stats(p_category_id)
+        │  returns: category_id, category_name, product_count, average_price, total_reviews
+        ▼
+EF Core maps columns → ProductCategoryStats (keyless entity)
+        │
+        ▼
+ProductCategoryStatsResponse  (DTO returned to client)
+```
+
+---
+
 ## 🚀 CI/CD & Deployments
 
 While not natively shipped via default configuration files, this structure allows simple portability across cloud ecosystems:

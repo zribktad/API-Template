@@ -41,6 +41,8 @@ try
 
     var app = builder.Build();
 
+    await app.UseDatabaseAsync();
+
     app.UseCustomMiddleware();
     app.UseApiDocumentation();
     app.UseHttpsRedirection();

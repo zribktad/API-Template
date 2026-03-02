@@ -5,6 +5,8 @@ using APITemplate.Application.Validators;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Repositories;
+using APITemplate.Infrastructure.Database;
+using APITemplate.Infrastructure.StoredProcedures;
 using Asp.Versioning;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -26,6 +28,9 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IProductReviewRepository, ProductReviewRepository>();
+        services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
+        services.AddScoped<DatabaseFunctionBootstrapper>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.AddHealthChecks()
@@ -38,6 +43,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IProductReviewService, ProductReviewService>();
+        services.AddScoped<ICategoryService, CategoryService>();
         services.AddSingleton<ITokenService, TokenService>();
         services.AddScoped<IUserService, UserService>();
         services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
