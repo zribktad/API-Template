@@ -1,5 +1,7 @@
 using APITemplate.Api.Middleware;
+using APITemplate.Infrastructure.Migrations;
 using APITemplate.Infrastructure.Persistence;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -18,11 +20,19 @@ public static class ApplicationBuilderExtensions
     public static async Task UseDatabaseAsync(this WebApplication app)
     {
         await using var scope = app.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // InMemory provider (used in tests) does not support migrations — skip.
+        // PostgreSQL — InMemory provider (used in tests) does not support migrations, skip.
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         if (dbContext.Database.IsRelational())
             await dbContext.Database.MigrateAsync();
+
+        // MongoDB — MongoDbContext is removed in tests, GetService returns null, skip.
+        var mongoContext = scope.ServiceProvider.GetService<MongoDbContext>();
+        if (mongoContext is not null)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<MigrationRunner>>();
+            await new MigrationRunner(mongoContext.Database, logger).RunAsync();
+        }
     }
 
     public static WebApplication UseCustomMiddleware(this WebApplication app)

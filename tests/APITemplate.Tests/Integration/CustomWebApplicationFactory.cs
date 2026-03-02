@@ -1,11 +1,13 @@
+using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Hosting;
+using Moq;
 
 namespace APITemplate.Tests.Integration;
 
@@ -35,6 +37,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // Re-register with InMemory provider
             services.AddDbContext<AppDbContext>(options =>
                 options.UseInMemoryDatabase(_dbName));
+
+            // MongoDB is not available in tests.
+            // Remove MongoDbContext so the migration runner is skipped in UseDatabaseAsync.
+            // Replace IProductDataRepository with a no-op mock so DI validation (ValidateOnBuild) passes.
+            services.RemoveAll(typeof(MongoDbContext));
+            services.RemoveAll(typeof(IProductDataRepository));
+            services.AddSingleton(new Mock<IProductDataRepository>().Object);
         });
 
         builder.UseEnvironment("Development");

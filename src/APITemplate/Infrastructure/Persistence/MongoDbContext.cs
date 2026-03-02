@@ -14,6 +14,8 @@ public sealed class MongoDbContext
         _database = client.GetDatabase(settings.Value.DatabaseName);
     }
 
+    public IMongoDatabase Database => _database;
+
     public IMongoCollection<ProductData> ProductData
         => _database.GetCollection<ProductData>("product_data");
 }
