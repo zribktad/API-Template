@@ -35,6 +35,7 @@ try
     });
     builder.Services.AddPersistence(builder.Configuration);
     builder.Services.AddApplicationServices();
+    builder.Services.AddMongoDB(builder.Configuration);
     builder.Services.AddJwtAuthentication(builder.Configuration);
     builder.Services.AddApiVersioningConfiguration();
     builder.Services.AddGraphQLConfiguration();

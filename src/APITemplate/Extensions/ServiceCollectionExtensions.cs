@@ -12,6 +12,8 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 
 namespace APITemplate.Extensions;
 
@@ -91,6 +93,23 @@ public static class ServiceCollectionExtensions
                 options.GroupNameFormat = "'v'VVV";
                 options.SubstituteApiVersionInUrl = true;
             });
+
+        return services;
+    }
+
+    public static IServiceCollection AddMongoDB(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<MongoDbSettings>(configuration.GetSection("MongoDB"));
+        services.AddSingleton<MongoDbContext>();
+        services.AddScoped<IProductDataRepository, ProductDataRepository>();
+        services.AddScoped<IProductDataService, ProductDataService>();
+
+        services.AddHealthChecks()
+            .AddMongoDb(
+                sp => new MongoClient(sp.GetRequiredService<IOptions<MongoDbSettings>>().Value.ConnectionString),
+                name: "mongodb",
+                tags: ["database"]);
 
         return services;
     }

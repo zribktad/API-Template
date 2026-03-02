@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- MongoDB -->
+    <PackageReference Include="MongoDB.Driver" Version="3.4.0" />
+    <PackageReference Include="AspNetCore.HealthChecks.MongoDb" Version="9.0.0" />
+
     <!-- OpenAPI + Scalar -->
     <PackageReference Include="Ardalis.Specification" Version="9.3.1" />
     <PackageReference Include="Ardalis.Specification.EntityFrameworkCore" Version="9.3.1" />
