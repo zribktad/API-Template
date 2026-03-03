@@ -26,24 +26,46 @@ All controllers except `AuthController` require a valid token (`[Authorize]` att
 
 ## Step 1 – Configure JWT Settings
 
-Settings live in `appsettings.json` (and are overridden in `appsettings.Development.json`, which is **not** committed to source control):
+### Development
+
+`appsettings.Development.json` ships with a placeholder secret that satisfies the startup validation so the app runs out-of-the-box in the `Development` environment:
 
 ```json
 {
   "Jwt": {
-    "Secret": "your-256-bit-or-longer-secret-key-here",
+    "Secret": "DevelopmentOnlySuperSecretKeyAtLeast32Chars!",
     "Issuer": "APITemplate",
-    "Audience": "APITemplate",
-    "ExpirationMinutes": "60"
+    "Audience": "APITemplate.Clients",
+    "ExpirationMinutes": 60
   },
   "Auth": {
     "Username": "admin",
-    "Password": "changeme"
+    "Password": "admin"
   }
 }
 ```
 
-> ⚠️ **Never commit real secrets.** Use environment variables, Docker secrets, or a secrets manager (e.g., Azure Key Vault, AWS Secrets Manager) in production.
+> ⚠️ This placeholder is intentionally **not suitable for production**. Replace it before deploying.
+
+### Production
+
+The base `appsettings.json` intentionally leaves `Jwt:Secret` empty. The app **will not start** unless a real secret (>= 32 characters) is supplied at runtime. Provide it through one of the following mechanisms:
+
+**Environment variable (recommended):**
+```bash
+# ASP.NET Core flattens __ into : so this maps to Jwt:Secret
+Jwt__Secret=<your-256-bit-or-longer-secret>
+```
+
+**Docker / Compose secret:**
+```yaml
+environment:
+  - Jwt__Secret=${JWT_SECRET}
+```
+
+**Cloud secrets manager** (Azure Key Vault, AWS Secrets Manager, etc.) – inject the value as the `Jwt__Secret` environment variable or mount it via the provider's configuration source.
+
+> ⚠️ **Never commit real secrets** to source control. The startup validation will throw an `OptionsValidationException` at startup if the secret is missing or shorter than 32 characters, giving you a clear fail-fast signal before the app accepts traffic.
 
 ---
 
@@ -87,32 +109,40 @@ Or in the [Scalar](https://scalar.com/) / Swagger UI: click **Authorize** → en
 
 ## How the Token Is Generated
 
-`TokenService` (`Application/Services/TokenService.cs`) creates a signed JWT:
+`TokenService` (`Application/Services/TokenService.cs`) creates a signed JWT using the strongly-typed `JwtOptions` (injected via `IOptions<JwtOptions>`):
 
 ```csharp
-public TokenResponse GenerateToken(string username)
+public sealed class TokenService : ITokenService
 {
-    var jwtSettings = _configuration.GetSection("Jwt");
-    var key = new SymmetricSecurityKey(
-        Encoding.UTF8.GetBytes(jwtSettings["Secret"]!));
+    private readonly JwtOptions _jwt;
 
-    var expires = DateTime.UtcNow.AddMinutes(
-        double.Parse(jwtSettings["ExpirationMinutes"]!));
-
-    var claims = new[]
+    public TokenService(IOptions<JwtOptions> jwtOptions)
     {
-        new Claim(ClaimTypes.Name, username),
-        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-    };
+        _jwt = jwtOptions.Value;
+    }
 
-    var token = new JwtSecurityToken(
-        issuer:             jwtSettings["Issuer"],
-        audience:           jwtSettings["Audience"],
-        claims:             claims,
-        expires:            expires,
-        signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
+    public TokenResponse GenerateToken(string username)
+    {
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(_jwt.Secret));
 
-    return new TokenResponse(new JwtSecurityTokenHandler().WriteToken(token), expires);
+        var expires = DateTime.UtcNow.AddMinutes(_jwt.ExpirationMinutes);
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Name, username),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        var token = new JwtSecurityToken(
+            issuer:             _jwt.Issuer,
+            audience:           _jwt.Audience,
+            claims:             claims,
+            expires:            expires,
+            signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
+
+        return new TokenResponse(new JwtSecurityTokenHandler().WriteToken(token), expires);
+    }
 }
 ```
 
@@ -120,20 +150,39 @@ public TokenResponse GenerateToken(string username)
 
 ## How Token Validation Is Configured
 
-Validation is registered in `ServiceCollectionExtensions.AddJwtAuthentication()`:
+Options are registered and validated at startup in `ServiceCollectionExtensions.AddAuthenticationOptions()`. The startup validation uses `.ValidateOnStart()` so a misconfigured secret (missing or shorter than 32 characters) causes an `OptionsValidationException` before the app accepts any traffic:
 
 ```csharp
-services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+services.AddOptions<JwtOptions>()
+    .Bind(configuration.GetSection("Jwt"))
+    .ValidateDataAnnotations()
+    .Validate(
+        o => !string.IsNullOrWhiteSpace(o.Secret) && o.Secret.Length >= 32,
+        "Jwt secret too short")
+    .Validate(
+        o => !string.IsNullOrWhiteSpace(o.Issuer) && !string.IsNullOrWhiteSpace(o.Audience),
+        "Jwt issuer/audience is required")
+    .ValidateOnStart();
+```
+
+The `JwtBearerOptions` are then wired up from the validated `JwtOptions`:
+
+```csharp
+services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((options, jwtOptionsAccessor) =>
     {
+        var jwt = jwtOptionsAccessor.Value;
+        var key = Encoding.UTF8.GetBytes(jwt.Secret);
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer           = true,
             ValidateAudience         = true,
             ValidateLifetime         = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer              = jwtSettings["Issuer"],
-            ValidAudience            = jwtSettings["Audience"],
+            ValidIssuer              = jwt.Issuer,
+            ValidAudience            = jwt.Audience,
             IssuerSigningKey         = new SymmetricSecurityKey(key)
         };
     });
@@ -228,8 +277,11 @@ options.Audience   = "your-api-audience";
 | `Api/Controllers/V1/AuthController.cs` | Login endpoint |
 | `Application/Services/TokenService.cs` | JWT generation |
 | `Application/Services/UserService.cs` | Credential validation (replace in production) |
+| `Application/Options/JwtOptions.cs` | Strongly-typed JWT configuration class |
+| `Application/Options/AuthOptions.cs` | Strongly-typed Auth configuration class |
 | `Application/DTOs/LoginRequest.cs` | Login request DTO |
 | `Application/DTOs/TokenResponse.cs` | Token response DTO |
-| `Extensions/ServiceCollectionExtensions.cs` | `AddJwtAuthentication()` |
+| `Extensions/ServiceCollectionExtensions.cs` | `AddAuthenticationOptions()` / `AddJwtAuthentication()` |
 | `Program.cs` | `app.UseAuthentication()` / `app.UseAuthorization()` |
-| `appsettings.json` → `Jwt` section | Secret, issuer, audience, expiry |
+| `appsettings.json` | Base config – `Jwt:Secret` intentionally empty (must be overridden in production) |
+| `appsettings.Development.json` | Dev-only overrides – includes a placeholder secret for local development |
