@@ -1,0 +1,16 @@
+# How-To Guides
+
+Step-by-step workflow guides for this API template. Each guide covers a complete end-to-end example you can follow to extend the project.
+
+| Guide | What it covers |
+|-------|----------------|
+| [GraphQL Endpoint](graphql-endpoint.md) | Create a type, query, mutation, and DataLoader with HotChocolate |
+| [REST Endpoint](rest-endpoint.md) | Full workflow: entity → DTO → validator → service → controller |
+| [EF Core Migration](ef-migration.md) | Add and apply PostgreSQL schema migrations with EF Core |
+| [MongoDB Migration](mongodb-migration.md) | Create index and data migrations with Kot.MongoDB.Migrations |
+| [Transactions](transactions.md) | Wrap multiple operations in an atomic Unit of Work transaction |
+| [Authentication](authentication.md) | JWT login flow, protecting endpoints, and production guidance |
+| [Stored Procedures](stored-procedures.md) | Add a PostgreSQL function and call it safely from C# |
+| [MongoDB Polymorphism](mongodb-polymorphism.md) | Store multiple document subtypes in a single MongoDB collection |
+| [Validation](validation.md) | Add FluentValidation rules, cross-field rules, and shared validators |
+| [Specifications](specifications.md) | Write reusable EF Core query specifications with Ardalis.Specification |
