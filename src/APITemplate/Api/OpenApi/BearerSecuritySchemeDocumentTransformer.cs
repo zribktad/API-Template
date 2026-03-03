@@ -14,7 +14,7 @@ public sealed class BearerSecuritySchemeDocumentTransformer : IOpenApiDocumentTr
             Type = SecuritySchemeType.Http,
             Scheme = "bearer",
             BearerFormat = "JWT",
-            Description = " JWT token (without 'Bearer ' prefix)"
+            Description = "JWT token (without 'Bearer ' prefix)"
         };
 
         return Task.CompletedTask;
