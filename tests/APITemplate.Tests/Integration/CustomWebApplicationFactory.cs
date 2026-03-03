@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Moq;
 
@@ -18,6 +19,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.ConfigureAppConfiguration((_, configBuilder) =>
+        {
+            configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Secret"] = "TestSuperSecretKeyThatIsAtLeast32Chars!",
+                ["Jwt:Issuer"] = "TestIssuer",
+                ["Jwt:Audience"] = "TestAudience",
+                ["Jwt:ExpirationMinutes"] = "60",
+                ["Auth:Username"] = "admin",
+                ["Auth:Password"] = "admin"
+            });
+        });
+
         builder.ConfigureTestServices(services =>
         {
             // Remove Npgsql provider registrations (required for .NET 9+)

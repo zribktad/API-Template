@@ -3,27 +3,28 @@ using System.Security.Claims;
 using System.Text;
 using APITemplate.Application.DTOs;
 using APITemplate.Application.Interfaces;
+using APITemplate.Application.Options;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace APITemplate.Application.Services;
 
 public sealed class TokenService : ITokenService
 {
-    private readonly IConfiguration _configuration;
+    private readonly JwtOptions _jwt;
 
-    public TokenService(IConfiguration configuration)
+    public TokenService(IOptions<JwtOptions> jwtOptions)
     {
-        _configuration = configuration;
+        _jwt = jwtOptions.Value;
     }
 
     public TokenResponse GenerateToken(string username)
     {
-        var jwtSettings = _configuration.GetSection("Jwt");
         var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(jwtSettings["Secret"]!));
+            Encoding.UTF8.GetBytes(_jwt.Secret));
 
         var expires = DateTime.UtcNow.AddMinutes(
-            double.Parse(jwtSettings["ExpirationMinutes"]!));
+            _jwt.ExpirationMinutes);
 
         var claims = new[]
         {
@@ -32,8 +33,8 @@ public sealed class TokenService : ITokenService
         };
 
         var token = new JwtSecurityToken(
-            issuer: jwtSettings["Issuer"],
-            audience: jwtSettings["Audience"],
+            issuer: _jwt.Issuer,
+            audience: _jwt.Audience,
             claims: claims,
             expires: expires,
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));

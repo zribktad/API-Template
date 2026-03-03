@@ -1,7 +1,8 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using APITemplate.Application.Options;
 using APITemplate.Application.Services;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
 
@@ -13,17 +14,16 @@ public class TokenServiceTests
 
     public TokenServiceTests()
     {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
+        var options = Options.Create(
+            new JwtOptions
             {
-                ["Jwt:Secret"] = "YourSuperSecretKeyThatIsAtLeast32CharactersLong!",
-                ["Jwt:Issuer"] = "TestIssuer",
-                ["Jwt:Audience"] = "TestAudience",
-                ["Jwt:ExpirationMinutes"] = "60"
-            })
-            .Build();
+                Secret = "YourSuperSecretKeyThatIsAtLeast32CharactersLong!",
+                Issuer = "TestIssuer",
+                Audience = "TestAudience",
+                ExpirationMinutes = 60
+            });
 
-        _sut = new TokenService(configuration);
+        _sut = new TokenService(options);
     }
 
     [Fact]

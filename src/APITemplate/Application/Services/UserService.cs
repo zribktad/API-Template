@@ -1,4 +1,6 @@
 using APITemplate.Application.Interfaces;
+using APITemplate.Application.Options;
+using Microsoft.Extensions.Options;
 
 namespace APITemplate.Application.Services;
 
@@ -9,20 +11,17 @@ namespace APITemplate.Application.Services;
 /// </summary>
 public sealed class UserService : IUserService
 {
-    private readonly IConfiguration _configuration;
+    private readonly AuthOptions _auth;
 
-    public UserService(IConfiguration configuration)
+    public UserService(IOptions<AuthOptions> authOptions)
     {
-        _configuration = configuration;
+        _auth = authOptions.Value;
     }
 
     public Task<bool> ValidateAsync(string username, string password, CancellationToken ct = default)
     {
-        var demoUsername = _configuration["Auth:Username"];
-        var demoPassword = _configuration["Auth:Password"];
-
-        var isValid = string.Equals(username, demoUsername, StringComparison.OrdinalIgnoreCase)
-                      && string.Equals(password, demoPassword);
+        var isValid = string.Equals(username, _auth.Username, StringComparison.OrdinalIgnoreCase)
+                      && string.Equals(password, _auth.Password);
 
         return Task.FromResult(isValid);
     }

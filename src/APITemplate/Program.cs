@@ -3,8 +3,16 @@ using APITemplate.Extensions;
 using Microsoft.OpenApi;
 using Serilog;
 
+var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+var bootstrapConfiguration = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables()
+    .Build();
+
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
+    .ReadFrom.Configuration(bootstrapConfiguration)
+    .Enrich.FromLogContext()
     .CreateLogger();
 
 try
@@ -13,7 +21,13 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog();
+    builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+    {
+        loggerConfiguration
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext();
+    });
 
     builder.Services.AddControllers();
     builder.Services.AddOpenApi(options =>
@@ -33,10 +47,11 @@ try
             return Task.CompletedTask;
         });
     });
+    builder.Services.AddAuthenticationOptions(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration);
     builder.Services.AddApplicationServices();
     builder.Services.AddMongoDB(builder.Configuration);
-    builder.Services.AddJwtAuthentication(builder.Configuration);
+    builder.Services.AddJwtAuthentication();
     builder.Services.AddApiVersioningConfiguration();
     builder.Services.AddGraphQLConfiguration();
 
