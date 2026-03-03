@@ -171,7 +171,15 @@ public sealed class OrderService : IOrderService
     {
         var items = await _repository.ListAsync(ct);
         var total = await _repository.CountAsync(ct);
-        return new PagedResponse<OrderResponse>(items.Select(o => o.ToResponse()).ToList(), total,
+
+        var skip = (filter.PageNumber - 1) * filter.PageSize;
+        var pagedItems = items
+            .Skip(skip)
+            .Take(filter.PageSize)
+            .Select(o => o.ToResponse())
+            .ToList();
+
+        return new PagedResponse<OrderResponse>(pagedItems, total,
             filter.PageNumber, filter.PageSize);
     }
 
