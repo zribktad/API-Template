@@ -43,5 +43,8 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             new { Username = "wrong", Password = "wrong" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+
+        var content = await response.Content.ReadAsStringAsync();
+        content.ShouldContain("Invalid username or password.");
     }
 }

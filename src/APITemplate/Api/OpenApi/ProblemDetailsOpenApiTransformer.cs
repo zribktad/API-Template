@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.OpenApi;
 
 namespace APITemplate.Api.OpenApi;
@@ -17,23 +19,17 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
 
         document.Components.Schemas["ApiProblemDetails"] = BuildProblemDetailsSchema();
 
-        foreach (var path in document.Paths.Values)
+        foreach (var pathEntry in document.Paths)
         {
+            var path = pathEntry.Value;
             if (path.Operations is null)
                 continue;
 
             foreach (var operation in path.Operations.Values)
             {
-                AddErrorResponse(operation, "400", "Bad request");
-                AddErrorResponse(operation, "404", "Resource not found");
-                AddErrorResponse(operation, "500", "Unexpected server error");
-
-                var hasAuth = operation.Security is not null && operation.Security.Count > 0;
-                if (hasAuth)
-                {
-                    AddErrorResponse(operation, "401", "Unauthorized");
-                    AddErrorResponse(operation, "403", "Forbidden");
-                }
+                AddErrorResponse(operation, StatusCodes.Status400BadRequest);
+                AddErrorResponse(operation, StatusCodes.Status404NotFound);
+                AddErrorResponse(operation, StatusCodes.Status500InternalServerError);
             }
         }
 
@@ -65,15 +61,20 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
         };
     }
 
-    private static void AddErrorResponse(OpenApiOperation operation, string statusCode, string description)
+    private static void AddErrorResponse(OpenApiOperation operation, int statusCode, string? description = null)
     {
+        var statusCodeKey = statusCode.ToString();
         operation.Responses ??= new OpenApiResponses();
-        if (operation.Responses.ContainsKey(statusCode))
+        if (operation.Responses.ContainsKey(statusCodeKey))
             return;
 
-        operation.Responses[statusCode] = new OpenApiResponse
+        var resolvedDescription = string.IsNullOrWhiteSpace(description)
+            ? ReasonPhrases.GetReasonPhrase(statusCode)
+            : description;
+
+        operation.Responses[statusCodeKey] = new OpenApiResponse
         {
-            Description = description,
+            Description = resolvedDescription,
             Content = new Dictionary<string, OpenApiMediaType>
             {
                 ["application/problem+json"] = new OpenApiMediaType

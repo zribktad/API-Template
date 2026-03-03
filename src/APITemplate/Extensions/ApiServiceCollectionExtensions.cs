@@ -16,6 +16,7 @@ public static class ApiServiceCollectionExtensions
             options.AddDocumentTransformer<HealthCheckOpenApiDocumentTransformer>();
             options.AddDocumentTransformer<ProblemDetailsOpenApiTransformer>();
             options.AddDocumentTransformer<BearerSecuritySchemeDocumentTransformer>();
+            options.AddOperationTransformer<AuthorizationResponsesOperationTransformer>();
         });
 
         return services;
