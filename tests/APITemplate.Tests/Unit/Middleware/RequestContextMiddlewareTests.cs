@@ -1,7 +1,5 @@
 using APITemplate.Api.Middleware;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Moq;
 using Shouldly;
 using Xunit;
 
@@ -12,10 +10,7 @@ public class RequestContextMiddlewareTests
     [Fact]
     public async Task InvokeAsync_WhenHeaderProvided_EchoesCorrelationIdToResponse()
     {
-        var logger = new Mock<ILogger<RequestContextMiddleware>>();
-        var middleware = new RequestContextMiddleware(
-            async ctx => await ctx.Response.WriteAsync("ok"),
-            logger.Object);
+        var middleware = new RequestContextMiddleware(async ctx => await ctx.Response.WriteAsync("ok"));
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
         context.Request.Headers[RequestContextMiddleware.CorrelationIdHeader] = "corr-123";
@@ -30,10 +25,7 @@ public class RequestContextMiddlewareTests
     [Fact]
     public async Task InvokeAsync_WhenHeaderMissing_UsesTraceIdentifierAsCorrelationId()
     {
-        var logger = new Mock<ILogger<RequestContextMiddleware>>();
-        var middleware = new RequestContextMiddleware(
-            async ctx => await ctx.Response.WriteAsync("ok"),
-            logger.Object);
+        var middleware = new RequestContextMiddleware(async ctx => await ctx.Response.WriteAsync("ok"));
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
         context.TraceIdentifier = "trace-xyz";

@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OpenApi;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.OpenApi;
 
 namespace APITemplate.Api.OpenApi;
@@ -20,34 +19,10 @@ public sealed class AuthorizationResponsesOperationTransformer : IOpenApiOperati
 
         if (hasAuthorize && !hasAllowAnonymous)
         {
-            AddErrorResponse(operation, StatusCodes.Status401Unauthorized);
-            AddErrorResponse(operation, StatusCodes.Status403Forbidden);
+            OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status401Unauthorized);
+            OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status403Forbidden);
         }
 
         return Task.CompletedTask;
-    }
-
-    private static void AddErrorResponse(OpenApiOperation operation, int statusCode, string? description = null)
-    {
-        var statusCodeKey = statusCode.ToString();
-        operation.Responses ??= new OpenApiResponses();
-        if (operation.Responses.ContainsKey(statusCodeKey))
-            return;
-
-        var resolvedDescription = string.IsNullOrWhiteSpace(description)
-            ? ReasonPhrases.GetReasonPhrase(statusCode)
-            : description;
-
-        operation.Responses[statusCodeKey] = new OpenApiResponse
-        {
-            Description = resolvedDescription,
-            Content = new Dictionary<string, OpenApiMediaType>
-            {
-                ["application/problem+json"] = new OpenApiMediaType
-                {
-                    Schema = new OpenApiSchemaReference("ApiProblemDetails", null)
-                }
-            }
-        };
     }
 }

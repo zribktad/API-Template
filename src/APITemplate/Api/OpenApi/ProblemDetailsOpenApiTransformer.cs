@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OpenApi;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.OpenApi;
 
 namespace APITemplate.Api.OpenApi;
@@ -27,9 +26,9 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
 
             foreach (var operation in path.Operations.Values)
             {
-                AddErrorResponse(operation, StatusCodes.Status400BadRequest);
-                AddErrorResponse(operation, StatusCodes.Status404NotFound);
-                AddErrorResponse(operation, StatusCodes.Status500InternalServerError);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status400BadRequest);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status404NotFound);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status500InternalServerError);
             }
         }
 
@@ -54,34 +53,20 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
                 ["metadata"] = new OpenApiSchema
                 {
                     Type = JsonSchemaType.Object | JsonSchemaType.Null,
-                    AdditionalProperties = new OpenApiSchema { Type = JsonSchemaType.String | JsonSchemaType.Integer | JsonSchemaType.Number | JsonSchemaType.Boolean | JsonSchemaType.Null }
+                    AdditionalProperties = new OpenApiSchema
+                    {
+                        Type = JsonSchemaType.String
+                               | JsonSchemaType.Integer
+                               | JsonSchemaType.Number
+                               | JsonSchemaType.Boolean
+                               | JsonSchemaType.Null
+                               | JsonSchemaType.Object
+                               | JsonSchemaType.Array
+                    }
                 }
             },
-            Required = new HashSet<string> { "type", "title", "status", "detail", "traceId", "errorCode" }
+            Required = new HashSet<string> { "type", "title", "status", "traceId", "errorCode" }
         };
     }
 
-    private static void AddErrorResponse(OpenApiOperation operation, int statusCode, string? description = null)
-    {
-        var statusCodeKey = statusCode.ToString();
-        operation.Responses ??= new OpenApiResponses();
-        if (operation.Responses.ContainsKey(statusCodeKey))
-            return;
-
-        var resolvedDescription = string.IsNullOrWhiteSpace(description)
-            ? ReasonPhrases.GetReasonPhrase(statusCode)
-            : description;
-
-        operation.Responses[statusCodeKey] = new OpenApiResponse
-        {
-            Description = resolvedDescription,
-            Content = new Dictionary<string, OpenApiMediaType>
-            {
-                ["application/problem+json"] = new OpenApiMediaType
-                {
-                    Schema = new OpenApiSchemaReference("ApiProblemDetails", null)
-                }
-            }
-        };
-    }
 }

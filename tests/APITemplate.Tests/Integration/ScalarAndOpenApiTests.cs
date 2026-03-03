@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Shouldly;
@@ -81,6 +82,7 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
             .GetProperty("$ref")
             .GetString();
 
+        schemaRef.ShouldNotBeNull();
         schemaRef.ShouldContain("LoginErrorResponse");
     }
 
@@ -98,9 +100,11 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_Endpoint_IsAccessible()
     {
-        var response = await _client.GetAsync("/graphql");
+        var response = await _client.PostAsJsonAsync(
+            "/graphql",
+            new { query = "{ __typename }" });
 
-        // GraphQL endpoint returns 200 with Banana Cake Pop IDE on GET
+        // Verify GraphQL endpoint itself, independent of GET UI redirects/tooling.
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 }

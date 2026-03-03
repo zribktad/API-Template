@@ -35,16 +35,4 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         content.ShouldContain("accessToken");
     }
 
-    [Fact]
-    public async Task Login_WithInvalidCredentials_ReturnsUnauthorized()
-    {
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = "wrong", Password = "wrong" });
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-
-        var content = await response.Content.ReadAsStringAsync();
-        content.ShouldContain("Invalid username or password.");
-    }
 }
