@@ -724,7 +724,7 @@ The repository maintains an inclusive combination of **Unit Tests** and **Integr
 
 ### Integration test isolation
 
-`CustomWebApplicationFactory` replaces the Npgsql provider with `UseInMemoryDatabase` and removes `MongoDbContext` (replaced with a Moq stub). Each test class gets its own database name (a fresh `Guid`) so tests never share state.
+`CustomWebApplicationFactory` replaces the Npgsql provider with `UseInMemoryDatabase`, removes `MongoDbContext`, and registers a mocked `IProductDataRepository` so DI validation passes. Each test class gets its own database name (a fresh `Guid`) so tests never share state.
 
 ```csharp
 // Each factory instance gets its own isolated in-memory database
