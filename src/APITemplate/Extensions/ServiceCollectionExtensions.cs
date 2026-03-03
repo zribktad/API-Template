@@ -1,5 +1,6 @@
 using System.Text;
 using APITemplate.Application.Interfaces;
+using APITemplate.Application.Options;
 using APITemplate.Application.Services;
 using APITemplate.Application.Validators;
 using APITemplate.Domain.Interfaces;
@@ -13,6 +14,7 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
 using Kot.MongoDB.Migrations;
 using Kot.MongoDB.Migrations.DI;
 
@@ -20,6 +22,31 @@ namespace APITemplate.Extensions;
 
 public static class ServiceCollectionExtensions
 {
+    public static IServiceCollection AddAuthenticationOptions(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection("Jwt"))
+            .ValidateDataAnnotations()
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.Secret) && o.Secret.Length >= 32,
+                "Jwt secret too short")
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.Issuer) && !string.IsNullOrWhiteSpace(o.Audience),
+                "Jwt issuer/audience is required")
+            .ValidateOnStart();
+
+        services.AddOptions<AuthOptions>()
+            .Bind(configuration.GetSection("Auth"))
+            .ValidateDataAnnotations()
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.Username) && !string.IsNullOrWhiteSpace(o.Password),
+                "Auth username/password is required")
+            .ValidateOnStart();
+
+        return services;
+    }
+
     public static IServiceCollection AddPersistence(
         this IServiceCollection services, IConfiguration configuration)
     {
@@ -53,23 +80,26 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddJwtAuthentication(
-        this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services)
     {
-        var jwtSettings = configuration.GetSection("Jwt");
-        var key = Encoding.UTF8.GetBytes(jwtSettings["Secret"]!);
-
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
+            .AddJwtBearer();
+
+        services
+            .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtOptions>>((options, jwtOptionsAccessor) =>
             {
+                var jwt = jwtOptionsAccessor.Value;
+                var key = Encoding.UTF8.GetBytes(jwt.Secret);
+
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwtSettings["Issuer"],
-                    ValidAudience = jwtSettings["Audience"],
+                    ValidIssuer = jwt.Issuer,
+                    ValidAudience = jwt.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(key)
                 };
             });
