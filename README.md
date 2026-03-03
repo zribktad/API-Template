@@ -716,11 +716,11 @@ The repository maintains an inclusive combination of **Unit Tests** and **Integr
 
 | Folder | Technology | What it tests |
 |--------|-----------|---------------|
-| `tests/Unit/Services/` | xUnit + Moq | Service business logic in isolation |
-| `tests/Unit/Repositories/` | xUnit + Moq | Repository filtering/query logic |
-| `tests/Unit/Validators/` | xUnit + FluentValidation.TestHelper | Validator rules per DTO |
-| `tests/Unit/Middleware/` | xUnit + Moq | Exception-to-HTTP mapping in `GlobalExceptionHandlerMiddleware` |
-| `tests/Integration/` | xUnit + `WebApplicationFactory` | Full HTTP round-trips over in-memory database |
+| `tests/APITemplate.Tests/Unit/Services/` | xUnit + Moq | Service business logic in isolation |
+| `tests/APITemplate.Tests/Unit/Repositories/` | xUnit + Moq | Repository filtering/query logic |
+| `tests/APITemplate.Tests/Unit/Validators/` | xUnit + FluentValidation.TestHelper | Validator rules per DTO |
+| `tests/APITemplate.Tests/Unit/Middleware/` | xUnit + Moq | Exception-to-HTTP mapping in `GlobalExceptionHandlerMiddleware` |
+| `tests/APITemplate.Tests/Integration/` | xUnit + `WebApplicationFactory` | Full HTTP round-trips over in-memory database |
 
 ### Integration test isolation
 
