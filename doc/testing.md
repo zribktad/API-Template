@@ -193,7 +193,7 @@ public void Annotation_InvalidName_IsInvalid(string? name)
 
 ### Repository Unit Tests
 
-Repository tests use `EF Core InMemory` — no Moq needed here because EF itself is very lightweight.
+Repository tests use `EF Core InMemory` — no Moq needed here because EF itself is very lightweight. Be aware that the InMemory provider does *not* behave like a relational database (e.g., it does not enforce all constraints, handles transactions differently, and some queries may translate differently), so prefer a relational provider such as SQLite in-memory or Testcontainers-based database tests when you need higher-fidelity integration or query/constraint behavior.
 
 ```csharp
 // tests/APITemplate.Tests/Unit/Repositories/OrderRepositoryTests.cs
