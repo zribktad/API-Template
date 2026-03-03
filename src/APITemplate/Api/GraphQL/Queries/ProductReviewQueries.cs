@@ -1,13 +1,30 @@
+using APITemplate.Api.GraphQL.Models;
+
 namespace APITemplate.Api.GraphQL.Queries;
 
 [ExtendObjectType(typeof(ProductQueries))]
 public class ProductReviewQueries
 {
-    [UsePaging(MaxPageSize = 100, DefaultPageSize = 20)]
-    public async Task<IEnumerable<ProductReviewResponse>> GetReviews(
+    public async Task<ProductReviewPageResult> GetReviews(
+        ProductReviewQueryInput? input,
         [Service] IProductReviewQueryService queryService,
         CancellationToken ct)
-        => await queryService.GetAllAsync(ct);
+    {
+        var filter = new ProductReviewFilter(
+            input?.ProductId,
+            input?.ReviewerName,
+            input?.MinRating,
+            input?.MaxRating,
+            input?.CreatedFrom,
+            input?.CreatedTo,
+            input?.SortBy,
+            input?.SortDirection,
+            input?.PageNumber ?? 1,
+            input?.PageSize ?? 20);
+
+        var page = await queryService.GetPagedAsync(filter, ct);
+        return new ProductReviewPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
+    }
 
     public async Task<ProductReviewResponse?> GetReviewById(
         Guid id,
@@ -15,10 +32,17 @@ public class ProductReviewQueries
         CancellationToken ct)
         => await queryService.GetByIdAsync(id, ct);
 
-    [UsePaging(MaxPageSize = 100, DefaultPageSize = 20)]
-    public async Task<IEnumerable<ProductReviewResponse>> GetReviewsByProductId(
+    public async Task<ProductReviewPageResult> GetReviewsByProductId(
         Guid productId,
+        int pageNumber,
+        int pageSize,
         [Service] IProductReviewQueryService queryService,
         CancellationToken ct)
-        => await queryService.GetByProductIdAsync(productId, ct);
+    {
+        var page = await queryService.GetPagedAsync(
+            new ProductReviewFilter(ProductId: productId, PageNumber: pageNumber, PageSize: pageSize),
+            ct);
+
+        return new ProductReviewPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
+    }
 }

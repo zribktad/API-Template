@@ -23,5 +23,9 @@ public sealed class ProductType : ObjectType<ProductResponse>
 
         descriptor.Field(p => p.CreatedAt)
             .Description("The UTC timestamp of when the product was created.");
+
+        descriptor.Field("reviews")
+            .ResolveWith<ProductTypeResolvers>(r => r.GetReviews(default!, default!, default))
+            .Description("The reviews associated with this product.");
     }
 }

@@ -11,9 +11,6 @@ public interface IRepository<T> : IRepositoryBase<T> where T : class
     //   FirstOrDefaultAsync, CountAsync, AnyAsync, ...
     //   AddAsync(T entity, ct), UpdateAsync(T entity, ct), DeleteAsync(T entity, ct)
 
-    // GraphQL escape-hatch — late materialization by HotChocolate
-    IQueryable<T> AsQueryable();
-
     // Ardalis only has DeleteAsync(T entity), we also need DeleteAsync(Guid id)
     Task DeleteAsync(Guid id, CancellationToken ct = default);
 }

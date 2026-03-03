@@ -20,14 +20,15 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_GetProducts_ReturnsEmptyList()
     {
-        var query = new { query = "{ products { nodes { id name price } } }" };
+        var query = new { query = "{ products { items { id name price } totalCount pageNumber pageSize } }" };
 
         var response = await PostGraphQLAsync(query);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<ProductsData>>(GraphQLJsonOptions.Default);
-        result!.Data.Products.Nodes.Count.ShouldBeGreaterThanOrEqualTo(0);
+        result!.Data.Products.Items.Count.ShouldBeGreaterThanOrEqualTo(0);
+        result.Data.Products.PageNumber.ShouldBeGreaterThan(0);
     }
 
     [Fact]
@@ -133,6 +134,104 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         deleteResult!.Data.DeleteProduct.ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task GraphQL_GetProducts_WithFilterSortAndPaging_ReturnsExpectedOrderAndSlice()
+    {
+        await AuthenticateAsync();
+
+        var prefix = $"sort-{Guid.NewGuid():N}";
+        await CreateProductViaGraphQLAsync($"{prefix}-A", 30m);
+        await CreateProductViaGraphQLAsync($"{prefix}-B", 10m);
+        await CreateProductViaGraphQLAsync($"{prefix}-C", 20m);
+
+        var query = new
+        {
+            query = @"
+                query($input: ProductQueryInput) {
+                    products(input: $input) {
+                        items { id name price }
+                        totalCount
+                        pageNumber
+                        pageSize
+                    }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    name = prefix,
+                    sortBy = "price",
+                    sortDirection = "asc",
+                    pageNumber = 1,
+                    pageSize = 2
+                }
+            }
+        };
+
+        var response = await PostGraphQLAsync(query);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<ProductsData>>(GraphQLJsonOptions.Default);
+        var items = result!.Data.Products.Items;
+
+        items.Count.ShouldBe(2);
+        items[0].Price.ShouldBeLessThanOrEqualTo(items[1].Price);
+        result.Data.Products.TotalCount.ShouldBeGreaterThanOrEqualTo(3);
+        result.Data.Products.PageNumber.ShouldBe(1);
+        result.Data.Products.PageSize.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task GraphQL_ProductReviewsField_UsesBatchResolverAndReturnsReviewsPerProduct()
+    {
+        await AuthenticateAsync();
+
+        var prefix = $"dl-{Guid.NewGuid():N}";
+        var p1 = await CreateProductViaGraphQLAsync($"{prefix}-P1", 11m);
+        var p2 = await CreateProductViaGraphQLAsync($"{prefix}-P2", 22m);
+
+        await CreateReviewViaGraphQLAsync(p1, "r1", 5);
+        await CreateReviewViaGraphQLAsync(p1, "r2", 4);
+        await CreateReviewViaGraphQLAsync(p2, "r3", 3);
+
+        var query = new
+        {
+            query = @"
+                query($input: ProductQueryInput) {
+                    products(input: $input) {
+                        items {
+                            id
+                            name
+                            price
+                            reviews { id rating productId }
+                        }
+                        totalCount
+                        pageNumber
+                        pageSize
+                    }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    name = prefix,
+                    pageNumber = 1,
+                    pageSize = 10
+                }
+            }
+        };
+
+        var response = await PostGraphQLAsync(query);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<ProductsWithReviewsData>>(GraphQLJsonOptions.Default);
+        var items = result!.Data.Products.Items;
+
+        items.Count.ShouldBeGreaterThanOrEqualTo(2);
+        items.ShouldContain(x => x.Id == p1 && x.Reviews.Count >= 2);
+        items.ShouldContain(x => x.Id == p2 && x.Reviews.Count >= 1);
+    }
+
     private async Task AuthenticateAsync()
     {
         var loginResponse = await _client.PostAsJsonAsync(
@@ -152,5 +251,52 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         var json = JsonSerializer.Serialize(query);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
         return await _client.PostAsync("/graphql", content);
+    }
+
+    private async Task<Guid> CreateProductViaGraphQLAsync(string name, decimal price)
+    {
+        var mutation = new
+        {
+            query = @"
+                mutation($input: CreateProductRequestInput!) {
+                    createProduct(input: $input) { id }
+                }",
+            variables = new
+            {
+                input = new { name, price }
+            }
+        };
+
+        var response = await PostGraphQLAsync(mutation);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<CreateProductData>>(GraphQLJsonOptions.Default);
+        return result!.Data.CreateProduct.Id;
+    }
+
+    private async Task<Guid> CreateReviewViaGraphQLAsync(Guid productId, string reviewerName, int rating)
+    {
+        var mutation = new
+        {
+            query = @"
+                mutation($input: CreateProductReviewRequestInput!) {
+                    createProductReview(input: $input) { id }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    productId,
+                    reviewerName,
+                    rating
+                }
+            }
+        };
+
+        var response = await PostGraphQLAsync(mutation);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<CreateProductReviewData>>(GraphQLJsonOptions.Default);
+        return result!.Data.CreateProductReview.Id;
     }
 }
