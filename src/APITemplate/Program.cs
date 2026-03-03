@@ -1,17 +1,9 @@
 using APITemplate.Extensions;
 using Serilog;
 
-var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
-var bootstrapConfiguration = new ConfigurationBuilder()
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
-    .AddEnvironmentVariables()
-    .Build();
-
 Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(bootstrapConfiguration)
-    .Enrich.FromLogContext()
-    .CreateLogger();
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
 try
 {
@@ -23,8 +15,7 @@ try
     {
         loggerConfiguration
             .ReadFrom.Configuration(context.Configuration)
-            .ReadFrom.Services(services)
-            .Enrich.FromLogContext();
+            .ReadFrom.Services(services);
     });
 
     builder.Services.AddApiFoundation(); // Register REST/OpenAPI/ProblemDetails/exception handling foundation.
