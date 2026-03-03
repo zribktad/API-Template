@@ -1,9 +1,17 @@
 using APITemplate.Extensions;
 using Serilog;
 
+var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+var bootstrapConfiguration = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables()
+    .Build();
+
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .CreateLogger(); // Bootstrap logger available before DI/container is built.
+    .ReadFrom.Configuration(bootstrapConfiguration)
+    .Enrich.FromLogContext()
+    .CreateLogger();
 
 try
 {
@@ -11,13 +19,20 @@ try
 
     var builder = WebApplication.CreateBuilder(args); // Build host, configuration, and DI container.
 
-    builder.Host.UseSerilog(); // Route ASP.NET logging through Serilog sinks/enrichers.
+    builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+    {
+        loggerConfiguration
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext();
+    });
 
     builder.Services.AddApiFoundation(); // Register REST/OpenAPI/ProblemDetails/exception handling foundation.
+    builder.Services.AddAuthenticationOptions(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration); // Register EF Core + repositories + relational health checks.
     builder.Services.AddApplicationServices(); // Register application services + validators.
     builder.Services.AddMongoDB(builder.Configuration); // Register Mongo context/services + Mongo health checks.
-    builder.Services.AddJwtAuthentication(builder.Configuration); // Register JWT authentication/authorization handlers.
+    builder.Services.AddJwtAuthentication(); // Register JWT authentication/authorization handlers.
     builder.Services.AddApiVersioningConfiguration(); // Register API versioning and explorer metadata.
     builder.Services.AddGraphQLConfiguration(); // Register GraphQL schema and server services.
 
