@@ -329,7 +329,7 @@ This template deliberately applies a number of industry-accepted patterns. Under
 
 ### 1 — Repository Pattern
 
-Every data-store interaction is hidden behind a typed interface defined in `Domain/Interfaces/`. Controllers and services depend only on `IProductRepository`, `ICategoryRepository`, etc. — never on `AppDbContext` or `IMongoCollection<T>` directly.
+Every data-store interaction is hidden behind a typed interface defined in `Domain/Interfaces/`. Application services depend only on `IProductRepository`, `ICategoryRepository`, etc., while controllers depend on those services — never directly on `AppDbContext` or `IMongoCollection<T>` .
 
 **Benefits:**
 - Database provider can be swapped without touching business logic.
