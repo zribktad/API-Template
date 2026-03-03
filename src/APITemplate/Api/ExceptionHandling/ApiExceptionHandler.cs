@@ -56,14 +56,14 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         }
 
         context.Response.StatusCode = statusCode;
-        await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+        var wasWritten = await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = context,
             Exception = exception,
             ProblemDetails = problemDetails
         });
 
-        return true;
+        return wasWritten;
     }
 
     private static (int StatusCode, string Title, string Detail, string ErrorCode, IReadOnlyDictionary<string, object?>? Metadata) Resolve(Exception exception)
