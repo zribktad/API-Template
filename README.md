@@ -149,7 +149,7 @@ classDiagram
         +long FileSizeBytes
     }
 
-    Category "1" o-- "0..*" Product : categorises
+    Category "0..1" o-- "0..*" Product : categorises
     Product "1" *-- "0..*" ProductReview : owns
     ProductData <|-- ImageProductData : discriminator image
     ProductData <|-- VideoProductData : discriminator video
