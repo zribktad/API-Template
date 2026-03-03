@@ -10,6 +10,7 @@ try
     Log.Information("Starting APITemplate"); // Startup banner for early diagnostics.
 
     var builder = WebApplication.CreateBuilder(args); // Build host, configuration, and DI container.
+    builder.AddApplicationRedaction();
 
     builder.Host.UseSerilog((context, services, loggerConfiguration) =>
     {

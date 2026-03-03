@@ -29,7 +29,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:ExpirationMinutes"] = "60",
                 ["Auth:Username"] = "admin",
                 ["Auth:Password"] = "admin",
-                ["Cors:AllowedOrigins:0"] = "http://localhost:3000"
+                ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
+                ["Redaction:HmacKeyEnvironmentVariable"] = "APITEMPLATE_REDACTION_HMAC_KEY",
+                ["Redaction:HmacKey"] = "mV7XhO9YXNw1fGKxvRrQz6CkKUL5jvN3i8A0Jv3cL2Q=",
+                ["Redaction:KeyId"] = "1001"
             });
         });
 
