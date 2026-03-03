@@ -38,67 +38,59 @@ public class ApiExceptionHandlerTests
         _problemDetailsService = services.BuildServiceProvider().GetRequiredService<IProblemDetailsService>();
     }
 
-    [Fact]
-    public async Task TryHandleAsync_WhenAppException_ReturnsProblemDetailsWithErrorCode()
+    public static IEnumerable<object[]> ExceptionMappingCases()
+    {
+        yield return
+        [
+            new NotFoundException("Product", Guid.Empty, ErrorCatalog.Reviews.ProductNotFoundForReview),
+            HttpStatusCode.NotFound,
+            "Not Found",
+            $"Product with id '{Guid.Empty}' not found.",
+            ErrorCatalog.Reviews.ProductNotFoundForReview
+        ];
+        yield return
+        [
+            new ValidationException("validation failed"),
+            HttpStatusCode.BadRequest,
+            "Bad Request",
+            "validation failed",
+            ErrorCatalog.General.ValidationFailed
+        ];
+        yield return
+        [
+            new InvalidOperationException("boom"),
+            HttpStatusCode.InternalServerError,
+            "Internal Server Error",
+            "An unexpected error occurred.",
+            ErrorCatalog.General.Unknown
+        ];
+    }
+
+    [Theory]
+    [MemberData(nameof(ExceptionMappingCases))]
+    public async Task TryHandleAsync_MapsExceptionToProblemDetails(
+        Exception exception,
+        HttpStatusCode expectedStatus,
+        string expectedTitle,
+        string expectedDetail,
+        string expectedErrorCode)
     {
         var context = CreateHttpContext();
 
         var handler = new ApiExceptionHandler(_loggerMock.Object, _problemDetailsService);
-        var handled = await handler.TryHandleAsync(
-            context,
-            new NotFoundException(
-                "Product",
-                Guid.Empty,
-                ErrorCatalog.Reviews.ProductNotFoundForReview),
-            CancellationToken.None);
+        var handled = await handler.TryHandleAsync(context, exception, CancellationToken.None);
 
         handled.ShouldBeTrue();
-        context.Response.StatusCode.ShouldBe((int)HttpStatusCode.NotFound);
+        context.Response.StatusCode.ShouldBe((int)expectedStatus);
         context.Response.ContentType.ShouldStartWith("application/problem+json");
 
         var body = await ReadJsonBody(context);
-        body.GetProperty("status").GetInt32().ShouldBe((int)HttpStatusCode.NotFound);
-        body.GetProperty("title").GetString().ShouldBe("Not Found");
-        body.GetProperty("detail").GetString().ShouldBe($"Product with id '{Guid.Empty}' not found.");
-        body.GetProperty("errorCode").GetString().ShouldBe(ErrorCatalog.Reviews.ProductNotFoundForReview);
-        body.GetProperty("type").GetString().ShouldBe($"https://api-template.local/errors/{ErrorCatalog.Reviews.ProductNotFoundForReview}");
+        body.GetProperty("status").GetInt32().ShouldBe((int)expectedStatus);
+        body.GetProperty("title").GetString().ShouldBe(expectedTitle);
+        body.GetProperty("detail").GetString().ShouldBe(expectedDetail);
+        body.GetProperty("errorCode").GetString().ShouldBe(expectedErrorCode);
+        body.GetProperty("type").GetString().ShouldBe($"https://api-template.local/errors/{expectedErrorCode}");
         body.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
-    }
-
-    [Fact]
-    public async Task TryHandleAsync_WhenValidationException_ReturnsCatalogErrorCode()
-    {
-        var context = CreateHttpContext();
-
-        var handler = new ApiExceptionHandler(_loggerMock.Object, _problemDetailsService);
-        var handled = await handler.TryHandleAsync(context, new ValidationException("validation failed"), CancellationToken.None);
-
-        handled.ShouldBeTrue();
-        context.Response.StatusCode.ShouldBe((int)HttpStatusCode.BadRequest);
-
-        var body = await ReadJsonBody(context);
-        body.GetProperty("status").GetInt32().ShouldBe((int)HttpStatusCode.BadRequest);
-        body.GetProperty("title").GetString().ShouldBe("Bad Request");
-        body.GetProperty("detail").GetString().ShouldBe("validation failed");
-        body.GetProperty("errorCode").GetString().ShouldBe(ErrorCatalog.General.ValidationFailed);
-    }
-
-    [Fact]
-    public async Task TryHandleAsync_WhenUnhandledException_Returns500WithGenericCode()
-    {
-        var context = CreateHttpContext();
-
-        var handler = new ApiExceptionHandler(_loggerMock.Object, _problemDetailsService);
-        var handled = await handler.TryHandleAsync(context, new InvalidOperationException("boom"), CancellationToken.None);
-
-        handled.ShouldBeTrue();
-        context.Response.StatusCode.ShouldBe((int)HttpStatusCode.InternalServerError);
-
-        var body = await ReadJsonBody(context);
-        body.GetProperty("title").GetString().ShouldBe("Internal Server Error");
-        body.GetProperty("detail").GetString().ShouldBe("An unexpected error occurred.");
-        body.GetProperty("errorCode").GetString().ShouldBe(ErrorCatalog.General.Unknown);
-        body.GetProperty("type").GetString().ShouldBe($"https://api-template.local/errors/{ErrorCatalog.General.Unknown}");
     }
 
     [Fact]

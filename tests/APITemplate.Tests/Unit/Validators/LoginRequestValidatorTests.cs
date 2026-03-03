@@ -19,31 +19,20 @@ public class LoginRequestValidatorTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Validate_EmptyUsername_IsInvalid(string? username)
+    [InlineData(null, "password", "Username")]
+    [InlineData("", "password", "Username")]
+    [InlineData("   ", "password", "Username")]
+    [InlineData("admin", null, "Password")]
+    [InlineData("admin", "", "Password")]
+    [InlineData("admin", "   ", "Password")]
+    public void Validate_EmptyCredential_IsInvalid(string? username, string? password, string expectedErrorProperty)
     {
-        var request = new LoginRequest(username!, "password");
+        var request = new LoginRequest(username!, password!);
 
         var result = _sut.Validate(request);
 
         result.IsValid.ShouldBeFalse();
-        result.Errors.ShouldContain(e => e.PropertyName == "Username");
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Validate_EmptyPassword_IsInvalid(string? password)
-    {
-        var request = new LoginRequest("admin", password!);
-
-        var result = _sut.Validate(request);
-
-        result.IsValid.ShouldBeFalse();
-        result.Errors.ShouldContain(e => e.PropertyName == "Password");
+        result.Errors.ShouldContain(e => e.PropertyName == expectedErrorProperty);
     }
 
     [Fact]

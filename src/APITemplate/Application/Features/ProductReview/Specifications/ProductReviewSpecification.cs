@@ -24,19 +24,31 @@ public sealed class ProductReviewSpecification : Specification<ProductReviewEnti
         switch (sortBy)
         {
             case "rating":
-                if (desc) query.OrderByDescending(r => r.Rating);
-                else query.OrderBy(r => r.Rating);
+                ApplyOrder(
+                    desc,
+                    () => query.OrderBy(r => r.Rating),
+                    () => query.OrderByDescending(r => r.Rating));
                 break;
             case "reviewername":
             case "reviewer_name":
             case "reviewer":
-                if (desc) query.OrderByDescending(r => r.ReviewerName);
-                else query.OrderBy(r => r.ReviewerName);
+                ApplyOrder(
+                    desc,
+                    () => query.OrderBy(r => r.ReviewerName),
+                    () => query.OrderByDescending(r => r.ReviewerName));
                 break;
             default:
-                if (desc) query.OrderByDescending(r => r.CreatedAt);
-                else query.OrderBy(r => r.CreatedAt);
+                ApplyOrder(
+                    desc,
+                    () => query.OrderBy(r => r.CreatedAt),
+                    () => query.OrderByDescending(r => r.CreatedAt));
                 break;
         }
+    }
+
+    private static void ApplyOrder(bool desc, Action applyAsc, Action applyDesc)
+    {
+        if (desc) applyDesc();
+        else applyAsc();
     }
 }

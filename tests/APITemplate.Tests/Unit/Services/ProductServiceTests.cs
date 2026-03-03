@@ -23,40 +23,34 @@ public class ProductServiceTests
         _sut = new ProductService(_repositoryMock.Object, _queryServiceMock.Object, _unitOfWorkMock.Object);
     }
 
-    [Fact]
-    public async Task GetByIdAsync_WhenProductExists_ReturnsProductResponse()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetByIdAsync_ReturnsExpectedResult(bool productExists)
     {
-        var product = new Product
+        var productId = Guid.NewGuid();
+        ProductResponse? response = null;
+        if (productExists)
         {
-            Id = Guid.NewGuid(),
-            Name = "Test Product",
-            Description = "A test product",
-            Price = 9.99m,
-            CreatedAt = DateTime.UtcNow
-        };
+            response = new ProductResponse(productId, "Test Product", "A test product", 9.99m, DateTime.UtcNow);
+        }
 
-        var response = new ProductResponse(product.Id, product.Name, product.Description, product.Price, product.CreatedAt);
         _queryServiceMock
-            .Setup(q => q.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .Setup(q => q.GetByIdAsync(productId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(response);
 
-        var result = await _sut.GetByIdAsync(product.Id);
+        var result = await _sut.GetByIdAsync(productId);
 
-        result.ShouldNotBeNull();
-        result!.Name.ShouldBe("Test Product");
-        result.Price.ShouldBe(9.99m);
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_WhenProductDoesNotExist_ReturnsNull()
-    {
-        _queryServiceMock
-            .Setup(q => q.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductResponse?)null);
-
-        var result = await _sut.GetByIdAsync(Guid.NewGuid());
-
-        result.ShouldBeNull();
+        if (productExists)
+        {
+            result.ShouldNotBeNull();
+            result!.Name.ShouldBe("Test Product");
+            result.Price.ShouldBe(9.99m);
+        }
+        else
+        {
+            result.ShouldBeNull();
+        }
     }
 
     [Fact]

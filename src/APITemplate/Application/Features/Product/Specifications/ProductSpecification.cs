@@ -24,17 +24,29 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
         switch (sortBy)
         {
             case "name":
-                if (desc) query.OrderByDescending(p => p.Name);
-                else query.OrderBy(p => p.Name);
+                ApplyOrder(
+                    desc,
+                    () => query.OrderBy(p => p.Name),
+                    () => query.OrderByDescending(p => p.Name));
                 break;
             case "price":
-                if (desc) query.OrderByDescending(p => p.Price);
-                else query.OrderBy(p => p.Price);
+                ApplyOrder(
+                    desc,
+                    () => query.OrderBy(p => p.Price),
+                    () => query.OrderByDescending(p => p.Price));
                 break;
             default:
-                if (desc) query.OrderByDescending(p => p.CreatedAt);
-                else query.OrderBy(p => p.CreatedAt);
+                ApplyOrder(
+                    desc,
+                    () => query.OrderBy(p => p.CreatedAt),
+                    () => query.OrderByDescending(p => p.CreatedAt));
                 break;
         }
+    }
+
+    private static void ApplyOrder(bool desc, Action applyAsc, Action applyDesc)
+    {
+        if (desc) applyDesc();
+        else applyAsc();
     }
 }

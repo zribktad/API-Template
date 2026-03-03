@@ -32,21 +32,13 @@ public class CreateProductReviewRequestValidatorTests
         result.Errors.ShouldContain(e => e.PropertyName == "Rating");
     }
 
-    [Fact]
-    public async Task Validate_EmptyReviewerName_Fails()
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
+    public async Task Validate_InvalidReviewerName_Fails(string reviewerName)
     {
-        var request = new CreateProductReviewRequest(Guid.NewGuid(), "", null, 3);
-
-        var result = await _validator.ValidateAsync(request);
-
-        result.IsValid.ShouldBeFalse();
-        result.Errors.ShouldContain(e => e.PropertyName == "ReviewerName");
-    }
-
-    [Fact]
-    public async Task Validate_ReviewerNameTooLong_Fails()
-    {
-        var request = new CreateProductReviewRequest(Guid.NewGuid(), new string('A', 101), null, 3);
+        var request = new CreateProductReviewRequest(Guid.NewGuid(), reviewerName, null, 3);
 
         var result = await _validator.ValidateAsync(request);
 

@@ -51,47 +51,40 @@ public class ProductReviewServiceTests
         result.TotalCount.ShouldBe(2);
     }
 
-    [Fact]
-    public async Task GetByIdAsync_WhenReviewExists_ReturnsResponse()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetByIdAsync_ReturnsExpectedResult(bool reviewExists)
     {
-        var review = new ProductReview
+        var reviewId = Guid.NewGuid();
+        ProductReviewResponse? response = null;
+        if (reviewExists)
         {
-            Id = Guid.NewGuid(),
-            ProductId = Guid.NewGuid(),
-            ReviewerName = "Alice",
-            Rating = 4,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var response = new ProductReviewResponse(
-            review.Id,
-            review.ProductId,
-            review.ReviewerName,
-            review.Comment,
-            review.Rating,
-            review.CreatedAt);
+            response = new ProductReviewResponse(
+                reviewId,
+                Guid.NewGuid(),
+                "Alice",
+                null,
+                4,
+                DateTime.UtcNow);
+        }
 
         _queryServiceMock
-            .Setup(q => q.GetByIdAsync(review.Id, It.IsAny<CancellationToken>()))
+            .Setup(q => q.GetByIdAsync(reviewId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(response);
 
-        var result = await _sut.GetByIdAsync(review.Id);
+        var result = await _sut.GetByIdAsync(reviewId);
 
-        result.ShouldNotBeNull();
-        result!.ReviewerName.ShouldBe("Alice");
-        result.Rating.ShouldBe(4);
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_WhenReviewDoesNotExist_ReturnsNull()
-    {
-        _queryServiceMock
-            .Setup(q => q.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductReviewResponse?)null);
-
-        var result = await _sut.GetByIdAsync(Guid.NewGuid());
-
-        result.ShouldBeNull();
+        if (reviewExists)
+        {
+            result.ShouldNotBeNull();
+            result!.ReviewerName.ShouldBe("Alice");
+            result.Rating.ShouldBe(4);
+        }
+        else
+        {
+            result.ShouldBeNull();
+        }
     }
 
     [Fact]
