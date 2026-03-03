@@ -46,7 +46,10 @@ public class ApiExceptionHandlerTests
         var handler = new ApiExceptionHandler(_loggerMock.Object, _problemDetailsService);
         var handled = await handler.TryHandleAsync(
             context,
-            new NotFoundException("Product", Guid.Empty, ErrorCatalog.Reviews.ProductNotFoundForReview),
+            new NotFoundException(
+                "Product",
+                Guid.Empty,
+                ErrorCatalog.Reviews.ProductNotFoundForReview),
             CancellationToken.None);
 
         handled.ShouldBeTrue();

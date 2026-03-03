@@ -1,3 +1,5 @@
+using APITemplate.Application.Features.ProductReview.Mappings;
+using APITemplate.Application.Features.ProductReview.Specifications;
 using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
@@ -44,7 +46,10 @@ public sealed class ProductReviewService : IProductReviewService
         {
             var productExists = await _productRepository.GetByIdAsync(request.ProductId, ct) is not null;
             if (!productExists)
-                throw new NotFoundException(nameof(Product), request.ProductId, ErrorCatalog.Reviews.ProductNotFoundForReview);
+                throw new NotFoundException(
+                    "Product",
+                    request.ProductId,
+                    ErrorCatalog.Reviews.ProductNotFoundForReview);
 
             review = new ProductReviewEntity
             {

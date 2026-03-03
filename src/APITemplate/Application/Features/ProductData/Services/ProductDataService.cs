@@ -1,3 +1,4 @@
+using APITemplate.Application.Features.ProductData.Mappings;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 

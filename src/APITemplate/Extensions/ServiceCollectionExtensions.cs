@@ -1,5 +1,11 @@
 using System.Text;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.Auth.Services;
+using APITemplate.Application.Features.Category.Services;
+using APITemplate.Application.Features.Product.Services;
+using APITemplate.Application.Features.Product.Validation;
+using APITemplate.Application.Features.ProductData.Services;
+using APITemplate.Application.Features.ProductReview.Services;
 using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Repositories;
@@ -66,7 +72,9 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<IProductQueryService, ProductQueryService>();
         services.AddScoped<IProductReviewService, ProductReviewService>();
+        services.AddScoped<IProductReviewQueryService, ProductReviewQueryService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddSingleton<ITokenService, TokenService>();
         services.AddScoped<IUserService, UserService>();

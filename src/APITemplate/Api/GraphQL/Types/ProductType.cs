@@ -1,10 +1,8 @@
-using APITemplate.Domain.Entities;
-
 namespace APITemplate.Api.GraphQL.Types;
 
-public sealed class ProductType : ObjectType<Product>
+public sealed class ProductType : ObjectType<ProductResponse>
 {
-    protected override void Configure(IObjectTypeDescriptor<Product> descriptor)
+    protected override void Configure(IObjectTypeDescriptor<ProductResponse> descriptor)
     {
         descriptor.Description("Represents a product in the catalog.");
 
@@ -25,8 +23,5 @@ public sealed class ProductType : ObjectType<Product>
 
         descriptor.Field(p => p.CreatedAt)
             .Description("The UTC timestamp of when the product was created.");
-
-        descriptor.Field(p => p.Reviews)
-            .Description("The reviews associated with this product.");
     }
 }

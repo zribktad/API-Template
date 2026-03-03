@@ -1,31 +1,24 @@
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Interfaces;
-
 namespace APITemplate.Api.GraphQL.Queries;
 
 [ExtendObjectType(typeof(ProductQueries))]
 public class ProductReviewQueries
 {
     [UsePaging(MaxPageSize = 100, DefaultPageSize = 20)]
-    [UseProjection]
-    [UseFiltering]
-    [UseSorting]
-    public IQueryable<ProductReview> GetReviews([Service] IProductReviewRepository repo)
-        => repo.AsQueryable();
+    public async Task<IEnumerable<ProductReviewResponse>> GetReviews(
+        [Service] IProductReviewQueryService queryService,
+        CancellationToken ct)
+        => await queryService.GetAllAsync(ct);
 
-    [UseFirstOrDefault]
-    [UseProjection]
-    public IQueryable<ProductReview> GetReviewById(
+    public async Task<ProductReviewResponse?> GetReviewById(
         Guid id,
-        [Service] IProductReviewRepository repo)
-        => repo.AsQueryable().Where(r => r.Id == id);
+        [Service] IProductReviewQueryService queryService,
+        CancellationToken ct)
+        => await queryService.GetByIdAsync(id, ct);
 
     [UsePaging(MaxPageSize = 100, DefaultPageSize = 20)]
-    [UseProjection]
-    [UseFiltering]
-    [UseSorting]
-    public IQueryable<ProductReview> GetReviewsByProductId(
+    public async Task<IEnumerable<ProductReviewResponse>> GetReviewsByProductId(
         Guid productId,
-        [Service] IProductReviewRepository repo)
-        => repo.AsQueryable().Where(r => r.ProductId == productId);
+        [Service] IProductReviewQueryService queryService,
+        CancellationToken ct)
+        => await queryService.GetByProductIdAsync(productId, ct);
 }

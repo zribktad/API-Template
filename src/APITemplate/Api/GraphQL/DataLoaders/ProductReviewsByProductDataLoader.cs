@@ -1,7 +1,3 @@
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Interfaces;
-using Microsoft.EntityFrameworkCore;
-
 namespace APITemplate.Api.GraphQL.DataLoaders;
 
 // WHEN TO USE THIS DATALOADER?
@@ -47,28 +43,24 @@ namespace APITemplate.Api.GraphQL.DataLoaders;
 // NOTE: In this project the DataLoader is NOT needed because resolvers return
 // IQueryable<Product> with [UseProjection] — EF Core automatically generates
 // a JOIN and selects only the requested fields in a single SQL query.
-public sealed class ProductReviewsByProductDataLoader : BatchDataLoader<Guid, ProductReview[]>
+public sealed class ProductReviewsByProductDataLoader : BatchDataLoader<Guid, ProductReviewResponse[]>
 {
-    private readonly IProductReviewRepository _repo;
+    private readonly IProductReviewQueryService _queryService;
 
     public ProductReviewsByProductDataLoader(
-        IProductReviewRepository repo,
+        IProductReviewQueryService queryService,
         IBatchScheduler batchScheduler,
         DataLoaderOptions options = default!)
         : base(batchScheduler, options)
     {
-        _repo = repo;
+        _queryService = queryService;
     }
 
-    protected override async Task<IReadOnlyDictionary<Guid, ProductReview[]>> LoadBatchAsync(
+    protected override async Task<IReadOnlyDictionary<Guid, ProductReviewResponse[]>> LoadBatchAsync(
         IReadOnlyList<Guid> productIds,
         CancellationToken ct)
     {
-        // Single SQL query for all productIds at once:
-        // SELECT * FROM ProductReviews WHERE product_id IN ('aaa', 'bbb', 'ccc', ...)
-        var reviews = await _repo.AsQueryable()
-            .Where(r => productIds.Contains(r.ProductId))
-            .ToListAsync(ct);
+        var reviews = await _queryService.GetAllAsync(ct);
 
         // Group in memory — ToLookup is a single pass and returns [] for missing keys
         var lookup = reviews.ToLookup(r => r.ProductId);

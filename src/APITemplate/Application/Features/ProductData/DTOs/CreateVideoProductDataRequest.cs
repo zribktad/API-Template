@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using APITemplate.Application.Common.Validation;
 
 namespace APITemplate.Application.Features.ProductData.DTOs;
 public sealed record CreateVideoProductDataRequest(

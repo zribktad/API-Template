@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using APITemplate.Application.Features.Product.Validation;
 using Shouldly;
 using Xunit;
 

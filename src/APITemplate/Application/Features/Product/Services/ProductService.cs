@@ -1,3 +1,5 @@
+using APITemplate.Application.Features.Product.Mappings;
+using APITemplate.Application.Features.Product.Specifications;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
@@ -48,7 +50,10 @@ public sealed class ProductService : IProductService
     public async Task UpdateAsync(Guid id, UpdateProductRequest request, CancellationToken ct = default)
     {
         var product = await _repository.GetByIdAsync(id, ct)
-            ?? throw new NotFoundException(nameof(ProductEntity), id, ErrorCatalog.Products.NotFound);
+            ?? throw new NotFoundException(
+                nameof(ProductEntity),
+                id,
+                ErrorCatalog.Products.NotFound);
 
         product.Name = request.Name;
         product.Description = request.Description;

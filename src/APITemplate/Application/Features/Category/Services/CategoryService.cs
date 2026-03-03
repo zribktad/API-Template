@@ -1,3 +1,4 @@
+using APITemplate.Application.Features.Category.Mappings;
 using CategoryEntity = APITemplate.Domain.Entities.Category;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
@@ -44,7 +45,10 @@ public sealed class CategoryService : ICategoryService
     public async Task UpdateAsync(Guid id, UpdateCategoryRequest request, CancellationToken ct = default)
     {
         var category = await _repository.GetByIdAsync(id, ct)
-            ?? throw new NotFoundException(nameof(CategoryEntity), id, ErrorCatalog.Categories.NotFound);
+            ?? throw new NotFoundException(
+                nameof(CategoryEntity),
+                id,
+                ErrorCatalog.Categories.NotFound);
 
         category.Name = request.Name;
         category.Description = request.Description;

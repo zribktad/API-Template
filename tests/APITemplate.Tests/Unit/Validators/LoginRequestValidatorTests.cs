@@ -1,3 +1,4 @@
+using APITemplate.Application.Features.Auth.Validation;
 using Shouldly;
 using Xunit;
 

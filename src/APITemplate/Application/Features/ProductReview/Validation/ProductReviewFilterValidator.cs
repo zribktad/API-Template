@@ -1,5 +1,7 @@
 using FluentValidation;
 
+using APITemplate.Application.Features.Product.Validation;
+
 namespace APITemplate.Application.Features.ProductReview.Validation;
 public sealed class ProductReviewFilterValidator : AbstractValidator<ProductReviewFilter>
 {
