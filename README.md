@@ -190,7 +190,7 @@ tests/APITemplate.Tests/
 
 ## 🌐 REST API Reference
 
-All resource endpoints sit under the versioned base path `api/v{version}`. JWT `Authorization: Bearer <token>` is required on all routes except `POST /api/v1/Auth/login`.
+All versioned REST resource endpoints sit under the base path `api/v{version}`. JWT `Authorization: Bearer <token>` is required for these versioned API routes (except `POST /api/v1/Auth/login`), while utility endpoints such as `/health` and `/graphql/ui` are anonymous and `/scalar` is only mapped in Development.
 
 ### Auth
 
