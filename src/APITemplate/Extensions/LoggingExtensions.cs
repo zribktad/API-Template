@@ -2,6 +2,7 @@ using APITemplate.Application.Options;
 using APITemplate.Infrastructure.Logging;
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Compliance.Redaction;
+using System.ComponentModel.DataAnnotations;
 
 namespace APITemplate.Extensions;
 
@@ -9,16 +10,6 @@ public static class LoggingExtensions
 {
     public static WebApplicationBuilder AddApplicationRedaction(this WebApplicationBuilder builder)
     {
-        builder.Services.AddOptions<RedactionOptions>()
-            .Bind(builder.Configuration.GetSection("Redaction"))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
-
-        var redactionOptions = builder.Configuration.GetSection("Redaction").Get<RedactionOptions>() ?? new RedactionOptions();
-        var hmacKey = RedactionConfiguration.ResolveHmacKey(
-            redactionOptions,
-            Environment.GetEnvironmentVariable);
-
         builder.Services.AddRedaction(redactionBuilder =>
         {
             redactionBuilder.SetRedactor<ErasingRedactor>(LogDataClassifications.Personal);
@@ -27,6 +18,18 @@ public static class LoggingExtensions
             redactionBuilder.SetHmacRedactor(
                 options =>
                 {
+                    var redactionOptions = builder.Configuration
+                        .GetSection("Redaction")
+                        .Get<RedactionOptions>() ?? new RedactionOptions();
+                    Validator.ValidateObject(
+                        redactionOptions,
+                        new ValidationContext(redactionOptions),
+                        validateAllProperties: true);
+
+                    var hmacKey = RedactionConfiguration.ResolveHmacKey(
+                        redactionOptions,
+                        Environment.GetEnvironmentVariable);
+
                     options.KeyId = redactionOptions.KeyId;
                     options.Key = hmacKey;
                 },

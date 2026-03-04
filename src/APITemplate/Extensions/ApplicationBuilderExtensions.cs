@@ -1,6 +1,5 @@
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Api.Middleware;
-using System.Diagnostics;
 using Kot.MongoDB.Migrations;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -52,17 +51,6 @@ public static class ApplicationBuilderExtensions
             {
                 diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
                 diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
-
-                var clientIp = httpContext.Connection.RemoteIpAddress?.ToString();
-                if (!string.IsNullOrWhiteSpace(clientIp))
-                    diagnosticContext.Set("ClientIP", clientIp);
-
-                var userAgent = httpContext.Request.Headers.UserAgent.ToString();
-                if (!string.IsNullOrWhiteSpace(userAgent))
-                    diagnosticContext.Set("UserAgent", userAgent);
-
-                var traceId = Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
-                diagnosticContext.Set("TraceId", traceId);
             };
         }); // Add structured request logging for each HTTP request/response.
 
