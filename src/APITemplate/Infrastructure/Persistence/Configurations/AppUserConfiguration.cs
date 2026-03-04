@@ -43,8 +43,7 @@ public sealed class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
             .HasForeignKey(u => u.TenantId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(u => u.NormalizedUsername).IsUnique();
-        builder.HasIndex(u => new { u.TenantId, u.Username });
+        builder.HasIndex(u => new { u.TenantId, u.NormalizedUsername }).IsUnique();
         builder.HasIndex(u => new { u.TenantId, u.Email }).IsUnique();
     }
 }

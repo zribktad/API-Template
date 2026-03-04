@@ -20,6 +20,8 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_GetProducts_ReturnsEmptyList()
     {
+        await AuthenticateAsync();
+
         var query = new { query = "{ products { items { id name price } totalCount pageNumber pageSize } }" };
 
         var response = await PostGraphQLAsync(query);
@@ -236,7 +238,7 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     {
         var loginResponse = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         loginResponse.EnsureSuccessStatusCode();
 
@@ -300,3 +302,4 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         return result!.Data.CreateProductReview.Id;
     }
 }
+

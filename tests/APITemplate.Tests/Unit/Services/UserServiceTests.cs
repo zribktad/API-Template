@@ -1,10 +1,12 @@
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Options;
 using APITemplate.Application.Features.Auth.Services;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Enums;
 using APITemplate.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
 
@@ -17,7 +19,7 @@ public class UserServiceTests
     {
         await using var dbContext = CreateDbContext();
         await SeedUserAsync(dbContext, "admin", "admin");
-        var sut = new UserService(dbContext);
+        var sut = CreateSut(dbContext);
 
         var result = await sut.AuthenticateAsync("admin", "admin");
 
@@ -31,7 +33,7 @@ public class UserServiceTests
     {
         await using var dbContext = CreateDbContext();
         await SeedUserAsync(dbContext, "admin", "admin");
-        var sut = new UserService(dbContext);
+        var sut = CreateSut(dbContext);
 
         var result = await sut.AuthenticateAsync("ADMIN", "admin");
 
@@ -44,11 +46,45 @@ public class UserServiceTests
     {
         await using var dbContext = CreateDbContext();
         await SeedUserAsync(dbContext, "admin", "admin");
-        var sut = new UserService(dbContext);
+        var sut = CreateSut(dbContext);
 
         var result = await sut.AuthenticateAsync("admin", "wrong");
 
         result.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task AuthenticateAsync_SameUsernameAcrossTenants_WithoutPrefix_UsesDefaultTenant()
+    {
+        await using var dbContext = CreateDbContext();
+        var tenant1 = await SeedTenantAsync(dbContext, "tenant-a", "Tenant A");
+        var tenant2 = await SeedTenantAsync(dbContext, "default", "Default Tenant");
+
+        await SeedUserAsync(dbContext, tenant1.Id, "admin", "first-pass");
+        await SeedUserAsync(dbContext, tenant2.Id, "admin", "second-pass");
+
+        var sut = CreateSut(dbContext);
+        var result = await sut.AuthenticateAsync("admin", "second-pass");
+
+        result.ShouldNotBeNull();
+        result.TenantId.ShouldBe(tenant2.Id);
+    }
+
+    [Fact]
+    public async Task AuthenticateAsync_SameUsernameAcrossTenants_WithPrefix_UsesSpecifiedTenant()
+    {
+        await using var dbContext = CreateDbContext();
+        var tenant1 = await SeedTenantAsync(dbContext, "tenant-a", "Tenant A");
+        var tenant2 = await SeedTenantAsync(dbContext, "default", "Default Tenant");
+
+        await SeedUserAsync(dbContext, tenant1.Id, "admin", "first-pass");
+        await SeedUserAsync(dbContext, tenant2.Id, "admin", "second-pass");
+
+        var sut = CreateSut(dbContext);
+        var result = await sut.AuthenticateAsync("tenant-a\\admin", "first-pass");
+
+        result.ShouldNotBeNull();
+        result.TenantId.ShouldBe(tenant1.Id);
     }
 
     private static AppDbContext CreateDbContext()
@@ -66,22 +102,38 @@ public class UserServiceTests
         string password,
         UserRole role = UserRole.TenantUser)
     {
+        var tenant = await SeedTenantAsync(dbContext, "default", "Default Tenant");
+
+        await SeedUserAsync(dbContext, tenant.Id, username, password, role);
+    }
+
+    private static async Task<Tenant> SeedTenantAsync(AppDbContext dbContext, string code, string name)
+    {
         var tenant = new Tenant
         {
             Id = Guid.NewGuid(),
             TenantId = Guid.Empty,
-            Code = "default",
-            Name = "Default Tenant",
+            Code = code,
+            Name = name,
             IsActive = true
         };
 
         dbContext.Tenants.Add(tenant);
         await dbContext.SaveChangesAsync();
+        return tenant;
+    }
 
+    private static async Task SeedUserAsync(
+        AppDbContext dbContext,
+        Guid tenantId,
+        string username,
+        string password,
+        UserRole role = UserRole.TenantUser)
+    {
         var user = new AppUser
         {
             Id = Guid.NewGuid(),
-            TenantId = tenant.Id,
+            TenantId = tenantId,
             Username = username,
             Email = "admin@example.com",
             PasswordHash = string.Empty,
@@ -100,7 +152,7 @@ public class UserServiceTests
     {
         await using var dbContext = CreateDbContext();
         await SeedUserAsync(dbContext, "admin", "admin", UserRole.PlatformAdmin);
-        var sut = new UserService(dbContext);
+        var sut = CreateSut(dbContext);
 
         var result = await sut.AuthenticateAsync("admin", "admin");
 
@@ -117,5 +169,16 @@ public class UserServiceTests
     private sealed class TestActorProvider : IActorProvider
     {
         public string ActorId => "test";
+    }
+
+    private static UserService CreateSut(AppDbContext dbContext)
+    {
+        var bootstrapTenantOptions = Options.Create(new BootstrapTenantOptions
+        {
+            Code = "default",
+            Name = "Default Tenant"
+        });
+
+        return new UserService(dbContext, bootstrapTenantOptions);
     }
 }

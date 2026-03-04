@@ -32,7 +32,9 @@ namespace APITemplate.Extensions;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddAuthenticationOptions(
-        this IServiceCollection services, IConfiguration configuration)
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         services.AddOptions<CorsOptions>()
             .Bind(configuration.GetSection("Cors"))
@@ -83,6 +85,14 @@ public static class ServiceCollectionExtensions
             .Validate(
                 o => !string.IsNullOrWhiteSpace(o.Username) && !string.IsNullOrWhiteSpace(o.Password),
                 "Bootstrap admin username/password is required")
+            .Validate(
+                o => !environment.IsProduction() ||
+                     (HasNonEmptyEnvironmentVariable("Bootstrap__Admin__Username") &&
+                      HasNonEmptyEnvironmentVariable("Bootstrap__Admin__Password")),
+                "In Production, Bootstrap admin credentials must be provided via environment variables: Bootstrap__Admin__Username and Bootstrap__Admin__Password")
+            .Validate(
+                o => !environment.IsProduction() || !IsKnownDefaultBootstrapCredential(o),
+                "In Production, Bootstrap admin credentials cannot use known default placeholders")
             .ValidateOnStart();
 
         services.AddOptions<BootstrapTenantOptions>()
@@ -94,6 +104,24 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
 
         return services;
+    }
+
+    private static bool HasNonEmptyEnvironmentVariable(string variableName) =>
+        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(variableName));
+
+    private static bool IsKnownDefaultBootstrapCredential(BootstrapAdminOptions options)
+    {
+        var username = options.Username.Trim();
+        var password = options.Password.Trim();
+
+        var isDefaultUser = string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase);
+        var isDefaultPassword =
+            string.Equals(password, "admin", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(password, "change-me", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(password, "changeme", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(password, "password", StringComparison.OrdinalIgnoreCase);
+
+        return isDefaultUser && isDefaultPassword;
     }
 
     public static IServiceCollection AddPersistence(

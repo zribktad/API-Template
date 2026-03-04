@@ -26,6 +26,8 @@ public sealed class AuthBootstrapSeeder
 
     public async Task SeedAsync(CancellationToken ct = default)
     {
+        var hasChanges = false;
+
         var tenant = await _dbContext.Tenants
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.Code == _tenantOptions.Code, ct);
@@ -42,7 +44,23 @@ public sealed class AuthBootstrapSeeder
             };
 
             _dbContext.Tenants.Add(tenant);
-            await _dbContext.SaveChangesAsync(ct);
+            hasChanges = true;
+        }
+        else
+        {
+            if (!tenant.IsActive)
+            {
+                tenant.IsActive = true;
+                hasChanges = true;
+            }
+
+            if (tenant.IsDeleted)
+            {
+                tenant.IsDeleted = false;
+                tenant.DeletedAtUtc = null;
+                tenant.DeletedBy = null;
+                hasChanges = true;
+            }
         }
 
         var username = _adminOptions.Username.Trim().ToUpperInvariant();
@@ -55,11 +73,28 @@ public sealed class AuthBootstrapSeeder
         var desiredRole = _adminOptions.IsPlatformAdmin ? UserRole.PlatformAdmin : UserRole.TenantUser;
         if (user is not null)
         {
+            if (!user.IsActive)
+            {
+                user.IsActive = true;
+                hasChanges = true;
+            }
+
+            if (user.IsDeleted)
+            {
+                user.IsDeleted = false;
+                user.DeletedAtUtc = null;
+                user.DeletedBy = null;
+                hasChanges = true;
+            }
+
             if (user.Role != desiredRole)
             {
                 user.Role = desiredRole;
-                await _dbContext.SaveChangesAsync(ct);
+                hasChanges = true;
             }
+
+            if (hasChanges)
+                await _dbContext.SaveChangesAsync(ct);
 
             return;
         }
@@ -78,6 +113,9 @@ public sealed class AuthBootstrapSeeder
 
         user.PasswordHash = _passwordHasher.HashPassword(user, _adminOptions.Password);
         _dbContext.Users.Add(user);
-        await _dbContext.SaveChangesAsync(ct);
+        hasChanges = true;
+
+        if (hasChanges)
+            await _dbContext.SaveChangesAsync(ct);
     }
 }

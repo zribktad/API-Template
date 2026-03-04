@@ -42,7 +42,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var response = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
@@ -63,7 +63,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "tenant.user", Password = "tenant-pass" });
+            new { Username = $"{tenant.Code}\\tenant.user", Password = "tenant-pass" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
@@ -110,3 +110,4 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
         return tenant;
     }
 }
+

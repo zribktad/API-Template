@@ -59,6 +59,8 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task GraphQL_GetReviews_ReturnsEmptyOrPopulatedList()
     {
+        await AuthenticateAsync();
+
         var query = new { query = "{ reviews { items { id reviewerName rating } totalCount pageNumber pageSize } }" };
 
         var response = await PostGraphQLAsync(query);
@@ -188,7 +190,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     {
         var loginResponse = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         loginResponse.EnsureSuccessStatusCode();
 
@@ -245,3 +247,4 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
         return await _client.PostAsync("/graphql", content);
     }
 }
+

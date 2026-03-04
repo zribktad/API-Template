@@ -101,7 +101,7 @@ http://localhost:5174/graphql
 |--------|-------------|
 | Write queries | Syntax-highlighted editor with autocompletion |
 | Explore schema | Built-in schema browser and type documentation |
-| Set headers | Add `Authorization` for mutation operations |
+| Set headers | Add `Authorization` for GraphQL operations |
 | View history | Saved queries from previous sessions |
 | Inspect results | JSON result pane with collapsible nodes |
 
@@ -125,7 +125,7 @@ http://localhost:5174/graphql
 
 ### Example Queries
 
-**List products (no auth required):**
+**List products (requires `Authorization` header):**
 
 ```graphql
 query {
@@ -268,8 +268,8 @@ Example response:
 |-----|------|---------------|
 | `/scalar/v1` | Scalar – REST UI | Needs a JWT once authenticated |
 | `/openapi/v1.json` | Raw OpenAPI JSON | No |
-| `/graphql/ui` | Nitro – GraphQL IDE | Needs a JWT for mutations |
-| `/graphql` | GraphQL endpoint (programmatic) | Queries: No / Mutations: Yes |
+| `/graphql/ui` | Nitro – GraphQL IDE | Needs a JWT for GraphQL operations |
+| `/graphql` | GraphQL endpoint (programmatic) | Yes (for query and mutation fields) |
 | `/health` | Health check JSON | No |
 
 ---

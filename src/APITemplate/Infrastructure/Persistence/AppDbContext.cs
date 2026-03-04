@@ -221,6 +221,7 @@ public sealed class AppDbContext : DbContext
     {
         entity.Audit.UpdatedAtUtc = now;
         entity.Audit.UpdatedBy = actor;
+        // App-managed optimistic concurrency token; DB triggers are intentionally disabled.
         entity.RowVersion = Guid.NewGuid().ToByteArray();
     }
 

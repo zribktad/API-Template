@@ -285,8 +285,8 @@ All configuration lives in `appsettings.json` (production defaults) and is overr
 | `Jwt:Audience` | `APITemplate.Clients` | JWT `aud` claim value |
 | `Jwt:ExpirationMinutes` | `60` | Token lifetime in minutes |
 | `SystemIdentity:DefaultActorId` | `system` | Default actor ID used when request actor context is unavailable |
-| `Bootstrap:Admin:Username` | `admin` | Bootstrap admin username seeded at startup |
-| `Bootstrap:Admin:Password` | `admin` | Bootstrap admin password seeded at startup |
+| `Bootstrap:Admin:Username` | `admin` (dev/test) | Bootstrap admin username seeded at startup (in Production must come from `Bootstrap__Admin__Username` env var) |
+| `Bootstrap:Admin:Password` | `admin` (dev/test) | Bootstrap admin password seeded at startup (in Production must come from `Bootstrap__Admin__Password` env var) |
 | `Bootstrap:Admin:Email` | `admin@example.com` | Bootstrap admin email |
 | `Bootstrap:Admin:IsPlatformAdmin` | `true` | Whether seeded admin receives `PlatformAdmin` role |
 | `Bootstrap:Tenant:Code` | `default` | Bootstrap tenant code seeded at startup |
@@ -299,10 +299,12 @@ All configuration lives in `appsettings.json` (production defaults) and is overr
 
 ## 🔐 Authentication & Examples
 
-All versioned REST endpoints except `POST /api/v1/Auth/login` are protected by JWT Authentication (`[Authorize]`). In GraphQL, mutations are protected with `[Authorize]` while query fields are currently anonymous. A sample HTTP file (`src/APITemplate/APITemplate.http`) is included for direct execution from VS Code or Visual Studio.
+All versioned REST endpoints except `POST /api/v1/Auth/login` are protected by JWT Authentication (`[Authorize]`). In GraphQL, both query and mutation fields are protected with `[Authorize]` and require a valid JWT. A sample HTTP file (`src/APITemplate/APITemplate.http`) is included for direct execution from VS Code or Visual Studio.
 
 **1. Acquiring a JWT Token via REST:**
-Send your configured bootstrap admin credentials (`Bootstrap:Admin:Username` and `Bootstrap:Admin:Password`, default `admin`/`admin`) to:
+Send your configured bootstrap admin credentials (`Bootstrap:Admin:Username` and `Bootstrap:Admin:Password`; `admin`/`admin` is intended only for local dev/test) to:
+
+`username` can be sent as `tenantCode\username` for explicit tenant login, or without prefix to use the default bootstrap tenant.
 ```http
 POST /api/v1/Auth/login
 Content-Type: application/json
@@ -486,7 +488,7 @@ HotChocolate is configured with several safeguards:
 | `AddMaxExecutionDepthRule(5)` | depth ≤ 5 | Prevents deeply nested query attacks |
 | `AddAuthorization()` | policy support enabled | Enables `[Authorize]` on GraphQL fields/mutations |
 
-GraphQL mutations are protected with `[Authorize]`; query fields are currently anonymous unless explicitly decorated.
+GraphQL query and mutation fields are protected with `[Authorize]`.
 
 ### 8 — Automatic Schema Migration at Startup
 

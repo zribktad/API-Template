@@ -20,7 +20,7 @@ Client  ->  POST /api/v1/Auth/login  ->  AuthController
                                           v
                                    { accessToken, expiresAt }
                                           |
-Client  ->  Authorization: Bearer <token>  ->  Protected REST/GraphQL mutation endpoint
+Client  ->  Authorization: Bearer <token>  ->  Protected REST/GraphQL endpoint
 ```
 
 Startup (`UseDatabaseAsync`) runs `AuthBootstrapSeeder`, which ensures a default tenant and admin user exist.
@@ -79,9 +79,17 @@ Startup (`UseDatabaseAsync`) runs `AuthBootstrapSeeder`, which ensures a default
 
 `Jwt:Secret` must be supplied securely (env var/secret manager). The app validates options with `ValidateOnStart()` and fails fast if required values are missing.
 
+Bootstrap admin credentials are also enforced in Production:
+- `Bootstrap__Admin__Username` and `Bootstrap__Admin__Password` env vars are required.
+- Known placeholders/defaults (for example `admin/admin` or `admin/change-me`) are rejected on startup.
+
 ---
 
 ## Step 2 - Obtain a Token
+
+Login `username` supports tenant scoping:
+- `tenantCode\username` (explicit tenant)
+- `username` (falls back to default bootstrap tenant code)
 
 ```http
 POST /api/v1/Auth/login
@@ -117,7 +125,7 @@ Authorization: Bearer <jwt>
 ```
 
 REST controllers are protected with `[Authorize]` (except `AuthController.Login`).
-GraphQL mutations are protected with `[Authorize]`; queries are currently anonymous.
+GraphQL query and mutation fields are protected with `[Authorize]`.
 
 ---
 
