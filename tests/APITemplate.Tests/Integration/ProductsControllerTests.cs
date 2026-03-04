@@ -27,7 +27,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         var response = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
@@ -36,3 +36,4 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
 }
+

@@ -101,7 +101,7 @@ http://localhost:5174/graphql
 |--------|-------------|
 | Write queries | Syntax-highlighted editor with autocompletion |
 | Explore schema | Built-in schema browser and type documentation |
-| Set headers | Add `Authorization` for mutation operations |
+| Set headers | Add `Authorization` for GraphQL operations |
 | View history | Saved queries from previous sessions |
 | Inspect results | JSON result pane with collapsible nodes |
 
@@ -125,23 +125,21 @@ http://localhost:5174/graphql
 
 ### Example Queries
 
-**List products (no auth required):**
+**List products (requires `Authorization` header):**
 
 ```graphql
 query {
-  products(first: 10, order: { createdAt: DESC }) {
-    nodes {
+  products(input: { pageNumber: 1, pageSize: 10 }) {
+    items {
       id
       name
       price
       description
-      createdAt
+      createdAtUtc
     }
     totalCount
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
+    pageNumber
+    pageSize
   }
 }
 ```
@@ -155,29 +153,34 @@ query {
     name
     price
     reviews {
-      nodes {
-        reviewerName
-        rating
-        comment
-      }
+      id
+      reviewerName
+      rating
+      comment
+      createdAtUtc
     }
   }
 }
 ```
 
-**Filter products by price (built-in filtering):**
+**Filter products by price/sort/paging (using `ProductQueryInput`):**
 
 ```graphql
 query {
-  products(
-    where: { price: { gte: 10, lte: 100 } }
-    order: { price: ASC }
-  ) {
-    nodes {
+  products(input: {
+    minPrice: 10
+    maxPrice: 100
+    sortBy: "price"
+    sortDirection: "asc"
+    pageNumber: 1
+    pageSize: 20
+  }) {
+    items {
       id
       name
       price
     }
+    totalCount
   }
 }
 ```
@@ -194,7 +197,7 @@ mutation {
     id
     name
     price
-    createdAt
+    createdAtUtc
   }
 }
 ```
@@ -265,8 +268,8 @@ Example response:
 |-----|------|---------------|
 | `/scalar/v1` | Scalar – REST UI | Needs a JWT once authenticated |
 | `/openapi/v1.json` | Raw OpenAPI JSON | No |
-| `/graphql/ui` | Nitro – GraphQL IDE | Needs a JWT for mutations |
-| `/graphql` | GraphQL endpoint (programmatic) | Queries: No / Mutations: Yes |
+| `/graphql/ui` | Nitro – GraphQL IDE | Needs a JWT for GraphQL operations |
+| `/graphql` | GraphQL endpoint (programmatic) | Yes (for query and mutation fields) |
 | `/health` | Health check JSON | No |
 
 ---
@@ -278,4 +281,5 @@ Example response:
 | `Extensions/ApplicationBuilderExtensions.cs` | `UseApiDocumentation()` — mounts Scalar and OpenAPI |
 | `Api/OpenApi/HealthCheckOpenApiDocumentTransformer.cs` | Adds `/health` to the OpenAPI document |
 | `Program.cs` | `app.MapGraphQL()` and `app.MapNitroApp("/graphql/ui")` |
-| `appsettings.json` → `Jwt` | Credentials and secret used for demo login |
+| `appsettings.json` → `Bootstrap:Admin` and `Jwt` | Bootstrap login credentials and JWT settings |
+

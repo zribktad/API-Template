@@ -28,9 +28,8 @@ public sealed class ProductReviewFilterValidator : AbstractValidator<ProductRevi
         RuleFor(x => x.SortBy)
             .Must(s => s is null
                 || s.Equals("createdAt", StringComparison.OrdinalIgnoreCase)
-                || s.Equals("rating", StringComparison.OrdinalIgnoreCase)
-                || s.Equals("reviewerName", StringComparison.OrdinalIgnoreCase))
-            .WithMessage("SortBy must be one of: createdAt, rating, reviewerName.");
+                || s.Equals("rating", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("SortBy must be one of: createdAt, rating.");
 
         RuleFor(x => x.SortDirection)
             .Must(s => s is null || s.Equals("asc", StringComparison.OrdinalIgnoreCase) || s.Equals("desc", StringComparison.OrdinalIgnoreCase))

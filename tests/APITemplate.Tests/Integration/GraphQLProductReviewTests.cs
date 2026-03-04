@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -11,6 +12,7 @@ namespace APITemplate.Tests.Integration;
 public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
+    private Guid _userId;
 
     public GraphQLProductReviewTests(CustomWebApplicationFactory factory)
     {
@@ -29,7 +31,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
                 mutation($input: CreateProductReviewRequestInput!) {
                     createProductReview(input: $input) {
                         id
-                        reviewerName
+                        userId
                         rating
                         productId
                     }
@@ -39,7 +41,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
                 input = new
                 {
                     productId,
-                    reviewerName = "GraphQL Reviewer",
+                    userId = _userId,
                     comment = "Tested via GraphQL",
                     rating = 4
                 }
@@ -51,7 +53,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<CreateProductReviewData>>(GraphQLJsonOptions.Default);
-        result!.Data.CreateProductReview.ReviewerName.ShouldBe("GraphQL Reviewer");
+        result!.Data.CreateProductReview.UserId.ShouldBe(_userId);
         result.Data.CreateProductReview.Rating.ShouldBe(4);
         result.Data.CreateProductReview.ProductId.ShouldBe(productId);
     }
@@ -59,7 +61,9 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task GraphQL_GetReviews_ReturnsEmptyOrPopulatedList()
     {
-        var query = new { query = "{ reviews { items { id reviewerName rating } totalCount pageNumber pageSize } }" };
+        await AuthenticateAsync();
+
+        var query = new { query = "{ reviews { items { id userId rating } totalCount pageNumber pageSize } }" };
 
         var response = await PostGraphQLAsync(query);
 
@@ -84,14 +88,14 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
                 }",
             variables = new
             {
-                input = new { productId, reviewerName = "Tester", rating = 3 }
+                input = new { productId, userId = _userId, rating = 3 }
             }
         };
         await PostGraphQLAsync(createMutation);
 
         var query = new
         {
-            query = $@"{{ reviewsByProductId(productId: ""{productId}"", pageNumber: 1, pageSize: 20) {{ items {{ id reviewerName rating }} totalCount }} }}"
+            query = $@"{{ reviewsByProductId(productId: ""{productId}"", pageNumber: 1, pageSize: 20) {{ items {{ id userId rating }} totalCount }} }}"
         };
 
         var response = await PostGraphQLAsync(query);
@@ -108,16 +112,16 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
         await AuthenticateAsync();
         var productId = await CreateProductViaGraphQLAsync($"SortTarget-{Guid.NewGuid():N}", 15m);
 
-        await CreateReviewViaGraphQLAsync(productId, "Reviewer A", 2);
-        await CreateReviewViaGraphQLAsync(productId, "Reviewer B", 5);
-        await CreateReviewViaGraphQLAsync(productId, "Reviewer C", 4);
+        await CreateReviewViaGraphQLAsync(productId, 2);
+        await CreateReviewViaGraphQLAsync(productId, 5);
+        await CreateReviewViaGraphQLAsync(productId, 4);
 
         var query = new
         {
             query = @"
                 query($input: ProductReviewQueryInput) {
                     reviews(input: $input) {
-                        items { id reviewerName rating productId }
+                        items { id userId rating productId }
                         totalCount
                         pageNumber
                         pageSize
@@ -163,7 +167,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
                 }",
             variables = new
             {
-                input = new { productId, reviewerName = "ToDelete", rating = 2 }
+                input = new { productId, userId = _userId, rating = 2 }
             }
         };
 
@@ -188,14 +192,19 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     {
         var loginResponse = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         loginResponse.EnsureSuccessStatusCode();
 
         var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var token = loginJson.GetProperty("accessToken").GetString();
+        var token = loginJson.GetProperty("accessToken").GetString()!;
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+        var sub = jwt.Claims.First(c => c.Type == "sub").Value;
+        _userId = Guid.Parse(sub);
     }
 
     private async Task<Guid> CreateProductViaGraphQLAsync(string name, decimal price)
@@ -217,7 +226,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
         return result!.Data.CreateProduct.Id;
     }
 
-    private async Task<Guid> CreateReviewViaGraphQLAsync(Guid productId, string reviewerName, int rating)
+    private async Task<Guid> CreateReviewViaGraphQLAsync(Guid productId, int rating)
     {
         var mutation = new
         {
@@ -227,7 +236,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
                 }",
             variables = new
             {
-                input = new { productId, reviewerName, rating }
+                input = new { productId, userId = _userId, rating }
             }
         };
 

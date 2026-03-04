@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -28,7 +29,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     [Fact]
     public async Task FullReviewFlow_CreateAndQuery()
     {
-        await AuthenticateAsync();
+        var userId = await AuthenticateAsync();
 
         // 1. Create a product
         var productResponse = await _client.PostAsJsonAsync(
@@ -42,12 +43,12 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         // 2. Create a review for the product
         var createReviewResponse = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
-            new { ProductId = productId, ReviewerName = "Alice", Comment = "Great product!", Rating = 5 });
+            new { ProductId = productId, UserId = userId, Comment = "Great product!", Rating = 5 });
 
         createReviewResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
         var created = await createReviewResponse.Content.ReadFromJsonAsync<JsonElement>();
         var reviewId = created.GetProperty("id").GetString()!;
-        created.GetProperty("reviewerName").GetString().ShouldBe("Alice");
+        created.GetProperty("userId").GetGuid().ShouldBe(userId);
         created.GetProperty("rating").GetInt32().ShouldBe(5);
         created.GetProperty("productId").GetString().ShouldBe(productId);
 
@@ -55,7 +56,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         var getByIdResponse = await _client.GetAsync($"/api/v1/productreviews/{reviewId}");
         getByIdResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var fetched = await getByIdResponse.Content.ReadFromJsonAsync<JsonElement>();
-        fetched.GetProperty("reviewerName").GetString().ShouldBe("Alice");
+        fetched.GetProperty("userId").GetGuid().ShouldBe(userId);
 
         // 4. Get reviews by productId
         var byProductResponse = await _client.GetAsync($"/api/v1/productreviews/by-product/{productId}");
@@ -86,11 +87,11 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     [Fact]
     public async Task Create_WithNonExistentProduct_ReturnsNotFound()
     {
-        await AuthenticateAsync();
+        var userId = await AuthenticateAsync();
 
         var response = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
-            new { ProductId = Guid.NewGuid(), ReviewerName = "Alice", Rating = 3 });
+            new { ProductId = Guid.NewGuid(), UserId = userId, Rating = 3 });
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
@@ -127,15 +128,20 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         reviews!.ShouldBeEmpty();
     }
 
-    private async Task AuthenticateAsync()
+    private async Task<Guid> AuthenticateAsync()
     {
         var loginResponse = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var token = loginJson.GetProperty("accessToken").GetString();
+        var token = loginJson.GetProperty("accessToken").GetString()!;
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+        var sub = jwt.Claims.First(c => c.Type == "sub").Value;
+        return Guid.Parse(sub);
     }
 }

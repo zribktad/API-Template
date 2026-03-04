@@ -1,12 +1,16 @@
 using APITemplate.Api.GraphQL.Models;
+using FluentValidation;
+using HotChocolate.Authorization;
 
 namespace APITemplate.Api.GraphQL.Queries;
 
+[Authorize]
 public class ProductQueries
 {
     public async Task<ProductPageResult> GetProducts(
         ProductQueryInput? input,
         [Service] IProductQueryService queryService,
+        [Service] IValidator<ProductFilter> validator,
         CancellationToken ct)
     {
         var filter = new ProductFilter(
@@ -20,6 +24,12 @@ public class ProductQueries
             input?.SortDirection,
             input?.PageNumber ?? 1,
             input?.PageSize ?? 20);
+
+        var validation = await validator.ValidateAsync(filter, ct);
+        if (!validation.IsValid)
+            throw new Domain.Exceptions.ValidationException(
+                string.Join("; ", validation.Errors.Select(e => e.ErrorMessage)),
+                ErrorCatalog.General.ValidationFailed);
 
         var page = await queryService.GetPagedAsync(filter, ct);
         return new ProductPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);

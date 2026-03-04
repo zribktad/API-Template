@@ -34,9 +34,7 @@ public sealed class ProductReviewService : IProductReviewService
 
     public async Task<ProductReviewResponse> CreateAsync(CreateProductReviewRequest request, CancellationToken ct = default)
     {
-        ProductReviewEntity review = null!;
-
-        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        var review = await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             var productExists = await _productRepository.GetByIdAsync(request.ProductId, ct) is not null;
             if (!productExists)
@@ -45,18 +43,17 @@ public sealed class ProductReviewService : IProductReviewService
                     request.ProductId,
                     ErrorCatalog.Reviews.ProductNotFoundForReview);
 
-            review = new ProductReviewEntity
+            var entity = new ProductReviewEntity
             {
                 Id = Guid.NewGuid(),
                 ProductId = request.ProductId,
-                ReviewerName = request.ReviewerName,
+                UserId = request.UserId,
                 Comment = request.Comment,
-                Rating = request.Rating,
-                CreatedAt = DateTime.UtcNow
+                Rating = request.Rating
             };
 
-            await _reviewRepository.AddAsync(review, ct);
-            await _unitOfWork.CommitAsync(ct);
+            await _reviewRepository.AddAsync(entity, ct);
+            return entity;
         }, ct);
 
         return review.ToResponse();
@@ -64,7 +61,7 @@ public sealed class ProductReviewService : IProductReviewService
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        await _reviewRepository.DeleteAsync(id, ct);
+        await _reviewRepository.DeleteAsync(id, ct, ErrorCatalog.Reviews.ReviewNotFound);
         await _unitOfWork.CommitAsync(ct);
     }
 }

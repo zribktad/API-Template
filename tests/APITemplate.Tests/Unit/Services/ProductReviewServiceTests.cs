@@ -23,8 +23,8 @@ public class ProductReviewServiceTests
         _productRepoMock = new Mock<IProductRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock
-            .Setup(u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
-            .Returns((Func<Task> action, CancellationToken _) => action());
+            .Setup(u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task<ProductReview>>>(), It.IsAny<CancellationToken>()))
+            .Returns((Func<Task<ProductReview>> action, CancellationToken _) => action());
         _sut = new ProductReviewService(
             _reviewRepoMock.Object,
             _queryServiceMock.Object,
@@ -35,10 +35,11 @@ public class ProductReviewServiceTests
     [Fact]
     public async Task GetAllAsync_ReturnsAllReviews()
     {
+        var userId = Guid.NewGuid();
         var responses = new List<ProductReviewResponse>
         {
-            new(Guid.NewGuid(), Guid.NewGuid(), "Alice", null, 5, DateTime.UtcNow),
-            new(Guid.NewGuid(), Guid.NewGuid(), "Bob", null, 3, DateTime.UtcNow)
+            new(Guid.NewGuid(), Guid.NewGuid(), userId, null, 5, DateTime.UtcNow),
+            new(Guid.NewGuid(), Guid.NewGuid(), userId, null, 3, DateTime.UtcNow)
         };
 
         _queryServiceMock
@@ -57,13 +58,14 @@ public class ProductReviewServiceTests
     public async Task GetByIdAsync_ReturnsExpectedResult(bool reviewExists)
     {
         var reviewId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
         ProductReviewResponse? response = null;
         if (reviewExists)
         {
             response = new ProductReviewResponse(
                 reviewId,
                 Guid.NewGuid(),
-                "Alice",
+                userId,
                 null,
                 4,
                 DateTime.UtcNow);
@@ -78,7 +80,7 @@ public class ProductReviewServiceTests
         if (reviewExists)
         {
             result.ShouldNotBeNull();
-            result!.ReviewerName.ShouldBe("Alice");
+            result!.UserId.ShouldBe(userId);
             result.Rating.ShouldBe(4);
         }
         else
@@ -91,9 +93,10 @@ public class ProductReviewServiceTests
     public async Task GetByProductIdAsync_ReturnsReviewsForProduct()
     {
         var productId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
         var responses = new List<ProductReviewResponse>
         {
-            new(Guid.NewGuid(), productId, "Alice", null, 5, DateTime.UtcNow)
+            new(Guid.NewGuid(), productId, userId, null, 5, DateTime.UtcNow)
         };
 
         _queryServiceMock
@@ -109,8 +112,9 @@ public class ProductReviewServiceTests
     [Fact]
     public async Task CreateAsync_WhenProductExists_CreatesReview()
     {
-        var product = new Product { Id = Guid.NewGuid(), Name = "Test", Price = 10m, CreatedAt = DateTime.UtcNow };
-        var request = new CreateProductReviewRequest(product.Id, "Alice", "Great!", 5);
+        var product = new Product { Id = Guid.NewGuid(), Name = "Test", Price = 10m, Audit = new() { CreatedAtUtc = DateTime.UtcNow } };
+        var userId = Guid.NewGuid();
+        var request = new CreateProductReviewRequest(product.Id, userId, "Great!", 5);
 
         _productRepoMock
             .Setup(r => r.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
@@ -122,13 +126,12 @@ public class ProductReviewServiceTests
 
         var result = await _sut.CreateAsync(request);
 
-        result.ReviewerName.ShouldBe("Alice");
+        result.UserId.ShouldBe(userId);
         result.Rating.ShouldBe(5);
         result.ProductId.ShouldBe(product.Id);
         result.Id.ShouldNotBe(Guid.Empty);
 
         _reviewRepoMock.Verify(r => r.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -138,7 +141,7 @@ public class ProductReviewServiceTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Product?)null);
 
-        var request = new CreateProductReviewRequest(Guid.NewGuid(), "Alice", null, 3);
+        var request = new CreateProductReviewRequest(Guid.NewGuid(), Guid.NewGuid(), null, 3);
 
         var act = () => _sut.CreateAsync(request);
 
@@ -152,7 +155,7 @@ public class ProductReviewServiceTests
 
         await _sut.DeleteAsync(id);
 
-        _reviewRepoMock.Verify(r => r.DeleteAsync(id, It.IsAny<CancellationToken>()), Times.Once);
+        _reviewRepoMock.Verify(r => r.DeleteAsync(id, It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }

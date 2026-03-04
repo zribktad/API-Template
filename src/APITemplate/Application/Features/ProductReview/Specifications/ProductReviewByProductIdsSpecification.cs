@@ -8,7 +8,7 @@ public sealed class ProductReviewByProductIdsSpecification : Specification<Produ
     public ProductReviewByProductIdsSpecification(IReadOnlyCollection<Guid> productIds)
     {
         Query.Where(r => productIds.Contains(r.ProductId))
-             .OrderByDescending(r => r.CreatedAt)
-             .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt));
+             .OrderByDescending(r => r.Audit.CreatedAtUtc)
+             .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.UserId, r.Comment, r.Rating, r.Audit.CreatedAtUtc));
     }
 }

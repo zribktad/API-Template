@@ -33,8 +33,7 @@ public sealed class CategoryService : ICategoryService
         {
             Id = Guid.NewGuid(),
             Name = request.Name,
-            Description = request.Description,
-            CreatedAt = DateTime.UtcNow
+            Description = request.Description
         };
 
         await _repository.AddAsync(category, ct);
@@ -59,7 +58,7 @@ public sealed class CategoryService : ICategoryService
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        await _repository.DeleteAsync(id, ct);
+        await _repository.DeleteAsync(id, ct, ErrorCatalog.Categories.NotFound);
         await _unitOfWork.CommitAsync(ct);
     }
 

@@ -19,9 +19,9 @@ internal static class ProductFilterCriteria
             query.Where(p => p.Price <= filter.MaxPrice.Value);
 
         if (filter.CreatedFrom.HasValue)
-            query.Where(p => p.CreatedAt >= filter.CreatedFrom.Value);
+            query.Where(p => p.Audit.CreatedAtUtc >= filter.CreatedFrom.Value);
 
         if (filter.CreatedTo.HasValue)
-            query.Where(p => p.CreatedAt <= filter.CreatedTo.Value);
+            query.Where(p => p.Audit.CreatedAtUtc <= filter.CreatedTo.Value);
     }
 }

@@ -14,9 +14,9 @@ public sealed class ProductReviewType : ObjectType<ProductReviewResponse>
             .Type<NonNullType<UuidType>>()
             .Description("The identifier of the reviewed product.");
 
-        descriptor.Field(r => r.ReviewerName)
-            .Type<NonNullType<StringType>>()
-            .Description("The name of the reviewer.");
+        descriptor.Field(r => r.UserId)
+            .Type<NonNullType<UuidType>>()
+            .Description("The identifier of the user who wrote the review.");
 
         descriptor.Field(r => r.Rating)
             .Type<NonNullType<IntType>>()
@@ -25,7 +25,7 @@ public sealed class ProductReviewType : ObjectType<ProductReviewResponse>
         descriptor.Field(r => r.Comment)
             .Description("The optional review comment.");
 
-        descriptor.Field(r => r.CreatedAt)
+        descriptor.Field(r => r.CreatedAtUtc)
             .Description("The UTC timestamp of when the review was created.");
     }
 }

@@ -1,18 +1,22 @@
 using APITemplate.Api.GraphQL.Models;
+using FluentValidation;
+using HotChocolate.Authorization;
 
 namespace APITemplate.Api.GraphQL.Queries;
 
+[Authorize]
 [ExtendObjectType(typeof(ProductQueries))]
 public class ProductReviewQueries
 {
     public async Task<ProductReviewPageResult> GetReviews(
         ProductReviewQueryInput? input,
         [Service] IProductReviewQueryService queryService,
+        [Service] IValidator<ProductReviewFilter> validator,
         CancellationToken ct)
     {
         var filter = new ProductReviewFilter(
             input?.ProductId,
-            input?.ReviewerName,
+            input?.UserId,
             input?.MinRating,
             input?.MaxRating,
             input?.CreatedFrom,
@@ -21,6 +25,12 @@ public class ProductReviewQueries
             input?.SortDirection,
             input?.PageNumber ?? 1,
             input?.PageSize ?? 20);
+
+        var validation = await validator.ValidateAsync(filter, ct);
+        if (!validation.IsValid)
+            throw new Domain.Exceptions.ValidationException(
+                string.Join("; ", validation.Errors.Select(e => e.ErrorMessage)),
+                ErrorCatalog.General.ValidationFailed);
 
         var page = await queryService.GetPagedAsync(filter, ct);
         return new ProductReviewPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
@@ -37,12 +47,18 @@ public class ProductReviewQueries
         int pageNumber,
         int pageSize,
         [Service] IProductReviewQueryService queryService,
+        [Service] IValidator<ProductReviewFilter> validator,
         CancellationToken ct)
     {
-        var page = await queryService.GetPagedAsync(
-            new ProductReviewFilter(ProductId: productId, PageNumber: pageNumber, PageSize: pageSize),
-            ct);
+        var filter = new ProductReviewFilter(ProductId: productId, PageNumber: pageNumber, PageSize: pageSize);
 
+        var validation = await validator.ValidateAsync(filter, ct);
+        if (!validation.IsValid)
+            throw new Domain.Exceptions.ValidationException(
+                string.Join("; ", validation.Errors.Select(e => e.ErrorMessage)),
+                ErrorCatalog.General.ValidationFailed);
+
+        var page = await queryService.GetPagedAsync(filter, ct);
         return new ProductReviewPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
     }
 }

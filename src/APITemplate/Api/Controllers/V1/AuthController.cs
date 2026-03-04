@@ -23,11 +23,11 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType(typeof(LoginErrorResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<TokenResponse>> Login(LoginRequest request, CancellationToken ct)
     {
-        var isValid = await _userService.ValidateAsync(request.Username, request.Password, ct);
-        if (!isValid)
+        var user = await _userService.AuthenticateAsync(request.Username, request.Password, ct);
+        if (user is null)
             return Unauthorized(new LoginErrorResponse("Invalid username or password."));
 
-        var token = _tokenService.GenerateToken(request.Username);
+        var token = _tokenService.GenerateToken(user);
         return Ok(token);
     }
 }

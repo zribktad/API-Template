@@ -1,7 +1,7 @@
 namespace APITemplate.Application.Features.ProductReview.DTOs;
 public sealed record ProductReviewFilter(
     Guid? ProductId = null,
-    string? ReviewerName = null,
+    Guid? UserId = null,
     int? MinRating = null,
     int? MaxRating = null,
     DateTime? CreatedFrom = null,

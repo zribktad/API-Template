@@ -9,10 +9,7 @@ public sealed class ProductReviewConfiguration : IEntityTypeConfiguration<Produc
     public void Configure(EntityTypeBuilder<ProductReview> builder)
     {
         builder.HasKey(r => r.Id);
-
-        builder.Property(r => r.ReviewerName)
-            .IsRequired()
-            .HasMaxLength(100);
+        builder.ConfigureTenantAuditable();
 
         builder.Property(r => r.Comment)
             .HasMaxLength(2000);
@@ -20,12 +17,21 @@ public sealed class ProductReviewConfiguration : IEntityTypeConfiguration<Produc
         builder.Property(r => r.Rating)
             .IsRequired();
 
-        builder.Property(r => r.CreatedAt)
-            .HasDefaultValueSql("now()");
-
         builder.HasOne(r => r.Product)
             .WithMany(p => p.Reviews)
             .HasForeignKey(r => r.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(r => r.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(r => new { r.TenantId, r.ProductId });
     }
 }

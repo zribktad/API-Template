@@ -1,4 +1,5 @@
 using Ardalis.Specification;
+using APITemplate.Application.Common.Specifications;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product.Specifications;
@@ -10,7 +11,7 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
 
         ApplySorting(Query, filter);
 
-        Query.Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.CreatedAt));
+        Query.Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.Audit.CreatedAtUtc));
 
         Query.Skip((filter.PageNumber - 1) * filter.PageSize)
              .Take(filter.PageSize);
@@ -24,29 +25,23 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
         switch (sortBy)
         {
             case "name":
-                ApplyOrder(
+                SpecificationSortingHelper.ApplyOrder(
                     desc,
                     () => query.OrderBy(p => p.Name),
                     () => query.OrderByDescending(p => p.Name));
                 break;
             case "price":
-                ApplyOrder(
+                SpecificationSortingHelper.ApplyOrder(
                     desc,
                     () => query.OrderBy(p => p.Price),
                     () => query.OrderByDescending(p => p.Price));
                 break;
             default:
-                ApplyOrder(
+                SpecificationSortingHelper.ApplyOrder(
                     desc,
-                    () => query.OrderBy(p => p.CreatedAt),
-                    () => query.OrderByDescending(p => p.CreatedAt));
+                    () => query.OrderBy(p => p.Audit.CreatedAtUtc),
+                    () => query.OrderByDescending(p => p.Audit.CreatedAtUtc));
                 break;
         }
-    }
-
-    private static void ApplyOrder(bool desc, Action applyAsc, Action applyDesc)
-    {
-        if (desc) applyDesc();
-        else applyAsc();
     }
 }

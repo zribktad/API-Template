@@ -18,7 +18,12 @@ public static class ApplicationBuilderExtensions
 
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>(); // Resolve EF Core context for relational migrations.
         if (dbContext.Database.IsRelational())
+        {
             await dbContext.Database.MigrateAsync(); // Run pending relational migrations.
+        }
+
+        var seeder = scope.ServiceProvider.GetRequiredService<AuthBootstrapSeeder>();
+        await seeder.SeedAsync();
 
         var mongoContext = scope.ServiceProvider.GetService<MongoDbContext>(); // Mongo context can be missing in tests.
         if (mongoContext is not null)
@@ -30,7 +35,7 @@ public static class ApplicationBuilderExtensions
 
     public static WebApplication UseCustomMiddleware(this WebApplication app)
     {
-        app.UseMiddleware<RequestContextMiddleware>(); // Add correlation/trace headers and request timing context.
+        app.UseMiddleware<RequestContextMiddleware>(); // Enrich request/response context (correlation headers, elapsed time, log context).
         app.UseSerilogRequestLogging(options =>
         {
             options.MessageTemplate =
@@ -57,21 +62,30 @@ public static class ApplicationBuilderExtensions
         return app;
     }
 
+    /// <summary>
+    /// Builds the HTTP middleware pipeline in execution order.
+    /// </summary>
+    /// <remarks>
+    /// Exception handling is intentionally first so downstream middleware and endpoints
+    /// are wrapped by the global handler. <c>app.UseExceptionHandler()</c> activates
+    /// handlers previously registered in DI (for example via <c>AddExceptionHandler&lt;T&gt;()</c>).
+    /// </remarks>
     public static WebApplication UseApiPipeline(this WebApplication app)
     {
-        app.UseExceptionHandler(); // Enable centralized REST exception handling with ProblemDetails output.
-        app.UseCustomMiddleware(); // Add project-specific cross-cutting middleware stack.
+        app.UseExceptionHandler(); // Runtime activation of global exception middleware/handlers (registered during service setup).
+        app.UseCustomMiddleware(); // Cross-cutting request context + structured request logging.
         app.UseApiDocumentation(); // Expose OpenAPI/Scalar only in development.
         app.UseHttpsRedirection(); // Redirect HTTP requests to HTTPS.
         app.UseCors(); // Apply global CORS policy before authentication middleware.
-        app.UseAuthentication(); // Authenticate principal from JWT/token.
-        app.UseAuthorization(); // Enforce authorization policies/attributes.
+        app.UseAuthentication(); // Build HttpContext.User from token/identity handlers.
+        app.UseAuthorization(); // Enforce endpoint authorization policies against the authenticated principal.
 
         return app;
     }
 
     public static WebApplication MapApplicationEndpoints(this WebApplication app)
     {
+        // Endpoints are mapped here, but request execution still runs through UseApiPipeline first (including global exception handling).
         app.MapControllers(); // Map versioned REST controllers.
         app.MapGraphQL(); // Map GraphQL endpoint.
         app.MapNitroApp("/graphql/ui"); // Map GraphQL UI (Nitro).

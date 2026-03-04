@@ -1,4 +1,5 @@
 using Ardalis.Specification;
+using APITemplate.Application.Common.Specifications;
 using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
 namespace APITemplate.Application.Features.ProductReview.Specifications;
@@ -10,7 +11,7 @@ public sealed class ProductReviewSpecification : Specification<ProductReviewEnti
 
         ApplySorting(Query, filter);
 
-        Query.Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt));
+        Query.Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.UserId, r.Comment, r.Rating, r.Audit.CreatedAtUtc));
 
         Query.Skip((filter.PageNumber - 1) * filter.PageSize)
              .Take(filter.PageSize);
@@ -24,31 +25,17 @@ public sealed class ProductReviewSpecification : Specification<ProductReviewEnti
         switch (sortBy)
         {
             case "rating":
-                ApplyOrder(
+                SpecificationSortingHelper.ApplyOrder(
                     desc,
                     () => query.OrderBy(r => r.Rating),
                     () => query.OrderByDescending(r => r.Rating));
                 break;
-            case "reviewername":
-            case "reviewer_name":
-            case "reviewer":
-                ApplyOrder(
-                    desc,
-                    () => query.OrderBy(r => r.ReviewerName),
-                    () => query.OrderByDescending(r => r.ReviewerName));
-                break;
             default:
-                ApplyOrder(
+                SpecificationSortingHelper.ApplyOrder(
                     desc,
-                    () => query.OrderBy(r => r.CreatedAt),
-                    () => query.OrderByDescending(r => r.CreatedAt));
+                    () => query.OrderBy(r => r.Audit.CreatedAtUtc),
+                    () => query.OrderByDescending(r => r.Audit.CreatedAtUtc));
                 break;
         }
-    }
-
-    private static void ApplyOrder(bool desc, Action applyAsc, Action applyDesc)
-    {
-        if (desc) applyDesc();
-        else applyAsc();
     }
 }
