@@ -1,14 +1,8 @@
 using APITemplate.Extensions;
 using Serilog;
 
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .CreateBootstrapLogger();
-
 try
 {
-    Log.Information("Starting APITemplate"); // Startup banner for early diagnostics.
-
     var builder = WebApplication.CreateBuilder(args); // Build host, configuration, and DI container.
     builder.AddApplicationRedaction();
 
@@ -29,6 +23,7 @@ try
     builder.Services.AddGraphQLConfiguration(); // Register GraphQL schema and server services.
 
     var app = builder.Build(); // Materialize the web app from configured services.
+    app.Logger.LogInformation("Starting APITemplate"); // Startup banner for diagnostics after logging pipeline is ready.
 
     await app.UseDatabaseAsync(); // Apply SQL/Mongo migrations before serving traffic.
 
@@ -39,11 +34,7 @@ try
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Application terminated unexpectedly"); // Fatal startup/runtime exception before graceful shutdown.
-}
-finally
-{
-    Log.CloseAndFlush(); // Ensure buffered logs are flushed on shutdown/crash.
+    Console.Error.WriteLine($"Application terminated unexpectedly: {ex}"); // Avoid static Serilog race in parallel test hosts.
 }
 
 public partial class Program; // Used by integration tests via WebApplicationFactory.
