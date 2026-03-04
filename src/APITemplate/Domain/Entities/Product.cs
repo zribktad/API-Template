@@ -5,6 +5,7 @@ namespace APITemplate.Domain.Entities;
 /// This is the aggregate root - all business rules around products start here.
 /// </summary>
 public sealed class Product
+    : IAuditableTenantEntity
 {
     /// <summary>Unique identifier generated when the product is created.</summary>
     public Guid Id { get; set; }
@@ -18,12 +19,16 @@ public sealed class Product
     /// <summary>Price with 18,2 decimal precision (enforced by EF config).</summary>
     public decimal Price { get; set; }
 
-    /// <summary>UTC timestamp of when the product was created. Defaults to now() in the database.</summary>
-    public DateTime CreatedAt { get; set; }
-
     public Guid? CategoryId { get; set; }
 
     public Category? Category { get; set; }
 
     public ICollection<ProductReview> Reviews { get; set; } = [];
+
+    public Guid TenantId { get; set; }
+    public AuditInfo Audit { get; set; } = new();
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAtUtc { get; set; }
+    public string? DeletedBy { get; set; }
+    public byte[] RowVersion { get; set; } = [];
 }

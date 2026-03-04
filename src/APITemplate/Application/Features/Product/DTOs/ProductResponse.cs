@@ -4,4 +4,4 @@ public sealed record ProductResponse(
     string Name,
     string? Description,
     decimal Price,
-    DateTime CreatedAt);
+    DateTime CreatedAtUtc);

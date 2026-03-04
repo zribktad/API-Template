@@ -1,7 +1,9 @@
 using APITemplate.Api.GraphQL.Models;
+using HotChocolate.Authorization;
 
 namespace APITemplate.Api.GraphQL.Queries;
 
+[Authorize]
 [ExtendObjectType(typeof(ProductQueries))]
 public class ProductReviewQueries
 {

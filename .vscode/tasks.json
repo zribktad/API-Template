@@ -35,6 +35,19 @@
       "problemMatcher": []
     },
     {
+      "label": "docker: db ensure up",
+      "type": "process",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$ErrorActionPreference = 'Stop'; function Start-Or-Skip([string]$service) { $output = docker compose up -d $service 2>&1; $exitCode = $LASTEXITCODE; if ($exitCode -eq 0) { $output | Out-Host; return }; $msg = ($output | Out-String); if ($msg -match 'port is already allocated' -or $msg -match 'Bind for 0\\.0\\.0\\.0') { Write-Host \"$service port is already allocated. Continuing.\"; return }; throw $msg }; Start-Or-Skip 'postgres'; Start-Or-Skip 'mongodb'; exit 0"
+      ],
+      "problemMatcher": []
+    },
+    {
       "label": "docker: db down",
       "type": "process",
       "command": "docker",
@@ -71,7 +84,7 @@
     {
       "label": "prepare: debug http",
       "dependsOn": [
-        "docker: db up",
+        "docker: db ensure up",
         "build: api"
       ],
       "dependsOrder": "sequence",
@@ -80,7 +93,7 @@
     {
       "label": "prepare: debug https",
       "dependsOn": [
-        "docker: db up",
+        "docker: db ensure up",
         "build: api"
       ],
       "dependsOrder": "sequence",

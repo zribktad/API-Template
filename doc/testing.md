@@ -260,28 +260,27 @@ public class OrderRepositoryTests : IDisposable
 
 ### Middleware Unit Tests
 
-Middleware tests build a `DefaultHttpContext` manually — no HTTP server needed:
+Middleware tests build a `DefaultHttpContext` manually — no HTTP server needed. The project uses this pattern in `RequestContextMiddlewareTests`:
 
 ```csharp
-// tests/APITemplate.Tests/Unit/Middleware/GlobalExceptionHandlerMiddlewareTests.cs
+// tests/APITemplate.Tests/Unit/Middleware/RequestContextMiddlewareTests.cs
 [Fact]
-public async Task InvokeAsync_WhenNotFoundException_Returns404()
+public async Task InvokeAsync_WhenHeaderProvided_EchoesCorrelationIdToResponse()
 {
-    RequestDelegate next = _ => throw new NotFoundException("Order", Guid.Empty);
-
-    var middleware = new GlobalExceptionHandlerMiddleware(next, _loggerMock.Object);
+    var middleware = new RequestContextMiddleware(async ctx => await ctx.Response.WriteAsync("ok"));
     var context = new DefaultHttpContext();
     context.Response.Body = new MemoryStream();
+    context.Request.Headers[RequestContextMiddleware.CorrelationIdHeader] = "corr-123";
 
     await middleware.InvokeAsync(context);
 
-    context.Response.StatusCode.ShouldBe(404);
-
-    context.Response.Body.Seek(0, SeekOrigin.Begin);
-    var body = await JsonDocument.ParseAsync(context.Response.Body);
-    body.RootElement.GetProperty("error").GetString().ShouldNotBeNullOrEmpty();
+    context.Response.Headers[RequestContextMiddleware.CorrelationIdHeader].ToString().ShouldBe("corr-123");
+    context.Response.Headers["X-Trace-Id"].ToString().ShouldNotBeNullOrWhiteSpace();
+    context.Response.Headers["X-Elapsed-Ms"].ToString().ShouldNotBeNullOrWhiteSpace();
 }
 ```
+
+Exception translation behavior is covered separately in `tests/APITemplate.Tests/Unit/ExceptionHandling/ApiExceptionHandlerTests.cs`.
 
 ---
 
@@ -392,7 +391,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var loginResponse = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
         var token = loginJson.GetProperty("accessToken").GetString();
@@ -403,7 +402,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
 }
 ```
 
-> **Credentials:** The demo credentials are `admin` / `admin` (set in `appsettings.Development.json` or injected by the test environment).
+> **Credentials:** The demo credentials are `default\admin` / `admin` (set in `appsettings.Development.json` or injected by the test environment).
 
 ---
 
@@ -461,7 +460,7 @@ public class OrderGraphQLTests : IClassFixture<CustomWebApplicationFactory>
     {
         var loginResponse = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
         var token = loginJson.GetProperty("accessToken").GetString();
@@ -520,6 +519,34 @@ dotnet test --logger "console;verbosity=detailed"
 
 ---
 
+## Hybrid Integration Strategy (InMemory + PostgreSQL)
+
+The suite uses a hybrid approach:
+
+- **InMemory integration tests** for fast feedback on HTTP pipeline, auth, middleware, and endpoint contracts.
+- **PostgreSQL Testcontainers integration tests** for real migration/function behavior
+  (for example row version updates and tenant-scoped SQL function behavior).
+
+### Requirements for PostgreSQL integration tests
+
+1. Docker daemon must be running (Testcontainers starts/stops PostgreSQL automatically).
+2. Do not run app under debugger while running tests, otherwise `APITemplate.dll` may be file-locked.
+
+### Targeted execution commands
+
+```bash
+# Fast integration suite (excludes PostgreSQL-tagged tests)
+dotnet test --filter "FullyQualifiedName~Integration&Category!=Integration.Postgres"
+
+# PostgreSQL-only integration suite
+dotnet test --filter "Category=Integration.Postgres"
+
+# Full suite
+dotnet test
+```
+
+---
+
 ## Key Files Reference
 
 | File | Purpose |
@@ -527,8 +554,12 @@ dotnet test --logger "console;verbosity=detailed"
 | `tests/APITemplate.Tests/Integration/CustomWebApplicationFactory.cs` | Replaces databases for integration tests |
 | `tests/APITemplate.Tests/Integration/GraphQLResponse.cs` | Generic GraphQL response wrapper |
 | `tests/APITemplate.Tests/Integration/GraphQLJsonOptions.cs` | Shared `JsonSerializerOptions` for GraphQL responses |
+| `tests/APITemplate.Tests/Integration/IntegrationAuthHelper.cs` | Shared tenant-aware login/seeding helper for integration tests |
+| `tests/APITemplate.Tests/Integration/Postgres/PostgresWebApplicationFactory.cs` | PostgreSQL Testcontainers host factory |
+| `tests/APITemplate.Tests/Integration/Postgres/PostgresDataIntegrityTests.cs` | High-fidelity PostgreSQL integration tests |
 | `tests/APITemplate.Tests/Unit/Services/ProductServiceTests.cs` | Service unit test example |
 | `tests/APITemplate.Tests/Unit/Repositories/ProductRepositoryTests.cs` | Repository unit test example |
 | `tests/APITemplate.Tests/Unit/Validators/CreateProductRequestValidatorTests.cs` | Validator test example |
 | `tests/APITemplate.Tests/Integration/AuthenticatedCrudTests.cs` | Full REST CRUD integration test example |
 | `tests/APITemplate.Tests/Integration/GraphQLTests.cs` | GraphQL integration test example |
+

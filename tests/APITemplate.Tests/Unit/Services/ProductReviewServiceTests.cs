@@ -109,7 +109,7 @@ public class ProductReviewServiceTests
     [Fact]
     public async Task CreateAsync_WhenProductExists_CreatesReview()
     {
-        var product = new Product { Id = Guid.NewGuid(), Name = "Test", Price = 10m, CreatedAt = DateTime.UtcNow };
+        var product = new Product { Id = Guid.NewGuid(), Name = "Test", Price = 10m, Audit = new() { CreatedAtUtc = DateTime.UtcNow } };
         var request = new CreateProductReviewRequest(product.Id, "Alice", "Great!", 5);
 
         _productRepoMock

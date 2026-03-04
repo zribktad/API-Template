@@ -1,0 +1,23 @@
+using APITemplate.Domain.Enums;
+
+namespace APITemplate.Domain.Entities;
+
+public sealed class AppUser : IAuditableTenantEntity
+{
+    public Guid Id { get; set; }
+    public required string Username { get; set; }
+    public string NormalizedUsername { get; set; } = string.Empty;
+    public required string Email { get; set; }
+    public required string PasswordHash { get; set; }
+    public bool IsActive { get; set; } = true;
+    public UserRole Role { get; set; } = UserRole.TenantUser;
+
+    public Tenant Tenant { get; set; } = null!;
+
+    public Guid TenantId { get; set; }
+    public AuditInfo Audit { get; set; } = new();
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAtUtc { get; set; }
+    public string? DeletedBy { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}

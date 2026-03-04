@@ -7,7 +7,7 @@ public sealed class ProductReviewByProductIdSpecification : Specification<Produc
     public ProductReviewByProductIdSpecification(Guid productId)
     {
         Query.Where(r => r.ProductId == productId)
-             .OrderByDescending(r => r.CreatedAt)
-             .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt));
+             .OrderByDescending(r => r.Audit.CreatedAtUtc)
+             .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.Audit.CreatedAtUtc));
     }
 }

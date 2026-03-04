@@ -1,6 +1,7 @@
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Common.Context;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Repositories;
 using APITemplate.Infrastructure.StoredProcedures;
@@ -13,8 +14,10 @@ namespace APITemplate.Tests.Unit.Repositories;
 
 public class CategoryRepositoryTests : IDisposable
 {
+    private static readonly Guid TestTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly AppDbContext _dbContext;
     private readonly Mock<IStoredProcedureExecutor> _spExecutorMock;
+    private readonly ITenantProvider _tenantProvider;
     private readonly CategoryRepository _sut;
 
     public CategoryRepositoryTests()
@@ -23,9 +26,10 @@ public class CategoryRepositoryTests : IDisposable
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        _dbContext = new AppDbContext(options);
+        _tenantProvider = new TestTenantProvider();
+        _dbContext = new AppDbContext(options, _tenantProvider, new TestActorProvider());
         _spExecutorMock = new Mock<IStoredProcedureExecutor>();
-        _sut = new CategoryRepository(_dbContext, _spExecutorMock.Object);
+        _sut = new CategoryRepository(_dbContext, _spExecutorMock.Object, _tenantProvider);
     }
 
     public void Dispose()
@@ -99,7 +103,8 @@ public class CategoryRepositoryTests : IDisposable
         await _dbContext.SaveChangesAsync();
 
         var deleted = await _dbContext.Categories.FindAsync(category.Id);
-        deleted.ShouldBeNull();
+        deleted.ShouldNotBeNull();
+        deleted!.IsDeleted.ShouldBeTrue();
     }
 
     [Fact]
@@ -162,9 +167,21 @@ public class CategoryRepositoryTests : IDisposable
         return new Category
         {
             Id = Guid.NewGuid(),
+            TenantId = TestTenantId,
             Name = name,
             Description = description,
-            CreatedAt = DateTime.UtcNow
+            Audit = new() { CreatedAtUtc = DateTime.UtcNow }
         };
+    }
+
+    private sealed class TestTenantProvider : ITenantProvider
+    {
+        public Guid TenantId => TestTenantId;
+        public bool HasTenant => true;
+    }
+
+    private sealed class TestActorProvider : IActorProvider
+    {
+        public string ActorId => "test";
     }
 }

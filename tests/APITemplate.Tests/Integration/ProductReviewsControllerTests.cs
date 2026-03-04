@@ -131,7 +131,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     {
         var loginResponse = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
         var token = loginJson.GetProperty("accessToken").GetString();
@@ -139,3 +139,4 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 }
+

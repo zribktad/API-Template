@@ -26,8 +26,8 @@ public class CategoryServiceTests
     {
         var categories = new List<Category>
         {
-            new() { Id = Guid.NewGuid(), Name = "Electronics", CreatedAt = DateTime.UtcNow },
-            new() { Id = Guid.NewGuid(), Name = "Books", Description = "All books", CreatedAt = DateTime.UtcNow }
+            new() { Id = Guid.NewGuid(), Name = "Electronics", Audit = new() { CreatedAtUtc = DateTime.UtcNow } },
+            new() { Id = Guid.NewGuid(), Name = "Books", Description = "All books", Audit = new() { CreatedAtUtc = DateTime.UtcNow } }
         };
 
         _repositoryMock
@@ -62,7 +62,7 @@ public class CategoryServiceTests
             Id = Guid.NewGuid(),
             Name = "Electronics",
             Description = "Electronic devices",
-            CreatedAt = DateTime.UtcNow
+            Audit = new() { CreatedAtUtc = DateTime.UtcNow }
         };
 
         _repositoryMock
@@ -132,7 +132,7 @@ public class CategoryServiceTests
             Id = Guid.NewGuid(),
             Name = "Old Name",
             Description = "Old Description",
-            CreatedAt = DateTime.UtcNow
+            Audit = new() { CreatedAtUtc = DateTime.UtcNow }
         };
 
         var request = new UpdateCategoryRequest("New Name", "New Description");

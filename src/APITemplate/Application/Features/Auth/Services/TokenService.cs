@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using APITemplate.Application.Common.Security;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -14,7 +15,7 @@ public sealed class TokenService : ITokenService
         _jwt = jwtOptions.Value;
     }
 
-    public TokenResponse GenerateToken(string username)
+    public TokenResponse GenerateToken(AuthenticatedUser user)
     {
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(_jwt.Secret));
@@ -24,7 +25,9 @@ public sealed class TokenService : ITokenService
 
         var claims = new[]
         {
-            new Claim(ClaimTypes.Name, username),
+            new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
+            new Claim(CustomClaimTypes.TenantId, user.TenantId.ToString()),
+            new Claim(ClaimTypes.Role, user.Role.ToString()),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 

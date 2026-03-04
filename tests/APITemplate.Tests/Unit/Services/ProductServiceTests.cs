@@ -108,7 +108,7 @@ public class ProductServiceTests
             Name = "Old Name",
             Description = "Old Desc",
             Price = 10m,
-            CreatedAt = DateTime.UtcNow
+            Audit = new() { CreatedAtUtc = DateTime.UtcNow }
         };
 
         _repositoryMock

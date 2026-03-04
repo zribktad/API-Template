@@ -33,8 +33,7 @@ public sealed class CategoryService : ICategoryService
         {
             Id = Guid.NewGuid(),
             Name = request.Name,
-            Description = request.Description,
-            CreatedAt = DateTime.UtcNow
+            Description = request.Description
         };
 
         await _repository.AddAsync(category, ct);

@@ -10,7 +10,7 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
 
         ApplySorting(Query, filter);
 
-        Query.Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.CreatedAt));
+        Query.Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.Audit.CreatedAtUtc));
 
         Query.Skip((filter.PageNumber - 1) * filter.PageSize)
              .Take(filter.PageSize);
@@ -38,8 +38,8 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
             default:
                 ApplyOrder(
                     desc,
-                    () => query.OrderBy(p => p.CreatedAt),
-                    () => query.OrderByDescending(p => p.CreatedAt));
+                    () => query.OrderBy(p => p.Audit.CreatedAtUtc),
+                    () => query.OrderByDescending(p => p.Audit.CreatedAtUtc));
                 break;
         }
     }

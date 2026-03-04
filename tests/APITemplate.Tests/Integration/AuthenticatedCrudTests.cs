@@ -23,7 +23,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
         // 1. Login
         var loginResponse = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         loginResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
@@ -115,7 +115,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
     {
         var loginResponse = await _client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            new { Username = "admin", Password = "admin" });
+            new { Username = "default\\admin", Password = "admin" });
 
         var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
         var token = loginJson.GetProperty("accessToken").GetString();
@@ -123,3 +123,4 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 }
+

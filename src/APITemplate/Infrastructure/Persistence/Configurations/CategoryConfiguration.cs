@@ -9,6 +9,7 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
     public void Configure(EntityTypeBuilder<Category> builder)
     {
         builder.HasKey(c => c.Id);
+        builder.ConfigureTenantAuditable();
 
         builder.Property(c => c.Name)
             .IsRequired()
@@ -17,7 +18,11 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.Property(c => c.Description)
             .HasMaxLength(500);
 
-        builder.Property(c => c.CreatedAt)
-            .HasDefaultValueSql("now()");
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(c => c.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(c => new { c.TenantId, c.Name }).IsUnique();
     }
 }

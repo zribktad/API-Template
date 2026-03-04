@@ -51,8 +51,7 @@ public sealed class ProductReviewService : IProductReviewService
                 ProductId = request.ProductId,
                 ReviewerName = request.ReviewerName,
                 Comment = request.Comment,
-                Rating = request.Rating,
-                CreatedAt = DateTime.UtcNow
+                Rating = request.Rating
             };
 
             await _reviewRepository.AddAsync(review, ct);
