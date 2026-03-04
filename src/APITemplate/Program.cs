@@ -13,7 +13,7 @@ try
             .ReadFrom.Services(services);
     });
 
-    builder.Services.AddApiFoundation(); // Register REST/OpenAPI/ProblemDetails/exception handling foundation.
+    builder.Services.AddApiFoundation(); // Registers exception handling services (AddExceptionHandler + ProblemDetails), activated later in UseApiPipeline.
     builder.Services.AddAuthenticationOptions(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration); // Register EF Core + repositories + relational health checks.
     builder.Services.AddApplicationServices(); // Register application services + validators.

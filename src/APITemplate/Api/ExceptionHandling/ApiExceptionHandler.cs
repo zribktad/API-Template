@@ -4,6 +4,14 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace APITemplate.Api.ExceptionHandling;
 
+/// <summary>
+/// Central REST exception translator for the HTTP pipeline.
+/// </summary>
+/// <remarks>
+/// Converts domain/application exceptions to RFC7807 <see cref="ProblemDetails"/>
+/// responses with stable status codes and error codes. GraphQL requests are intentionally
+/// bypassed because GraphQL uses a separate error handling pipeline.
+/// </remarks>
 public sealed class ApiExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<ApiExceptionHandler> _logger;
@@ -15,9 +23,13 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         _problemDetailsService = problemDetailsService;
     }
 
+    /// <summary>
+    /// Maps an exception to HTTP status + payload metadata, logs it with severity by status code,
+    /// and writes an RFC7807 response through <see cref="IProblemDetailsService"/>.
+    /// </summary>
     public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
     {
-        // GraphQL has its own error handling pipeline.
+        // GraphQL has its own error format and middleware, so let that pipeline handle GraphQL exceptions.
         if (context.Request.Path.StartsWithSegments("/graphql"))
             return false;
 

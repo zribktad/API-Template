@@ -23,6 +23,7 @@ public sealed class CategoryRepository : RepositoryBase<Category>, ICategoryRepo
 
     public Task<ProductCategoryStats?> GetStatsByIdAsync(Guid categoryId, CancellationToken ct = default)
     {
+        // Stored procedures bypass EF global query filters, so tenant must be passed explicitly for DB-side isolation.
         return _spExecutor.QueryFirstAsync(new GetProductCategoryStatsProcedure(categoryId, _tenantProvider.TenantId), ct);
     }
 }

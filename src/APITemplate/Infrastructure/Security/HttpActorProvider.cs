@@ -6,6 +6,13 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Infrastructure.Security;
 
+/// <summary>
+/// Resolves actor identity for auditing from the current HTTP principal.
+/// </summary>
+/// <remarks>
+/// Uses a prioritized claim lookup and falls back to configured system identity
+/// when no user claim is available (for example background/system execution paths).
+/// </remarks>
 public sealed class HttpActorProvider : IActorProvider
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -24,6 +31,7 @@ public sealed class HttpActorProvider : IActorProvider
         get
         {
             var user = _httpContextAccessor.HttpContext?.User;
+            // Prefer stable subject-style identifiers first, then name-like claims, then configured system fallback.
             return user?.FindFirstValue(ClaimTypes.NameIdentifier)
                 ?? user?.FindFirstValue(JwtRegisteredClaimNames.Sub)
                 ?? user?.FindFirstValue("sub")

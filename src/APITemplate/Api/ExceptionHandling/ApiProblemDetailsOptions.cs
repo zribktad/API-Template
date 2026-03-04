@@ -4,6 +4,13 @@ namespace APITemplate.Api.ExceptionHandling;
 
 public static class ApiProblemDetailsOptions
 {
+    /// <summary>
+    /// Configures global <see cref="ProblemDetails"/> enrichment for API responses.
+    /// </summary>
+    /// <remarks>
+    /// Adds a request trace identifier, guarantees an <c>errorCode</c> fallback, and
+    /// ensures a stable <c>type</c> URI shape for error documentation.
+    /// </remarks>
     public static void Configure(ProblemDetailsOptions options)
     {
         options.CustomizeProblemDetails = context =>
@@ -11,6 +18,7 @@ public static class ApiProblemDetailsOptions
             var extensions = context.ProblemDetails.Extensions;
             extensions["traceId"] = context.HttpContext.TraceIdentifier;
 
+            // Preserve errorCode set by upstream handlers; only fall back when not provided.
             var errorCode = extensions.TryGetValue("errorCode", out var existingErrorCode) && existingErrorCode is string existing
                 ? existing
                 : ErrorCatalog.General.Unknown;

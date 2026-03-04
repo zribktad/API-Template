@@ -34,6 +34,7 @@ namespace APITemplate.Infrastructure.Persistence;
 /// </remarks>
 public sealed class AppDbContext : DbContext
 {
+    // Tenant provider drives read isolation (global filters) and default tenant assignment on inserts.
     private readonly ITenantProvider _tenantProvider;
     private readonly IActorProvider _actorProvider;
     // Explicit soft-delete cascade rules registered via DI.
@@ -124,6 +125,7 @@ public sealed class AppDbContext : DbContext
     private void SetGlobalFilter<TEntity>(ModelBuilder modelBuilder)
         where TEntity : class, ITenantEntity, ISoftDeletable
     {
+        // When HasTenant is false, tenant-scoped entities are intentionally filtered out (safe default for non-tenant contexts).
         modelBuilder.Entity<TEntity>()
             .HasQueryFilter(entity => !entity.IsDeleted && HasTenant && entity.TenantId == CurrentTenantId);
     }
@@ -164,6 +166,7 @@ public sealed class AppDbContext : DbContext
         if (entity is Tenant tenant && tenant.TenantId == Guid.Empty)
             tenant.TenantId = tenant.Id;
 
+        // Auto-stamp tenant ownership for new tenant-bound rows when request context provides tenant identity.
         if (entity.TenantId == Guid.Empty && HasTenant)
             entity.TenantId = CurrentTenantId;
 

@@ -4,6 +4,13 @@ using APITemplate.Application.Common.Security;
 
 namespace APITemplate.Infrastructure.Security;
 
+/// <summary>
+/// Resolves tenant identity from the current authenticated HTTP principal.
+/// </summary>
+/// <remarks>
+/// Reads the <c>tenant_id</c> claim and returns <see cref="Guid.Empty"/> when missing/invalid.
+/// Intended for scoped, request-bound usage through <see cref="IHttpContextAccessor"/>.
+/// </remarks>
 public sealed class HttpTenantProvider : ITenantProvider
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -18,6 +25,7 @@ public sealed class HttpTenantProvider : ITenantProvider
         get
         {
             var claimValue = _httpContextAccessor.HttpContext?.User.FindFirstValue(CustomClaimTypes.TenantId);
+            // Invalid or missing tenant claim is represented as Guid.Empty and treated as "no tenant".
             return Guid.TryParse(claimValue, out var tenantId) ? tenantId : Guid.Empty;
         }
     }
