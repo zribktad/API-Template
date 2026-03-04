@@ -1,5 +1,4 @@
-using APITemplate.Application.Options;
-using APITemplate.Application.Services;
+using APITemplate.Application.Features.Auth.Services;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;

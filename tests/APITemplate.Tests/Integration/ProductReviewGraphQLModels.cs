@@ -2,12 +2,12 @@ namespace APITemplate.Tests.Integration;
 
 public sealed record ProductReviewItem(Guid Id, string ReviewerName, int Rating, Guid ProductId);
 
-public sealed record ProductReviewConnection(List<ProductReviewItem> Nodes);
+public sealed record ProductReviewPage(List<ProductReviewItem> Items, int TotalCount, int PageNumber, int PageSize);
 
 public sealed record CreateProductReviewData(ProductReviewItem CreateProductReview);
 
-public sealed record ReviewsData(ProductReviewConnection Reviews);
+public sealed record ReviewsData(ProductReviewPage Reviews);
 
-public sealed record ReviewsByProductIdData(ProductReviewConnection ReviewsByProductId);
+public sealed record ReviewsByProductIdData(ProductReviewPage ReviewsByProductId);
 
 public sealed record DeleteProductReviewData(bool DeleteProductReview);

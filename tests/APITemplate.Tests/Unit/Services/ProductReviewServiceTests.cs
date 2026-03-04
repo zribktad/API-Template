@@ -1,8 +1,7 @@
-using APITemplate.Application.DTOs;
-using APITemplate.Application.Services;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.ProductReview.Services;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -12,6 +11,7 @@ namespace APITemplate.Tests.Unit.Services;
 public class ProductReviewServiceTests
 {
     private readonly Mock<IProductReviewRepository> _reviewRepoMock;
+    private readonly Mock<IProductReviewQueryService> _queryServiceMock;
     private readonly Mock<IProductRepository> _productRepoMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly ProductReviewService _sut;
@@ -19,34 +19,31 @@ public class ProductReviewServiceTests
     public ProductReviewServiceTests()
     {
         _reviewRepoMock = new Mock<IProductReviewRepository>();
+        _queryServiceMock = new Mock<IProductReviewQueryService>();
         _productRepoMock = new Mock<IProductRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock
             .Setup(u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
             .Returns((Func<Task> action, CancellationToken _) => action());
-        _sut = new ProductReviewService(_reviewRepoMock.Object, _productRepoMock.Object, _unitOfWorkMock.Object);
+        _sut = new ProductReviewService(
+            _reviewRepoMock.Object,
+            _queryServiceMock.Object,
+            _productRepoMock.Object,
+            _unitOfWorkMock.Object);
     }
 
     [Fact]
     public async Task GetAllAsync_ReturnsAllReviews()
     {
-        var reviews = new List<ProductReview>
+        var responses = new List<ProductReviewResponse>
         {
-            new() { Id = Guid.NewGuid(), ProductId = Guid.NewGuid(), ReviewerName = "Alice", Rating = 5, CreatedAt = DateTime.UtcNow },
-            new() { Id = Guid.NewGuid(), ProductId = Guid.NewGuid(), ReviewerName = "Bob", Rating = 3, CreatedAt = DateTime.UtcNow }
+            new(Guid.NewGuid(), Guid.NewGuid(), "Alice", null, 5, DateTime.UtcNow),
+            new(Guid.NewGuid(), Guid.NewGuid(), "Bob", null, 3, DateTime.UtcNow)
         };
 
-        var responses = reviews
-            .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt))
-            .ToList();
-
-        _reviewRepoMock
-            .Setup(r => r.ListAsync(It.IsAny<Ardalis.Specification.ISpecification<ProductReview, ProductReviewResponse>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(responses);
-
-        _reviewRepoMock
-            .Setup(r => r.CountAsync(It.IsAny<Ardalis.Specification.ISpecification<ProductReview>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(2);
+        _queryServiceMock
+            .Setup(q => q.GetPagedAsync(It.IsAny<ProductReviewFilter>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResponse<ProductReviewResponse>(responses, 2, 1, 10));
 
         var result = await _sut.GetAllAsync(new ProductReviewFilter());
 
@@ -54,39 +51,40 @@ public class ProductReviewServiceTests
         result.TotalCount.ShouldBe(2);
     }
 
-    [Fact]
-    public async Task GetByIdAsync_WhenReviewExists_ReturnsResponse()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetByIdAsync_ReturnsExpectedResult(bool reviewExists)
     {
-        var review = new ProductReview
+        var reviewId = Guid.NewGuid();
+        ProductReviewResponse? response = null;
+        if (reviewExists)
         {
-            Id = Guid.NewGuid(),
-            ProductId = Guid.NewGuid(),
-            ReviewerName = "Alice",
-            Rating = 4,
-            CreatedAt = DateTime.UtcNow
-        };
+            response = new ProductReviewResponse(
+                reviewId,
+                Guid.NewGuid(),
+                "Alice",
+                null,
+                4,
+                DateTime.UtcNow);
+        }
 
-        _reviewRepoMock
-            .Setup(r => r.GetByIdAsync(review.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(review);
+        _queryServiceMock
+            .Setup(q => q.GetByIdAsync(reviewId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response);
 
-        var result = await _sut.GetByIdAsync(review.Id);
+        var result = await _sut.GetByIdAsync(reviewId);
 
-        result.ShouldNotBeNull();
-        result!.ReviewerName.ShouldBe("Alice");
-        result.Rating.ShouldBe(4);
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_WhenReviewDoesNotExist_ReturnsNull()
-    {
-        _reviewRepoMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductReview?)null);
-
-        var result = await _sut.GetByIdAsync(Guid.NewGuid());
-
-        result.ShouldBeNull();
+        if (reviewExists)
+        {
+            result.ShouldNotBeNull();
+            result!.ReviewerName.ShouldBe("Alice");
+            result.Rating.ShouldBe(4);
+        }
+        else
+        {
+            result.ShouldBeNull();
+        }
     }
 
     [Fact]
@@ -98,8 +96,8 @@ public class ProductReviewServiceTests
             new(Guid.NewGuid(), productId, "Alice", null, 5, DateTime.UtcNow)
         };
 
-        _reviewRepoMock
-            .Setup(r => r.ListAsync(It.IsAny<Ardalis.Specification.ISpecification<ProductReview, ProductReviewResponse>>(), It.IsAny<CancellationToken>()))
+        _queryServiceMock
+            .Setup(q => q.GetByProductIdAsync(productId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(responses);
 
         var result = await _sut.GetByProductIdAsync(productId);

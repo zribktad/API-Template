@@ -1,10 +1,8 @@
-using APITemplate.Domain.Entities;
-
 namespace APITemplate.Api.GraphQL.Types;
 
-public sealed class ProductReviewType : ObjectType<ProductReview>
+public sealed class ProductReviewType : ObjectType<ProductReviewResponse>
 {
-    protected override void Configure(IObjectTypeDescriptor<ProductReview> descriptor)
+    protected override void Configure(IObjectTypeDescriptor<ProductReviewResponse> descriptor)
     {
         descriptor.Description("Represents a review for a product.");
 

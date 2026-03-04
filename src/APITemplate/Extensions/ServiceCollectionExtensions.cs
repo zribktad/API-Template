@@ -1,9 +1,11 @@
 using System.Text;
-using APITemplate.Application.Interfaces;
-using APITemplate.Application.Options;
-using APITemplate.Application.Services;
-using APITemplate.Application.Validators;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.Auth.Services;
+using APITemplate.Application.Features.Category.Services;
+using APITemplate.Application.Features.Product.Services;
+using APITemplate.Application.Features.Product.Validation;
+using APITemplate.Application.Features.ProductData.Services;
+using APITemplate.Application.Features.ProductReview.Services;
 using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Repositories;
@@ -12,6 +14,7 @@ using Asp.Versioning;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Options;
@@ -94,7 +97,9 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<IProductQueryService, ProductQueryService>();
         services.AddScoped<IProductReviewService, ProductReviewService>();
+        services.AddScoped<IProductReviewQueryService, ProductReviewQueryService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddSingleton<ITokenService, TokenService>();
         services.AddScoped<IUserService, UserService>();
@@ -183,10 +188,11 @@ public static class ServiceCollectionExtensions
             .AddTypeExtension<Api.GraphQL.Mutations.ProductReviewMutations>()
             .AddType<Api.GraphQL.Types.ProductType>()
             .AddType<Api.GraphQL.Types.ProductReviewType>()
+            .AddDataLoader<Api.GraphQL.DataLoaders.ProductReviewsByProductDataLoader>()
             .AddAuthorization()
-            .AddProjections()
-            .AddFiltering()
-            .AddSorting()
+            // Keep disabled for now: resolvers return DTO pages/services, not IQueryable.
+            // Use AddProjections/AddFiltering/AddSorting when GraphQL fields expose IQueryable
+            // with [UseProjection]/[UseFiltering]/[UseSorting] and you want SQL pushdown handled by HotChocolate.
             .ModifyPagingOptions(o =>
             {
                 o.MaxPageSize = 100;

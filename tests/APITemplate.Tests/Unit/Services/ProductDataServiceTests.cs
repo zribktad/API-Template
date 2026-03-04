@@ -1,7 +1,6 @@
-using APITemplate.Application.DTOs.Requests;
-using APITemplate.Application.Services;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.ProductData.Services;
 using Moq;
 using Shouldly;
 using Xunit;

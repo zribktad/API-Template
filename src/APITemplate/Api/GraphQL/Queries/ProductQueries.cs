@@ -1,21 +1,33 @@
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Interfaces;
+using APITemplate.Api.GraphQL.Models;
 
 namespace APITemplate.Api.GraphQL.Queries;
 
 public class ProductQueries
 {
-    [UsePaging(MaxPageSize = 100, DefaultPageSize = 20)]
-    [UseProjection]
-    [UseFiltering]
-    [UseSorting]
-    public IQueryable<Product> GetProducts([Service] IProductRepository repo)
-        => repo.AsQueryable();
+    public async Task<ProductPageResult> GetProducts(
+        ProductQueryInput? input,
+        [Service] IProductQueryService queryService,
+        CancellationToken ct)
+    {
+        var filter = new ProductFilter(
+            input?.Name,
+            input?.Description,
+            input?.MinPrice,
+            input?.MaxPrice,
+            input?.CreatedFrom,
+            input?.CreatedTo,
+            input?.SortBy,
+            input?.SortDirection,
+            input?.PageNumber ?? 1,
+            input?.PageSize ?? 20);
 
-    [UseFirstOrDefault]
-    [UseProjection]
-    public IQueryable<Product> GetProductById(
+        var page = await queryService.GetPagedAsync(filter, ct);
+        return new ProductPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
+    }
+
+    public async Task<ProductResponse?> GetProductById(
         Guid id,
-        [Service] IProductRepository repo)
-        => repo.AsQueryable().Where(p => p.Id == id);
+        [Service] IProductQueryService queryService,
+        CancellationToken ct)
+        => await queryService.GetByIdAsync(id, ct);
 }

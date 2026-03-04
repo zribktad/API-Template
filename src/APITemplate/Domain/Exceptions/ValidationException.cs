@@ -1,15 +1,12 @@
-using APITemplate.Application.Errors;
-using Microsoft.AspNetCore.Http;
-
 namespace APITemplate.Domain.Exceptions;
 
 public sealed class ValidationException : AppException
 {
     public ValidationException(
         string message,
-        string errorCode = ErrorCatalog.General.ValidationFailed,
+        string? errorCode = null,
         IReadOnlyDictionary<string, object?>? metadata = null)
-        : base(message, errorCode, StatusCodes.Status400BadRequest, "Bad Request", metadata)
+        : base(message, errorCode, metadata)
     {
     }
 }

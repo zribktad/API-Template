@@ -1,4 +1,3 @@
-using APITemplate.Application.Errors;
 using APITemplate.Domain.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -68,11 +67,14 @@ public sealed class ApiExceptionHandler : IExceptionHandler
     {
         if (exception is AppException appException)
         {
+            var (statusCode, title, defaultErrorCode) = MapToHttp(appException);
+            var errorCode = ResolveErrorCode(appException, defaultErrorCode);
+
             return (
-                appException.StatusCode,
-                appException.Title,
+                statusCode,
+                title,
                 appException.Message,
-                appException.ErrorCode,
+                errorCode,
                 appException.Metadata);
         }
 
@@ -82,6 +84,31 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             "An unexpected error occurred.",
             ErrorCatalog.General.Unknown,
             null);
+    }
+
+    private static (int StatusCode, string Title, string ErrorCode) MapToHttp(AppException appException)
+        => appException switch
+        {
+            ValidationException => (StatusCodes.Status400BadRequest, "Bad Request", ErrorCatalog.General.ValidationFailed),
+            NotFoundException => (StatusCodes.Status404NotFound, "Not Found", ErrorCatalog.General.NotFound),
+            ConflictException => (StatusCodes.Status409Conflict, "Conflict", ErrorCatalog.General.Conflict),
+            _ => (StatusCodes.Status500InternalServerError, "Internal Server Error", ErrorCatalog.General.Unknown)
+        };
+
+    private static string ResolveErrorCode(AppException appException, string defaultErrorCode)
+    {
+        if (!string.IsNullOrWhiteSpace(appException.ErrorCode))
+            return appException.ErrorCode!;
+
+        if (appException.Metadata is not null
+            && appException.Metadata.TryGetValue("errorCode", out var metadataErrorCode)
+            && metadataErrorCode is string value
+            && !string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        return defaultErrorCode;
     }
 
     private static string BuildTypeUri(string errorCode)

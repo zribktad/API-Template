@@ -1,8 +1,6 @@
-using APITemplate.Application.Errors;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 
 namespace APITemplate.Infrastructure.Repositories;
 
@@ -17,10 +15,6 @@ public abstract class RepositoryBase<T>
     protected AppDbContext AppDb => (AppDbContext)DbContext;
 
     protected RepositoryBase(AppDbContext dbContext) : base(dbContext) { }
-
-    // GraphQL escape-hatch — HotChocolate pushes filter/paging into SQL
-    public IQueryable<T> AsQueryable()
-        => DbContext.Set<T>().AsNoTracking();
 
     // Override write methods — do NOT call SaveChangesAsync, that is UoW responsibility.
     // Return 0 (no rows persisted yet — UoW will commit later).

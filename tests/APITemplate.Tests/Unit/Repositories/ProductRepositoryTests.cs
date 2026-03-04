@@ -65,27 +65,6 @@ public class ProductRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task AsQueryable_ReturnsProducts()
-    {
-        var p1 = CreateProduct("Alpha", 10m);
-        var p2 = CreateProduct("Beta", 20m);
-        _dbContext.Products.AddRange(p1, p2);
-        await _dbContext.SaveChangesAsync();
-
-        var result = _sut.AsQueryable().ToList();
-
-        result.Count.ShouldBe(2);
-    }
-
-    [Fact]
-    public void AsQueryable_WhenEmpty_ReturnsEmptyQueryable()
-    {
-        var result = _sut.AsQueryable().ToList();
-
-        result.ShouldBeEmpty();
-    }
-
-    [Fact]
     public async Task UpdateAsync_ModifiesProduct()
     {
         var product = CreateProduct("Original", 10m);

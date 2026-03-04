@@ -1,31 +1,48 @@
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Interfaces;
+using APITemplate.Api.GraphQL.Models;
 
 namespace APITemplate.Api.GraphQL.Queries;
 
 [ExtendObjectType(typeof(ProductQueries))]
 public class ProductReviewQueries
 {
-    [UsePaging(MaxPageSize = 100, DefaultPageSize = 20)]
-    [UseProjection]
-    [UseFiltering]
-    [UseSorting]
-    public IQueryable<ProductReview> GetReviews([Service] IProductReviewRepository repo)
-        => repo.AsQueryable();
+    public async Task<ProductReviewPageResult> GetReviews(
+        ProductReviewQueryInput? input,
+        [Service] IProductReviewQueryService queryService,
+        CancellationToken ct)
+    {
+        var filter = new ProductReviewFilter(
+            input?.ProductId,
+            input?.ReviewerName,
+            input?.MinRating,
+            input?.MaxRating,
+            input?.CreatedFrom,
+            input?.CreatedTo,
+            input?.SortBy,
+            input?.SortDirection,
+            input?.PageNumber ?? 1,
+            input?.PageSize ?? 20);
 
-    [UseFirstOrDefault]
-    [UseProjection]
-    public IQueryable<ProductReview> GetReviewById(
+        var page = await queryService.GetPagedAsync(filter, ct);
+        return new ProductReviewPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
+    }
+
+    public async Task<ProductReviewResponse?> GetReviewById(
         Guid id,
-        [Service] IProductReviewRepository repo)
-        => repo.AsQueryable().Where(r => r.Id == id);
+        [Service] IProductReviewQueryService queryService,
+        CancellationToken ct)
+        => await queryService.GetByIdAsync(id, ct);
 
-    [UsePaging(MaxPageSize = 100, DefaultPageSize = 20)]
-    [UseProjection]
-    [UseFiltering]
-    [UseSorting]
-    public IQueryable<ProductReview> GetReviewsByProductId(
+    public async Task<ProductReviewPageResult> GetReviewsByProductId(
         Guid productId,
-        [Service] IProductReviewRepository repo)
-        => repo.AsQueryable().Where(r => r.ProductId == productId);
+        int pageNumber,
+        int pageSize,
+        [Service] IProductReviewQueryService queryService,
+        CancellationToken ct)
+    {
+        var page = await queryService.GetPagedAsync(
+            new ProductReviewFilter(ProductId: productId, PageNumber: pageNumber, PageSize: pageSize),
+            ct);
+
+        return new ProductReviewPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
+    }
 }

@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using APITemplate.Application.DTOs;
-using APITemplate.Application.Validators;
+using APITemplate.Application.Features.Product.Validation;
 using Shouldly;
 using Xunit;
 
@@ -56,28 +55,26 @@ public class CreateProductRequestValidatorTests
 
     // --- FluentValidation tests (cross-field rules) ---
 
-    [Fact]
-    public void FluentValidation_PriceAbove1000_WithoutDescription_IsInvalid()
+    [Theory]
+    [InlineData(1001, null, false, "Description")]
+    [InlineData(1001, "Detailed description", true, null)]
+    [InlineData(999, null, true, null)]
+    public void FluentValidation_DescriptionRule_BasedOnPrice(
+        decimal price,
+        string? description,
+        bool expectedIsValid,
+        string? expectedErrorProperty)
     {
-        var result = _sut.Validate(new CreateProductRequest("Premium", null, 1001m));
+        var result = _sut.Validate(new CreateProductRequest("Any name", description, price));
 
-        result.IsValid.ShouldBeFalse();
-        result.Errors.ShouldContain(e => e.PropertyName == "Description");
-    }
-
-    [Fact]
-    public void FluentValidation_PriceAbove1000_WithDescription_IsValid()
-    {
-        var result = _sut.Validate(new CreateProductRequest("Premium", "Detailed description", 1001m));
-
-        result.IsValid.ShouldBeTrue();
-    }
-
-    [Fact]
-    public void FluentValidation_PriceBelow1000_WithoutDescription_IsValid()
-    {
-        var result = _sut.Validate(new CreateProductRequest("Standard", null, 999m));
-
-        result.IsValid.ShouldBeTrue();
+        result.IsValid.ShouldBe(expectedIsValid);
+        if (expectedErrorProperty is null)
+        {
+            result.Errors.ShouldNotContain(e => e.PropertyName == "Description");
+        }
+        else
+        {
+            result.Errors.ShouldContain(e => e.PropertyName == expectedErrorProperty);
+        }
     }
 }
