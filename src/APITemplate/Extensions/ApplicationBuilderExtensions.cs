@@ -18,7 +18,12 @@ public static class ApplicationBuilderExtensions
 
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>(); // Resolve EF Core context for relational migrations.
         if (dbContext.Database.IsRelational())
+        {
             await dbContext.Database.MigrateAsync(); // Run pending relational migrations.
+        }
+
+        var seeder = scope.ServiceProvider.GetRequiredService<AuthBootstrapSeeder>();
+        await seeder.SeedAsync();
 
         var mongoContext = scope.ServiceProvider.GetService<MongoDbContext>(); // Mongo context can be missing in tests.
         if (mongoContext is not null)

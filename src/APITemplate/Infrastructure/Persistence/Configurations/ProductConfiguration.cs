@@ -9,6 +9,7 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
     public void Configure(EntityTypeBuilder<Product> builder)
     {
         builder.HasKey(p => p.Id);
+        builder.ConfigureTenantAuditable();
 
         builder.Property(p => p.Name)
             .IsRequired()
@@ -20,12 +21,16 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.Price)
             .HasPrecision(18, 2);
 
-        builder.Property(p => p.CreatedAt)
-            .HasDefaultValueSql("now()");
-
         builder.HasOne(p => p.Category)
             .WithMany(c => c.Products)
             .HasForeignKey(p => p.CategoryId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(p => p.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(p => new { p.TenantId, p.Name });
     }
 }

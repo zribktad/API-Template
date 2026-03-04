@@ -34,8 +34,7 @@ public sealed class ProductService : IProductService
             Name = request.Name,
             Description = request.Description,
             Price = request.Price,
-            CategoryId = request.CategoryId,
-            CreatedAt = DateTime.UtcNow
+            CategoryId = request.CategoryId
         };
 
         await _repository.AddAsync(product, ct);

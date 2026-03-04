@@ -1,5 +1,9 @@
 using System.Text;
+using System.IdentityModel.Tokens.Jwt;
+using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Security;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Domain.Enums;
 using APITemplate.Application.Features.Auth.Services;
 using APITemplate.Application.Features.Category.Services;
 using APITemplate.Application.Features.Product.Services;
@@ -8,8 +12,10 @@ using APITemplate.Application.Features.ProductData.Services;
 using APITemplate.Application.Features.ProductReview.Services;
 using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Persistence;
+using APITemplate.Infrastructure.Persistence.SoftDelete;
 using APITemplate.Infrastructure.Repositories;
 using APITemplate.Infrastructure.StoredProcedures;
+using APITemplate.Infrastructure.Security;
 using Asp.Versioning;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -63,12 +69,28 @@ public static class ServiceCollectionExtensions
                 "Jwt issuer/audience is required")
             .ValidateOnStart();
 
-        services.AddOptions<AuthOptions>()
-            .Bind(configuration.GetSection("Auth"))
+        services.AddOptions<SystemIdentityOptions>()
+            .Bind(configuration.GetSection("SystemIdentity"))
+            .ValidateDataAnnotations()
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.DefaultActorId),
+                "SystemIdentity:DefaultActorId is required")
+            .ValidateOnStart();
+
+        services.AddOptions<BootstrapAdminOptions>()
+            .Bind(configuration.GetSection("Bootstrap:Admin"))
             .ValidateDataAnnotations()
             .Validate(
                 o => !string.IsNullOrWhiteSpace(o.Username) && !string.IsNullOrWhiteSpace(o.Password),
-                "Auth username/password is required")
+                "Bootstrap admin username/password is required")
+            .ValidateOnStart();
+
+        services.AddOptions<BootstrapTenantOptions>()
+            .Bind(configuration.GetSection("Bootstrap:Tenant"))
+            .ValidateDataAnnotations()
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.Code) && !string.IsNullOrWhiteSpace(o.Name),
+                "Bootstrap tenant code/name is required")
             .ValidateOnStart();
 
         return services;
@@ -87,6 +109,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<AuthBootstrapSeeder>();
+        // Register explicit soft-delete cascade rules (aggregate-specific behavior).
+        services.AddScoped<ISoftDeleteCascadeRule, ProductSoftDeleteCascadeRule>();
 
         services.AddHealthChecks()
             .AddNpgSql(connectionString, name: "postgresql", tags: ["database"]);
@@ -96,6 +121,9 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        services.AddHttpContextAccessor();
+        services.AddScoped<ITenantProvider, HttpTenantProvider>();
+        services.AddScoped<IActorProvider, HttpActorProvider>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IProductQueryService, ProductQueryService>();
         services.AddScoped<IProductReviewService, ProductReviewService>();
@@ -131,9 +159,28 @@ public static class ServiceCollectionExtensions
                     ValidAudience = jwt.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(key)
                 };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = context =>
+                    {
+                        var hasTenantClaim = context.Principal?.HasClaim(
+                            c => c.Type == CustomClaimTypes.TenantId && Guid.TryParse(c.Value, out _)) == true;
+
+                        if (!hasTenantClaim)
+                            context.Fail("Missing required tenant_id claim.");
+
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy(
+                AuthorizationPolicies.PlatformAdminOnly,
+                policy => policy.RequireRole(UserRole.PlatformAdmin.ToString()));
+        });
 
         return services;
     }

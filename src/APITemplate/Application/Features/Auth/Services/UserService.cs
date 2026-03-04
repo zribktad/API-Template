@@ -1,25 +1,45 @@
-using Microsoft.Extensions.Options;
+using APITemplate.Domain.Entities;
+using APITemplate.Domain.Enums;
+using APITemplate.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace APITemplate.Application.Features.Auth.Services;
-/// <summary>
-/// Demo implementation — validates against credentials stored in configuration.
-/// Replace with a real user store (database, identity provider, LDAP) in production.
-/// Passwords in production must be stored as hashed values (e.g. PBKDF2, bcrypt).
-/// </summary>
+
 public sealed class UserService : IUserService
 {
-    private readonly AuthOptions _auth;
+    private readonly AppDbContext _dbContext;
+    private readonly PasswordHasher<AppUser> _passwordHasher = new();
 
-    public UserService(IOptions<AuthOptions> authOptions)
+    public UserService(AppDbContext dbContext)
     {
-        _auth = authOptions.Value;
+        _dbContext = dbContext;
     }
 
-    public Task<bool> ValidateAsync(string username, string password, CancellationToken ct = default)
+    public async Task<AuthenticatedUser?> AuthenticateAsync(
+        string username,
+        string password,
+        CancellationToken ct = default)
     {
-        var isValid = string.Equals(username, _auth.Username, StringComparison.OrdinalIgnoreCase)
-                      && string.Equals(password, _auth.Password);
+        var normalizedUsername = username.Trim().ToUpperInvariant();
 
-        return Task.FromResult(isValid);
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(u => u.NormalizedUsername == normalizedUsername)
+            .Where(u => u.IsActive && !u.IsDeleted)
+            .Where(u => u.Tenant.IsActive && !u.Tenant.IsDeleted)
+            .OrderByDescending(u => u.Role == UserRole.PlatformAdmin)
+            .ThenBy(u => u.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (user is null)
+            return null;
+
+        var verifyResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+        if (verifyResult is PasswordVerificationResult.Failed)
+            return null;
+
+        return new AuthenticatedUser(user.Id, user.TenantId, user.Username, user.Role);
     }
 }

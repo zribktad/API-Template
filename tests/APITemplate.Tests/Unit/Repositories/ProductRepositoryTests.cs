@@ -1,5 +1,6 @@
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
+using APITemplate.Application.Common.Context;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ namespace APITemplate.Tests.Unit.Repositories;
 
 public class ProductRepositoryTests : IDisposable
 {
+    private static readonly Guid TestTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly AppDbContext _dbContext;
     private readonly ProductRepository _sut;
 
@@ -19,7 +21,7 @@ public class ProductRepositoryTests : IDisposable
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        _dbContext = new AppDbContext(options);
+        _dbContext = new AppDbContext(options, new TestTenantProvider(), new TestActorProvider());
         _sut = new ProductRepository(_dbContext);
     }
 
@@ -92,7 +94,8 @@ public class ProductRepositoryTests : IDisposable
         await _dbContext.SaveChangesAsync();
 
         var deleted = await _dbContext.Products.FindAsync(product.Id);
-        deleted.ShouldBeNull();
+        deleted.ShouldNotBeNull();
+        deleted!.IsDeleted.ShouldBeTrue();
     }
 
     [Fact]
@@ -108,9 +111,21 @@ public class ProductRepositoryTests : IDisposable
         return new Product
         {
             Id = Guid.NewGuid(),
+            TenantId = TestTenantId,
             Name = name,
             Price = price,
-            CreatedAt = DateTime.UtcNow
+            Audit = new() { CreatedAtUtc = DateTime.UtcNow }
         };
+    }
+
+    private sealed class TestTenantProvider : ITenantProvider
+    {
+        public Guid TenantId => TestTenantId;
+        public bool HasTenant => true;
+    }
+
+    private sealed class TestActorProvider : IActorProvider
+    {
+        public string ActorId => "test";
     }
 }

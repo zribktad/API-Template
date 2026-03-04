@@ -5,4 +5,4 @@ public sealed record ProductReviewResponse(
     string ReviewerName,
     string? Comment,
     int Rating,
-    DateTime CreatedAt);
+    DateTime CreatedAtUtc);

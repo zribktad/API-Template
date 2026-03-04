@@ -10,7 +10,7 @@ public sealed class ProductReviewSpecification : Specification<ProductReviewEnti
 
         ApplySorting(Query, filter);
 
-        Query.Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.CreatedAt));
+        Query.Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.ReviewerName, r.Comment, r.Rating, r.Audit.CreatedAtUtc));
 
         Query.Skip((filter.PageNumber - 1) * filter.PageSize)
              .Take(filter.PageSize);
@@ -40,8 +40,8 @@ public sealed class ProductReviewSpecification : Specification<ProductReviewEnti
             default:
                 ApplyOrder(
                     desc,
-                    () => query.OrderBy(r => r.CreatedAt),
-                    () => query.OrderByDescending(r => r.CreatedAt));
+                    () => query.OrderBy(r => r.Audit.CreatedAtUtc),
+                    () => query.OrderByDescending(r => r.Audit.CreatedAtUtc));
                 break;
         }
     }

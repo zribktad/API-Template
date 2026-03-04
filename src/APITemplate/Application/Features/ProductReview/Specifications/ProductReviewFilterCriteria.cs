@@ -19,9 +19,9 @@ internal static class ProductReviewFilterCriteria
             query.Where(r => r.Rating <= filter.MaxRating.Value);
 
         if (filter.CreatedFrom.HasValue)
-            query.Where(r => r.CreatedAt >= filter.CreatedFrom.Value);
+            query.Where(r => r.Audit.CreatedAtUtc >= filter.CreatedFrom.Value);
 
         if (filter.CreatedTo.HasValue)
-            query.Where(r => r.CreatedAt <= filter.CreatedTo.Value);
+            query.Where(r => r.Audit.CreatedAtUtc <= filter.CreatedTo.Value);
     }
 }

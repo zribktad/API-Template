@@ -25,7 +25,7 @@ public sealed class ProductReviewType : ObjectType<ProductReviewResponse>
         descriptor.Field(r => r.Comment)
             .Description("The optional review comment.");
 
-        descriptor.Field(r => r.CreatedAt)
+        descriptor.Field(r => r.CreatedAtUtc)
             .Description("The UTC timestamp of when the review was created.");
     }
 }
