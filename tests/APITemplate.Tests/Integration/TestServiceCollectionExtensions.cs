@@ -106,7 +106,7 @@ internal static class TestServiceCollectionExtensions
         services.RemoveAll(typeof(DbContextOptions<AppDbContext>));
         services.RemoveAll(typeof(AppDbContext));
 
-        // Remove IDbContextOptionsConfiguration<> — critical for .NET 9/10.
+        // Remove IDbContextOptionsConfiguration<> — required for correct behavior on .NET 10.
         var optionsConfigs = services
             .Where(d =>
                 d.ServiceType.IsGenericType &&
