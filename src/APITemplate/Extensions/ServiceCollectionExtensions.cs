@@ -180,11 +180,14 @@ public static class ServiceCollectionExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Register schemes with no-op config — actual configuration is deferred below via
+        // AddOptions<T>().Configure<IOptions<BffOptions>>() so that test factories can override
+        // BffOptions values BEFORE they're resolved. Eager configuration here would read
+        // empty/default values that tests haven't had a chance to override yet.
         services.AddAuthentication()
             .AddCookie(BffAuthenticationSchemes.Cookie)
             .AddOpenIdConnect(BffAuthenticationSchemes.Oidc, _ => { });
 
-        // Defer BFF Cookie configuration to options resolution time (after test config overrides).
         services.AddOptions<CookieAuthenticationOptions>(BffAuthenticationSchemes.Cookie)
             .Configure<IOptions<BffOptions>>((options, bffAccessor) =>
             {
@@ -206,7 +209,6 @@ public static class ServiceCollectionExtensions
                 };
             });
 
-        // Defer BFF OIDC configuration to options resolution time (after test config overrides).
         services.AddOptions<OpenIdConnectOptions>(BffAuthenticationSchemes.Oidc)
             .Configure<IOptions<BffOptions>>((options, bffAccessor) =>
             {

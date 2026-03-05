@@ -24,11 +24,20 @@ internal static class IntegrationAuthHelper
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
+        return GenerateTestTokenWithClaims(claims);
+    }
+
+    public static string GenerateTestTokenWithClaims(
+        Claim[] claims,
+        DateTime? expires = null,
+        DateTime? notBefore = null)
+    {
         var token = new JwtSecurityToken(
             issuer: TestAuthKeys.Issuer,
             audience: TestAuthKeys.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(1),
+            notBefore: notBefore,
+            expires: expires ?? DateTime.UtcNow.AddHours(1),
             signingCredentials: TestAuthKeys.SigningCredentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

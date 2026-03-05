@@ -26,9 +26,7 @@ public sealed class BffWebApplicationFactory : CustomWebApplicationFactory
 
         builder.ConfigureTestServices(services =>
         {
-            var claims = _claimsOverride ?? new TestBffClaims(
-                Guid.NewGuid(), Guid.NewGuid(),
-                ["PlatformAdmin"], "test-user", "test@example.com");
+            var claims = _claimsOverride ?? TestBffClaims.Default;
 
             services.AddSingleton(claims);
             services.AddTransient<TestBffCookieAuthHandler>();
@@ -54,7 +52,12 @@ public sealed record TestBffClaims(
     string Username,
     string Email,
     string? Name = null,
-    Claim[]? ExtraClaims = null);
+    Claim[]? ExtraClaims = null)
+{
+    public static TestBffClaims Default => new(
+        Guid.NewGuid(), Guid.NewGuid(),
+        ["PlatformAdmin"], "test-user", "test@example.com");
+}
 
 internal sealed class TestBffCookieAuthHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,

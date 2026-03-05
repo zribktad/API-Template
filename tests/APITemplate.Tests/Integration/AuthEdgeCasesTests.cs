@@ -21,21 +21,13 @@ public class AuthEdgeCasesTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Request_WithTokenMissingTenantId_Returns401()
     {
-        var claims = new[]
-        {
+        var token = IntegrationAuthHelper.GenerateTestTokenWithClaims(
+        [
             new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
+        ]);
 
-        var token = new JwtSecurityToken(
-            issuer: TestAuthKeys.Issuer,
-            audience: TestAuthKeys.Audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(1),
-            signingCredentials: TestAuthKeys.SigningCredentials);
-
-        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenString);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _client.GetAsync("/api/v1/products");
 
@@ -45,22 +37,14 @@ public class AuthEdgeCasesTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Request_WithTokenEmptyTenantId_Returns401()
     {
-        var claims = new[]
-        {
+        var token = IntegrationAuthHelper.GenerateTestTokenWithClaims(
+        [
             new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
             new Claim(CustomClaimTypes.TenantId, Guid.Empty.ToString()),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
+        ]);
 
-        var token = new JwtSecurityToken(
-            issuer: TestAuthKeys.Issuer,
-            audience: TestAuthKeys.Audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(1),
-            signingCredentials: TestAuthKeys.SigningCredentials);
-
-        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenString);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _client.GetAsync("/api/v1/products");
 
@@ -70,24 +54,17 @@ public class AuthEdgeCasesTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Request_WithExpiredToken_Returns401()
     {
-        var claims = new[]
-        {
+        var token = IntegrationAuthHelper.GenerateTestTokenWithClaims(
+        [
             new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
             new Claim(CustomClaimTypes.TenantId, Guid.NewGuid().ToString()),
             new Claim("groups", "PlatformAdmin"),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: TestAuthKeys.Issuer,
-            audience: TestAuthKeys.Audience,
-            claims: claims,
-            notBefore: DateTime.UtcNow.AddMinutes(-10),
+        ],
             expires: DateTime.UtcNow.AddMinutes(-5),
-            signingCredentials: TestAuthKeys.SigningCredentials);
+            notBefore: DateTime.UtcNow.AddMinutes(-10));
 
-        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenString);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _client.GetAsync("/api/v1/products");
 
