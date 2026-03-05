@@ -1,9 +1,10 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using APITemplate.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
 
@@ -12,10 +13,12 @@ namespace APITemplate.Tests.Integration;
 public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
+    private readonly CustomWebApplicationFactory _factory;
     private Guid _userId;
 
     public GraphQLTests(CustomWebApplicationFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -238,21 +241,10 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
 
     private async Task AuthenticateAsync()
     {
-        var loginResponse = await _client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = "default\\admin", Password = "admin" });
-
-        loginResponse.EnsureSuccessStatusCode();
-
-        var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var token = loginJson.GetProperty("accessToken").GetString()!;
-
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        var handler = new JwtSecurityTokenHandler();
-        var jwt = handler.ReadJwtToken(token);
-        var sub = jwt.Claims.First(c => c.Type == "sub").Value;
-        _userId = Guid.Parse(sub);
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var tenant = await db.Tenants.IgnoreQueryFilters().FirstAsync(t => t.Code == "default");
+        _userId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client, tenant.Id);
     }
 
     private async Task<HttpResponseMessage> PostGraphQLAsync(object query)
@@ -309,4 +301,3 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         return result!.Data.CreateProductReview.Id;
     }
 }
-

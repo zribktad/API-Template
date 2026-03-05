@@ -1,3 +1,4 @@
+using APITemplate.Application.Features.Auth.Interfaces;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,13 +10,11 @@ namespace APITemplate.Api.Controllers.V1;
 [Route("api/v{version:apiVersion}/[controller]")]
 public sealed class AuthController : ControllerBase
 {
-    private readonly ITokenService _tokenService;
-    private readonly IUserService _userService;
+    private readonly IAuthenticationProxy _authProxy;
 
-    public AuthController(ITokenService tokenService, IUserService userService)
+    public AuthController(IAuthenticationProxy authProxy)
     {
-        _tokenService = tokenService;
-        _userService = userService;
+        _authProxy = authProxy;
     }
 
     [HttpPost("login")]
@@ -23,11 +22,10 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType(typeof(LoginErrorResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<TokenResponse>> Login(LoginRequest request, CancellationToken ct)
     {
-        var user = await _userService.AuthenticateAsync(request.Username, request.Password, ct);
-        if (user is null)
+        var token = await _authProxy.AuthenticateAsync(request.Username, request.Password, ct);
+        if (token is null)
             return Unauthorized(new LoginErrorResponse("Invalid username or password."));
 
-        var token = _tokenService.GenerateToken(user);
         return Ok(token);
     }
 }

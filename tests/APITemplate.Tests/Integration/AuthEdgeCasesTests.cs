@@ -1,6 +1,9 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
-using System.Net.Http.Json;
+using System.Net.Http.Headers;
+using System.Security.Claims;
 using System.Text;
+using APITemplate.Application.Common.Security;
 using Shouldly;
 using Xunit;
 
@@ -9,47 +12,84 @@ namespace APITemplate.Tests.Integration;
 public class AuthEdgeCasesTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
-    private readonly CustomWebApplicationFactory _factory;
 
     public AuthEdgeCasesTests(CustomWebApplicationFactory factory)
     {
-        _factory = factory;
         _client = factory.CreateClient();
     }
 
     [Fact]
-    public async Task Login_WhenUserInactive_ReturnsUnauthorized()
+    public async Task Request_WithTokenMissingTenantId_Returns401()
     {
-        var username = $"inactive-user-{Guid.NewGuid():N}";
-        var (tenant, _) = await IntegrationAuthHelper.SeedTenantUserAsync(
-            _factory.Services,
-            username,
-            $"{username}@example.com",
-            "secret-pass",
-            userIsActive: false);
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
 
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = $"{tenant.Code}\\{username}", Password = "secret-pass" });
+        var token = new JwtSecurityToken(
+            issuer: TestAuthKeys.Issuer,
+            audience: TestAuthKeys.Audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(1),
+            signingCredentials: TestAuthKeys.SigningCredentials);
+
+        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenString);
+
+        var response = await _client.GetAsync("/api/v1/products");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task Login_WhenTenantInactive_ReturnsUnauthorized()
+    public async Task Request_WithTokenEmptyTenantId_Returns401()
     {
-        var username = $"inactive-tenant-user-{Guid.NewGuid():N}";
-        var (tenant, _) = await IntegrationAuthHelper.SeedTenantUserAsync(
-            _factory.Services,
-            username,
-            $"{username}@example.com",
-            "secret-pass",
-            userIsActive: true,
-            tenantIsActive: false);
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
+            new Claim(CustomClaimTypes.TenantId, Guid.Empty.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
 
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = $"{tenant.Code}\\{username}", Password = "secret-pass" });
+        var token = new JwtSecurityToken(
+            issuer: TestAuthKeys.Issuer,
+            audience: TestAuthKeys.Audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(1),
+            signingCredentials: TestAuthKeys.SigningCredentials);
+
+        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenString);
+
+        var response = await _client.GetAsync("/api/v1/products");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Request_WithExpiredToken_Returns401()
+    {
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
+            new Claim(CustomClaimTypes.TenantId, Guid.NewGuid().ToString()),
+            new Claim("groups", "PlatformAdmin"),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: TestAuthKeys.Issuer,
+            audience: TestAuthKeys.Audience,
+            claims: claims,
+            notBefore: DateTime.UtcNow.AddMinutes(-10),
+            expires: DateTime.UtcNow.AddMinutes(-5),
+            signingCredentials: TestAuthKeys.SigningCredentials);
+
+        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenString);
+
+        var response = await _client.GetAsync("/api/v1/products");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }

@@ -18,7 +18,8 @@ try
     builder.Services.AddPersistence(builder.Configuration); // Register EF Core + repositories + relational health checks.
     builder.Services.AddApplicationServices(); // Register application services + validators.
     builder.Services.AddMongoDB(builder.Configuration); // Register Mongo context/services + Mongo health checks.
-    builder.Services.AddJwtAuthentication(); // Register JWT authentication/authorization handlers.
+    builder.Services.AddAuthentikAuthentication(); // Register OIDC authentication/authorization handlers.
+    builder.Services.AddBffAuthentication(builder.Configuration); // Register BFF cookie + OIDC auth for browser SPA clients.
     builder.Services.AddApiVersioningConfiguration(); // Register API versioning and explorer metadata.
     builder.Services.AddGraphQLConfiguration(); // Register GraphQL schema and server services.
 

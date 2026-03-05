@@ -1,53 +1,80 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Text.Json;
+using System.Security.Claims;
+using APITemplate.Application.Common.Security;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Enums;
 using APITemplate.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace APITemplate.Tests.Integration;
 
 internal static class IntegrationAuthHelper
 {
-    public static async Task<string> LoginAndGetTokenAsync(
-        HttpClient client,
-        string username = "default\\admin",
-        string password = "admin")
+    public static string GenerateTestToken(
+        Guid userId,
+        Guid tenantId,
+        string role = nameof(UserRole.PlatformAdmin))
     {
-        var response = await client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = username, Password = password });
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim(CustomClaimTypes.TenantId, tenantId.ToString()),
+            new Claim("groups", role),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
 
-        response.EnsureSuccessStatusCode();
+        var token = new JwtSecurityToken(
+            issuer: TestAuthKeys.Issuer,
+            audience: TestAuthKeys.Audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(1),
+            signingCredentials: TestAuthKeys.SigningCredentials);
 
-        var loginJson = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return loginJson.GetProperty("accessToken").GetString()!;
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public static async Task AuthenticateAsync(
+    public static void Authenticate(
         HttpClient client,
-        string username = "default\\admin",
-        string password = "admin")
+        Guid userId,
+        Guid tenantId,
+        string role = nameof(UserRole.PlatformAdmin))
     {
-        var token = await LoginAndGetTokenAsync(client, username, password);
+        var token = GenerateTestToken(userId, tenantId, role);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 
-    public static async Task<Guid> AuthenticateAndGetUserIdAsync(
+    public static Guid AuthenticateAndGetUserId(
         HttpClient client,
-        string username = "default\\admin",
-        string password = "admin")
+        Guid tenantId,
+        string role = nameof(UserRole.PlatformAdmin))
     {
-        var token = await LoginAndGetTokenAsync(client, username, password);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var userId = Guid.NewGuid();
+        Authenticate(client, userId, tenantId, role);
+        return userId;
+    }
 
-        var handler = new JwtSecurityTokenHandler();
-        var jwt = handler.ReadJwtToken(token);
-        var sub = jwt.Claims.First(c => c.Type == "sub").Value;
-        return Guid.Parse(sub);
+    public static async Task<Tenant> SeedTenantAsync(
+        IServiceProvider services,
+        string? tenantCode = null,
+        string? tenantName = null)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var tenant = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.Empty,
+            Code = tenantCode ?? $"tenant-{Guid.NewGuid():N}",
+            Name = tenantName ?? "Test Tenant",
+            IsActive = true
+        };
+
+        dbContext.Tenants.Add(tenant);
+        await dbContext.SaveChangesAsync();
+
+        return tenant;
     }
 
     public static async Task<(Tenant Tenant, AppUser User)> SeedTenantUserAsync(
@@ -76,13 +103,10 @@ internal static class IntegrationAuthHelper
             TenantId = tenant.Id,
             Username = username,
             Email = email,
-            PasswordHash = string.Empty,
+            PasswordHash = "not-used-with-authentik",
             IsActive = userIsActive,
             Role = UserRole.TenantUser
         };
-
-        var hasher = new PasswordHasher<AppUser>();
-        user.PasswordHash = hasher.HashPassword(user, password);
 
         dbContext.Tenants.Add(tenant);
         dbContext.Users.Add(user);

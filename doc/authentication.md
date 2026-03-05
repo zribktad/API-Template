@@ -1,58 +1,59 @@
-# How Authentication Works (JWT + Tenant Claims)
+# How Authentication Works (Authentik OIDC + Tenant Claims)
 
-This guide explains the current authentication flow used in the project: bootstrap-seeded users, JWT issuance, tenant claim validation, and endpoint protection.
+This guide explains the current authentication flow: Authentik as the Identity Provider, OIDC token validation, tenant claim enforcement, and endpoint protection.
 
 ---
 
 ## Overview
 
-Authentication is database-backed and seeded at startup:
+Authentication is delegated to **Authentik** (open-source Identity Provider). The API acts as an OIDC resource server that validates RS256-signed JWTs issued by Authentik. The login endpoint proxies credentials to Authentik via the Resource Owner Password Credentials (ROPC) grant.
 
 ```
 Client  ->  POST /api/v1/Auth/login  ->  AuthController
                                           |
                                           v
-                                   UserService.AuthenticateAsync()
-                                          |
+                                   AuthentikAuthenticationProxy
+                                          |  (ROPC grant: username, password)
                                           v
-                                   TokenService.GenerateToken()
+                                   Authentik Token Endpoint
                                           |
                                           v
                                    { accessToken, expiresAt }
                                           |
 Client  ->  Authorization: Bearer <token>  ->  Protected REST/GraphQL endpoint
+                                                  |
+                                                  v
+                                           JwtBearer middleware validates
+                                           RS256 signature via OIDC discovery
+                                           + enforces tenant_id claim
 ```
 
-Startup (`UseDatabaseAsync`) runs `AuthBootstrapSeeder`, which ensures a default tenant and admin user exist.
+Startup (`UseDatabaseAsync`) runs `AuthBootstrapSeeder`, which ensures a default tenant exists in the application database. User management is handled entirely within Authentik.
 
 ---
 
-## Step 1 - Configure Authentication Settings
+## Step 1 - Configure Authentik Settings
 
-`Jwt` values control token signing/validation:
+`Authentik` section in appsettings controls OIDC connection:
 
 ```json
 {
-  "Jwt": {
-    "Secret": "",
-    "Issuer": "APITemplate",
-    "Audience": "APITemplate.Clients",
-    "ExpirationMinutes": 60
+  "Authentik": {
+    "Authority": "https://authentik.example.com/application/o/api-template/",
+    "ClientId": "api-template",
+    "ClientSecret": "<from-authentik-provider>",
+    "TokenEndpoint": "https://authentik.example.com/application/o/token/",
+    "TenantClaimType": "tenant_id",
+    "RoleClaimType": "groups"
   }
 }
 ```
 
-`Bootstrap` values control initial seeded credentials:
+`Bootstrap` controls the initial seeded tenant:
 
 ```json
 {
   "Bootstrap": {
-    "Admin": {
-      "Username": "admin",
-      "Password": "admin",
-      "Email": "admin@example.com",
-      "IsPlatformAdmin": true
-    },
     "Tenant": {
       "Code": "default",
       "Name": "Default Tenant"
@@ -61,35 +62,17 @@ Startup (`UseDatabaseAsync`) runs `AuthBootstrapSeeder`, which ensures a default
 }
 ```
 
-`SystemIdentity` is also validated on startup:
-
-```json
-{
-  "SystemIdentity": {
-    "DefaultActorId": "system"
-  }
-}
-```
-
 ### Development
 
-`appsettings.Development.json` includes a development-only JWT secret so local startup works without extra setup.
+`appsettings.Development.json` points to the local Authentik instance running via Docker Compose on port 9000.
 
 ### Production
 
-`Jwt:Secret` must be supplied securely (env var/secret manager). The app validates options with `ValidateOnStart()` and fails fast if required values are missing.
-
-Bootstrap admin credentials are also enforced in Production:
-- `Bootstrap__Admin__Username` and `Bootstrap__Admin__Password` env vars are required.
-- Known placeholders/defaults (for example `admin/admin` or `admin/change-me`) are rejected on startup.
+All `Authentik:*` values must be supplied securely (env vars/secret manager). The app validates options with `ValidateOnStart()` and fails fast if required values are missing.
 
 ---
 
 ## Step 2 - Obtain a Token
-
-Login `username` supports tenant scoping:
-- `tenantCode\username` (explicit tenant)
-- `username` (falls back to default bootstrap tenant code)
 
 ```http
 POST /api/v1/Auth/login
@@ -97,9 +80,11 @@ Content-Type: application/json
 
 {
   "username": "admin",
-  "password": "admin"
+  "password": "admin-password"
 }
 ```
+
+The API proxies this to Authentik's token endpoint using the ROPC grant with configured `ClientId` and `ClientSecret`.
 
 Success:
 
@@ -111,7 +96,7 @@ Success:
 ```
 
 Failure:
-- `401 Unauthorized` with `LoginErrorResponse` when credentials are invalid.
+- `401 Unauthorized` with `LoginErrorResponse` when credentials are invalid or Authentik is unreachable.
 
 ---
 
@@ -129,12 +114,13 @@ GraphQL query and mutation fields are protected with `[Authorize]`.
 
 ---
 
-## Current Token Claims
+## Token Claims
 
-`TokenService` issues these claims:
-- `sub` -> user id
-- `tenant_id` -> tenant id (required)
-- `role` -> user role (`PlatformAdmin` / `TenantUser`)
+Authentik issues these claims (configured via provider + property mapping):
+- `sub` -> user id (Authentik user UUID)
+- `tenant_id` -> tenant id (custom property mapping on Authentik scope `api`)
+- `groups` -> user groups/roles (`PlatformAdmin`, `TenantUser`)
+- `preferred_username` -> username
 - `jti` -> token id
 
 `JwtBearerOptions.OnTokenValidated` rejects tokens missing a valid `tenant_id` claim.
@@ -146,7 +132,7 @@ GraphQL query and mutation fields are protected with `[Authorize]`.
 ```csharp
 var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
 var tenantId = User.FindFirstValue(CustomClaimTypes.TenantId);
-var role = User.FindFirstValue(ClaimTypes.Role);
+// Role is read from "groups" claim (mapped to .NET roles via RoleClaimType)
 ```
 
 ---
@@ -170,19 +156,34 @@ public class OrderMutations { }
 
 ---
 
+## Authentik Setup (Manual)
+
+After `docker-compose up`, configure Authentik at `http://localhost:9000`:
+
+1. Create an OAuth2/OIDC Provider: `api-template`, Client Type: Confidential, Signing Key: RS256
+2. Create an Application linked to the provider
+3. Create a Property Mapping (scope `api`):
+   ```python
+   return {"tenant_id": request.user.attributes.get("tenant_id", "")}
+   ```
+4. Create Authentik groups: `PlatformAdmin`, `TenantUser`
+5. Create a user with custom attribute `tenant_id: "<guid>"` matching `Tenant.Id` in the app DB
+6. Enable ROPC grant on the provider (for the login proxy)
+
+---
+
 ## Key Files Reference
 
 | File | Purpose |
 |------|---------|
-| `Api/Controllers/V1/AuthController.cs` | Login endpoint |
-| `Application/Features/Auth/Services/UserService.cs` | Username/password authentication against seeded `AppUser` |
-| `Application/Features/Auth/Services/TokenService.cs` | JWT generation |
+| `Api/Controllers/V1/AuthController.cs` | Login endpoint (proxies to Authentik) |
+| `Application/Features/Auth/Interfaces/IAuthenticationProxy.cs` | Authentication proxy interface |
+| `Infrastructure/Security/AuthentikAuthenticationProxy.cs` | ROPC grant implementation |
+| `Application/Common/Options/AuthentikOptions.cs` | Strongly-typed Authentik options |
 | `Application/Common/Security/CustomClaimTypes.cs` | `tenant_id` claim type constant |
-| `Application/Common/Options/JwtOptions.cs` | Strongly-typed JWT options |
-| `Application/Common/Options/BootstrapAdminOptions.cs` | Seeded admin options |
 | `Application/Common/Options/BootstrapTenantOptions.cs` | Seeded tenant options |
-| `Infrastructure/Persistence/AuthBootstrapSeeder.cs` | Startup bootstrap seed for tenant/admin |
-| `Extensions/ServiceCollectionExtensions.cs` | `AddAuthenticationOptions()` + `AddJwtAuthentication()` |
+| `Infrastructure/Persistence/AuthBootstrapSeeder.cs` | Startup bootstrap seed for tenant |
+| `Extensions/ServiceCollectionExtensions.cs` | `AddAuthenticationOptions()` + `AddAuthentikAuthentication()` |
 | `Extensions/ApplicationBuilderExtensions.cs` | `UseDatabaseAsync()` runs seeding |
-| `appsettings.json` | Base config (`Jwt`, `Bootstrap`, `SystemIdentity`, `Cors`) |
-| `appsettings.Development.json` | Development overrides (dev JWT secret) |
+| `appsettings.json` | Base config (`Authentik`, `Bootstrap`, `SystemIdentity`, `Cors`) |
+| `appsettings.Development.json` | Development overrides (local Authentik URL) |

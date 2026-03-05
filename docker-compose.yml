@@ -27,6 +27,72 @@ services:
       timeout: 5s
       retries: 5
 
+  authentik-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: authentik
+      POSTGRES_DB: authentik
+    volumes:
+      - authentik-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  authentik-redis:
+    image: redis:7-alpine
+    command: --save 60 1 --loglevel warning
+    volumes:
+      - authentik-redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.12
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: "change-me-to-a-long-random-string-in-production"
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: authentik
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    depends_on:
+      authentik-postgres:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+    volumes:
+      - authentik-media:/media
+      - authentik-templates:/templates
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.12
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: "change-me-to-a-long-random-string-in-production"
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: authentik
+    depends_on:
+      authentik-postgres:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+    volumes:
+      - authentik-media:/media
+      - authentik-templates:/templates
+
   api:
     build:
       context: .
@@ -38,12 +104,22 @@ services:
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=apitemplate;Username=postgres;Password=postgres"
       MongoDB__ConnectionString: "mongodb://mongodb:27017"
       MongoDB__DatabaseName: "apitemplate"
+      Authentik__Authority: "http://authentik-server:9000/application/o/api-template/"
+      Authentik__ClientId: "api-template"
+      Authentik__ClientSecret: ""
+      Authentik__TokenEndpoint: "http://authentik-server:9000/application/o/token/"
     depends_on:
       postgres:
         condition: service_healthy
       mongodb:
         condition: service_healthy
+      authentik-server:
+        condition: service_started
 
 volumes:
   pgdata:
   mongodata:
+  authentik-pgdata:
+  authentik-redis:
+  authentik-media:
+  authentik-templates:

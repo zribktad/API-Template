@@ -1,24 +1,26 @@
-using System.Text;
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Security;
-using APITemplate.Domain.Interfaces;
-using APITemplate.Domain.Enums;
-using APITemplate.Application.Features.Auth.Services;
+using APITemplate.Application.Features.Auth.Interfaces;
 using APITemplate.Application.Features.Category.Services;
 using APITemplate.Application.Features.Product.Services;
 using APITemplate.Application.Features.Product.Validation;
 using APITemplate.Application.Features.ProductData.Services;
 using APITemplate.Application.Features.ProductReview.Services;
+using APITemplate.Domain.Enums;
+using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Persistence.SoftDelete;
 using APITemplate.Infrastructure.Repositories;
-using APITemplate.Infrastructure.StoredProcedures;
 using APITemplate.Infrastructure.Security;
+using APITemplate.Infrastructure.StoredProcedures;
 using Asp.Versioning;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -54,20 +56,15 @@ public static class ServiceCollectionExtensions
                 {
                     policy.WithOrigins(corsOrigins)
                         .AllowAnyHeader()
-                        .AllowAnyMethod();
+                        .AllowAnyMethod()
+                        .AllowCredentials();
                 });
             });
         }
 
-        services.AddOptions<JwtOptions>()
-            .Bind(configuration.GetSection("Jwt"))
+        services.AddOptions<AuthentikOptions>()
+            .Bind(configuration.GetSection("Authentik"))
             .ValidateDataAnnotations()
-            .Validate(
-                o => !string.IsNullOrWhiteSpace(o.Secret) && o.Secret.Length >= 32,
-                "Jwt secret too short")
-            .Validate(
-                o => !string.IsNullOrWhiteSpace(o.Issuer) && !string.IsNullOrWhiteSpace(o.Audience),
-                "Jwt issuer/audience is required")
             .ValidateOnStart();
 
         services.AddOptions<SystemIdentityOptions>()
@@ -76,22 +73,6 @@ public static class ServiceCollectionExtensions
             .Validate(
                 o => !string.IsNullOrWhiteSpace(o.DefaultActorId),
                 "SystemIdentity:DefaultActorId is required")
-            .ValidateOnStart();
-
-        services.AddOptions<BootstrapAdminOptions>()
-            .Bind(configuration.GetSection("Bootstrap:Admin"))
-            .ValidateDataAnnotations()
-            .Validate(
-                o => !string.IsNullOrWhiteSpace(o.Username) && !string.IsNullOrWhiteSpace(o.Password),
-                "Bootstrap admin username/password is required")
-            .Validate(
-                o => !environment.IsProduction() ||
-                     (HasNonEmptyEnvironmentVariable("Bootstrap__Admin__Username") &&
-                      HasNonEmptyEnvironmentVariable("Bootstrap__Admin__Password")),
-                "In Production, Bootstrap admin credentials must be provided via environment variables: Bootstrap__Admin__Username and Bootstrap__Admin__Password")
-            .Validate(
-                o => !environment.IsProduction() || !IsKnownDefaultBootstrapCredential(o),
-                "In Production, Bootstrap admin credentials cannot use known default placeholders")
             .ValidateOnStart();
 
         services.AddOptions<BootstrapTenantOptions>()
@@ -103,24 +84,6 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
 
         return services;
-    }
-
-    private static bool HasNonEmptyEnvironmentVariable(string variableName) =>
-        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(variableName));
-
-    private static bool IsKnownDefaultBootstrapCredential(BootstrapAdminOptions options)
-    {
-        var username = options.Username.Trim();
-        var password = options.Password.Trim();
-
-        var isDefaultUser = string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase);
-        var isDefaultPassword =
-            string.Equals(password, "admin", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(password, "change-me", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(password, "changeme", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(password, "password", StringComparison.OrdinalIgnoreCase);
-
-        return isDefaultUser && isDefaultPassword;
     }
 
     public static IServiceCollection AddPersistence(
@@ -156,25 +119,26 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProductReviewService, ProductReviewService>();
         services.AddScoped<IProductReviewQueryService, ProductReviewQueryService>();
         services.AddScoped<ICategoryService, CategoryService>();
-        services.AddSingleton<ITokenService, TokenService>();
-        services.AddScoped<IUserService, UserService>();
+        services.AddHttpClient<IAuthenticationProxy, AuthentikAuthenticationProxy>();
         services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
         services.AddFluentValidationAutoValidation();
 
         return services;
     }
 
-    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services)
+    public static IServiceCollection AddAuthentikAuthentication(this IServiceCollection services)
     {
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer();
 
         services
             .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IOptions<JwtOptions>>((options, jwtOptionsAccessor) =>
+            .Configure<IOptions<AuthentikOptions>>((options, authentikAccessor) =>
             {
-                var jwt = jwtOptionsAccessor.Value;
-                var key = Encoding.UTF8.GetBytes(jwt.Secret);
+                var authentik = authentikAccessor.Value;
+
+                options.Authority = authentik.Authority;
+                options.Audience = authentik.ClientId;
 
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -182,21 +146,15 @@ public static class ServiceCollectionExtensions
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwt.Issuer,
-                    ValidAudience = jwt.Audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(key)
+                    NameClaimType = "preferred_username",
+                    RoleClaimType = authentik.RoleClaimType
                 };
 
                 options.Events = new JwtBearerEvents
                 {
                     OnTokenValidated = context =>
                     {
-                        var hasTenantClaim = context.Principal?.HasClaim(
-                            c => c.Type == CustomClaimTypes.TenantId
-                                 && Guid.TryParse(c.Value, out var tenantId)
-                                 && tenantId != Guid.Empty) == true;
-
-                        if (!hasTenantClaim)
+                        if (!TenantClaimValidator.HasValidTenantClaim(context.Principal))
                             context.Fail("Missing required tenant_id claim.");
 
                         return Task.CompletedTask;
@@ -209,6 +167,82 @@ public static class ServiceCollectionExtensions
             options.AddPolicy(
                 AuthorizationPolicies.PlatformAdminOnly,
                 policy => policy.RequireRole(UserRole.PlatformAdmin.ToString()));
+        });
+
+        return services;
+    }
+
+    public static IServiceCollection AddBffAuthentication(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<BffOptions>()
+            .Bind(configuration.GetSection("Bff"))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddAuthentication()
+            .AddCookie(BffAuthenticationSchemes.Cookie)
+            .AddOpenIdConnect(BffAuthenticationSchemes.Oidc, _ => { });
+
+        // Defer BFF Cookie configuration to options resolution time (after test config overrides).
+        services.AddOptions<CookieAuthenticationOptions>(BffAuthenticationSchemes.Cookie)
+            .Configure<IOptions<BffOptions>>((options, bffAccessor) =>
+            {
+                var bff = bffAccessor.Value;
+                options.Cookie.Name = bff.CookieName;
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                options.ExpireTimeSpan = TimeSpan.FromMinutes(bff.SessionTimeoutMinutes);
+                options.SlidingExpiration = true;
+
+                options.Events.OnValidatePrincipal = context =>
+                {
+                    if (!TenantClaimValidator.HasValidTenantClaim(context.Principal))
+                    {
+                        context.RejectPrincipal();
+                    }
+                    return Task.CompletedTask;
+                };
+            });
+
+        // Defer BFF OIDC configuration to options resolution time (after test config overrides).
+        services.AddOptions<OpenIdConnectOptions>(BffAuthenticationSchemes.Oidc)
+            .Configure<IOptions<BffOptions>>((options, bffAccessor) =>
+            {
+                var bff = bffAccessor.Value;
+                options.Authority = bff.Authority;
+                options.ClientId = bff.ClientId;
+                options.ClientSecret = bff.ClientSecret;
+                options.ResponseType = "code";
+                options.UsePkce = true;
+                options.SaveTokens = true;
+                options.SignInScheme = BffAuthenticationSchemes.Cookie;
+                options.MapInboundClaims = false;
+                options.GetClaimsFromUserInfoEndpoint = true;
+
+                options.Scope.Clear();
+                foreach (var scope in bff.Scopes)
+                    options.Scope.Add(scope);
+
+                options.Events = new OpenIdConnectEvents
+                {
+                    OnTokenValidated = context =>
+                    {
+                        if (!TenantClaimValidator.HasValidTenantClaim(context.Principal))
+                            context.Fail("Missing required tenant_id claim.");
+
+                        return Task.CompletedTask;
+                    }
+                };
+            });
+
+        services.AddAntiforgery(options =>
+        {
+            options.HeaderName = "X-XSRF-TOKEN";
+            options.Cookie.Name = ".APITemplate.Antiforgery";
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.HttpOnly = true;
         });
 
         return services;

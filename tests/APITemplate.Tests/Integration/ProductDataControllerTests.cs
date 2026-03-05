@@ -1,11 +1,11 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Persistence;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Moq;
@@ -17,11 +17,13 @@ namespace APITemplate.Tests.Integration;
 public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
+    private readonly CustomWebApplicationFactory _factory;
     private readonly Mock<IProductDataRepository> _repositoryMock;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public ProductDataControllerTests(CustomWebApplicationFactory factory)
     {
+        _factory = factory;
         _repositoryMock = new Mock<IProductDataRepository>();
 
         _client = factory.WithWebHostBuilder(builder =>
@@ -212,14 +214,9 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
 
     private async Task AuthenticateAsync()
     {
-        var loginResponse = await _client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = "default\\admin", Password = "admin" });
-
-        var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var token = loginJson.GetProperty("accessToken").GetString();
-
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var tenant = await db.Tenants.IgnoreQueryFilters().FirstAsync(t => t.Code == "default");
+        IntegrationAuthHelper.Authenticate(_client, Guid.NewGuid(), tenant.Id);
     }
 }
-

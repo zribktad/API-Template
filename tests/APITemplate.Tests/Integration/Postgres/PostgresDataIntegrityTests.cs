@@ -197,7 +197,7 @@ public sealed class PostgresDataIntegrityTests
             reviewToSoftDeleteId = reviewA2.Id;
         }
 
-        await IntegrationAuthHelper.AuthenticateAsync(_client, $"{tenantA.Code}\\{usernameA}", "pass-a");
+        IntegrationAuthHelper.Authenticate(_client, userA.Id, tenantA.Id);
 
         var statsResponse = await _client.GetAsync($"/api/v1/categories/{categoryAId}/stats");
         statsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -227,7 +227,7 @@ public sealed class PostgresDataIntegrityTests
     public async Task DeleteProduct_WithExistingReviews_SoftDeletesReviews_Cascade()
     {
         var username = $"cascade-{Guid.NewGuid():N}";
-        var (tenant, _) = await IntegrationAuthHelper.SeedTenantUserAsync(
+        var (tenant, user) = await IntegrationAuthHelper.SeedTenantUserAsync(
             _factory.Services,
             username,
             $"{username}@example.com",
@@ -254,7 +254,7 @@ public sealed class PostgresDataIntegrityTests
             categoryId = category.Id;
         }
 
-        var cascadeUserId = await IntegrationAuthHelper.AuthenticateAndGetUserIdAsync(_client, $"{tenant.Code}\\{username}", "pass-cascade");
+        IntegrationAuthHelper.Authenticate(_client, user.Id, tenant.Id);
 
         var createProductResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
@@ -271,14 +271,14 @@ public sealed class PostgresDataIntegrityTests
 
         var createReview1 = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
-            new { ProductId = productId, UserId = cascadeUserId, Rating = 5 });
+            new { ProductId = productId, UserId = user.Id, Rating = 5 });
         createReview1.StatusCode.ShouldBe(HttpStatusCode.Created);
         var createdReview1 = await createReview1.Content.ReadFromJsonAsync<JsonElement>();
         review1Id = createdReview1.GetProperty("id").GetGuid();
 
         var createReview2 = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
-            new { ProductId = productId, UserId = cascadeUserId, Rating = 4 });
+            new { ProductId = productId, UserId = user.Id, Rating = 4 });
         createReview2.StatusCode.ShouldBe(HttpStatusCode.Created);
         var createdReview2 = await createReview2.Content.ReadFromJsonAsync<JsonElement>();
         review2Id = createdReview2.GetProperty("id").GetGuid();
@@ -332,7 +332,7 @@ public sealed class PostgresDataIntegrityTests
             categoryId = category.Id;
         }
 
-        await IntegrationAuthHelper.AuthenticateAsync(_client, $"{tenant.Code}\\{username}", "pass-smoke");
+        IntegrationAuthHelper.Authenticate(_client, Guid.NewGuid(), tenant.Id);
 
         var response = await _client.GetAsync($"/api/v1/categories/{categoryId}/stats");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
