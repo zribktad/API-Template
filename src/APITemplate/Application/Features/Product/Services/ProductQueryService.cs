@@ -1,28 +1,20 @@
-using APITemplate.Application.Features.Product.Mappings;
-using APITemplate.Application.Features.Product.Specifications;
-using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.Product.Mediator;
+using MediatR;
 
 namespace APITemplate.Application.Features.Product.Services;
 
 public sealed class ProductQueryService : IProductQueryService
 {
-    private readonly IProductRepository _repository;
+    private readonly IMediator _mediator;
 
-    public ProductQueryService(IProductRepository repository)
+    public ProductQueryService(IMediator mediator)
     {
-        _repository = repository;
+        _mediator = mediator;
     }
 
-    public async Task<PagedResponse<ProductResponse>> GetPagedAsync(ProductFilter filter, CancellationToken ct = default)
-    {
-        var items = await _repository.ListAsync(new ProductSpecification(filter), ct);
-        var totalCount = await _repository.CountAsync(new ProductCountSpecification(filter), ct);
-        return new PagedResponse<ProductResponse>(items, totalCount, filter.PageNumber, filter.PageSize);
-    }
+    public Task<PagedResponse<ProductResponse>> GetPagedAsync(ProductFilter filter, CancellationToken ct = default)
+        => _mediator.Send(new GetProductsQuery(filter), ct);
 
-    public async Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
-    {
-        var item = await _repository.GetByIdAsync(id, ct);
-        return item?.ToResponse();
-    }
+    public Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => _mediator.Send(new GetProductByIdQuery(id), ct);
 }

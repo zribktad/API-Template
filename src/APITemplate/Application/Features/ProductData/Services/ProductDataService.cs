@@ -1,63 +1,29 @@
-using APITemplate.Application.Features.ProductData.Mappings;
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.ProductData.Mediator;
+using MediatR;
 
 namespace APITemplate.Application.Features.ProductData.Services;
+
 public sealed class ProductDataService : IProductDataService
 {
-    private readonly IProductDataRepository _repository;
+    private readonly IMediator _mediator;
 
-    public ProductDataService(IProductDataRepository repository)
+    public ProductDataService(IMediator mediator)
     {
-        _repository = repository;
+        _mediator = mediator;
     }
 
-    public async Task<ProductDataResponse?> GetByIdAsync(string id, CancellationToken ct = default)
-    {
-        var data = await _repository.GetByIdAsync(id, ct);
-        return data?.ToResponse();
-    }
+    public Task<ProductDataResponse?> GetByIdAsync(string id, CancellationToken ct = default)
+        => _mediator.Send(new GetProductDataByIdQuery(id), ct);
 
-    public async Task<List<ProductDataResponse>> GetAllAsync(string? type = null, CancellationToken ct = default)
-    {
-        var items = await _repository.GetAllAsync(type, ct);
-        return items.Select(x => x.ToResponse()).ToList();
-    }
+    public Task<List<ProductDataResponse>> GetAllAsync(string? type = null, CancellationToken ct = default)
+        => _mediator.Send(new GetProductDataQuery(type), ct);
 
-    public async Task<ProductDataResponse> CreateImageAsync(CreateImageProductDataRequest request, CancellationToken ct = default)
-    {
-        var entity = new ImageProductData
-        {
-            Title = request.Title,
-            Description = request.Description,
-            Width = request.Width,
-            Height = request.Height,
-            Format = request.Format,
-            FileSizeBytes = request.FileSizeBytes
-        };
+    public Task<ProductDataResponse> CreateImageAsync(CreateImageProductDataRequest request, CancellationToken ct = default)
+        => _mediator.Send(new CreateImageProductDataCommand(request), ct);
 
-        var created = await _repository.CreateAsync(entity, ct);
-        return created.ToResponse();
-    }
+    public Task<ProductDataResponse> CreateVideoAsync(CreateVideoProductDataRequest request, CancellationToken ct = default)
+        => _mediator.Send(new CreateVideoProductDataCommand(request), ct);
 
-    public async Task<ProductDataResponse> CreateVideoAsync(CreateVideoProductDataRequest request, CancellationToken ct = default)
-    {
-        var entity = new VideoProductData
-        {
-            Title = request.Title,
-            Description = request.Description,
-            DurationSeconds = request.DurationSeconds,
-            Resolution = request.Resolution,
-            Format = request.Format,
-            FileSizeBytes = request.FileSizeBytes
-        };
-
-        var created = await _repository.CreateAsync(entity, ct);
-        return created.ToResponse();
-    }
-
-    public async Task DeleteAsync(string id, CancellationToken ct = default)
-    {
-        await _repository.DeleteAsync(id, ct);
-    }
+    public Task DeleteAsync(string id, CancellationToken ct = default)
+        => _mediator.Send(new DeleteProductDataCommand(id), ct);
 }

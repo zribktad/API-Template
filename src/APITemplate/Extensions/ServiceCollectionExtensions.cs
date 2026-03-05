@@ -1,5 +1,6 @@
 using System.Text;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Common.Mediator;
 using APITemplate.Application.Features.Auth.Services;
 using APITemplate.Application.Features.Category.Services;
 using APITemplate.Application.Features.Product.Services;
@@ -13,6 +14,7 @@ using APITemplate.Infrastructure.StoredProcedures;
 using Asp.Versioning;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -96,6 +98,11 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(ServiceCollectionExtensions).Assembly));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
+
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IProductQueryService, ProductQueryService>();
         services.AddScoped<IProductReviewService, ProductReviewService>();

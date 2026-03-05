@@ -1,7 +1,6 @@
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Exceptions;
-using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.Product.Mediator;
 using APITemplate.Application.Features.Product.Services;
+using MediatR;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -10,139 +9,90 @@ namespace APITemplate.Tests.Unit.Services;
 
 public class ProductServiceTests
 {
-    private readonly Mock<IProductRepository> _repositoryMock;
-    private readonly Mock<IProductQueryService> _queryServiceMock;
-    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<IMediator> _mediatorMock;
     private readonly ProductService _sut;
 
     public ProductServiceTests()
     {
-        _repositoryMock = new Mock<IProductRepository>();
-        _queryServiceMock = new Mock<IProductQueryService>();
-        _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _sut = new ProductService(_repositoryMock.Object, _queryServiceMock.Object, _unitOfWorkMock.Object);
-    }
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task GetByIdAsync_ReturnsExpectedResult(bool productExists)
-    {
-        var productId = Guid.NewGuid();
-        ProductResponse? response = null;
-        if (productExists)
-        {
-            response = new ProductResponse(productId, "Test Product", "A test product", 9.99m, DateTime.UtcNow);
-        }
-
-        _queryServiceMock
-            .Setup(q => q.GetByIdAsync(productId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(response);
-
-        var result = await _sut.GetByIdAsync(productId);
-
-        if (productExists)
-        {
-            result.ShouldNotBeNull();
-            result!.Name.ShouldBe("Test Product");
-            result.Price.ShouldBe(9.99m);
-        }
-        else
-        {
-            result.ShouldBeNull();
-        }
+        _mediatorMock = new Mock<IMediator>();
+        _sut = new ProductService(_mediatorMock.Object);
     }
 
     [Fact]
-    public async Task CreateAsync_ReturnsCreatedProduct()
+    public async Task GetByIdAsync_SendsGetProductByIdQuery()
     {
-        var request = new CreateProductRequest("New Product", "Description", 19.99m);
+        var id = Guid.NewGuid();
+        var expected = new ProductResponse(id, "Test", "Desc", 10m, DateTime.UtcNow);
 
-        _repositoryMock
-            .Setup(r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Product p, CancellationToken _) => p);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetProductByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        var result = await _sut.GetByIdAsync(id);
+
+        result.ShouldBe(expected);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_SendsGetProductsQuery()
+    {
+        var filter = new ProductFilter(Name: "Phone");
+        var expected = new PagedResponse<ProductResponse>([], 0, 1, 10);
+
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetProductsQuery>(q => q.Filter == filter), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        var result = await _sut.GetAllAsync(filter);
+
+        result.ShouldBe(expected);
+    }
+
+    [Fact]
+    public async Task CreateAsync_SendsCreateProductCommand()
+    {
+        var request = new CreateProductRequest("Name", "Desc", 20m);
+        var expected = new ProductResponse(Guid.NewGuid(), "Name", "Desc", 20m, DateTime.UtcNow);
+
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<CreateProductCommand>(c => c.Request == request), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
         var result = await _sut.CreateAsync(request);
 
-        result.Name.ShouldBe("New Product");
-        result.Price.ShouldBe(19.99m);
-        result.Id.ShouldNotBe(Guid.Empty);
-
-        _repositoryMock.Verify(
-            r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task UpdateAsync_WhenProductNotFound_ThrowsNotFoundException()
+    public async Task UpdateAsync_SendsUpdateProductCommand()
     {
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Product?)null);
+        var id = Guid.NewGuid();
+        var request = new UpdateProductRequest("New", "Desc", 30m);
 
-        var act = () => _sut.UpdateAsync(Guid.NewGuid(), new UpdateProductRequest("Name", null, 10m));
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<UpdateProductCommand>(c => c.Id == id && c.Request == request), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
-        await Should.ThrowAsync<NotFoundException>(act);
+        await _sut.UpdateAsync(id, request);
+
+        _mediatorMock.Verify(
+            m => m.Send(It.Is<UpdateProductCommand>(c => c.Id == id && c.Request == request), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
-    public async Task DeleteAsync_CallsRepositoryDelete()
+    public async Task DeleteAsync_SendsDeleteProductCommand()
     {
         var id = Guid.NewGuid();
 
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<DeleteProductCommand>(c => c.Id == id), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         await _sut.DeleteAsync(id);
 
-        _repositoryMock.Verify(
-            r => r.DeleteAsync(id, It.IsAny<CancellationToken>()),
+        _mediatorMock.Verify(
+            m => m.Send(It.Is<DeleteProductCommand>(c => c.Id == id), It.IsAny<CancellationToken>()),
             Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task UpdateAsync_WhenProductExists_UpdatesFields()
-    {
-        var product = new Product
-        {
-            Id = Guid.NewGuid(),
-            Name = "Old Name",
-            Description = "Old Desc",
-            Price = 10m,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(product);
-
-        await _sut.UpdateAsync(product.Id, new UpdateProductRequest("New Name", "New Desc", 20m));
-
-        product.Name.ShouldBe("New Name");
-        product.Description.ShouldBe("New Desc");
-        product.Price.ShouldBe(20m);
-
-        _repositoryMock.Verify(
-            r => r.UpdateAsync(product, It.IsAny<CancellationToken>()),
-            Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task GetAllAsync_ReturnsAllProducts()
-    {
-        var responses = new List<ProductResponse>
-        {
-            new(Guid.NewGuid(), "Product 1", null, 10m, DateTime.UtcNow),
-            new(Guid.NewGuid(), "Product 2", null, 20m, DateTime.UtcNow)
-        };
-
-        _queryServiceMock
-            .Setup(q => q.GetPagedAsync(It.IsAny<ProductFilter>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PagedResponse<ProductResponse>(responses, 2, 1, 10));
-
-        var result = await _sut.GetAllAsync(new ProductFilter());
-
-        result.Items.Count().ShouldBe(2);
-        result.TotalCount.ShouldBe(2);
     }
 }

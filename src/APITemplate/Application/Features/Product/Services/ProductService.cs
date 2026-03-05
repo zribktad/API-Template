@@ -1,69 +1,29 @@
-using APITemplate.Application.Features.Product.Mappings;
-using ProductEntity = APITemplate.Domain.Entities.Product;
-using APITemplate.Domain.Exceptions;
-using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.Product.Mediator;
+using MediatR;
 
 namespace APITemplate.Application.Features.Product.Services;
+
 public sealed class ProductService : IProductService
 {
-    private readonly IProductRepository _repository;
-    private readonly IProductQueryService _queryService;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMediator _mediator;
 
-    public ProductService(
-        IProductRepository repository,
-        IProductQueryService queryService,
-        IUnitOfWork unitOfWork)
+    public ProductService(IMediator mediator)
     {
-        _repository = repository;
-        _queryService = queryService;
-        _unitOfWork = unitOfWork;
+        _mediator = mediator;
     }
 
     public Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
-        => _queryService.GetByIdAsync(id, ct);
+        => _mediator.Send(new GetProductByIdQuery(id), ct);
 
     public Task<PagedResponse<ProductResponse>> GetAllAsync(ProductFilter filter, CancellationToken ct = default)
-        => _queryService.GetPagedAsync(filter, ct);
+        => _mediator.Send(new GetProductsQuery(filter), ct);
 
-    public async Task<ProductResponse> CreateAsync(CreateProductRequest request, CancellationToken ct = default)
-    {
-        var product = new ProductEntity
-        {
-            Id = Guid.NewGuid(),
-            Name = request.Name,
-            Description = request.Description,
-            Price = request.Price,
-            CategoryId = request.CategoryId,
-            CreatedAt = DateTime.UtcNow
-        };
+    public Task<ProductResponse> CreateAsync(CreateProductRequest request, CancellationToken ct = default)
+        => _mediator.Send(new CreateProductCommand(request), ct);
 
-        await _repository.AddAsync(product, ct);
-        await _unitOfWork.CommitAsync(ct);
-        return product.ToResponse();
-    }
+    public Task UpdateAsync(Guid id, UpdateProductRequest request, CancellationToken ct = default)
+        => _mediator.Send(new UpdateProductCommand(id, request), ct);
 
-    public async Task UpdateAsync(Guid id, UpdateProductRequest request, CancellationToken ct = default)
-    {
-        var product = await _repository.GetByIdAsync(id, ct)
-            ?? throw new NotFoundException(
-                nameof(ProductEntity),
-                id,
-                ErrorCatalog.Products.NotFound);
-
-        product.Name = request.Name;
-        product.Description = request.Description;
-        product.Price = request.Price;
-        product.CategoryId = request.CategoryId;
-
-        await _repository.UpdateAsync(product, ct);
-        await _unitOfWork.CommitAsync(ct);
-    }
-
-    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
-    {
-        await _repository.DeleteAsync(id, ct);
-        await _unitOfWork.CommitAsync(ct);
-    }
-
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+        => _mediator.Send(new DeleteProductCommand(id), ct);
 }

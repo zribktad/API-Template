@@ -1,7 +1,6 @@
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Exceptions;
-using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.Category.Mediator;
 using APITemplate.Application.Features.Category.Services;
+using MediatR;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -10,206 +9,104 @@ namespace APITemplate.Tests.Unit.Services;
 
 public class CategoryServiceTests
 {
-    private readonly Mock<ICategoryRepository> _repositoryMock;
-    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<IMediator> _mediatorMock;
     private readonly CategoryService _sut;
 
     public CategoryServiceTests()
     {
-        _repositoryMock = new Mock<ICategoryRepository>();
-        _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _sut = new CategoryService(_repositoryMock.Object, _unitOfWorkMock.Object);
+        _mediatorMock = new Mock<IMediator>();
+        _sut = new CategoryService(_mediatorMock.Object);
     }
 
     [Fact]
-    public async Task GetAllAsync_ReturnsAllCategories()
+    public async Task GetAllAsync_SendsGetCategoriesQuery()
     {
-        var categories = new List<Category>
-        {
-            new() { Id = Guid.NewGuid(), Name = "Electronics", CreatedAt = DateTime.UtcNow },
-            new() { Id = Guid.NewGuid(), Name = "Books", Description = "All books", CreatedAt = DateTime.UtcNow }
-        };
+        IReadOnlyList<CategoryResponse> expected = [new(Guid.NewGuid(), "Books", null, DateTime.UtcNow)];
 
-        _repositoryMock
-            .Setup(r => r.ListAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(categories);
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<GetCategoriesQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
         var result = await _sut.GetAllAsync();
 
-        result.Count.ShouldBe(2);
-        result[0].Name.ShouldBe("Electronics");
-        result[1].Name.ShouldBe("Books");
-        result[1].Description.ShouldBe("All books");
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task GetAllAsync_WhenEmpty_ReturnsEmptyList()
+    public async Task GetByIdAsync_SendsGetCategoryByIdQuery()
     {
-        _repositoryMock
-            .Setup(r => r.ListAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
+        var id = Guid.NewGuid();
+        var expected = new CategoryResponse(id, "Books", null, DateTime.UtcNow);
 
-        var result = await _sut.GetAllAsync();
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetCategoryByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
-        result.ShouldBeEmpty();
+        var result = await _sut.GetByIdAsync(id);
+
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task GetByIdAsync_WhenCategoryExists_ReturnsResponse()
+    public async Task CreateAsync_SendsCreateCategoryCommand()
     {
-        var category = new Category
-        {
-            Id = Guid.NewGuid(),
-            Name = "Electronics",
-            Description = "Electronic devices",
-            CreatedAt = DateTime.UtcNow
-        };
+        var request = new CreateCategoryRequest("Books", "Desc");
+        var expected = new CategoryResponse(Guid.NewGuid(), "Books", "Desc", DateTime.UtcNow);
 
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(category.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(category);
-
-        var result = await _sut.GetByIdAsync(category.Id);
-
-        result.ShouldNotBeNull();
-        result!.Id.ShouldBe(category.Id);
-        result.Name.ShouldBe("Electronics");
-        result.Description.ShouldBe("Electronic devices");
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_WhenCategoryDoesNotExist_ReturnsNull()
-    {
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Category?)null);
-
-        var result = await _sut.GetByIdAsync(Guid.NewGuid());
-
-        result.ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task CreateAsync_CreatesAndReturnsCategoryResponse()
-    {
-        var request = new CreateCategoryRequest("Electronics", "Electronic devices");
-
-        _repositoryMock
-            .Setup(r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Category c, CancellationToken _) => c);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<CreateCategoryCommand>(c => c.Request == request), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
         var result = await _sut.CreateAsync(request);
 
-        result.ShouldNotBeNull();
-        result.Id.ShouldNotBe(Guid.Empty);
-        result.Name.ShouldBe("Electronics");
-        result.Description.ShouldBe("Electronic devices");
-
-        _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task CreateAsync_WithNullDescription_CreatesCategory()
+    public async Task UpdateAsync_SendsUpdateCategoryCommand()
     {
-        var request = new CreateCategoryRequest("Books", null);
+        var id = Guid.NewGuid();
+        var request = new UpdateCategoryRequest("Books", "Desc");
 
-        _repositoryMock
-            .Setup(r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Category c, CancellationToken _) => c);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<UpdateCategoryCommand>(c => c.Id == id && c.Request == request), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
-        var result = await _sut.CreateAsync(request);
+        await _sut.UpdateAsync(id, request);
 
-        result.Name.ShouldBe("Books");
-        result.Description.ShouldBeNull();
+        _mediatorMock.Verify(
+            m => m.Send(It.Is<UpdateCategoryCommand>(c => c.Id == id && c.Request == request), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
-    public async Task UpdateAsync_WhenCategoryExists_UpdatesAndCommits()
-    {
-        var category = new Category
-        {
-            Id = Guid.NewGuid(),
-            Name = "Old Name",
-            Description = "Old Description",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var request = new UpdateCategoryRequest("New Name", "New Description");
-
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(category.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(category);
-
-        await _sut.UpdateAsync(category.Id, request);
-
-        _repositoryMock.Verify(r => r.UpdateAsync(
-            It.Is<Category>(c => c.Name == "New Name" && c.Description == "New Description"),
-            It.IsAny<CancellationToken>()), Times.Once);
-
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task UpdateAsync_WhenCategoryDoesNotExist_ThrowsNotFoundException()
-    {
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Category?)null);
-
-        var act = () => _sut.UpdateAsync(Guid.NewGuid(), new UpdateCategoryRequest("Name", null));
-
-        await Should.ThrowAsync<NotFoundException>(act);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task DeleteAsync_CallsRepositoryDeleteAndCommits()
+    public async Task DeleteAsync_SendsDeleteCategoryCommand()
     {
         var id = Guid.NewGuid();
 
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<DeleteCategoryCommand>(c => c.Id == id), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         await _sut.DeleteAsync(id);
 
-        _repositoryMock.Verify(r => r.DeleteAsync(id, It.IsAny<CancellationToken>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mediatorMock.Verify(
+            m => m.Send(It.Is<DeleteCategoryCommand>(c => c.Id == id), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
-    public async Task GetStatsAsync_WhenStatsExist_ReturnsMappedResponse()
+    public async Task GetStatsAsync_SendsGetCategoryStatsQuery()
     {
-        var categoryId = Guid.NewGuid();
-        var stats = new ProductCategoryStats
-        {
-            CategoryId = categoryId,
-            CategoryName = "Electronics",
-            ProductCount = 5,
-            AveragePrice = 199.99m,
-            TotalReviews = 42
-        };
+        var id = Guid.NewGuid();
+        var expected = new ProductCategoryStatsResponse(id, "Books", 3, 10m, 4);
 
-        _repositoryMock
-            .Setup(r => r.GetStatsByIdAsync(categoryId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(stats);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetCategoryStatsQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
-        var result = await _sut.GetStatsAsync(categoryId);
+        var result = await _sut.GetStatsAsync(id);
 
-        result.ShouldNotBeNull();
-        result!.CategoryId.ShouldBe(categoryId);
-        result.CategoryName.ShouldBe("Electronics");
-        result.ProductCount.ShouldBe(5);
-        result.AveragePrice.ShouldBe(199.99m);
-        result.TotalReviews.ShouldBe(42);
-    }
-
-    [Fact]
-    public async Task GetStatsAsync_WhenCategoryDoesNotExist_ReturnsNull()
-    {
-        _repositoryMock
-            .Setup(r => r.GetStatsByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductCategoryStats?)null);
-
-        var result = await _sut.GetStatsAsync(Guid.NewGuid());
-
-        result.ShouldBeNull();
+        result.ShouldBe(expected);
     }
 }

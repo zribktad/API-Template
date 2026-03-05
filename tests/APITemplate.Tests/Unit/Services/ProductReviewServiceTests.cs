@@ -1,7 +1,6 @@
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Exceptions;
-using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.ProductReview.Mediator;
 using APITemplate.Application.Features.ProductReview.Services;
+using MediatR;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -10,149 +9,88 @@ namespace APITemplate.Tests.Unit.Services;
 
 public class ProductReviewServiceTests
 {
-    private readonly Mock<IProductReviewRepository> _reviewRepoMock;
-    private readonly Mock<IProductReviewQueryService> _queryServiceMock;
-    private readonly Mock<IProductRepository> _productRepoMock;
-    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<IMediator> _mediatorMock;
     private readonly ProductReviewService _sut;
 
     public ProductReviewServiceTests()
     {
-        _reviewRepoMock = new Mock<IProductReviewRepository>();
-        _queryServiceMock = new Mock<IProductReviewQueryService>();
-        _productRepoMock = new Mock<IProductRepository>();
-        _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _unitOfWorkMock
-            .Setup(u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
-            .Returns((Func<Task> action, CancellationToken _) => action());
-        _sut = new ProductReviewService(
-            _reviewRepoMock.Object,
-            _queryServiceMock.Object,
-            _productRepoMock.Object,
-            _unitOfWorkMock.Object);
+        _mediatorMock = new Mock<IMediator>();
+        _sut = new ProductReviewService(_mediatorMock.Object);
     }
 
     [Fact]
-    public async Task GetAllAsync_ReturnsAllReviews()
+    public async Task GetAllAsync_SendsGetProductReviewsQuery()
     {
-        var responses = new List<ProductReviewResponse>
-        {
-            new(Guid.NewGuid(), Guid.NewGuid(), "Alice", null, 5, DateTime.UtcNow),
-            new(Guid.NewGuid(), Guid.NewGuid(), "Bob", null, 3, DateTime.UtcNow)
-        };
+        var filter = new ProductReviewFilter(PageNumber: 2, PageSize: 5);
+        var expected = new PagedResponse<ProductReviewResponse>([], 0, 2, 5);
 
-        _queryServiceMock
-            .Setup(q => q.GetPagedAsync(It.IsAny<ProductReviewFilter>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PagedResponse<ProductReviewResponse>(responses, 2, 1, 10));
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetProductReviewsQuery>(q => q.Filter == filter), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
-        var result = await _sut.GetAllAsync(new ProductReviewFilter());
+        var result = await _sut.GetAllAsync(filter);
 
-        result.Items.Count().ShouldBe(2);
-        result.TotalCount.ShouldBe(2);
-    }
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task GetByIdAsync_ReturnsExpectedResult(bool reviewExists)
-    {
-        var reviewId = Guid.NewGuid();
-        ProductReviewResponse? response = null;
-        if (reviewExists)
-        {
-            response = new ProductReviewResponse(
-                reviewId,
-                Guid.NewGuid(),
-                "Alice",
-                null,
-                4,
-                DateTime.UtcNow);
-        }
-
-        _queryServiceMock
-            .Setup(q => q.GetByIdAsync(reviewId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(response);
-
-        var result = await _sut.GetByIdAsync(reviewId);
-
-        if (reviewExists)
-        {
-            result.ShouldNotBeNull();
-            result!.ReviewerName.ShouldBe("Alice");
-            result.Rating.ShouldBe(4);
-        }
-        else
-        {
-            result.ShouldBeNull();
-        }
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task GetByProductIdAsync_ReturnsReviewsForProduct()
+    public async Task GetByIdAsync_SendsGetProductReviewByIdQuery()
+    {
+        var id = Guid.NewGuid();
+        var expected = new ProductReviewResponse(id, Guid.NewGuid(), "Alice", null, 4, DateTime.UtcNow);
+
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetProductReviewByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        var result = await _sut.GetByIdAsync(id);
+
+        result.ShouldBe(expected);
+    }
+
+    [Fact]
+    public async Task GetByProductIdAsync_SendsGetProductReviewsByProductIdQuery()
     {
         var productId = Guid.NewGuid();
-        var responses = new List<ProductReviewResponse>
-        {
-            new(Guid.NewGuid(), productId, "Alice", null, 5, DateTime.UtcNow)
-        };
+        IReadOnlyList<ProductReviewResponse> expected = [new(Guid.NewGuid(), productId, "Alice", null, 5, DateTime.UtcNow)];
 
-        _queryServiceMock
-            .Setup(q => q.GetByProductIdAsync(productId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(responses);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetProductReviewsByProductIdQuery>(q => q.ProductId == productId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
         var result = await _sut.GetByProductIdAsync(productId);
 
-        result.Count.ShouldBe(1);
-        result[0].ProductId.ShouldBe(productId);
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task CreateAsync_WhenProductExists_CreatesReview()
+    public async Task CreateAsync_SendsCreateProductReviewCommand()
     {
-        var product = new Product { Id = Guid.NewGuid(), Name = "Test", Price = 10m, CreatedAt = DateTime.UtcNow };
-        var request = new CreateProductReviewRequest(product.Id, "Alice", "Great!", 5);
+        var request = new CreateProductReviewRequest(Guid.NewGuid(), "Alice", "Great", 5);
+        var expected = new ProductReviewResponse(Guid.NewGuid(), request.ProductId, "Alice", "Great", 5, DateTime.UtcNow);
 
-        _productRepoMock
-            .Setup(r => r.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(product);
-
-        _reviewRepoMock
-            .Setup(r => r.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductReview rv, CancellationToken _) => rv);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<CreateProductReviewCommand>(c => c.Request == request), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
         var result = await _sut.CreateAsync(request);
 
-        result.ReviewerName.ShouldBe("Alice");
-        result.Rating.ShouldBe(5);
-        result.ProductId.ShouldBe(product.Id);
-        result.Id.ShouldNotBe(Guid.Empty);
-
-        _reviewRepoMock.Verify(r => r.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task CreateAsync_WhenProductNotFound_ThrowsNotFoundException()
-    {
-        _productRepoMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Product?)null);
-
-        var request = new CreateProductReviewRequest(Guid.NewGuid(), "Alice", null, 3);
-
-        var act = () => _sut.CreateAsync(request);
-
-        await Should.ThrowAsync<NotFoundException>(act);
-    }
-
-    [Fact]
-    public async Task DeleteAsync_CallsRepositoryDelete()
+    public async Task DeleteAsync_SendsDeleteProductReviewCommand()
     {
         var id = Guid.NewGuid();
 
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<DeleteProductReviewCommand>(c => c.Id == id), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         await _sut.DeleteAsync(id);
 
-        _reviewRepoMock.Verify(r => r.DeleteAsync(id, It.IsAny<CancellationToken>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mediatorMock.Verify(
+            m => m.Send(It.Is<DeleteProductReviewCommand>(c => c.Id == id), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }

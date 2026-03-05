@@ -1,6 +1,6 @@
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Interfaces;
+using APITemplate.Application.Features.ProductData.Mediator;
 using APITemplate.Application.Features.ProductData.Services;
+using MediatR;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -9,152 +9,114 @@ namespace APITemplate.Tests.Unit.Services;
 
 public class ProductDataServiceTests
 {
-    private readonly Mock<IProductDataRepository> _repositoryMock;
+    private readonly Mock<IMediator> _mediatorMock;
     private readonly ProductDataService _sut;
 
     public ProductDataServiceTests()
     {
-        _repositoryMock = new Mock<IProductDataRepository>();
-        _sut = new ProductDataService(_repositoryMock.Object);
+        _mediatorMock = new Mock<IMediator>();
+        _sut = new ProductDataService(_mediatorMock.Object);
     }
 
     [Fact]
-    public async Task GetAllAsync_ReturnsAllItems()
+    public async Task GetAllAsync_SendsGetProductDataQuery()
     {
-        var items = new List<ProductData>
-        {
-            new ImageProductData { Title = "Photo", Width = 1920, Height = 1080, Format = "jpg", FileSizeBytes = 500000 },
-            new VideoProductData { Title = "Clip", DurationSeconds = 30, Resolution = "1080p", Format = "mp4", FileSizeBytes = 5000000 }
-        };
+        List<ProductDataResponse> expected = [];
 
-        _repositoryMock
-            .Setup(r => r.GetAllAsync(null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(items);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetProductDataQuery>(q => q.Type == null), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
         var result = await _sut.GetAllAsync();
 
-        result.Count.ShouldBe(2);
-        result[0].Type.ShouldBe("image");
-        result[1].Type.ShouldBe("video");
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task GetAllAsync_WithTypeFilter_PassesTypeToRepository()
+    public async Task GetByIdAsync_SendsGetProductDataByIdQuery()
     {
-        _repositoryMock
-            .Setup(r => r.GetAllAsync("image", It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new ImageProductData { Title = "Photo", Width = 100, Height = 100, Format = "png", FileSizeBytes = 1000 }]);
-
-        var result = await _sut.GetAllAsync("image");
-
-        result.Count.ShouldBe(1);
-        result[0].Type.ShouldBe("image");
-        _repositoryMock.Verify(r => r.GetAllAsync("image", It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task GetAllAsync_WhenEmpty_ReturnsEmptyList()
-    {
-        _repositoryMock
-            .Setup(r => r.GetAllAsync(null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
-
-        var result = await _sut.GetAllAsync();
-
-        result.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_WhenExists_ReturnsResponse()
-    {
-        var image = new ImageProductData
+        var id = "507f1f77bcf86cd799439011";
+        var expected = new ProductDataResponse
         {
-            Title = "Banner",
-            Width = 800,
-            Height = 600,
+            Id = id,
+            Type = "image",
+            Title = "Title",
+            Width = 100,
+            Height = 100,
             Format = "jpg",
-            FileSizeBytes = 200000
+            FileSizeBytes = 12
         };
 
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(image.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(image);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetProductDataByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
-        var result = await _sut.GetByIdAsync(image.Id);
+        var result = await _sut.GetByIdAsync(id);
 
-        result.ShouldNotBeNull();
-        result!.Id.ShouldBe(image.Id);
-        result.Type.ShouldBe("image");
-        result.Title.ShouldBe("Banner");
-        result.Width.ShouldBe(800);
-        result.Height.ShouldBe(600);
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task GetByIdAsync_WhenNotFound_ReturnsNull()
+    public async Task CreateImageAsync_SendsCreateImageProductDataCommand()
     {
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductData?)null);
+        var request = new CreateImageProductDataRequest("Title", null, 100, 100, "jpg", 12);
+        var expected = new ProductDataResponse
+        {
+            Id = "id",
+            Type = "image",
+            Title = "Title",
+            Width = 100,
+            Height = 100,
+            Format = "jpg",
+            FileSizeBytes = 12
+        };
 
-        var result = await _sut.GetByIdAsync("nonexistent");
-
-        result.ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task CreateImageAsync_CreatesAndReturnsImageResponse()
-    {
-        var request = new CreateImageProductDataRequest("Banner", "A banner", 1920, 1080, "jpg", 500000);
-
-        _repositoryMock
-            .Setup(r => r.CreateAsync(It.IsAny<ImageProductData>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductData d, CancellationToken _) => d);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<CreateImageProductDataCommand>(c => c.Request == request), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
         var result = await _sut.CreateImageAsync(request);
 
-        result.ShouldNotBeNull();
-        result.Type.ShouldBe("image");
-        result.Title.ShouldBe("Banner");
-        result.Description.ShouldBe("A banner");
-        result.Width.ShouldBe(1920);
-        result.Height.ShouldBe(1080);
-        result.Format.ShouldBe("jpg");
-        result.FileSizeBytes.ShouldBe(500000);
-
-        _repositoryMock.Verify(
-            r => r.CreateAsync(It.Is<ImageProductData>(e => e.Title == "Banner"), It.IsAny<CancellationToken>()),
-            Times.Once);
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task CreateVideoAsync_CreatesAndReturnsVideoResponse()
+    public async Task CreateVideoAsync_SendsCreateVideoProductDataCommand()
     {
-        var request = new CreateVideoProductDataRequest("Intro", null, 60, "1080p", "mp4", 10000000);
+        var request = new CreateVideoProductDataRequest("Title", null, 30, "1080p", "mp4", 12);
+        var expected = new ProductDataResponse
+        {
+            Id = "id",
+            Type = "video",
+            Title = "Title",
+            DurationSeconds = 30,
+            Resolution = "1080p",
+            Format = "mp4",
+            FileSizeBytes = 12
+        };
 
-        _repositoryMock
-            .Setup(r => r.CreateAsync(It.IsAny<VideoProductData>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductData d, CancellationToken _) => d);
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<CreateVideoProductDataCommand>(c => c.Request == request), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
 
         var result = await _sut.CreateVideoAsync(request);
 
-        result.ShouldNotBeNull();
-        result.Type.ShouldBe("video");
-        result.Title.ShouldBe("Intro");
-        result.Description.ShouldBeNull();
-        result.DurationSeconds.ShouldBe(60);
-        result.Resolution.ShouldBe("1080p");
-        result.Format.ShouldBe("mp4");
-        result.FileSizeBytes.ShouldBe(10000000);
+        result.ShouldBe(expected);
     }
 
     [Fact]
-    public async Task DeleteAsync_CallsRepositoryDelete()
+    public async Task DeleteAsync_SendsDeleteProductDataCommand()
     {
         var id = "507f1f77bcf86cd799439011";
 
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<DeleteProductDataCommand>(c => c.Id == id), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         await _sut.DeleteAsync(id);
 
-        _repositoryMock.Verify(r => r.DeleteAsync(id, It.IsAny<CancellationToken>()), Times.Once);
+        _mediatorMock.Verify(
+            m => m.Send(It.Is<DeleteProductDataCommand>(c => c.Id == id), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }
