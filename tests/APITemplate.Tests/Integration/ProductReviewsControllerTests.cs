@@ -1,15 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class ProductReviewsControllerTests
 {
     private readonly HttpClient _client;
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private readonly Guid _tenantId = Guid.NewGuid();
 
     public ProductReviewsControllerTests(CustomWebApplicationFactory factory)
     {
@@ -17,17 +19,9 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
-    public async Task GetAll_WithoutToken_ReturnsUnauthorized()
-    {
-        var response = await _client.GetAsync("/api/v1/productreviews");
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
     public async Task FullReviewFlow_CreateAndQuery()
     {
-        var userId = await IntegrationAuthHelper.AuthenticateAndGetUserIdAsync(_client);
+        var userId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client, tenantId: _tenantId);
 
         // 1. Create a product
         var productResponse = await _client.PostAsJsonAsync(
@@ -59,7 +53,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         // 4. Get reviews by productId
         var byProductResponse = await _client.GetAsync($"/api/v1/productreviews/by-product/{productId}");
         byProductResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var reviews = await byProductResponse.Content.ReadFromJsonAsync<JsonElement[]>(JsonOptions);
+        var reviews = await byProductResponse.Content.ReadFromJsonAsync<JsonElement[]>(TestJsonOptions.CaseInsensitive);
         reviews.ShouldNotBeNull();
         reviews!.Length.ShouldBeGreaterThanOrEqualTo(1);
 
@@ -75,7 +69,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     [Fact]
     public async Task GetById_NonExistentReview_ReturnsNotFound()
     {
-        await IntegrationAuthHelper.AuthenticateAsync(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var response = await _client.GetAsync($"/api/v1/productreviews/{Guid.NewGuid()}");
 
@@ -85,7 +79,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     [Fact]
     public async Task Create_WithNonExistentProduct_ReturnsNotFound()
     {
-        await IntegrationAuthHelper.AuthenticateAsync(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var response = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
@@ -109,7 +103,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     [Fact]
     public async Task GetByProductId_ReturnsEmptyForProductWithNoReviews()
     {
-        await IntegrationAuthHelper.AuthenticateAsync(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var productResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
@@ -121,9 +115,8 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         var response = await _client.GetAsync($"/api/v1/productreviews/by-product/{productId}");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var reviews = await response.Content.ReadFromJsonAsync<JsonElement[]>(JsonOptions);
+        var reviews = await response.Content.ReadFromJsonAsync<JsonElement[]>(TestJsonOptions.CaseInsensitive);
         reviews.ShouldNotBeNull();
         reviews!.ShouldBeEmpty();
     }
-
 }

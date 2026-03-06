@@ -65,7 +65,7 @@ namespace APITemplate.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
-                        .HasDefaultValue("TenantUser");
+                        .HasDefaultValue("User");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()

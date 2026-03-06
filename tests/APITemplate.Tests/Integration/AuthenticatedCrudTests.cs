@@ -1,16 +1,17 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class AuthenticatedCrudTests
 {
     private readonly HttpClient _client;
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private readonly Guid _tenantId = Guid.NewGuid();
 
     public AuthenticatedCrudTests(CustomWebApplicationFactory factory)
     {
@@ -20,24 +21,13 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task FullCrudFlow_WorksWithAuthentication()
     {
-        // 1. Login
-        var loginResponse = await _client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = "default\\admin", Password = "admin" });
-
-        loginResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var token = loginJson.GetProperty("accessToken").GetString();
-        token.ShouldNotBeNullOrWhiteSpace();
-
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         // 2. Get all - empty
         var getAllResponse = await _client.GetAsync("/api/v1/products");
         getAllResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var pagedEmpty = await getAllResponse.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        var pagedEmpty = await getAllResponse.Content.ReadFromJsonAsync<JsonElement>(TestJsonOptions.CaseInsensitive);
         var emptyList = pagedEmpty.GetProperty("items").EnumerateArray().ToArray();
         emptyList.ShouldBeEmpty();
 
@@ -86,7 +76,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GetById_NonExistentProduct_ReturnsNotFound()
     {
-        await AuthenticateAsync();
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var response = await _client.GetAsync($"/api/v1/products/{Guid.NewGuid()}");
 
@@ -96,7 +86,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Create_MultipleProducts_AllReturnedInGetAll()
     {
-        await AuthenticateAsync();
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         await _client.PostAsJsonAsync("/api/v1/products",
             new { Name = "Product A", Price = 10.0 });
@@ -104,23 +94,10 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
             new { Name = "Product B", Price = 20.0 });
 
         var response = await _client.GetAsync("/api/v1/products");
-        var pagedResponse = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        var pagedResponse = await response.Content.ReadFromJsonAsync<JsonElement>(TestJsonOptions.CaseInsensitive);
         var products = pagedResponse.GetProperty("items").EnumerateArray().ToArray();
 
         products.ShouldNotBeNull();
         products.Length.ShouldBeGreaterThanOrEqualTo(2);
     }
-
-    private async Task AuthenticateAsync()
-    {
-        var loginResponse = await _client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = "default\\admin", Password = "admin" });
-
-        var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var token = loginJson.GetProperty("accessToken").GetString();
-
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-    }
 }
-

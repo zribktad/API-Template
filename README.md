@@ -212,13 +212,7 @@ tests/APITemplate.Tests/
 
 ## 🌐 REST API Reference
 
-All versioned REST resource endpoints sit under the base path `api/v{version}`. JWT `Authorization: Bearer <token>` is required for these versioned API routes (except `POST /api/v1/Auth/login`), while utility endpoints such as `/health` and `/graphql/ui` are anonymous and `/scalar` is only mapped in Development.
-
-### Auth
-
-| Method | Path | Auth Required | Description |
-|--------|------|:---:|-------------|
-| `POST` | `/api/v1/Auth/login` | ❌ | Exchange credentials for a JWT token |
+All versioned REST resource endpoints sit under the base path `api/v{version}`. JWT `Authorization: Bearer <token>` is required for these versioned API routes. Authentication is handled externally by Keycloak (see [Authentication](#-authentication) section). Utility endpoints such as `/health` and `/graphql/ui` are anonymous, and `/scalar` is only mapped in Development.
 
 ### Products
 
@@ -280,40 +274,77 @@ All configuration lives in `appsettings.json` (production defaults) and is overr
 | `ConnectionStrings:DefaultConnection` | `Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres` | PostgreSQL connection string |
 | `MongoDB:ConnectionString` | `mongodb://localhost:27017` | MongoDB connection string |
 | `MongoDB:DatabaseName` | `apitemplate` | MongoDB database name |
-| `Jwt:Secret` | *(recommended minimum 32 characters / 256 bits)* | HMAC-SHA256 signing key — **never commit a real secret** |
-| `Jwt:Issuer` | `APITemplate` | JWT `iss` claim value |
-| `Jwt:Audience` | `APITemplate.Clients` | JWT `aud` claim value |
-| `Jwt:ExpirationMinutes` | `60` | Token lifetime in minutes |
+| `Keycloak:auth-server-url` | `http://localhost:8180/` | Keycloak base URL |
+| `Keycloak:realm` | `api-template` | Keycloak realm name |
+| `Keycloak:resource` | `api-template` | Keycloak client ID |
+| `Keycloak:credentials:secret` | `dev-client-secret` | Keycloak client secret — **never commit a real secret** |
+| `Bff:CookieName` | `.APITemplate.Auth` | BFF session cookie name |
+| `Bff:SessionTimeoutMinutes` | `60` | BFF cookie session lifetime |
+| `Bff:PostLogoutRedirectUri` | `/` | Redirect URI after BFF logout |
 | `SystemIdentity:DefaultActorId` | `system` | Default actor ID used when request actor context is unavailable |
-| `Bootstrap:Admin:Username` | `admin` (dev/test) | Bootstrap admin username seeded at startup (in Production must come from `Bootstrap__Admin__Username` env var) |
-| `Bootstrap:Admin:Password` | `admin` (dev/test) | Bootstrap admin password seeded at startup (in Production must come from `Bootstrap__Admin__Password` env var) |
-| `Bootstrap:Admin:Email` | `admin@example.com` | Bootstrap admin email |
-| `Bootstrap:Admin:IsPlatformAdmin` | `true` | Whether seeded admin receives `PlatformAdmin` role |
 | `Bootstrap:Tenant:Code` | `default` | Bootstrap tenant code seeded at startup |
 | `Bootstrap:Tenant:Name` | `Default Tenant` | Bootstrap tenant display name |
 | `Cors:AllowedOrigins` | `http://localhost:3000` | Allowed origins for CORS default policy |
 
-> **Security note:** `Jwt:Secret` must be supplied via an environment variable or secret manager in production — never from a committed config file.
+> **Security note:** `Keycloak:credentials:secret` must be supplied via an environment variable or secret manager in production — never from a committed config file.
 
 ---
 
-## 🔐 Authentication & Examples
+## 🔐 Authentication
 
-All versioned REST endpoints except `POST /api/v1/Auth/login` are protected by JWT Authentication (`[Authorize]`). In GraphQL, both query and mutation fields are protected with `[Authorize]` and require a valid JWT. A sample HTTP file (`src/APITemplate/APITemplate.http`) is included for direct execution from VS Code or Visual Studio.
+Authentication is handled by **Keycloak** using a hybrid approach that supports both **JWT Bearer tokens** (for API clients and Scalar) and **BFF Cookie sessions** (for SPA frontends).
 
-**1. Acquiring a JWT Token via REST:**
-Send your configured bootstrap admin credentials (`Bootstrap:Admin:Username` and `Bootstrap:Admin:Password`; `admin`/`admin` is intended only for local dev/test) to:
+| Flow | Use Case | How it works |
+|------|----------|-------------|
+| **JWT Bearer** | Scalar UI, API clients, service-to-service | `Authorization: Bearer <token>` header |
+| **BFF Cookie** | SPA frontend | `/api/v1/bff/login` → Keycloak login → session cookie → YARP proxy attaches token |
 
-`username` can be sent as `tenantCode\username` for explicit tenant login, or without prefix to use the default bootstrap tenant.
-```http
-POST /api/v1/Auth/login
-Content-Type: application/json
+### BFF Endpoints
 
-{
-    "username": "admin",
-    "password": "admin"
-}
+| Method | Path | Auth | Description |
+|--------|------|:---:|-------------|
+| `GET` | `/api/v1/bff/login` | ❌ | Redirects to Keycloak login page |
+| `GET` | `/api/v1/bff/logout` | 🍪 | Signs out from both cookie and Keycloak |
+| `GET` | `/api/v1/bff/user` | 🍪 | Returns current user info (id, username, email, tenantId, roles) |
+
+### Manual Testing Guide
+
+#### Option A: Scalar UI with OAuth2 (recommended)
+
+1. Start the infrastructure:
+   ```bash
+   docker compose up -d
+   ```
+2. Run the API (via VS Code debugger or CLI):
+   ```bash
+   dotnet run --project src/APITemplate
+   ```
+3. Open **Scalar UI**: `http://localhost:5174/scalar`
+4. Click the **Authorize** button in Scalar
+5. You will be redirected to Keycloak — log in with `admin` / `Admin123`
+6. After successful login, Scalar will automatically attach the JWT token to all requests
+7. Try any endpoint (e.g. `GET /api/v1/Products`)
+
+#### Option B: BFF Cookie flow (browser)
+
+1. Open `http://localhost:5174/api/v1/bff/login` in a browser
+2. Log in with `admin` / `Admin123` on the Keycloak page
+3. After redirect, call API endpoints directly in the browser — the session cookie is sent automatically
+4. Check your session: `http://localhost:5174/api/v1/bff/user`
+
+#### Option C: Direct token via cURL
+
+```bash
+# Get a token from Keycloak (requires Direct Access Grants enabled on the client)
+TOKEN=$(curl -s -X POST http://localhost:8180/realms/api-template/protocol/openid-connect/token \
+  -d "grant_type=password&client_id=api-template&client_secret=dev-client-secret&username=admin&password=Admin123" \
+  | jq -r '.access_token')
+
+# Use the token
+curl -H "Authorization: Bearer $TOKEN" http://localhost:5174/api/v1/products
 ```
+
+> **Note:** Direct Access Grants (password grant) is disabled by default. Enable it in Keycloak Admin (`http://localhost:8180/admin` → api-template client → Settings) if needed.
 
 ### ⚡ GraphQL DataLoaders (N+1 Problem Solved)
 By leveraging HotChocolate's built-in **DataLoaders** pipeline (`ProductReviewsByProductDataLoader`), fetching deeply nested parent-child relationships avoids querying the database `n` times. The framework collects IDs requested entirely within the GraphQL query, then queries the underlying EF Core PostgreSQL implementation precisely *once*.

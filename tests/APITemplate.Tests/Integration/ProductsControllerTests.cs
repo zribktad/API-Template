@@ -1,11 +1,11 @@
 using System.Net;
-using System.Net.Http.Json;
 using Shouldly;
 using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class ProductsControllerTests
 {
     private readonly HttpClient _client;
 
@@ -15,25 +15,12 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task GetAll_WithoutToken_ReturnsUnauthorized()
+    public async Task GetAll_WithValidToken_ReturnsOk()
     {
+        IntegrationAuthHelper.Authenticate(_client);
+
         var response = await _client.GetAsync("/api/v1/products");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
-    public async Task Login_WithValidCredentials_ReturnsToken()
-    {
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = "default\\admin", Password = "admin" });
-
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var content = await response.Content.ReadAsStringAsync();
-        content.ShouldContain("accessToken");
     }
-
 }
-

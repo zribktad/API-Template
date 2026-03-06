@@ -10,7 +10,7 @@ public sealed class AppUser : IAuditableTenantEntity
     public required string Email { get; set; }
     public required string PasswordHash { get; set; }
     public bool IsActive { get; set; } = true;
-    public UserRole Role { get; set; } = UserRole.TenantUser;
+    public UserRole Role { get; set; } = UserRole.User;
 
     public Tenant Tenant { get; set; } = null!;
 

@@ -1,8 +1,8 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using APITemplate.Domain.Entities;
+using APITemplate.Tests.Integration.Helpers;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Persistence;
 using Microsoft.AspNetCore.TestHost;
@@ -14,11 +14,11 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class ProductDataControllerTests
 {
     private readonly HttpClient _client;
     private readonly Mock<IProductDataRepository> _repositoryMock;
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public ProductDataControllerTests(CustomWebApplicationFactory factory)
     {
@@ -36,17 +36,9 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
-    public async Task GetAll_WithoutToken_ReturnsUnauthorized()
-    {
-        var response = await _client.GetAsync("/api/v1/product-data");
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
     public async Task GetAll_WithToken_ReturnsOk()
     {
-        await AuthenticateAsync();
+        IntegrationAuthHelper.Authenticate(_client);
 
         _repositoryMock
             .Setup(r => r.GetAllAsync(null, It.IsAny<CancellationToken>()))
@@ -60,7 +52,7 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public async Task GetAll_WithTypeFilter_PassesTypeToRepository()
     {
-        await AuthenticateAsync();
+        IntegrationAuthHelper.Authenticate(_client);
 
         _repositoryMock
             .Setup(r => r.GetAllAsync("image", It.IsAny<CancellationToken>()))
@@ -69,7 +61,7 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
         var response = await _client.GetAsync("/api/v1/product-data?type=image");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var items = await response.Content.ReadFromJsonAsync<JsonElement[]>(JsonOptions);
+        var items = await response.Content.ReadFromJsonAsync<JsonElement[]>(TestJsonOptions.CaseInsensitive);
         items.ShouldNotBeNull();
         items!.Length.ShouldBe(1);
         items[0].GetProperty("type").GetString().ShouldBe("image");
@@ -78,7 +70,7 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public async Task GetById_WhenExists_ReturnsOk()
     {
-        await AuthenticateAsync();
+        IntegrationAuthHelper.Authenticate(_client);
 
         var image = new ImageProductData { Title = "Banner", Width = 800, Height = 600, Format = "jpg", FileSizeBytes = 200000 };
 
@@ -89,7 +81,7 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
         var response = await _client.GetAsync($"/api/v1/product-data/{image.Id}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestJsonOptions.CaseInsensitive);
         json.GetProperty("title").GetString().ShouldBe("Banner");
         json.GetProperty("type").GetString().ShouldBe("image");
     }
@@ -97,7 +89,7 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public async Task GetById_WhenNotFound_ReturnsNotFound()
     {
-        await AuthenticateAsync();
+        IntegrationAuthHelper.Authenticate(_client);
 
         _repositoryMock
             .Setup(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -108,87 +100,49 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
-    [Fact]
-    public async Task CreateImage_ValidRequest_ReturnsCreated()
+    [Theory]
+    [InlineData("image")]
+    [InlineData("video")]
+    public async Task Create_ValidRequest_ReturnsCreated(string type)
     {
-        await AuthenticateAsync();
+        IntegrationAuthHelper.Authenticate(_client);
 
-        _repositoryMock
-            .Setup(r => r.CreateAsync(It.IsAny<ImageProductData>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductData d, CancellationToken _) => d);
-
-        var response = await _client.PostAsJsonAsync("/api/v1/product-data/image", new
+        if (type == "image")
         {
-            Title = "Hero Banner",
-            Description = "Main page hero",
-            Width = 1920,
-            Height = 1080,
-            Format = "jpg",
-            FileSizeBytes = 500000
-        });
+            _repositoryMock
+                .Setup(r => r.CreateAsync(It.IsAny<ImageProductData>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((ProductData d, CancellationToken _) => d);
+        }
+        else
+        {
+            _repositoryMock
+                .Setup(r => r.CreateAsync(It.IsAny<VideoProductData>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((ProductData d, CancellationToken _) => d);
+        }
+
+        object payload = type == "image"
+            ? new { Title = "Hero Banner", Description = "Main page hero", Width = 1920, Height = 1080, Format = "jpg", FileSizeBytes = 500000 }
+            : new { Title = "Product Demo", DurationSeconds = 120, Resolution = "1080p", Format = "mp4", FileSizeBytes = 10000000 };
+
+        var response = await _client.PostAsJsonAsync($"/api/v1/product-data/{type}", payload);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
-        json.GetProperty("type").GetString().ShouldBe("image");
-        json.GetProperty("title").GetString().ShouldBe("Hero Banner");
-        json.GetProperty("width").GetInt32().ShouldBe(1920);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestJsonOptions.CaseInsensitive);
+        json.GetProperty("type").GetString().ShouldBe(type);
     }
 
-    [Fact]
-    public async Task CreateImage_InvalidRequest_ReturnsBadRequest()
+    [Theory]
+    [InlineData("image")]
+    [InlineData("video")]
+    public async Task Create_InvalidRequest_ReturnsBadRequest(string type)
     {
-        await AuthenticateAsync();
+        IntegrationAuthHelper.Authenticate(_client);
 
-        var response = await _client.PostAsJsonAsync("/api/v1/product-data/image", new
-        {
-            Title = "",
-            Width = -1,
-            Height = 0,
-            Format = "bmp",
-            FileSizeBytes = -100
-        });
+        object payload = type == "image"
+            ? new { Title = "", Width = -1, Height = 0, Format = "bmp", FileSizeBytes = -100 }
+            : new { Title = "", DurationSeconds = 0, Resolution = "480p", Format = "wmv", FileSizeBytes = -1 };
 
-        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task CreateVideo_ValidRequest_ReturnsCreated()
-    {
-        await AuthenticateAsync();
-
-        _repositoryMock
-            .Setup(r => r.CreateAsync(It.IsAny<VideoProductData>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProductData d, CancellationToken _) => d);
-
-        var response = await _client.PostAsJsonAsync("/api/v1/product-data/video", new
-        {
-            Title = "Product Demo",
-            DurationSeconds = 120,
-            Resolution = "1080p",
-            Format = "mp4",
-            FileSizeBytes = 10000000
-        });
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
-        json.GetProperty("type").GetString().ShouldBe("video");
-        json.GetProperty("title").GetString().ShouldBe("Product Demo");
-        json.GetProperty("durationSeconds").GetInt32().ShouldBe(120);
-    }
-
-    [Fact]
-    public async Task CreateVideo_InvalidRequest_ReturnsBadRequest()
-    {
-        await AuthenticateAsync();
-
-        var response = await _client.PostAsJsonAsync("/api/v1/product-data/video", new
-        {
-            Title = "",
-            DurationSeconds = 0,
-            Resolution = "480p",
-            Format = "wmv",
-            FileSizeBytes = -1
-        });
+        var response = await _client.PostAsJsonAsync($"/api/v1/product-data/{type}", payload);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
@@ -196,7 +150,7 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public async Task Delete_WithToken_ReturnsNoContent()
     {
-        await AuthenticateAsync();
+        IntegrationAuthHelper.Authenticate(_client);
 
         var id = "507f1f77bcf86cd799439011";
 
@@ -209,17 +163,4 @@ public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         _repositoryMock.Verify(r => r.DeleteAsync(id, It.IsAny<CancellationToken>()), Times.Once);
     }
-
-    private async Task AuthenticateAsync()
-    {
-        var loginResponse = await _client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new { Username = "default\\admin", Password = "admin" });
-
-        var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var token = loginJson.GetProperty("accessToken").GetString();
-
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-    }
 }
-

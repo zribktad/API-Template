@@ -7,7 +7,8 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class ScalarAndOpenApiTests
 {
     private readonly HttpClient _client;
 
@@ -50,14 +51,14 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
         var responses = productReviewsPost.GetProperty("responses");
 
         responses.TryGetProperty(StatusCodes.Status400BadRequest.ToString(), out _).ShouldBeTrue();
-        responses.TryGetProperty(StatusCodes.Status404NotFound.ToString(), out _).ShouldBeTrue();
-        responses.TryGetProperty(StatusCodes.Status500InternalServerError.ToString(), out _).ShouldBeTrue();
         responses.TryGetProperty(StatusCodes.Status401Unauthorized.ToString(), out _).ShouldBeTrue();
         responses.TryGetProperty(StatusCodes.Status403Forbidden.ToString(), out _).ShouldBeTrue();
+        responses.TryGetProperty(StatusCodes.Status404NotFound.ToString(), out _).ShouldBeTrue();
+        responses.TryGetProperty(StatusCodes.Status500InternalServerError.ToString(), out _).ShouldBeTrue();
     }
 
     [Fact]
-    public async Task OpenApi_AllowsCustomProducesResponseTypeForSpecificEndpoint()
+    public async Task OpenApi_ContainsOAuth2SecurityScheme()
     {
         var response = await _client.GetAsync("/openapi/v1.json");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -65,25 +66,10 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
         var content = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(content);
 
-        var paths = doc.RootElement.GetProperty("paths");
-        var authPath = paths.EnumerateObject()
-            .FirstOrDefault(p => p.Name.Contains("/auth/login", StringComparison.OrdinalIgnoreCase))
-            .Value;
-
-        authPath.ValueKind.ShouldBe(JsonValueKind.Object);
-        var post = authPath.GetProperty("post");
-        var responses = post.GetProperty("responses");
-        var unauthorized = responses.GetProperty(StatusCodes.Status401Unauthorized.ToString());
-
-        var schemaRef = unauthorized
-            .GetProperty("content")
-            .GetProperty("application/json")
-            .GetProperty("schema")
-            .GetProperty("$ref")
-            .GetString();
-
-        schemaRef.ShouldNotBeNull();
-        schemaRef.ShouldContain("LoginErrorResponse");
+        var components = doc.RootElement.GetProperty("components");
+        var securitySchemes = components.GetProperty("securitySchemes");
+        securitySchemes.TryGetProperty("OAuth2", out var oauth2).ShouldBeTrue();
+        oauth2.GetProperty("type").GetString().ShouldBe("oauth2");
     }
 
     [Fact]
@@ -100,11 +86,12 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_Endpoint_IsAccessible()
     {
+        IntegrationAuthHelper.Authenticate(_client);
+
         var response = await _client.PostAsJsonAsync(
             "/graphql",
             new { query = "{ __typename }" });
 
-        // Verify GraphQL endpoint itself, independent of GET UI redirects/tooling.
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 }

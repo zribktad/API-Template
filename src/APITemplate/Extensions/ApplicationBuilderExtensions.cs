@@ -1,8 +1,11 @@
+using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Persistence;
+using APITemplate.Infrastructure.Security;
 using APITemplate.Api.Middleware;
 using Kot.MongoDB.Migrations;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
@@ -62,6 +65,55 @@ public static class ApplicationBuilderExtensions
         return app;
     }
 
+    public static async Task WaitForKeycloakAsync(this WebApplication app, CancellationToken cancellationToken = default)
+    {
+        var keycloak = app.Services.GetRequiredService<IOptions<KeycloakOptions>>().Value;
+
+        if (string.IsNullOrEmpty(keycloak.AuthServerUrl) || string.IsNullOrEmpty(keycloak.Realm))
+        {
+            app.Logger.LogWarning("Keycloak configuration is missing, skipping readiness check");
+            return;
+        }
+
+        if (app.Configuration.GetValue<bool>("Keycloak:SkipReadinessCheck"))
+        {
+            app.Logger.LogInformation("Keycloak readiness check skipped via configuration");
+            return;
+        }
+
+        var discoveryUrl = KeycloakUrlHelper.BuildDiscoveryUrl(keycloak.AuthServerUrl, keycloak.Realm);
+        var httpClientFactory = app.Services.GetRequiredService<IHttpClientFactory>();
+        using var httpClient = httpClientFactory.CreateClient();
+
+        const int maxRetries = 30;
+        const int delayMs = 2000;
+
+        for (var i = 1; i <= maxRetries; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var response = await httpClient.GetAsync(discoveryUrl, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    app.Logger.LogInformation("Keycloak is ready at {Url}", keycloak.AuthServerUrl);
+                    return;
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // Keycloak not reachable yet
+            }
+
+            app.Logger.LogWarning("Keycloak not ready, retrying ({Attempt}/{MaxRetries})...", i, maxRetries);
+            await Task.Delay(delayMs, cancellationToken);
+        }
+
+        throw new InvalidOperationException(
+            $"Keycloak at {keycloak.AuthServerUrl} did not become available after {maxRetries} retries.");
+    }
+
     /// <summary>
     /// Builds the HTTP middleware pipeline in execution order.
     /// </summary>
@@ -85,11 +137,11 @@ public static class ApplicationBuilderExtensions
 
     public static WebApplication MapApplicationEndpoints(this WebApplication app)
     {
-        // Endpoints are mapped here, but request execution still runs through UseApiPipeline first (including global exception handling).
-        app.MapControllers(); // Map versioned REST controllers.
-        app.MapGraphQL(); // Map GraphQL endpoint.
-        app.MapNitroApp("/graphql/ui"); // Map GraphQL UI (Nitro).
-        app.UseHealthChecks(); // Map health endpoint with custom JSON response.
+        app.MapControllers();
+        app.MapGraphQL();
+        app.MapNitroApp("/graphql/ui");
+        app.MapReverseProxy();
+        app.UseHealthChecks();
 
         return app;
     }
@@ -99,15 +151,18 @@ public static class ApplicationBuilderExtensions
         if (!app.Environment.IsDevelopment())
             return app; // Keep interactive API docs available only in development.
 
-        app.MapOpenApi(); // Map OpenAPI JSON endpoint.
+        app.MapOpenApi().AllowAnonymous(); // Map OpenAPI JSON endpoint.
         app.MapScalarApiReference("/scalar", options =>
         {
-            options.WithTitle("APITemplate")
-                   .AddHttpAuthentication("Bearer", scheme =>
-                   {
-                       scheme.Token = string.Empty;
-                   });
-        });
+            options.WithTitle("APITemplate");
+            options
+                .AddPreferredSecuritySchemes("OAuth2")
+                .AddAuthorizationCodeFlow("OAuth2", flow =>
+                {
+                    flow.ClientId = "api-template-scalar";
+                    flow.SelectedScopes = ["openid", "profile", "email"];
+                });
+        }).AllowAnonymous();
 
         return app;
     }

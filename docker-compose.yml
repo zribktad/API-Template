@@ -27,6 +27,45 @@ services:
       timeout: 5s
       retries: 5
 
+  keycloak-db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+      POSTGRES_DB: keycloak
+    volumes:
+      - keycloak-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HTTP_PORT: 8180
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8180:8180"
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    volumes:
+      - ./infrastructure/keycloak/realms:/opt/keycloak/data/import
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8180"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
   api:
     build:
       context: .
@@ -38,12 +77,20 @@ services:
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=apitemplate;Username=postgres;Password=postgres"
       MongoDB__ConnectionString: "mongodb://mongodb:27017"
       MongoDB__DatabaseName: "apitemplate"
+      Keycloak__realm: "api-template"
+      Keycloak__auth-server-url: "http://keycloak:8180/"
+      Keycloak__resource: "api-template"
+      Keycloak__credentials__secret: "${KC_DEV_CLIENT_SECRET:-dev-client-secret}"
+      ReverseProxy__Clusters__api-self__Destinations__self__Address: "http://localhost:8080/"
     depends_on:
       postgres:
         condition: service_healthy
       mongodb:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
 
 volumes:
   pgdata:
   mongodata:
+  keycloak-pgdata:
