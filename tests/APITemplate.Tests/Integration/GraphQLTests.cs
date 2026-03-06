@@ -6,10 +6,12 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class GraphQLTests
 {
     private readonly HttpClient _client;
     private readonly GraphQLTestHelper _graphql;
+    private readonly Guid _tenantId = Guid.NewGuid();
 
     public GraphQLTests(CustomWebApplicationFactory factory)
     {
@@ -20,7 +22,7 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_GetProducts_ReturnsEmptyList()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var query = new { query = "{ products { items { id name price } totalCount pageNumber pageSize } }" };
 
@@ -36,7 +38,7 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_CreateProduct_ReturnsNewProduct()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var query = new
         {
@@ -71,7 +73,7 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_GetProductById_WhenExists_ReturnsProduct()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var productId = await _graphql.CreateProductAsync("Findable Product", 10.0m);
 
@@ -91,7 +93,7 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_DeleteProduct_ReturnsTrue()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var productId = await _graphql.CreateProductAsync("To Delete", 5.0m);
 
@@ -111,7 +113,7 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_GetProducts_WithFilterSortAndPaging_ReturnsExpectedOrderAndSlice()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var prefix = $"sort-{Guid.NewGuid():N}";
         await _graphql.CreateProductAsync($"{prefix}-A", 30m);
@@ -158,7 +160,7 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_ProductReviewsField_UsesBatchResolverAndReturnsReviewsPerProduct()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var prefix = $"dl-{Guid.NewGuid():N}";
         var p1 = await _graphql.CreateProductAsync($"{prefix}-P1", 11m);

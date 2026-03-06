@@ -57,12 +57,7 @@ public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Progra
             services.AddDbContext<AppDbContext>(options =>
                 options.UseNpgsql(connectionString));
 
-            var healthCheckDescriptors = services
-                .Where(d => d.ServiceType.FullName?.Contains("HealthCheck") == true)
-                .ToList();
-
-            foreach (var d in healthCheckDescriptors)
-                services.Remove(d);
+            TestServiceHelper.RemoveExternalHealthChecks(services);
 
             services.AddHealthChecks()
                 .AddNpgSql(connectionString, name: "postgresql", tags: ["database"]);

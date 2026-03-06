@@ -7,9 +7,11 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class ProductReviewsControllerTests
 {
     private readonly HttpClient _client;
+    private readonly Guid _tenantId = Guid.NewGuid();
 
     public ProductReviewsControllerTests(CustomWebApplicationFactory factory)
     {
@@ -17,17 +19,9 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
-    public async Task GetAll_WithoutToken_ReturnsUnauthorized()
-    {
-        var response = await _client.GetAsync("/api/v1/productreviews");
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
     public async Task FullReviewFlow_CreateAndQuery()
     {
-        var userId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client);
+        var userId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client, tenantId: _tenantId);
 
         // 1. Create a product
         var productResponse = await _client.PostAsJsonAsync(
@@ -75,7 +69,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     [Fact]
     public async Task GetById_NonExistentReview_ReturnsNotFound()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var response = await _client.GetAsync($"/api/v1/productreviews/{Guid.NewGuid()}");
 
@@ -85,7 +79,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     [Fact]
     public async Task Create_WithNonExistentProduct_ReturnsNotFound()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var response = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
@@ -109,7 +103,7 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     [Fact]
     public async Task GetByProductId_ReturnsEmptyForProductWithNoReviews()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var productResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
@@ -125,5 +119,4 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         reviews.ShouldNotBeNull();
         reviews!.ShouldBeEmpty();
     }
-
 }

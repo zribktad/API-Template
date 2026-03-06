@@ -20,9 +20,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_, configBuilder) =>
         {
             var config = TestConfigurationHelper.GetBaseConfiguration();
-            config["ReverseProxy:Routes:bff-proxy:ClusterId"] = "api-self";
-            config["ReverseProxy:Routes:bff-proxy:Match:Path"] = "/bff/proxy/{**catch-all}";
-            config["ReverseProxy:Clusters:api-self:Destinations:self:Address"] = "http://localhost/";
             configBuilder.AddInMemoryCollection(config);
         });
 

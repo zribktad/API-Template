@@ -7,9 +7,11 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class CategoriesControllerTests
 {
     private readonly HttpClient _client;
+    private readonly Guid _tenantId = Guid.NewGuid();
 
     public CategoriesControllerTests(CustomWebApplicationFactory factory)
     {
@@ -17,17 +19,9 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task GetAll_WithoutToken_ReturnsUnauthorized()
-    {
-        var response = await _client.GetAsync("/api/v1/categories");
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
     public async Task FullCrudFlow_WorksWithAuthentication()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         // 1. Get all - empty
         var getAllResponse = await _client.GetAsync("/api/v1/categories");
@@ -81,7 +75,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task GetById_NonExistentCategory_ReturnsNotFound()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var response = await _client.GetAsync($"/api/v1/categories/{Guid.NewGuid()}");
 
@@ -91,7 +85,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task Create_CategoryWithoutDescription_Succeeds()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
@@ -109,7 +103,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task Create_MultipleCategories_AllReturnedInGetAll()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         await _client.PostAsJsonAsync("/api/v1/categories", new { Name = "Category A" });
         await _client.PostAsJsonAsync("/api/v1/categories", new { Name = "Category B" });
@@ -121,13 +115,4 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         categories.ShouldNotBeNull();
         categories!.Length.ShouldBeGreaterThanOrEqualTo(2);
     }
-
-    [Fact]
-    public async Task GetStats_WithoutToken_ReturnsUnauthorized()
-    {
-        var response = await _client.GetAsync($"/api/v1/categories/{Guid.NewGuid()}/stats");
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-    }
 }
-

@@ -3,7 +3,8 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class CorsTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class CorsTests
 {
     private readonly HttpClient _client;
 
@@ -42,14 +43,28 @@ public class CorsTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Get_FromAllowedOrigin_ReturnsAllowOriginHeaderWithoutCredentials()
+    public async Task Get_AnonymousEndpoint_FromAllowedOrigin_ReturnsCorsHeaders()
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/graphql");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/openapi/v1.json");
         request.Headers.Add("Origin", "http://localhost:3000");
 
         var response = await _client.SendAsync(request);
 
         response.IsSuccessStatusCode.ShouldBeTrue();
+        response.Headers.TryGetValues("Access-Control-Allow-Origin", out var allowedOrigins).ShouldBeTrue();
+        allowedOrigins!.Single().ShouldBe("http://localhost:3000");
+        response.Headers.TryGetValues("Access-Control-Allow-Credentials", out var credValues).ShouldBeTrue();
+        credValues!.Single().ShouldBe("true");
+    }
+
+    [Fact]
+    public async Task Get_ProtectedEndpoint_FromAllowedOrigin_ReturnsCorsHeadersEvenWithout401()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/products");
+        request.Headers.Add("Origin", "http://localhost:3000");
+
+        var response = await _client.SendAsync(request);
+
         response.Headers.TryGetValues("Access-Control-Allow-Origin", out var allowedOrigins).ShouldBeTrue();
         allowedOrigins!.Single().ShouldBe("http://localhost:3000");
         response.Headers.TryGetValues("Access-Control-Allow-Credentials", out var credValues).ShouldBeTrue();

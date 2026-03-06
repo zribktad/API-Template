@@ -7,9 +7,11 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class AuthenticatedCrudTests
 {
     private readonly HttpClient _client;
+    private readonly Guid _tenantId = Guid.NewGuid();
 
     public AuthenticatedCrudTests(CustomWebApplicationFactory factory)
     {
@@ -19,7 +21,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task FullCrudFlow_WorksWithAuthentication()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         // 2. Get all - empty
         var getAllResponse = await _client.GetAsync("/api/v1/products");
@@ -74,7 +76,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GetById_NonExistentProduct_ReturnsNotFound()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var response = await _client.GetAsync($"/api/v1/products/{Guid.NewGuid()}");
 
@@ -84,7 +86,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Create_MultipleProducts_AllReturnedInGetAll()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         await _client.PostAsJsonAsync("/api/v1/products",
             new { Name = "Product A", Price = 10.0 });
@@ -99,4 +101,3 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
         products.Length.ShouldBeGreaterThanOrEqualTo(2);
     }
 }
-

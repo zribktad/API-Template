@@ -27,6 +27,8 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
             foreach (var operation in path.Operations.Values)
             {
                 OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status400BadRequest);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status401Unauthorized);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status403Forbidden);
                 OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status404NotFound);
                 OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status500InternalServerError);
             }

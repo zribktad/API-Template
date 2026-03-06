@@ -6,10 +6,12 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class GraphQLProductReviewTests
 {
     private readonly HttpClient _client;
     private readonly GraphQLTestHelper _graphql;
+    private readonly Guid _tenantId = Guid.NewGuid();
 
     public GraphQLProductReviewTests(CustomWebApplicationFactory factory)
     {
@@ -20,7 +22,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task GraphQL_CreateProductReview_ReturnsNewReview()
     {
-        var userId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client);
+        var userId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client, tenantId: _tenantId);
         var productId = await _graphql.CreateProductAsync("Review Target Product", 19.99m);
 
         var mutation = new
@@ -58,7 +60,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task GraphQL_GetReviews_ReturnsEmptyOrPopulatedList()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var query = new { query = "{ reviews { items { id userId rating } totalCount pageNumber pageSize } }" };
 
@@ -74,7 +76,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task GraphQL_GetReviewsByProductId_ReturnsReviewsForProduct()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
         var productId = await _graphql.CreateProductAsync("Product With Reviews", 29.99m);
 
         var createMutation = new
@@ -106,7 +108,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task GraphQL_GetReviews_WithFilterSortAndPaging_ReturnsExpectedOrder()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
         var productId = await _graphql.CreateProductAsync($"SortTarget-{Guid.NewGuid():N}", 15m);
 
         await _graphql.CreateReviewAsync(productId, 2);
@@ -153,7 +155,7 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     [Fact]
     public async Task GraphQL_DeleteProductReview_ReturnsTrue()
     {
-        IntegrationAuthHelper.Authenticate(_client);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
         var productId = await _graphql.CreateProductAsync("Product To Review Then Delete Review", 9.99m);
 
         var createMutation = new

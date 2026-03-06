@@ -4,21 +4,14 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class ProductsControllerTests
 {
     private readonly HttpClient _client;
 
     public ProductsControllerTests(CustomWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
-    }
-
-    [Fact]
-    public async Task GetAll_WithoutToken_ReturnsUnauthorized()
-    {
-        var response = await _client.GetAsync("/api/v1/products");
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]

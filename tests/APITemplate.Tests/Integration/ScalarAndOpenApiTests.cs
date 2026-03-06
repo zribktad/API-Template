@@ -7,7 +7,8 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration")]
+public class ScalarAndOpenApiTests
 {
     private readonly HttpClient _client;
 
@@ -50,10 +51,10 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
         var responses = productReviewsPost.GetProperty("responses");
 
         responses.TryGetProperty(StatusCodes.Status400BadRequest.ToString(), out _).ShouldBeTrue();
-        responses.TryGetProperty(StatusCodes.Status404NotFound.ToString(), out _).ShouldBeTrue();
-        responses.TryGetProperty(StatusCodes.Status500InternalServerError.ToString(), out _).ShouldBeTrue();
         responses.TryGetProperty(StatusCodes.Status401Unauthorized.ToString(), out _).ShouldBeTrue();
         responses.TryGetProperty(StatusCodes.Status403Forbidden.ToString(), out _).ShouldBeTrue();
+        responses.TryGetProperty(StatusCodes.Status404NotFound.ToString(), out _).ShouldBeTrue();
+        responses.TryGetProperty(StatusCodes.Status500InternalServerError.ToString(), out _).ShouldBeTrue();
     }
 
     [Fact]
@@ -85,11 +86,12 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GraphQL_Endpoint_IsAccessible()
     {
+        IntegrationAuthHelper.Authenticate(_client);
+
         var response = await _client.PostAsJsonAsync(
             "/graphql",
             new { query = "{ __typename }" });
 
-        // Verify GraphQL endpoint itself, independent of GET UI redirects/tooling.
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 }
