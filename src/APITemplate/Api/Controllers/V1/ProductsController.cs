@@ -1,5 +1,4 @@
 using Asp.Versioning;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace APITemplate.Api.Controllers.V1;
@@ -7,7 +6,6 @@ namespace APITemplate.Api.Controllers.V1;
 [ApiVersion(1.0)]
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
-[Authorize]
 public sealed class ProductsController : ControllerBase
 {
     private readonly IProductService _productService;

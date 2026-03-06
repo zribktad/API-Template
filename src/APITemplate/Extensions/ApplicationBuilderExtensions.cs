@@ -77,6 +77,8 @@ public static class ApplicationBuilderExtensions
 
         for (var i = 1; i <= maxRetries; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
                 var response = await httpClient.GetAsync(discoveryUrl, cancellationToken);
@@ -136,7 +138,7 @@ public static class ApplicationBuilderExtensions
         if (!app.Environment.IsDevelopment())
             return app; // Keep interactive API docs available only in development.
 
-        app.MapOpenApi(); // Map OpenAPI JSON endpoint.
+        app.MapOpenApi().AllowAnonymous(); // Map OpenAPI JSON endpoint.
         app.MapScalarApiReference("/scalar", options =>
         {
             options.WithTitle("APITemplate");
@@ -147,7 +149,7 @@ public static class ApplicationBuilderExtensions
                     flow.ClientId = "api-template-scalar";
                     flow.SelectedScopes = ["openid", "profile", "email"];
                 });
-        });
+        }).AllowAnonymous();
 
         return app;
     }

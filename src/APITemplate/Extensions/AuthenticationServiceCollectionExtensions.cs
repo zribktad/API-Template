@@ -5,6 +5,7 @@ using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Security;
 using Keycloak.AuthServices.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -138,6 +139,9 @@ public static class AuthenticationServiceCollectionExtensions
 
         services.AddKeycloakAuthorization(configuration)
             .AddAuthorizationBuilder()
+            .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build())
             .AddPolicy(
                 AuthorizationPolicies.PlatformAdminOnly,
                 policy => policy.RequireRole(UserRole.PlatformAdmin.ToString()));
