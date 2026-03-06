@@ -144,7 +144,12 @@ public static class AuthenticationServiceCollectionExtensions
                 .Build())
             .AddPolicy(
                 AuthorizationPolicies.PlatformAdminOnly,
-                policy => policy.RequireRole(UserRole.PlatformAdmin.ToString()));
+                policy => policy.RequireRole(UserRole.PlatformAdmin.ToString()))
+            .AddPolicy(
+                AuthorizationPolicies.BffProxy,
+                policy => policy
+                    .AddAuthenticationSchemes(BffAuthenticationSchemes.Cookie)
+                    .RequireAuthenticatedUser());
 
         services.AddHttpClient(nameof(KeycloakHealthCheck));
         services.AddHealthChecks()

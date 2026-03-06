@@ -101,7 +101,7 @@
         "post.logout.redirect.uris": "http://localhost:5174/*##http://localhost:8080/*"
       },
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "publicClient": false,
       "protocol": "openid-connect",
       "fullScopeAllowed": true,

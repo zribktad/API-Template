@@ -66,41 +66,96 @@ Default user has role **PlatformAdmin** and tenant `00000000-0000-0000-0000-0000
 http://localhost:8180/admin
 ```
 
-## Authentication Flows
+## Authentication Methods
 
-### Flow 1: Browser (BFF with OIDC + Cookie)
+The API supports 4 authentication methods. Each serves a different client type:
 
-1. Navigate to `http://localhost:8080/api/v1/bff/login`
-2. Browser redirects to Keycloak login page
-3. Enter credentials (admin / Admin123)
-4. Keycloak redirects back with authorization code
-5. Backend exchanges code for tokens (server-side)
-6. Session stored in encrypted cookie `.APITemplate.Auth`
-7. All subsequent requests use cookie automatically
+| Method | Client | How it works | Token visible to JS? |
+|--------|--------|-------------|---------------------|
+| **Scalar OAuth2** | Scalar UI (dev tool) | OAuth2 Authorization Code flow via public Keycloak client | Yes (in Scalar memory) |
+| **JWT Bearer** | Mobile apps, microservices, Postman, curl | Client obtains token from Keycloak, sends in `Authorization` header | Yes (client manages it) |
+| **BFF Cookie** | SPA frontend (browser) | Backend handles login, stores token in httpOnly cookie | No (secure) |
+| **BFF + YARP Proxy** | SPA frontend calling API | YARP extracts token from cookie, adds Bearer header, forwards to API | No (secure) |
 
-### Flow 2: Direct API Access (JWT Bearer)
+### When to use which?
 
-Obtain token from Keycloak directly:
+| Scenario | Method | Why |
+|----------|--------|-----|
+| Testing API during development | **Scalar OAuth2** | Visual UI, click Authorize, test endpoints |
+| Quick token test from terminal | **JWT Bearer** (password grant) | One curl command to get token |
+| Mobile app (iOS/Android) | **JWT Bearer** (Authorization Code + PKCE) | Standard OAuth2 mobile flow |
+| Service-to-service communication | **JWT Bearer** (client credentials) | No user involved, machine-to-machine |
+| SPA frontend — login/logout/user info | **BFF Cookie** | Secure, no token exposure to JavaScript |
+| SPA frontend — calling API endpoints | **BFF + YARP Proxy** | Cookie → Bearer translation, transparent for SPA |
+
+### Keycloak Standard Endpoints
+
+Keycloak automatically provides these OpenID Connect endpoints for each realm:
+
+| Endpoint | URL | Purpose |
+|----------|-----|---------|
+| Discovery | `/realms/{realm}/.well-known/openid-configuration` | Lists all available endpoints and configuration |
+| Token | `/realms/{realm}/protocol/openid-connect/token` | Exchange credentials/code for tokens |
+| Authorization | `/realms/{realm}/protocol/openid-connect/auth` | Login page (browser redirect) |
+| Logout | `/realms/{realm}/protocol/openid-connect/logout` | End Keycloak session |
+| UserInfo | `/realms/{realm}/protocol/openid-connect/userinfo` | Get user info from token |
+
+These endpoints are public by design (like Google or GitHub login pages). Security comes from credentials, HTTPS in production, and brute force protection — not from hiding the URLs.
+
+When the API sets `options.Authority`, ASP.NET downloads the Discovery endpoint and auto-discovers everything else.
+
+---
+
+## Testing Each Method
+
+### 1. Scalar OAuth2
+
+1. Open `http://localhost:5174/scalar`
+2. Click **Authorize**
+3. Keycloak login page opens → enter `admin` / `Admin123`
+4. Scalar receives token → all requests include it automatically
+5. Try `GET /api/v1/products`
+
+Uses Keycloak client `api-template-scalar` (public, no secret needed).
+
+### 2. JWT Bearer via curl
 
 ```bash
-curl -X POST http://localhost:8180/realms/api-template/protocol/openid-connect/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials" \
+# Get token from Keycloak (password grant)
+TOKEN=$(curl -s -X POST "http://localhost:8180/realms/api-template/protocol/openid-connect/token" \
+  -d "grant_type=password" \
   -d "client_id=api-template" \
   -d "client_secret=dev-client-secret" \
   -d "username=admin" \
-  -d "password=Admin123"
+  -d "password=Admin123" \
+  | jq -r '.access_token')
+
+# Call API with token
+curl -H "Authorization: Bearer $TOKEN" http://localhost:5174/api/v1/products
 ```
 
-> **Note:** Direct Access Grants (Resource Owner Password) is disabled for security.
-> Use Standard Flow (authorization code) or Client Credentials.
+> **Tip:** Paste the token into [jwt.io](https://jwt.io) to inspect claims (roles, tenant_id, etc.)
 
-Then use the token:
+### 3. BFF Cookie (browser)
 
-```bash
-curl http://localhost:8080/api/v1/products \
-  -H "Authorization: Bearer <access_token>"
+1. Open `http://localhost:5174/api/v1/bff/login?returnUrl=/api/v1/bff/user`
+2. Keycloak login page → enter `admin` / `Admin123`
+3. After login, you see JSON with user info
+4. Cookie `.APITemplate.Auth` is now stored in browser
+5. Visit `http://localhost:5174/api/v1/bff/user` — works without re-login
+6. Logout: `http://localhost:5174/api/v1/bff/logout`
+
+### 4. BFF + YARP Proxy (browser, after BFF login)
+
+After logging in via BFF (step 3 above):
+
 ```
+http://localhost:5174/bff/proxy/api/v1/products
+```
+
+YARP strips `/bff/proxy`, extracts token from cookie, adds `Authorization: Bearer` header, and forwards to the API. The response is returned directly to the browser.
+
+---
 
 ## BFF Endpoints
 
@@ -137,16 +192,19 @@ Returns current authenticated user info. Requires authentication (Cookie scheme)
 }
 ```
 
+**Without cookie:** Returns HTTP 401 (not a redirect). SPA should handle 401 and redirect to `/bff/login`.
+
 ## YARP Reverse Proxy (BFF Proxy)
 
 Requests to `/bff/proxy/**` are proxied with automatic token injection:
 
 ```
 GET /bff/proxy/api/v1/products
-  -> strips /bff/proxy prefix
-  -> extracts access_token from cookie session
-  -> adds Authorization: Bearer <token> header
-  -> forwards to internal API as GET /api/v1/products
+  → BffProxy policy authenticates via Cookie scheme
+  → strips /bff/proxy prefix
+  → extracts access_token from cookie session
+  → adds Authorization: Bearer <token> header
+  → forwards to internal API as GET /api/v1/products
 ```
 
 This allows SPAs to call the API without handling tokens directly.
