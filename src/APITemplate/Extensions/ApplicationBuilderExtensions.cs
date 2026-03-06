@@ -1,8 +1,11 @@
+using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Persistence;
+using APITemplate.Infrastructure.Security;
 using APITemplate.Api.Middleware;
 using Kot.MongoDB.Migrations;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
@@ -60,6 +63,40 @@ public static class ApplicationBuilderExtensions
         }); // Add structured request logging for each HTTP request/response.
 
         return app;
+    }
+
+    public static async Task WaitForKeycloakAsync(this WebApplication app, CancellationToken cancellationToken = default)
+    {
+        var keycloak = app.Services.GetRequiredService<IOptions<KeycloakOptions>>().Value;
+        var discoveryUrl = KeycloakUrlHelper.BuildDiscoveryUrl(keycloak.AuthServerUrl, keycloak.Realm);
+        var httpClientFactory = app.Services.GetRequiredService<IHttpClientFactory>();
+        using var httpClient = httpClientFactory.CreateClient();
+
+        const int maxRetries = 30;
+        const int delayMs = 2000;
+
+        for (var i = 1; i <= maxRetries; i++)
+        {
+            try
+            {
+                var response = await httpClient.GetAsync(discoveryUrl, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    app.Logger.LogInformation("Keycloak is ready at {Url}", keycloak.AuthServerUrl);
+                    return;
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // Keycloak not reachable yet
+            }
+
+            app.Logger.LogWarning("Keycloak not ready, retrying ({Attempt}/{MaxRetries})...", i, maxRetries);
+            await Task.Delay(delayMs, cancellationToken);
+        }
+
+        throw new InvalidOperationException(
+            $"Keycloak at {keycloak.AuthServerUrl} did not become available after {maxRetries} retries.");
     }
 
     /// <summary>

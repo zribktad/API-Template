@@ -56,7 +56,7 @@ Services:
 | Service   | Username | Password |
 |-----------|----------|----------|
 | Keycloak Admin Console | admin | admin |
-| Application User       | admin | admin |
+| Application User       | admin | Admin123 |
 
 Default user has role **PlatformAdmin** and tenant `00000000-0000-0000-0000-000000000001`.
 
@@ -72,7 +72,7 @@ http://localhost:8180/admin
 
 1. Navigate to `http://localhost:8080/api/v1/bff/login`
 2. Browser redirects to Keycloak login page
-3. Enter credentials (admin / admin)
+3. Enter credentials (admin / Admin123)
 4. Keycloak redirects back with authorization code
 5. Backend exchanges code for tokens (server-side)
 6. Session stored in encrypted cookie `.APITemplate.Auth`
@@ -87,7 +87,9 @@ curl -X POST http://localhost:8180/realms/api-template/protocol/openid-connect/t
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" \
   -d "client_id=api-template" \
-  -d "client_secret=dev-client-secret"
+  -d "client_secret=dev-client-secret" \
+  -d "username=admin" \
+  -d "password=Admin123"
 ```
 
 > **Note:** Direct Access Grants (Resource Owner Password) is disabled for security.
@@ -165,6 +167,10 @@ JWT tokens must contain these claims:
 
 **Custom Validation:** `TenantClaimValidator` enforces that `tenant_id` is present and is a valid non-empty GUID.
 
+**Claim Mapping:** `KeycloakClaimMapper` maps Keycloak-specific claims to standard .NET ClaimTypes:
+- `preferred_username` → `ClaimTypes.Name`
+- `realm_access.roles` (nested JSON) → individual `ClaimTypes.Role` claims
+
 ## Authorization Policies
 
 | Policy            | Requirement         |
@@ -179,9 +185,14 @@ Realm is auto-imported on startup from `infrastructure/keycloak/realms/api-templ
 ### Realm: `api-template`
 
 - Self-registration: Disabled
-- Brute force protection: Enabled
+- Brute force protection: Enabled (5 attempts → lockout 1-15 min, reset after 1h)
 - Email login: Allowed
 - SSL: None (development)
+- Remember Me: Enabled (SSO session up to 15 days)
+- Password policy: min 8 chars, 1 uppercase, 1 digit, expiry after 365 days
+- Session timeouts:
+  - Without Remember Me: 30 min idle / 10 hours max
+  - With Remember Me: 7 days idle / 15 days max
 
 ### Roles
 
@@ -205,6 +216,7 @@ Realm is auto-imported on startup from `infrastructure/keycloak/realms/api-templ
 |-----------------|-------------------|------------------|-------------|
 | tenant_id       | User Attribute    | `tenant_id`      | `tenant_id` |
 | audience-mapper | Audience Mapper   | -                | `aud`       |
+| realm-roles     | Realm Role Mapper | realm roles      | `realm_access.roles` |
 
 ## Configuration
 
@@ -283,7 +295,9 @@ Test tokens are signed with RSA-256 using a test key pair and contain all requir
 | `Application/Common/Options/BffOptions.cs` | BFF configuration model |
 | `Application/Common/Security/BffAuthenticationSchemes.cs` | Auth scheme constants |
 | `Infrastructure/Security/BffTokenTransformProvider.cs` | YARP token injection |
-| `Infrastructure/Security/TenantClaimValidator.cs` | Tenant claim validation |
+| `Infrastructure/Security/TenantClaimValidator.cs` | Tenant claim validation + logging |
+| `Infrastructure/Security/KeycloakClaimMapper.cs` | Keycloak → .NET claim type mapping |
 | `Infrastructure/Security/KeycloakUrlHelper.cs` | Keycloak URL construction |
+| `Application/Common/Options/KeycloakOptions.cs` | Strongly-typed Keycloak configuration |
 | `Infrastructure/Health/KeycloakHealthCheck.cs` | Keycloak health check |
 | `infrastructure/keycloak/realms/api-template-realm.json` | Keycloak realm import |

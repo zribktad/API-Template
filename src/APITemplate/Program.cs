@@ -27,6 +27,7 @@ try
     app.Logger.LogInformation("Starting APITemplate"); // Startup banner for diagnostics after logging pipeline is ready.
 
     await app.UseDatabaseAsync(); // Apply SQL/Mongo migrations before serving traffic.
+    await app.WaitForKeycloakAsync(); // Wait for Keycloak to be reachable before serving traffic.
 
     app.UseApiPipeline(); // Configure middleware order for request processing.
     app.MapApplicationEndpoints(); // Map REST/GraphQL/health endpoints.

@@ -1,13 +1,23 @@
 {
   "realm": "api-template",
   "enabled": true,
+  "rememberMe": true,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "ssoSessionIdleTimeoutRememberMe": 604800,
+  "ssoSessionMaxLifespanRememberMe": 1296000,
   "sslRequired": "none",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": false,
   "editUsernameAllowed": false,
+  "passwordPolicy": "length(8) and upperCase(1) and digits(1) and forceExpiredPasswordChange(365)",
   "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 3600,
   "roles": {
     "realm": [
       {
@@ -87,6 +97,9 @@
         "http://localhost:5174",
         "http://localhost:8080"
       ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:5174/*##http://localhost:8080/*"
+      },
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "publicClient": false,
@@ -148,7 +161,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "admin",
+          "value": "Admin123",
           "temporary": false
         }
       ],
