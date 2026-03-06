@@ -103,10 +103,13 @@ public static class ApplicationBuilderExtensions
         app.MapScalarApiReference("/scalar", options =>
         {
             options.WithTitle("APITemplate");
-            options.Authentication = new ScalarAuthenticationOptions
-            {
-                PreferredSecuritySchemes = ["Bearer"]
-            };
+            options
+                .AddPreferredSecuritySchemes("OAuth2")
+                .AddAuthorizationCodeFlow("OAuth2", flow =>
+                {
+                    flow.ClientId = app.Configuration["Keycloak:resource"]!;
+                    flow.SelectedScopes = ["openid", "profile", "email"];
+                });
         });
 
         return app;

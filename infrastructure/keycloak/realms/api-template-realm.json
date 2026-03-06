@@ -29,11 +29,8 @@
       "secret": "dev-client-secret",
       "redirectUris": [
         "http://localhost:5174/*",
-        "http://localhost:8080/*"
-      ],
-      "postLogoutRedirectUris": [
-        "http://localhost:5174/*",
-        "http://localhost:8080/*"
+        "http://localhost:8080/*",
+        "+"
       ],
       "webOrigins": [
         "http://localhost:5174",

@@ -57,7 +57,7 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task OpenApi_ContainsBearerSecurityScheme()
+    public async Task OpenApi_ContainsOAuth2SecurityScheme()
     {
         var response = await _client.GetAsync("/openapi/v1.json");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -67,9 +67,8 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
 
         var components = doc.RootElement.GetProperty("components");
         var securitySchemes = components.GetProperty("securitySchemes");
-        securitySchemes.TryGetProperty("Bearer", out var bearer).ShouldBeTrue();
-        bearer.GetProperty("scheme").GetString().ShouldBe("bearer");
-        bearer.GetProperty("bearerFormat").GetString().ShouldBe("JWT");
+        securitySchemes.TryGetProperty("OAuth2", out var oauth2).ShouldBeTrue();
+        oauth2.GetProperty("type").GetString().ShouldBe("oauth2");
     }
 
     [Fact]
