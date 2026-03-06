@@ -321,14 +321,14 @@ Authentication is handled by **Keycloak** using a hybrid approach that supports 
    ```
 3. Open **Scalar UI**: `http://localhost:5174/scalar`
 4. Click the **Authorize** button in Scalar
-5. You will be redirected to Keycloak — log in with `admin` / `admin`
+5. You will be redirected to Keycloak — log in with `admin` / `Admin123`
 6. After successful login, Scalar will automatically attach the JWT token to all requests
 7. Try any endpoint (e.g. `GET /api/v1/Products`)
 
 #### Option B: BFF Cookie flow (browser)
 
 1. Open `http://localhost:5174/api/v1/bff/login` in a browser
-2. Log in with `admin` / `admin` on the Keycloak page
+2. Log in with `admin` / `Admin123` on the Keycloak page
 3. After redirect, call API endpoints directly in the browser — the session cookie is sent automatically
 4. Check your session: `http://localhost:5174/api/v1/bff/user`
 
@@ -337,7 +337,7 @@ Authentication is handled by **Keycloak** using a hybrid approach that supports 
 ```bash
 # Get a token from Keycloak (requires Direct Access Grants enabled on the client)
 TOKEN=$(curl -s -X POST http://localhost:8180/realms/api-template/protocol/openid-connect/token \
-  -d "grant_type=password&client_id=api-template&client_secret=dev-client-secret&username=admin&password=admin" \
+  -d "grant_type=password&client_id=api-template&client_secret=dev-client-secret&username=admin&password=Admin123" \
   | jq -r '.access_token')
 
 # Use the token
