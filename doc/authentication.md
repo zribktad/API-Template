@@ -49,7 +49,7 @@ Startup (`UseDatabaseAsync`) runs `AuthBootstrapSeeder`, which ensures a default
   "Bootstrap": {
     "Admin": {
       "Username": "admin",
-      "Password": "admin",
+      "Password": "Admin123",
       "Email": "admin@example.com",
       "IsPlatformAdmin": true
     },
@@ -97,7 +97,7 @@ Content-Type: application/json
 
 {
   "username": "admin",
-  "password": "admin"
+  "password": "Admin123"
 }
 ```
 
@@ -134,7 +134,7 @@ GraphQL query and mutation fields are protected with `[Authorize]`.
 `TokenService` issues these claims:
 - `sub` -> user id
 - `tenant_id` -> tenant id (required)
-- `role` -> user role (`PlatformAdmin` / `TenantUser`)
+- `role` -> user role (`PlatformAdmin` / `User`)
 - `jti` -> token id
 
 `JwtBearerOptions.OnTokenValidated` rejects tokens missing a valid `tenant_id` claim.

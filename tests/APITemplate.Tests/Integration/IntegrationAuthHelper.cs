@@ -99,7 +99,7 @@ internal static class IntegrationAuthHelper
             Email = email,
             PasswordHash = string.Empty,
             IsActive = userIsActive,
-            Role = UserRole.TenantUser
+            Role = UserRole.User
         };
 
         var hasher = new PasswordHasher<AppUser>();

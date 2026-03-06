@@ -36,7 +36,7 @@ public sealed class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
             .HasConversion<string>()
             .IsRequired()
             .HasMaxLength(32)
-            .HasDefaultValue(UserRole.TenantUser);
+            .HasDefaultValue(UserRole.User);
 
         builder.HasOne(u => u.Tenant)
             .WithMany(t => t.Users)

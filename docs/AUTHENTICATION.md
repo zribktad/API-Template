@@ -199,7 +199,7 @@ Realm is auto-imported on startup from `infrastructure/keycloak/realms/api-templ
 | Role           | Description             |
 |----------------|-------------------------|
 | PlatformAdmin  | Full platform access    |
-| TenantUser     | Regular tenant user     |
+| User     | Regular tenant user     |
 
 ### Client: `api-template`
 
@@ -273,7 +273,7 @@ IntegrationAuthHelper.Authenticate(client, role: UserRole.PlatformAdmin);
 // Authenticate with specific tenant
 IntegrationAuthHelper.Authenticate(client,
     tenantId: myTenantGuid,
-    role: UserRole.TenantUser);
+    role: UserRole.User);
 ```
 
 Test tokens are signed with RSA-256 using a test key pair and contain all required claims including `tenant_id`.

@@ -197,7 +197,7 @@ public sealed class PostgresDataIntegrityTests
             reviewToSoftDeleteId = reviewA2.Id;
         }
 
-        IntegrationAuthHelper.Authenticate(_client, tenantId: tenantA.Id, username: usernameA, role: Domain.Enums.UserRole.TenantUser);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: tenantA.Id, username: usernameA, role: Domain.Enums.UserRole.User);
 
         var statsResponse = await _client.GetAsync($"/api/v1/categories/{categoryAId}/stats");
         statsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -254,7 +254,7 @@ public sealed class PostgresDataIntegrityTests
             categoryId = category.Id;
         }
 
-        var cascadeUserId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client, tenantId: tenant.Id, username: username, role: Domain.Enums.UserRole.TenantUser);
+        var cascadeUserId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client, tenantId: tenant.Id, username: username, role: Domain.Enums.UserRole.User);
 
         var createProductResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
@@ -332,7 +332,7 @@ public sealed class PostgresDataIntegrityTests
             categoryId = category.Id;
         }
 
-        IntegrationAuthHelper.Authenticate(_client, tenantId: tenant.Id, username: username, role: Domain.Enums.UserRole.TenantUser);
+        IntegrationAuthHelper.Authenticate(_client, tenantId: tenant.Id, username: username, role: Domain.Enums.UserRole.User);
 
         var response = await _client.GetAsync($"/api/v1/categories/{categoryId}/stats");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);

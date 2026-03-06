@@ -44,7 +44,7 @@ http://localhost:5174/scalar/v1
 2. Expand the **Auth → POST /api/v1/Auth/login** operation
 3. Click **Send** with the default body:
    ```json
-   { "username": "admin", "password": "admin" }
+   { "username": "admin", "password": "Admin123" }
    ```
 4. Copy the `accessToken` from the response
 5. Click the **🔐 Authenticate** button (top-right)
@@ -119,7 +119,7 @@ http://localhost:5174/graphql
    ```bash
    curl -s -X POST http://localhost:5174/api/v1/auth/login \
      -H "Content-Type: application/json" \
-     -d '{"username":"admin","password":"admin"}' \
+     -d '{"username":"admin","password":"Admin123"}' \
    | grep -o '"accessToken":"[^"]*"'
    ```
 
