@@ -1,3 +1,4 @@
+using APITemplate.Application.Features.Product.Mappings;
 using Ardalis.Specification;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
@@ -10,7 +11,7 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
 
         ProductSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
 
-        Query.Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.Audit.CreatedAtUtc));
+        Query.Select(ProductMappings.Projection);
 
         Query.Skip((filter.PageNumber - 1) * filter.PageSize)
              .Take(filter.PageSize);

@@ -27,6 +27,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<AuthBootstrapSeeder>();
         services.AddScoped<ISoftDeleteCascadeRule, ProductSoftDeleteCascadeRule>();
+        services.AddSingleton(TimeProvider.System);
 
         services.AddHealthChecks()
             .AddNpgSql(connectionString, name: "postgresql", tags: ["database"]);

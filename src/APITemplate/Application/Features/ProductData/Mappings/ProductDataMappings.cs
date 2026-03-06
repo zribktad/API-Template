@@ -8,7 +8,7 @@ public static class ProductDataMappings
     public static ProductDataResponse ToResponse(this ProductDataEntity data) =>
         data switch
         {
-            ImageProductDataEntity image => new ProductDataResponse
+            ImageProductDataEntity image => new ImageProductDataResponse
             {
                 Id = image.Id,
                 Type = "image",
@@ -20,7 +20,7 @@ public static class ProductDataMappings
                 Format = image.Format,
                 FileSizeBytes = image.FileSizeBytes
             },
-            VideoProductDataEntity video => new ProductDataResponse
+            VideoProductDataEntity video => new VideoProductDataResponse
             {
                 Id = video.Id,
                 Type = "video",

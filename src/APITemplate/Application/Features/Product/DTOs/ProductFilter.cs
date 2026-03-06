@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Contracts;
+using APITemplate.Application.Common.DTOs;
 
 namespace APITemplate.Application.Features.Product.DTOs;
 public sealed record ProductFilter(

@@ -37,6 +37,7 @@ public sealed class AppDbContext : DbContext
     // Tenant provider drives read isolation (global filters) and default tenant assignment on inserts.
     private readonly ITenantProvider _tenantProvider;
     private readonly IActorProvider _actorProvider;
+    private readonly TimeProvider _timeProvider;
     // Explicit soft-delete cascade rules registered via DI.
     private readonly IReadOnlyCollection<ISoftDeleteCascadeRule> _softDeleteCascadeRules;
 
@@ -46,7 +47,7 @@ public sealed class AppDbContext : DbContext
     public AppDbContext(
         DbContextOptions<AppDbContext> options,
         ITenantProvider tenantProvider,
-        IActorProvider actorProvider) : this(options, tenantProvider, actorProvider, [])
+        IActorProvider actorProvider) : this(options, tenantProvider, actorProvider, TimeProvider.System, [])
     {
     }
 
@@ -54,10 +55,12 @@ public sealed class AppDbContext : DbContext
         DbContextOptions<AppDbContext> options,
         ITenantProvider tenantProvider,
         IActorProvider actorProvider,
+        TimeProvider timeProvider,
         IEnumerable<ISoftDeleteCascadeRule> softDeleteCascadeRules) : base(options)
     {
         _tenantProvider = tenantProvider;
         _actorProvider = actorProvider;
+        _timeProvider = timeProvider;
         _softDeleteCascadeRules = softDeleteCascadeRules.ToList();
     }
 
@@ -87,17 +90,17 @@ public sealed class AppDbContext : DbContext
     /// </summary>
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        ApplyEntityAuditing();
+        ApplyEntityAuditingAsync(CancellationToken.None).GetAwaiter().GetResult();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     /// <summary>
     /// Applies audit/soft-delete rules before committing changes asynchronously.
     /// </summary>
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
-        ApplyEntityAuditing();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        await ApplyEntityAuditingAsync(cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     /// <summary>
@@ -125,20 +128,20 @@ public sealed class AppDbContext : DbContext
     private void SetGlobalFilter<TEntity>(ModelBuilder modelBuilder)
         where TEntity : class, ITenantEntity, ISoftDeletable
     {
-        // When HasTenant is false, tenant-scoped entities are intentionally filtered out (safe default for non-tenant contexts).
         modelBuilder.Entity<TEntity>()
-            .HasQueryFilter(entity => !entity.IsDeleted && HasTenant && entity.TenantId == CurrentTenantId);
+            .HasQueryFilter("SoftDelete", entity => !entity.IsDeleted)
+            .HasQueryFilter("Tenant", entity => HasTenant && entity.TenantId == CurrentTenantId);
     }
 
     /// <summary>
     /// Processes tracked entities and stamps audit fields according to current state.
     /// </summary>
-    private void ApplyEntityAuditing()
+    private async Task ApplyEntityAuditingAsync(CancellationToken cancellationToken)
     {
-        var now = DateTime.UtcNow;
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
         var actor = _actorProvider.ActorId;
 
-        foreach (var entry in ChangeTracker.Entries().Where(e => e.Entity is IAuditableTenantEntity))
+        foreach (var entry in ChangeTracker.Entries().Where(e => e.Entity is IAuditableTenantEntity).ToList())
         {
             var entity = (IAuditableTenantEntity)entry.Entity;
             switch (entry.State)
@@ -152,7 +155,7 @@ public sealed class AppDbContext : DbContext
                     MarkUpdated(entity, now, actor);
                     break;
                 case EntityState.Deleted:
-                    StampSoftDeletedEntity(entry, entity, now, actor);
+                    await StampSoftDeletedEntityAsync(entry, entity, now, actor, cancellationToken);
                     break;
             }
         }
@@ -180,22 +183,24 @@ public sealed class AppDbContext : DbContext
     /// <summary>
     /// Converts a hard delete into a soft delete update and performs soft-cascade for dependent rows.
     /// </summary>
-    private void StampSoftDeletedEntity(EntityEntry entry, IAuditableTenantEntity entity, DateTime now, string actor)
+    private async Task StampSoftDeletedEntityAsync(
+        EntityEntry entry, IAuditableTenantEntity entity, DateTime now, string actor, CancellationToken cancellationToken)
     {
         var visited = new HashSet<IAuditableTenantEntity>(ReferenceEqualityComparer.Instance);
-        SoftDeleteWithRules(entry, entity, now, actor, visited);
+        await SoftDeleteWithRulesAsync(entry, entity, now, actor, visited, cancellationToken);
     }
 
     /// <summary>
     /// Performs explicit soft-delete cascade based on registered rules.
     /// Each rule describes its own dependent graph (no implicit navigation traversal).
     /// </summary>
-    private void SoftDeleteWithRules(
+    private async Task SoftDeleteWithRulesAsync(
         EntityEntry entry,
         IAuditableTenantEntity entity,
         DateTime now,
         string actor,
-        HashSet<IAuditableTenantEntity> visited)
+        HashSet<IAuditableTenantEntity> visited,
+        CancellationToken cancellationToken)
     {
         if (!visited.Add(entity))
             return;
@@ -206,14 +211,14 @@ public sealed class AppDbContext : DbContext
 
         foreach (var rule in _softDeleteCascadeRules.Where(r => r.CanHandle(entity)))
         {
-            var dependents = rule.GetDependents(this, entity);
+            var dependents = await rule.GetDependentsAsync(this, entity, cancellationToken);
             foreach (var dependent in dependents)
             {
                 if (dependent.IsDeleted || dependent.TenantId != entity.TenantId)
                     continue;
 
                 var dependentEntry = Entry(dependent);
-                SoftDeleteWithRules(dependentEntry, dependent, now, actor, visited);
+                await SoftDeleteWithRulesAsync(dependentEntry, dependent, now, actor, visited, cancellationToken);
             }
         }
     }
@@ -240,8 +245,6 @@ public sealed class AppDbContext : DbContext
     {
         entity.Audit.UpdatedAtUtc = now;
         entity.Audit.UpdatedBy = actor;
-        // App-managed optimistic concurrency token; DB triggers are intentionally disabled.
-        entity.RowVersion = Guid.NewGuid().ToByteArray();
     }
 
     private static void EnsureEntityNormalization(IAuditableTenantEntity entity)

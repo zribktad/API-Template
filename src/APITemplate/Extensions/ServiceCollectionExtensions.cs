@@ -6,7 +6,6 @@ using APITemplate.Application.Features.ProductReview.Services;
 using APITemplate.Infrastructure.Security;
 using Asp.Versioning;
 using FluentValidation;
-using FluentValidation.AspNetCore;
 
 namespace APITemplate.Extensions;
 
@@ -23,7 +22,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProductReviewQueryService, ProductReviewQueryService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
-        services.AddFluentValidationAutoValidation();
 
         return services;
     }

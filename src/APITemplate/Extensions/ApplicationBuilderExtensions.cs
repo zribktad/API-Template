@@ -2,6 +2,7 @@ using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Security;
 using APITemplate.Api.Middleware;
+using HealthChecks.UI.Client;
 using Kot.MongoDB.Migrations;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,6 @@ using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
-using System.Text.Json;
 
 namespace APITemplate.Extensions;
 
@@ -131,6 +131,8 @@ public static class ApplicationBuilderExtensions
         app.UseCors(); // Apply global CORS policy before authentication middleware.
         app.UseAuthentication(); // Build HttpContext.User from token/identity handlers.
         app.UseAuthorization(); // Enforce endpoint authorization policies against the authenticated principal.
+        app.UseRateLimiter(); // Apply rate limiting after authorization.
+        app.UseOutputCache(); // Serve cached GET responses after auth/rate limiting.
 
         return app;
     }
@@ -171,25 +173,7 @@ public static class ApplicationBuilderExtensions
     {
         app.MapHealthChecks("/health", new HealthCheckOptions
         {
-            ResponseWriter = async (context, report) =>
-            {
-                context.Response.ContentType = "application/json";
-
-                var result = new
-                {
-                    status = report.Status.ToString(),
-                    services = report.Entries.Select(e => new
-                    {
-                        name = e.Key,
-                        status = e.Value.Status.ToString(),
-                        description = e.Value.Description,
-                        tags = e.Value.Tags
-                    })
-                };
-
-                await context.Response.WriteAsync(
-                    JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
-            }
+            ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
         })
         .WithTags("Health")
         .WithSummary("Health check")

@@ -4,7 +4,13 @@ public sealed class Category : IAuditableTenantEntity
 {
     public Guid Id { get; set; }
 
-    public required string Name { get; set; }
+    public required string Name
+    {
+        get => field;
+        set => field = string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("Category name cannot be empty.", nameof(Name))
+            : value.Trim();
+    }
 
     public string? Description { get; set; }
 
@@ -15,5 +21,4 @@ public sealed class Category : IAuditableTenantEntity
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAtUtc { get; set; }
     public string? DeletedBy { get; set; }
-    public byte[] RowVersion { get; set; } = [];
 }

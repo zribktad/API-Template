@@ -1,3 +1,4 @@
+using APITemplate.Application.Features.ProductReview.Mappings;
 using Ardalis.Specification;
 using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
@@ -10,7 +11,7 @@ public sealed class ProductReviewSpecification : Specification<ProductReviewEnti
 
         ProductReviewSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
 
-        Query.Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.UserId, r.Comment, r.Rating, r.Audit.CreatedAtUtc));
+        Query.Select(ProductReviewMappings.Projection);
 
         Query.Skip((filter.PageNumber - 1) * filter.PageSize)
              .Take(filter.PageSize);

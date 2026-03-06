@@ -6,7 +6,15 @@ public sealed class ProductReview : IAuditableTenantEntity
     public Guid ProductId { get; set; }
     public Guid UserId { get; set; }
     public string? Comment { get; set; }
-    public int Rating { get; set; }
+
+    public int Rating
+    {
+        get => field;
+        set => field = value is >= 1 and <= 5
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(Rating), "Rating must be between 1 and 5.");
+    }
+
     public Product Product { get; set; } = null!;
     public AppUser User { get; set; } = null!;
 
@@ -15,5 +23,4 @@ public sealed class ProductReview : IAuditableTenantEntity
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAtUtc { get; set; }
     public string? DeletedBy { get; set; }
-    public byte[] RowVersion { get; set; } = [];
 }

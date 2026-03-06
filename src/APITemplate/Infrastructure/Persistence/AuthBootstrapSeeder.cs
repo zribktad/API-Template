@@ -27,8 +27,10 @@ public sealed class AuthBootstrapSeeder
         var tenantCode = _tenantOptions.Code.Trim();
         var tenantName = _tenantOptions.Name.Trim();
 
+        // Bypass SoftDelete and Tenant filters — seeder runs at startup without tenant context
+        // and must find the tenant even if it was soft-deleted (to restore it).
         var tenant = await _dbContext.Tenants
-            .IgnoreQueryFilters()
+            .IgnoreQueryFilters(["SoftDelete", "Tenant"])
             .FirstOrDefaultAsync(t => t.Code == tenantCode, ct);
 
         if (tenant is null)

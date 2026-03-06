@@ -3,10 +3,12 @@ using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace APITemplate.Tests.Integration.Helpers;
@@ -52,11 +54,20 @@ internal static class TestServiceHelper
         services.Configure<Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckServiceOptions>(options =>
         {
             var toRemove = options.Registrations
-                .Where(r => r.Name is "mongodb" or "keycloak" or "postgresql")
+                .Where(r => r.Name is "mongodb" or "keycloak" or "postgresql" or "valkey")
                 .ToList();
             foreach (var r in toRemove)
                 options.Registrations.Remove(r);
         });
+    }
+
+    internal static void ReplaceOutputCacheWithInMemory(IServiceCollection services)
+    {
+        // Remove Valkey-backed output cache store and ValkeyOptions validation so tests use in-memory cache.
+        services.RemoveAll<IOutputCacheStore>();
+        services.AddOutputCache();
+        services.RemoveAll<IValidateOptions<Application.Common.Options.ValkeyOptions>>();
+        services.RemoveAll<IOptionsChangeTokenSource<Application.Common.Options.ValkeyOptions>>();
     }
 
     internal static void MockMongoServices(IServiceCollection services)

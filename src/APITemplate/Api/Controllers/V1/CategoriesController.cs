@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -9,13 +10,16 @@ namespace APITemplate.Api.Controllers.V1;
 public sealed class CategoriesController : ControllerBase
 {
     private readonly ICategoryService _categoryService;
+    private readonly IOutputCacheStore _outputCacheStore;
 
-    public CategoriesController(ICategoryService categoryService)
+    public CategoriesController(ICategoryService categoryService, IOutputCacheStore outputCacheStore)
     {
         _categoryService = categoryService;
+        _outputCacheStore = outputCacheStore;
     }
 
     [HttpGet]
+    [OutputCache(PolicyName = "Categories")]
     public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetAll(CancellationToken ct)
     {
         var categories = await _categoryService.GetAllAsync(ct);
@@ -23,6 +27,7 @@ public sealed class CategoriesController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [OutputCache(PolicyName = "Categories")]
     public async Task<ActionResult<CategoryResponse>> GetById(Guid id, CancellationToken ct)
     {
         var category = await _categoryService.GetByIdAsync(id, ct);
@@ -33,6 +38,7 @@ public sealed class CategoriesController : ControllerBase
     public async Task<ActionResult<CategoryResponse>> Create(CreateCategoryRequest request, CancellationToken ct)
     {
         var category = await _categoryService.CreateAsync(request, ct);
+        await _outputCacheStore.EvictByTagAsync("Categories", ct);
         return CreatedAtAction(nameof(GetById), new { id = category.Id, version = "1.0" }, category);
     }
 
@@ -40,6 +46,7 @@ public sealed class CategoriesController : ControllerBase
     public async Task<IActionResult> Update(Guid id, UpdateCategoryRequest request, CancellationToken ct)
     {
         await _categoryService.UpdateAsync(id, request, ct);
+        await _outputCacheStore.EvictByTagAsync("Categories", ct);
         return NoContent();
     }
 
@@ -47,6 +54,7 @@ public sealed class CategoriesController : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         await _categoryService.DeleteAsync(id, ct);
+        await _outputCacheStore.EvictByTagAsync("Categories", ct);
         return NoContent();
     }
 
@@ -55,6 +63,7 @@ public sealed class CategoriesController : ControllerBase
     /// <c>get_product_category_stats(p_category_id)</c> stored procedure via EF Core FromSql.
     /// </summary>
     [HttpGet("{id:guid}/stats")]
+    [OutputCache(PolicyName = "Categories")]
     public async Task<ActionResult<ProductCategoryStatsResponse>> GetStats(Guid id, CancellationToken ct)
     {
         var stats = await _categoryService.GetStatsAsync(id, ct);

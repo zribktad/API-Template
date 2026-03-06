@@ -19,5 +19,4 @@ public sealed class AppUser : IAuditableTenantEntity
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAtUtc { get; set; }
     public string? DeletedBy { get; set; }
-    public byte[] RowVersion { get; set; } = [];
 }

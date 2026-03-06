@@ -6,10 +6,12 @@ namespace APITemplate.Application.Features.ProductData.Services;
 public sealed class ProductDataService : IProductDataService
 {
     private readonly IProductDataRepository _repository;
+    private readonly TimeProvider _timeProvider;
 
-    public ProductDataService(IProductDataRepository repository)
+    public ProductDataService(IProductDataRepository repository, TimeProvider timeProvider)
     {
         _repository = repository;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ProductDataResponse?> GetByIdAsync(string id, CancellationToken ct = default)
@@ -30,6 +32,7 @@ public sealed class ProductDataService : IProductDataService
         {
             Title = request.Title,
             Description = request.Description,
+            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime,
             Width = request.Width,
             Height = request.Height,
             Format = request.Format,
@@ -46,6 +49,7 @@ public sealed class ProductDataService : IProductDataService
         {
             Title = request.Title,
             Description = request.Description,
+            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime,
             DurationSeconds = request.DurationSeconds,
             Resolution = request.Resolution,
             Format = request.Format,

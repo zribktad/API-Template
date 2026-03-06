@@ -44,6 +44,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             TestServiceHelper.MockMongoServices(services);
             TestServiceHelper.RemoveExternalHealthChecks(services);
+            TestServiceHelper.ReplaceOutputCacheWithInMemory(services);
             TestServiceHelper.ConfigureTestAuthentication(services);
         });
 

@@ -1,3 +1,4 @@
+using APITemplate.Application.Features.ProductReview.Mappings;
 using Ardalis.Specification;
 using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
@@ -9,6 +10,6 @@ public sealed class ProductReviewByProductIdsSpecification : Specification<Produ
     {
         Query.Where(r => productIds.Contains(r.ProductId))
              .OrderByDescending(r => r.Audit.CreatedAtUtc)
-             .Select(r => new ProductReviewResponse(r.Id, r.ProductId, r.UserId, r.Comment, r.Rating, r.Audit.CreatedAtUtc));
+             .Select(ProductReviewMappings.Projection);
     }
 }

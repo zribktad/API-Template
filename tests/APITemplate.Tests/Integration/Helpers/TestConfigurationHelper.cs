@@ -26,7 +26,8 @@ internal static class TestConfigurationHelper
             ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
             ["Redaction:HmacKeyEnvironmentVariable"] = "APITEMPLATE_REDACTION_HMAC_KEY",
             ["Redaction:HmacKey"] = testRedactionHmacKey,
-            ["Redaction:KeyId"] = "1001"
+            ["Redaction:KeyId"] = "1001",
+            ["Valkey:ConnectionString"] = ""
         };
     }
 }

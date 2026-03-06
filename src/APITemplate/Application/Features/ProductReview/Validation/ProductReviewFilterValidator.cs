@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.Validation;
-using APITemplate.Application.Features.Product.Validation;
 using FluentValidation;
 
 namespace APITemplate.Application.Features.ProductReview.Validation;

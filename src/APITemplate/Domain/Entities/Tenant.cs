@@ -3,8 +3,23 @@ namespace APITemplate.Domain.Entities;
 public sealed class Tenant : IAuditableTenantEntity
 {
     public Guid Id { get; set; }
-    public required string Code { get; set; }
-    public required string Name { get; set; }
+
+    public required string Code
+    {
+        get => field;
+        set => field = string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("Tenant code cannot be empty.", nameof(Code))
+            : value.Trim();
+    }
+
+    public required string Name
+    {
+        get => field;
+        set => field = string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("Tenant name cannot be empty.", nameof(Name))
+            : value.Trim();
+    }
+
     public bool IsActive { get; set; } = true;
 
     public ICollection<AppUser> Users { get; set; } = [];
@@ -14,5 +29,4 @@ public sealed class Tenant : IAuditableTenantEntity
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAtUtc { get; set; }
     public string? DeletedBy { get; set; }
-    public byte[] RowVersion { get; set; } = [];
 }
