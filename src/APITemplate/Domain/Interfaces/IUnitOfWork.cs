@@ -10,6 +10,7 @@ public interface IUnitOfWork
 
     /// <summary>
     /// Runs a multi-step relational write flow in one explicit transaction.
+    /// The outermost call owns the database transaction and retry strategy; nested calls use savepoints inside the active transaction.
     /// The delegate should stage repository changes only; do not call <see cref="CommitAsync"/> inside it.
     /// Example:
     /// await _unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -22,6 +23,7 @@ public interface IUnitOfWork
 
     /// <summary>
     /// Runs a multi-step relational write flow in one explicit transaction and returns a value.
+    /// The outermost call owns the database transaction and retry strategy; nested calls use savepoints inside the active transaction.
     /// The delegate should stage repository changes only; do not call <see cref="CommitAsync"/> inside it.
     /// </summary>
     Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken ct = default);

@@ -486,6 +486,7 @@ Every data-store interaction is hidden behind a typed interface defined in `Doma
 - Some single-write flows do not strictly require an explicit transaction; the wrapper is still used to keep one consistent write shape across relational features.
 - `Persistence:PostgresRetry` configures transient PostgreSQL retries at the provider level.
 - Explicit transactional writes run inside EF Core's execution strategy so the full transaction block can be replayed on transient provider failures.
+- Nested transactional writes use savepoints inside the current `UnitOfWork` transaction instead of opening a second top-level transaction.
 
 ```csharp
 // Wraps two repository writes in a single database transaction

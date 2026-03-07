@@ -3,9 +3,11 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Xml.Linq;
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Options;
 using APITemplate.Application.Features.ProductReview.Services;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Extensions;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Persistence.SoftDelete;
 using APITemplate.Infrastructure.Repositories;
@@ -464,6 +466,129 @@ public sealed class PostgresDataIntegrityTests
     }
 
     [Fact]
+    public async Task UnitOfWork_WhenNestedTransactionFailsAndIsCaught_RollsBackInnerWorkToSavepoint()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var tenant = new Tenant { Id = tenantId, Code = $"tenant-savepoint-{Guid.NewGuid():N}", Name = "Tenant Savepoint" };
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.Add(tenant);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        Guid outerCategoryAId = Guid.NewGuid();
+        Guid outerCategoryBId = Guid.NewGuid();
+        Guid innerCategoryId = Guid.NewGuid();
+
+        await using (var dbContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
+        {
+            var unitOfWork = new UnitOfWork(dbContext);
+
+            await unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                dbContext.Categories.Add(new Category
+                {
+                    Id = outerCategoryAId,
+                    TenantId = tenantId,
+                    Name = $"Outer-A-{Guid.NewGuid():N}"
+                });
+
+                try
+                {
+                    await unitOfWork.ExecuteInTransactionAsync(async () =>
+                    {
+                        dbContext.Categories.Add(new Category
+                        {
+                            Id = innerCategoryId,
+                            TenantId = tenantId,
+                            Name = $"Inner-{Guid.NewGuid():N}"
+                        });
+
+                        await Task.CompletedTask;
+                        throw new InvalidOperationException("force nested rollback");
+                    }, ct);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    ex.Message.ShouldBe("force nested rollback");
+                }
+
+                dbContext.Categories.Add(new Category
+                {
+                    Id = outerCategoryBId,
+                    TenantId = tenantId,
+                    Name = $"Outer-B-{Guid.NewGuid():N}"
+                });
+            }, ct);
+        }
+
+        await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+        var storedCategoryIds = await verifyContext.Categories
+            .IgnoreQueryFilters()
+            .Where(c => c.Id == outerCategoryAId || c.Id == outerCategoryBId || c.Id == innerCategoryId)
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+
+        storedCategoryIds.ShouldContain(outerCategoryAId);
+        storedCategoryIds.ShouldContain(outerCategoryBId);
+        storedCategoryIds.ShouldNotContain(innerCategoryId);
+    }
+
+    [Fact]
+    public async Task UnitOfWork_WhenTransactionalWriteThrows_RollsBackAllStagedEntities()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var tenant = new Tenant { Id = tenantId, Code = $"tenant-full-rollback-{Guid.NewGuid():N}", Name = "Tenant Full Rollback" };
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.Add(tenant);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        Guid categoryId = Guid.NewGuid();
+        Guid productId = Guid.NewGuid();
+
+        await using (var dbContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
+        {
+            var unitOfWork = new UnitOfWork(dbContext);
+
+            var act = () => unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                dbContext.Categories.Add(new Category
+                {
+                    Id = categoryId,
+                    TenantId = tenantId,
+                    Name = $"Rollback-Category-{Guid.NewGuid():N}"
+                });
+
+                dbContext.Products.Add(new Product
+                {
+                    Id = productId,
+                    TenantId = tenantId,
+                    Name = $"Rollback-Product-{Guid.NewGuid():N}",
+                    Price = 10m,
+                    CategoryId = categoryId
+                });
+
+                await Task.CompletedTask;
+                throw new InvalidOperationException("force outer rollback");
+            }, ct);
+
+            await Should.ThrowAsync<InvalidOperationException>(act);
+        }
+
+        await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+        (await verifyContext.Categories.IgnoreQueryFilters().CountAsync(c => c.Id == categoryId, ct)).ShouldBe(0);
+        (await verifyContext.Products.IgnoreQueryFilters().CountAsync(p => p.Id == productId, ct)).ShouldBe(0);
+    }
+
+    [Fact]
     public async Task CategoryStats_FunctionCallable_ReturnsZeroValuesForEmptyCategory()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -509,10 +634,11 @@ public sealed class PostgresDataIntegrityTests
         await using var scope = _factory.Services.CreateAsyncScope();
         var connectionString = scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.GetConnectionString()
             ?? throw new InvalidOperationException("Postgres connection string was not available.");
+        var retryOptions = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<PostgresRetryOptions>>().Value;
 
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(connectionString)
-            .Options;
+        var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
+        PersistenceServiceCollectionExtensions.ConfigurePostgresDbContext(optionsBuilder, connectionString, retryOptions);
+        var options = optionsBuilder.Options;
 
         var context = new AppDbContext(
             options,
