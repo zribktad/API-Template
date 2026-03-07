@@ -13,26 +13,39 @@ internal static class CookieSessionRefresher
 {
     public static async Task OnValidatePrincipal(CookieValidatePrincipalContext context)
     {
-        if (!TryGetExpiration(context, out var expiresAt))
+        if (!TryCreateRefreshRequest(context, out var refreshRequest))
             return;
 
-        if (!IsRefreshRequired(context, expiresAt))
-            return;
-
-        if (!TryGetRefreshToken(context, out var refreshToken))
-        {
-            context.RejectPrincipal();
-            return;
-        }
-
-        var tokenResponse = await TryRefreshSessionAsync(context, refreshToken);
+        var tokenResponse = await TryRefreshSessionAsync(context, refreshRequest);
         if (tokenResponse is null)
         {
             context.RejectPrincipal();
             return;
         }
 
-        ApplyRefreshedSession(context, tokenResponse, refreshToken);
+        ApplyRefreshedSession(context, tokenResponse, refreshRequest.RefreshToken);
+    }
+
+    private static bool TryCreateRefreshRequest(
+        CookieValidatePrincipalContext context,
+        out RefreshRequest refreshRequest)
+    {
+        refreshRequest = default;
+
+        if (!TryGetExpiration(context, out var expiresAt))
+            return false;
+
+        if (!IsRefreshRequired(context, expiresAt))
+            return false;
+
+        if (!TryGetRefreshToken(context, out var refreshToken))
+        {
+            context.RejectPrincipal();
+            return false;
+        }
+
+        refreshRequest = new RefreshRequest(GetKeycloakOptions(context), refreshToken);
+        return true;
     }
 
     private static bool TryGetExpiration(
@@ -66,22 +79,18 @@ internal static class CookieSessionRefresher
 
     private static async Task<TokenResponse?> TryRefreshSessionAsync(
         CookieValidatePrincipalContext context,
-        string refreshToken)
+        RefreshRequest refreshRequest)
     {
-        var keycloakOptions = context.HttpContext.RequestServices
-            .GetRequiredService<IOptions<KeycloakOptions>>().Value;
-        var tokenEndpoint = BuildTokenEndpoint(keycloakOptions);
-
-        using var client = context.HttpContext.RequestServices
-            .GetRequiredService<IHttpClientFactory>()
-            .CreateClient(AuthConstants.HttpClients.KeycloakToken);
+        var tokenEndpoint = BuildTokenEndpoint(refreshRequest.KeycloakOptions);
+        using var client = CreateTokenClient(context);
 
         try
         {
-            using var response = await client.PostAsync(
+            using var response = await SendRefreshRequestAsync(
+                context,
+                client,
                 tokenEndpoint,
-                BuildRefreshRequestContent(keycloakOptions, refreshToken),
-                context.HttpContext.RequestAborted);
+                refreshRequest);
 
             if (!response.IsSuccessStatusCode)
                 return null;
@@ -93,6 +102,31 @@ internal static class CookieSessionRefresher
             GetLogger(context).LogWarning(ex, "Token refresh failed, rejecting principal.");
             return null;
         }
+    }
+
+    private static HttpClient CreateTokenClient(CookieValidatePrincipalContext context)
+    {
+        return context.HttpContext.RequestServices
+            .GetRequiredService<IHttpClientFactory>()
+            .CreateClient(AuthConstants.HttpClients.KeycloakToken);
+    }
+
+    private static Task<HttpResponseMessage> SendRefreshRequestAsync(
+        CookieValidatePrincipalContext context,
+        HttpClient client,
+        string tokenEndpoint,
+        RefreshRequest refreshRequest)
+    {
+        return client.PostAsync(
+            tokenEndpoint,
+            BuildRefreshRequestContent(refreshRequest.KeycloakOptions, refreshRequest.RefreshToken),
+            context.HttpContext.RequestAborted);
+    }
+
+    private static KeycloakOptions GetKeycloakOptions(CookieValidatePrincipalContext context)
+    {
+        return context.HttpContext.RequestServices
+            .GetRequiredService<IOptions<KeycloakOptions>>().Value;
     }
 
     private static string BuildTokenEndpoint(KeycloakOptions keycloakOptions)
@@ -144,4 +178,8 @@ internal static class CookieSessionRefresher
         [property: JsonPropertyName(AuthConstants.CookieTokenNames.AccessToken)] string AccessToken,
         [property: JsonPropertyName(AuthConstants.CookieTokenNames.RefreshToken)] string? RefreshToken,
         [property: JsonPropertyName(AuthConstants.CookieTokenNames.ExpiresIn)] int ExpiresIn);
+
+    private readonly record struct RefreshRequest(
+        KeycloakOptions KeycloakOptions,
+        string RefreshToken);
 }
