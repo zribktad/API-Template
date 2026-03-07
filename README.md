@@ -472,7 +472,15 @@ Every data-store interaction is hidden behind a typed interface defined in `Doma
 
 ### 2 — Unit of Work Pattern
 
-`IUnitOfWork` (implemented by `UnitOfWork`) groups multiple repository writes into a single atomic `SaveChanges` call. It also exposes `ExecuteInTransactionAsync` for multi-step mutations that must succeed or roll back together.
+`IUnitOfWork` (implemented by `UnitOfWork`) is the only commit boundary for relational persistence. Repositories stage changes in EF Core's change tracker, but they never call `SaveChangesAsync` directly. In this template, relational write services use `ExecuteTransactionalWriteAsync(...)`, which wraps `ExecuteInTransactionAsync(...)` behind one uniform application-level entry point.
+
+**Rules:**
+- Query services own API/read-model reads that return DTOs.
+- Paginated, filtered, cross-aggregate, and batching reads belong in query services, usually backed by specifications or projections.
+- Command-side validation lookups stay in the write service and use repositories directly.
+- Write services load entities they intend to mutate through repositories, not query services.
+- `ExecuteTransactionalWriteAsync(...)` is the service-layer write wrapper used by the template.
+- Some single-write flows do not strictly require an explicit transaction; the wrapper is still used to keep one consistent write shape across relational features.
 
 ```csharp
 // Wraps two repository writes in a single database transaction
@@ -482,6 +490,16 @@ await _unitOfWork.ExecuteInTransactionAsync(async () =>
     await _reviewRepository.AddAsync(review);
 });
 // Both rows committed or both rolled back
+```
+
+Service code uses the helper below to keep a single write pattern:
+
+```csharp
+await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
+{
+    await _repository.AddAsync(product, ct);
+    return product;
+}, ct);
 ```
 
 ### 3 — Specification Pattern (Ardalis.Specification)

@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Persistence;
 using APITemplate.Application.Features.ProductReview.Mappings;
 using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 using APITemplate.Domain.Exceptions;
@@ -40,15 +41,15 @@ public sealed class ProductReviewService : IProductReviewService
     {
         var userId = _actorProvider.ActorId;
 
-        var review = await _unitOfWork.ExecuteInTransactionAsync(async () =>
-        {
-            var productExists = await _productRepository.GetByIdAsync(request.ProductId, ct) is not null;
-            if (!productExists)
-                throw new NotFoundException(
-                    "Product",
-                    request.ProductId,
-                    ErrorCatalog.Reviews.ProductNotFoundForReview);
+        var productExists = await _productRepository.GetByIdAsync(request.ProductId, ct) is not null;
+        if (!productExists)
+            throw new NotFoundException(
+                "Product",
+                request.ProductId,
+                ErrorCatalog.Reviews.ProductNotFoundForReview);
 
+        var review = await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
+        {
             var entity = new ProductReviewEntity
             {
                 Id = Guid.NewGuid(),
@@ -77,7 +78,9 @@ public sealed class ProductReviewService : IProductReviewService
                 "You can only delete your own reviews.",
                 ErrorCatalog.Auth.Forbidden);
 
-        await _reviewRepository.DeleteAsync(id, ct, ErrorCatalog.Reviews.ReviewNotFound);
-        await _unitOfWork.CommitAsync(ct);
+        await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
+        {
+            await _reviewRepository.DeleteAsync(id, ct, ErrorCatalog.Reviews.ReviewNotFound);
+        }, ct);
     }
 }
