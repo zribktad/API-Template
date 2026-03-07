@@ -187,37 +187,55 @@ public sealed class UnitOfWork : IUnitOfWork
     {
         var strategy = _executionStrategyFactory(effectiveOptions);
         var previousActiveOptions = _activeTransactionOptions;
-        var previousTimeout = _dbContext.Database.GetCommandTimeout();
+        var previousTimeout = GetCommandTimeoutIfSupported();
 
         return await strategy.ExecuteAsync(
             state: action,
             operation: async (_, transactionalAction, cancellationToken) =>
             {
                 _activeTransactionOptions = effectiveOptions;
-                _dbContext.Database.SetCommandTimeout(effectiveOptions.TimeoutSeconds);
+                SetCommandTimeoutIfSupported(effectiveOptions.TimeoutSeconds);
 
-                await using var transaction = await _beginTransactionAsync(
-                    effectiveOptions.IsolationLevel!.Value,
-                    cancellationToken);
+                IDbContextTransaction? transaction = null;
+                try
+                {
+                    transaction = await _beginTransactionAsync(
+                        effectiveOptions.IsolationLevel!.Value,
+                        cancellationToken);
+                }
+                catch (Exception ex) when (IsTransactionNotSupported(ex))
+                {
+                    // Providers without transaction support still use the same unit-of-work flow,
+                    // but save without an explicit database transaction.
+                }
+
                 var snapshot = CaptureTrackedState();
 
                 try
                 {
                     var result = await transactionalAction();
                     await _dbContext.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
+
+                    if (transaction is not null)
+                        await transaction.CommitAsync(cancellationToken);
+
                     return result;
                 }
                 catch
                 {
-                    await transaction.RollbackAsync(cancellationToken);
+                    if (transaction is not null)
+                        await transaction.RollbackAsync(cancellationToken);
+
                     RestoreTrackedState(snapshot);
                     throw;
                 }
                 finally
                 {
+                    if (transaction is not null)
+                        await transaction.DisposeAsync();
+
                     // Timeout and active policy are scoped to the outermost transaction boundary.
-                    _dbContext.Database.SetCommandTimeout(previousTimeout);
+                    SetCommandTimeoutIfSupported(previousTimeout);
                     _activeTransactionOptions = previousActiveOptions;
                 }
             },
@@ -328,10 +346,42 @@ public sealed class UnitOfWork : IUnitOfWork
         if (effectiveOptions.RetryEnabled == false)
             return new NonRetryingExecutionStrategy(dbContext);
 
+        if (!dbContext.Database.IsNpgsql())
+            return dbContext.Database.CreateExecutionStrategy();
+
         return new NpgsqlRetryingExecutionStrategy(
             dbContext,
             effectiveOptions.RetryCount ?? 3,
             TimeSpan.FromSeconds(effectiveOptions.RetryDelaySeconds ?? 5),
             errorCodesToAdd: null);
     }
+
+    private static bool IsTransactionNotSupported(Exception ex)
+        => ex is InvalidOperationException or NotSupportedException;
+
+    private int? GetCommandTimeoutIfSupported()
+    {
+        try
+        {
+            return _dbContext.Database.GetCommandTimeout();
+        }
+        catch (Exception ex) when (IsCommandTimeoutNotSupported(ex))
+        {
+            return null;
+        }
+    }
+
+    private void SetCommandTimeoutIfSupported(int? timeoutSeconds)
+    {
+        try
+        {
+            _dbContext.Database.SetCommandTimeout(timeoutSeconds);
+        }
+        catch (Exception ex) when (IsCommandTimeoutNotSupported(ex))
+        {
+        }
+    }
+
+    private static bool IsCommandTimeoutNotSupported(Exception ex)
+        => ex is InvalidOperationException or NotSupportedException;
 }

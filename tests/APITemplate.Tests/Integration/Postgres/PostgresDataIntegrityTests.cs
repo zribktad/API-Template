@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Xml.Linq;
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Features.ProductReview.Services;

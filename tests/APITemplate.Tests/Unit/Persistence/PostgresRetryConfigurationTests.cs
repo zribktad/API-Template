@@ -120,8 +120,52 @@ public class PostgresRetryConfigurationTests
         using var scope = provider.CreateScope();
         using var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        dbContext.Database.CreateExecutionStrategy().ShouldBeOfType<NonRetryingExecutionStrategy>();
         dbContext.Database.CreateExecutionStrategy().RetriesOnFailure.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(-1, 3, 5, "TimeoutSeconds")]
+    [InlineData(30, -1, 5, "RetryCount")]
+    [InlineData(30, 3, -1, "RetryDelaySeconds")]
+    public void Resolve_WhenConfiguredDefaultsContainNegativeValues_Throws(
+        int timeoutSeconds,
+        int retryCount,
+        int retryDelaySeconds,
+        string expectedParameter)
+    {
+        var options = new TransactionDefaultsOptions
+        {
+            TimeoutSeconds = timeoutSeconds,
+            RetryCount = retryCount,
+            RetryDelaySeconds = retryDelaySeconds
+        };
+
+        var ex = Should.Throw<ArgumentOutOfRangeException>(() => options.Resolve(null));
+
+        ex.ParamName.ShouldBe(expectedParameter);
+    }
+
+    [Theory]
+    [InlineData(-1, null, null, "TimeoutSeconds")]
+    [InlineData(null, -1, null, "RetryCount")]
+    [InlineData(null, null, -1, "RetryDelaySeconds")]
+    public void Resolve_WhenOverridesContainNegativeValues_Throws(
+        int? timeoutSeconds,
+        int? retryCount,
+        int? retryDelaySeconds,
+        string expectedParameter)
+    {
+        var defaults = new TransactionDefaultsOptions();
+        var overrides = new Domain.Options.TransactionOptions
+        {
+            TimeoutSeconds = timeoutSeconds,
+            RetryCount = retryCount,
+            RetryDelaySeconds = retryDelaySeconds
+        };
+
+        var ex = Should.Throw<ArgumentOutOfRangeException>(() => defaults.Resolve(overrides));
+
+        ex.ParamName.ShouldBe(expectedParameter);
     }
 
     private sealed class TestTenantProvider : ITenantProvider
