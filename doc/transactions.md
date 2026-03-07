@@ -1,6 +1,6 @@
 # How to Use Transactions
 
-This guide explains how to wrap multiple database operations in a single atomic transaction using the **Unit of Work** pattern implemented in this project.
+This guide explains the relational write rules used in this project and how to wrap multiple database operations in a single atomic transaction using the **Unit of Work** pattern.
 
 ---
 
@@ -10,45 +10,61 @@ The project provides two transaction mechanisms:
 
 | Mechanism | When to use |
 |-----------|------------|
-| **Implicit (auto-commit)** | A single service operation — one entity, one save. Most common case. |
-| **Explicit transaction via `IUnitOfWork.ExecuteInTransactionAsync`** | Multiple entities must succeed or fail together. |
+| **Direct `IUnitOfWork.ExecuteInTransactionAsync(...)`** | Explicit relational transaction boundary for multi-step or uniform transactional write flows. |
+| **`IUnitOfWork.CommitAsync()`** | Simple single-save write flow when a direct flush is enough. |
 
 Both mechanisms are available through `IUnitOfWork`, which is registered as a scoped dependency and wraps `AppDbContext` (PostgreSQL/EF Core).
+
+For relational persistence, the service layer owns commit orchestration:
+
+- Repositories only stage changes in the EF Core change tracker.
+- Application services call `IUnitOfWork.ExecuteInTransactionAsync(...)` directly when they need an explicit transaction.
+- `IUnitOfWork.CommitAsync()` remains the direct flush path for simple single-save flows.
+- Command-side validation lookups can still happen before the wrapper when that keeps the command flow clearer.
+- Transient PostgreSQL retry behavior, default isolation level, and command timeout are configured through `Persistence:Transactions`.
+- Explicit transaction flows run inside EF Core's execution strategy so the whole transaction delegate can be replayed on transient provider failures.
+- Nested `ExecuteInTransactionAsync(...)` calls use savepoints inside the active transaction instead of opening a second top-level transaction.
+- Per-call overrides use `ExecuteInTransactionAsync(action, ct, new TransactionOptions { ... })`; effective policy is `configured defaults + per-call override`.
+- Nested calls inherit the active outer transaction policy. If a nested call passes conflicting options, `UnitOfWork` throws instead of silently switching isolation, timeout, or retry behavior.
 
 > **MongoDB note:** MongoDB multi-document ACID transactions require a replica set or sharded cluster. See the [MongoDB transaction section](#mongodb-transactions) at the end of this guide.
 
 ---
 
-## Implicit Commit (Single Entity)
+## Direct Service Usage
 
-The most common case: add or update one entity and commit.
+The default explicit transaction pattern in this template is a direct `IUnitOfWork.ExecuteInTransactionAsync(...)` call from the service.
 
 ```csharp
 public async Task<ProductResponse> CreateAsync(CreateProductRequest request, CancellationToken ct = default)
 {
-    var product = new Product
+    var product = await _unitOfWork.ExecuteInTransactionAsync(async () =>
     {
-        Id          = Guid.NewGuid(),
-        Name        = request.Name,
-        Description = request.Description,
-        Price       = request.Price,
-        CategoryId  = request.CategoryId,
-        CreatedAt   = DateTime.UtcNow
-    };
+        var entity = new Product
+        {
+            Id          = Guid.NewGuid(),
+            Name        = request.Name,
+            Description = request.Description,
+            Price       = request.Price,
+            CategoryId  = request.CategoryId,
+            CreatedAt   = DateTime.UtcNow
+        };
 
-    await _repository.AddAsync(product, ct);   // stages the entity in the EF change tracker
-    await _unitOfWork.CommitAsync(ct);          // calls SaveChangesAsync → one INSERT
+        await _repository.AddAsync(entity, ct); // stages the entity in the EF change tracker
+        return entity;
+    }, ct);
+
     return product.ToResponse();
 }
 ```
 
-`CommitAsync` calls `AppDbContext.SaveChangesAsync`. With our EF Core/PostgreSQL setup, EF Core will create and use a database transaction when needed (for example, when multiple statements are generated), but the exact implicit transaction behavior can vary by provider and configuration.
+This keeps the transaction boundary explicit in the service code instead of hiding it behind an extra application helper.
+
+For simple `CommitAsync()` paths, retry behavior comes from the Npgsql provider configuration. Business exceptions, validation failures, and authorization failures are not retried.
 
 ---
 
 ## Explicit Transaction (Multiple Entities)
-
-When two or more entities must be persisted atomically — either both succeed or the database is left unchanged — use `ExecuteInTransactionAsync`:
 
 ```csharp
 public async Task TransferCategoryAsync(
@@ -72,32 +88,54 @@ public async Task TransferCategoryAsync(
         category.ProductCount += 1;
         await _categoryRepository.UpdateAsync(category, ct);
 
-        // 3. Commit both changes inside the same transaction
-        await _unitOfWork.CommitAsync(ct);
-
     }, ct);
 }
 ```
 
-If any statement inside the lambda throws, `ExecuteInTransactionAsync` calls `RollbackAsync` and re-throws the exception — the database is left unchanged.
+If any statement inside the lambda throws, `ExecuteInTransactionAsync` calls `RollbackAsync` and re-throws the exception — the database is left unchanged. Do not call `CommitAsync` inside the transaction lambda; the wrapper saves and commits after the delegate completes successfully.
+
+When PostgreSQL retry is enabled, `UnitOfWork` executes the transaction block through EF Core's execution strategy. That allows transient provider/database failures to replay the full transaction delegate instead of retrying only the final save.
+
+Advanced call sites can override the defaults per transaction:
+
+```csharp
+await _unitOfWork.ExecuteInTransactionAsync(
+    async () =>
+    {
+        await _productRepository.UpdateAsync(product, ct);
+        await _reviewRepository.AddAsync(review, ct);
+    },
+    ct,
+    new TransactionOptions
+    {
+        IsolationLevel = IsolationLevel.Serializable,
+        TimeoutSeconds = 15,
+        RetryEnabled = false
+    });
+```
+
+When `ExecuteInTransactionAsync(...)` is called inside an already active `UnitOfWork` transaction, `UnitOfWork` creates a savepoint. If the inner delegate fails and the caller catches the exception, only the inner staged work is rolled back and the outer transaction can continue.
 
 ### How `ExecuteInTransactionAsync` Works
 
 ```csharp
 // Infrastructure/Persistence/UnitOfWork.cs
-public async Task ExecuteInTransactionAsync(Func<Task> action, CancellationToken ct = default)
+public async Task ExecuteInTransactionAsync(
+    Func<Task> action,
+    CancellationToken ct = default,
+    TransactionOptions? options = null)
 {
-    await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
-    try
-    {
-        await action();
-        await transaction.CommitAsync(ct);
-    }
-    catch
-    {
-        await transaction.RollbackAsync(ct);
-        throw;
-    }
+    // Outermost call:
+    // 1. Merge config defaults with per-call overrides.
+    // 2. Execute the whole delegate inside EF Core's execution strategy.
+    // 3. Begin the database transaction with the effective isolation level.
+    // 4. Apply the effective command timeout for the duration of the transaction.
+    // 5. Save and commit once after the delegate succeeds.
+    //
+    // Nested call:
+    // 1. Reuse the current transaction.
+    // 2. Create a savepoint.
+    // 3. Roll back to that savepoint on failure.
 }
 ```
 
@@ -157,14 +195,35 @@ public sealed class OrderService : IOrderService
 
             await _orderRepo.AddAsync(order, ct);
 
-            // Both changes saved in one atomic transaction
-            await _unitOfWork.CommitAsync(ct);
-
             response = order.ToResponse();
         }, ct);
 
         return response!;
     }
+}
+```
+
+The same API also works for a single staged write when you want an explicit transaction boundary:
+
+```csharp
+public async Task<ProductReviewResponse> CreateAsync(CreateProductReviewRequest request, CancellationToken ct)
+{
+    var product = await _productRepository.GetByIdAsync(request.ProductId, ct)
+        ?? throw new NotFoundException("Product", request.ProductId);
+
+    var review = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+    {
+        var entity = new ProductReview
+        {
+            ProductId = product.Id,
+            Rating = request.Rating
+        };
+
+        await _reviewRepository.AddAsync(entity, ct);
+        return entity;
+    }, ct);
+
+    return review.ToResponse();
 }
 ```
 

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
@@ -27,12 +26,12 @@ public class GraphQLTests
         var query = new { query = "{ products { items { id name price } totalCount pageNumber pageSize } }" };
 
         var response = await _graphql.PostAsync(query);
-
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<ProductsData>>(GraphQLJsonOptions.Default, ct);
-        result!.Data.Products.Items.Count.ShouldBeGreaterThanOrEqualTo(0);
-        result.Data.Products.PageNumber.ShouldBeGreaterThan(0);
+        var products = await _graphql.ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
+            response,
+            data => data.Products,
+            "products");
+        products.Items.Count.ShouldBeGreaterThanOrEqualTo(0);
+        products.PageNumber.ShouldBeGreaterThan(0);
     }
 
     [Fact]
@@ -63,12 +62,12 @@ public class GraphQLTests
         };
 
         var response = await _graphql.PostAsync(query);
-
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<CreateProductData>>(GraphQLJsonOptions.Default, ct);
-        result!.Data.CreateProduct.Name.ShouldBe("GraphQL Product");
-        result.Data.CreateProduct.Price.ShouldBe(49.99m);
+        var createProduct = await _graphql.ReadRequiredGraphQLFieldAsync<CreateProductData, ProductItem>(
+            response,
+            data => data.CreateProduct,
+            "createProduct");
+        createProduct.Name.ShouldBe("GraphQL Product");
+        createProduct.Price.ShouldBe(49.99m);
     }
 
     [Fact]
@@ -85,11 +84,9 @@ public class GraphQLTests
         };
 
         var getResponse = await _graphql.PostAsync(getQuery);
-
-        getResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var getResult = await getResponse.Content.ReadFromJsonAsync<GraphQLResponse<ProductByIdData>>(GraphQLJsonOptions.Default, ct);
-        getResult!.Data.ProductById!.Name.ShouldBe("Findable Product");
+        var getResult = await _graphql.ReadGraphQLResponseAsync<ProductByIdData>(getResponse);
+        getResult.ProductById.ShouldNotBeNull();
+        getResult.ProductById.Name.ShouldBe("Findable Product");
     }
 
     [Fact]
@@ -106,11 +103,8 @@ public class GraphQLTests
         };
 
         var deleteResponse = await _graphql.PostAsync(deleteQuery);
-
-        deleteResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var deleteResult = await deleteResponse.Content.ReadFromJsonAsync<GraphQLResponse<DeleteProductData>>(GraphQLJsonOptions.Default, ct);
-        deleteResult!.Data.DeleteProduct.ShouldBeTrue();
+        var deleteResult = await _graphql.ReadGraphQLResponseAsync<DeleteProductData>(deleteResponse);
+        deleteResult.DeleteProduct.ShouldBeTrue();
     }
 
     [Fact]
@@ -149,16 +143,17 @@ public class GraphQLTests
         };
 
         var response = await _graphql.PostAsync(query);
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<ProductsData>>(GraphQLJsonOptions.Default, ct);
-        var items = result!.Data.Products.Items;
+        var products = await _graphql.ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
+            response,
+            data => data.Products,
+            "products");
+        var items = products.Items;
 
         items.Count.ShouldBe(2);
         items[0].Price.ShouldBeLessThanOrEqualTo(items[1].Price);
-        result.Data.Products.TotalCount.ShouldBeGreaterThanOrEqualTo(3);
-        result.Data.Products.PageNumber.ShouldBe(1);
-        result.Data.Products.PageSize.ShouldBe(2);
+        products.TotalCount.ShouldBeGreaterThanOrEqualTo(3);
+        products.PageNumber.ShouldBe(1);
+        products.PageSize.ShouldBe(2);
     }
 
     [Fact]
@@ -203,10 +198,11 @@ public class GraphQLTests
         };
 
         var response = await _graphql.PostAsync(query);
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<GraphQLResponse<ProductsWithReviewsData>>(GraphQLJsonOptions.Default, ct);
-        var items = result!.Data.Products.Items;
+        var products = await _graphql.ReadRequiredGraphQLFieldAsync<ProductsWithReviewsData, ProductWithReviewsPage>(
+            response,
+            data => data.Products,
+            "products");
+        var items = products.Items;
 
         items.Count.ShouldBeGreaterThanOrEqualTo(2);
         items.ShouldContain(x => x.Id == p1 && x.Reviews.Count >= 2);

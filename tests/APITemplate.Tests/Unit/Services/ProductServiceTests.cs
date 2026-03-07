@@ -1,6 +1,7 @@
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Domain.Options;
 using APITemplate.Application.Features.Product.Services;
 using Moq;
 using Shouldly;
@@ -22,6 +23,8 @@ public class ProductServiceTests
         _queryServiceMock = new Mock<IProductQueryService>();
         _categoryRepositoryMock = new Mock<ICategoryRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _unitOfWorkMock.SetupImmediateTransactionExecution();
+        _unitOfWorkMock.SetupImmediateTransactionExecution<Product>();
         _sut = new ProductService(
             _repositoryMock.Object,
             _queryServiceMock.Object,
@@ -78,7 +81,9 @@ public class ProductServiceTests
         _repositoryMock.Verify(
             r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()),
             Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task<Product>>>(), It.IsAny<CancellationToken>(), It.IsAny<TransactionOptions?>()),
+            Times.Once);
     }
 
     [Fact]
@@ -139,7 +144,9 @@ public class ProductServiceTests
         _repositoryMock.Verify(
             r => r.DeleteAsync(id, It.IsAny<CancellationToken>(), It.IsAny<string?>()),
             Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>(), It.IsAny<TransactionOptions?>()),
+            Times.Once);
     }
 
     [Fact]
@@ -167,7 +174,9 @@ public class ProductServiceTests
         _repositoryMock.Verify(
             r => r.UpdateAsync(product, It.IsAny<CancellationToken>()),
             Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>(), It.IsAny<TransactionOptions?>()),
+            Times.Once);
     }
 
     [Fact]

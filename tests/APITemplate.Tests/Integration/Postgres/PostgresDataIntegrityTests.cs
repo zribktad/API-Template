@@ -1,10 +1,19 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Options;
+using APITemplate.Application.Features.ProductReview.Services;
 using APITemplate.Domain.Entities;
+using APITemplate.Domain.Interfaces;
+using APITemplate.Domain.Options;
+using APITemplate.Extensions;
 using APITemplate.Infrastructure.Persistence;
+using APITemplate.Infrastructure.Persistence.SoftDelete;
+using APITemplate.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using Xunit;
 
@@ -21,6 +30,59 @@ public sealed class PostgresDataIntegrityTests
     {
         _factory = factory;
         _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task GlobalQueryFilters_IsolateProductsAndReviewsAcrossTenants()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantA = new Tenant { Id = Guid.NewGuid(), Code = $"tenant-a-{Guid.NewGuid():N}", Name = "Tenant A" };
+        var tenantB = new Tenant { Id = Guid.NewGuid(), Code = $"tenant-b-{Guid.NewGuid():N}", Name = "Tenant B" };
+        var categoryA = new Category { Id = Guid.NewGuid(), TenantId = tenantA.Id, Name = $"Category-A-{Guid.NewGuid():N}" };
+        var categoryB = new Category { Id = Guid.NewGuid(), TenantId = tenantB.Id, Name = $"Category-B-{Guid.NewGuid():N}" };
+        var userA = new AppUser { Id = Guid.NewGuid(), TenantId = tenantA.Id, Username = $"usera-{Guid.NewGuid():N}", Email = $"a-{Guid.NewGuid():N}@example.com", PasswordHash = "hash" };
+        var userB = new AppUser { Id = Guid.NewGuid(), TenantId = tenantB.Id, Username = $"userb-{Guid.NewGuid():N}", Email = $"b-{Guid.NewGuid():N}@example.com", PasswordHash = "hash" };
+        var productA = new Product { Id = Guid.NewGuid(), TenantId = tenantA.Id, Name = $"Product-A-{Guid.NewGuid():N}", Price = 10m, CategoryId = categoryA.Id };
+        var productB = new Product { Id = Guid.NewGuid(), TenantId = tenantB.Id, Name = $"Product-B-{Guid.NewGuid():N}", Price = 20m, CategoryId = categoryB.Id };
+        var reviewA = new ProductReview { Id = Guid.NewGuid(), TenantId = tenantA.Id, ProductId = productA.Id, UserId = userA.Id, Rating = 5 };
+        var reviewB = new ProductReview { Id = Guid.NewGuid(), TenantId = tenantB.Id, ProductId = productB.Id, UserId = userB.Id, Rating = 4 };
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.AddRange(tenantA, tenantB);
+            seedContext.Users.AddRange(userA, userB);
+            seedContext.Categories.AddRange(categoryA, categoryB);
+            seedContext.Products.AddRange(productA, productB);
+            seedContext.ProductReviews.AddRange(reviewA, reviewB);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        await using var tenantAContext = await CreateDbContextAsync(true, tenantA.Id, actorId, ct);
+        await using var tenantBContext = await CreateDbContextAsync(true, tenantB.Id, actorId, ct);
+        await using var unrestrictedContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+
+        var tenantAProducts = await tenantAContext.Products.OrderBy(p => p.Id).ToListAsync(ct);
+        var tenantAReviews = await tenantAContext.ProductReviews.OrderBy(r => r.Id).ToListAsync(ct);
+        var tenantBProducts = await tenantBContext.Products.OrderBy(p => p.Id).ToListAsync(ct);
+        var tenantBReviews = await tenantBContext.ProductReviews.OrderBy(r => r.Id).ToListAsync(ct);
+        var allProducts = await unrestrictedContext.Products
+            .IgnoreQueryFilters()
+            .Where(p => p.Id == productA.Id || p.Id == productB.Id)
+            .OrderBy(p => p.Id)
+            .ToListAsync(ct);
+        var allReviews = await unrestrictedContext.ProductReviews
+            .IgnoreQueryFilters()
+            .Where(r => r.Id == reviewA.Id || r.Id == reviewB.Id)
+            .OrderBy(r => r.Id)
+            .ToListAsync(ct);
+
+        tenantAProducts.Select(p => p.Id).ShouldBe([productA.Id]);
+        tenantAReviews.Select(r => r.Id).ShouldBe([reviewA.Id]);
+        tenantBProducts.Select(p => p.Id).ShouldBe([productB.Id]);
+        tenantBReviews.Select(r => r.Id).ShouldBe([reviewB.Id]);
+        allProducts.Select(p => p.Id).ShouldBe([productA.Id, productB.Id], ignoreOrder: true);
+        allReviews.Select(r => r.Id).ShouldBe([reviewA.Id, reviewB.Id], ignoreOrder: true);
     }
 
     [Fact]
@@ -289,6 +351,379 @@ public sealed class PostgresDataIntegrityTests
     }
 
     [Fact]
+    public async Task DeleteProduct_SoftDeletePipeline_SetsAuditFieldsAndKeepsDependentsPhysicallyPresent()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var tenant = new Tenant { Id = tenantId, Code = $"tenant-soft-{Guid.NewGuid():N}", Name = "Tenant Soft Delete" };
+        var user = new AppUser
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Username = $"user-soft-{Guid.NewGuid():N}",
+            Email = $"soft-{Guid.NewGuid():N}@example.com",
+            PasswordHash = "hash"
+        };
+        var category = new Category { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Category-Soft-{Guid.NewGuid():N}" };
+        var product = new Product { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Product-Soft-{Guid.NewGuid():N}", Price = 50m, CategoryId = category.Id };
+        var review1 = new ProductReview { Id = Guid.NewGuid(), TenantId = tenantId, ProductId = product.Id, UserId = user.Id, Rating = 5 };
+        var review2 = new ProductReview { Id = Guid.NewGuid(), TenantId = tenantId, ProductId = product.Id, UserId = user.Id, Rating = 3 };
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.Add(tenant);
+            seedContext.Users.Add(user);
+            seedContext.Categories.Add(category);
+            seedContext.Products.Add(product);
+            seedContext.ProductReviews.AddRange(review1, review2);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        await using (var deleteContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
+        {
+            var repository = new ProductRepository(deleteContext);
+            var unitOfWork = new UnitOfWork(deleteContext);
+
+            await repository.DeleteAsync(product.Id, ct);
+            await unitOfWork.CommitAsync(ct);
+        }
+
+        await using var tenantContext = await CreateDbContextAsync(true, tenantId, actorId, ct);
+        await using var unrestrictedContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+
+        var visibleReviews = await tenantContext.ProductReviews.Where(r => r.ProductId == product.Id).ToListAsync(ct);
+        visibleReviews.ShouldBeEmpty();
+
+        var deletedProduct = await unrestrictedContext.Products.IgnoreQueryFilters().SingleAsync(p => p.Id == product.Id, ct);
+        var deletedReviews = await unrestrictedContext.ProductReviews
+            .IgnoreQueryFilters()
+            .Where(r => r.ProductId == product.Id)
+            .OrderBy(r => r.Id)
+            .ToListAsync(ct);
+
+        deletedProduct.IsDeleted.ShouldBeTrue();
+        deletedProduct.DeletedAtUtc.ShouldNotBeNull();
+        deletedProduct.DeletedBy.ShouldBe(actorId);
+        deletedReviews.Count.ShouldBe(2);
+        deletedReviews.All(r => r.IsDeleted).ShouldBeTrue();
+        deletedReviews.All(r => r.DeletedAtUtc.HasValue).ShouldBeTrue();
+        deletedReviews.All(r => r.DeletedBy == actorId).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ProductReviewCreate_WhenRepositoryThrowsAfterTracking_RollsBackTransaction()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var tenant = new Tenant { Id = tenantId, Code = $"tenant-tx-{Guid.NewGuid():N}", Name = "Tenant Transaction" };
+        var category = new Category { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Category-Tx-{Guid.NewGuid():N}" };
+        var product = new Product { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Product-Tx-{Guid.NewGuid():N}", Price = 99m, CategoryId = category.Id };
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.Add(tenant);
+            seedContext.Categories.Add(category);
+            seedContext.Products.Add(product);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        var expectedMessage = $"forced-after-add-{Guid.NewGuid():N}";
+
+        await using (var transactionContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
+        {
+            var productRepository = new ProductRepository(transactionContext);
+            var failingReviewRepository = new Mock<IProductReviewRepository>();
+            failingReviewRepository
+                .Setup(repository => repository.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()))
+                .Returns((ProductReview entity, CancellationToken _) =>
+                {
+                    transactionContext.ProductReviews.Add(entity);
+                    throw new InvalidOperationException(expectedMessage);
+                });
+            var unitOfWork = new UnitOfWork(transactionContext);
+            var service = new ProductReviewService(
+                failingReviewRepository.Object,
+                Mock.Of<IProductReviewQueryService>(),
+                productRepository,
+                unitOfWork,
+                new TestActorProvider(actorId));
+
+            var ex = await Should.ThrowAsync<InvalidOperationException>(() =>
+                service.CreateAsync(new CreateProductReviewRequest(product.Id, "rollback", 4), ct));
+
+            ex.Message.ShouldBe(expectedMessage);
+        }
+
+        await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+        var storedReviews = await verifyContext.ProductReviews
+            .IgnoreQueryFilters()
+            .Where(r => r.ProductId == product.Id)
+            .ToListAsync(ct);
+
+        storedReviews.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task UnitOfWork_WhenNestedTransactionFailsAndIsCaught_RollsBackInnerWorkToSavepoint()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var tenant = new Tenant { Id = tenantId, Code = $"tenant-savepoint-{Guid.NewGuid():N}", Name = "Tenant Savepoint" };
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.Add(tenant);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        Guid outerCategoryAId = Guid.NewGuid();
+        Guid outerCategoryBId = Guid.NewGuid();
+        Guid innerCategoryId = Guid.NewGuid();
+
+        await using (var dbContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
+        {
+            var unitOfWork = new UnitOfWork(dbContext);
+
+            await unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                dbContext.Categories.Add(new Category
+                {
+                    Id = outerCategoryAId,
+                    TenantId = tenantId,
+                    Name = $"Outer-A-{Guid.NewGuid():N}"
+                });
+
+                try
+                {
+                    await unitOfWork.ExecuteInTransactionAsync(async () =>
+                    {
+                        dbContext.Categories.Add(new Category
+                        {
+                            Id = innerCategoryId,
+                            TenantId = tenantId,
+                            Name = $"Inner-{Guid.NewGuid():N}"
+                        });
+
+                        await Task.CompletedTask;
+                        throw new InvalidOperationException("force nested rollback");
+                    }, ct);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    ex.Message.ShouldBe("force nested rollback");
+                }
+
+                dbContext.Categories.Add(new Category
+                {
+                    Id = outerCategoryBId,
+                    TenantId = tenantId,
+                    Name = $"Outer-B-{Guid.NewGuid():N}"
+                });
+            }, ct);
+        }
+
+        await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+        var storedCategoryIds = await verifyContext.Categories
+            .IgnoreQueryFilters()
+            .Where(c => c.Id == outerCategoryAId || c.Id == outerCategoryBId || c.Id == innerCategoryId)
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+
+        storedCategoryIds.ShouldContain(outerCategoryAId);
+        storedCategoryIds.ShouldContain(outerCategoryBId);
+        storedCategoryIds.ShouldNotContain(innerCategoryId);
+    }
+
+    [Fact]
+    public async Task UnitOfWork_WhenTransactionalWriteThrows_RollsBackAllStagedEntities()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var tenant = new Tenant { Id = tenantId, Code = $"tenant-full-rollback-{Guid.NewGuid():N}", Name = "Tenant Full Rollback" };
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.Add(tenant);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        Guid categoryId = Guid.NewGuid();
+        Guid productId = Guid.NewGuid();
+
+        await using (var dbContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
+        {
+            var unitOfWork = new UnitOfWork(dbContext);
+
+            var act = () => unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                dbContext.Categories.Add(new Category
+                {
+                    Id = categoryId,
+                    TenantId = tenantId,
+                    Name = $"Rollback-Category-{Guid.NewGuid():N}"
+                });
+
+                dbContext.Products.Add(new Product
+                {
+                    Id = productId,
+                    TenantId = tenantId,
+                    Name = $"Rollback-Product-{Guid.NewGuid():N}",
+                    Price = 10m,
+                    CategoryId = categoryId
+                });
+
+                await Task.CompletedTask;
+                throw new InvalidOperationException("force outer rollback");
+            }, ct);
+
+            await Should.ThrowAsync<InvalidOperationException>(act);
+        }
+
+        await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+        (await verifyContext.Categories.IgnoreQueryFilters().CountAsync(c => c.Id == categoryId, ct)).ShouldBe(0);
+        (await verifyContext.Products.IgnoreQueryFilters().CountAsync(p => p.Id == productId, ct)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task UnitOfWork_WithPerCallTransactionOptions_CommitsSuccessfully()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var tenant = new Tenant { Id = tenantId, Code = $"tenant-options-{Guid.NewGuid():N}", Name = "Tenant Options" };
+        var categoryId = Guid.NewGuid();
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.Add(tenant);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        await using (var dbContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
+        {
+            var unitOfWork = new UnitOfWork(dbContext);
+
+            await unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                dbContext.Categories.Add(new Category
+                {
+                    Id = categoryId,
+                    TenantId = tenantId,
+                    Name = $"Options-Category-{Guid.NewGuid():N}"
+                });
+
+                await Task.CompletedTask;
+            },
+            ct,
+            new TransactionOptions
+            {
+                IsolationLevel = System.Data.IsolationLevel.Serializable,
+                TimeoutSeconds = 15,
+                RetryEnabled = false
+            });
+        }
+
+        await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+        (await verifyContext.Categories.IgnoreQueryFilters().CountAsync(c => c.Id == categoryId, ct)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task UnitOfWork_WhenCommitIsCalledInsideOuterTransaction_ThrowsAndRollsBack()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var tenant = new Tenant { Id = tenantId, Code = $"tenant-commit-outer-{Guid.NewGuid():N}", Name = "Tenant Commit Outer" };
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.Add(tenant);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        var categoryId = Guid.NewGuid();
+
+        await using (var dbContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
+        {
+            var unitOfWork = new UnitOfWork(dbContext);
+
+            var ex = await Should.ThrowAsync<InvalidOperationException>(() =>
+                unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    dbContext.Categories.Add(new Category
+                    {
+                        Id = categoryId,
+                        TenantId = tenantId,
+                        Name = $"Commit-Outer-{Guid.NewGuid():N}"
+                    });
+
+                    await unitOfWork.CommitAsync(ct);
+                }, ct));
+
+            ex.Message.ShouldContain("CommitAsync cannot be called inside ExecuteInTransactionAsync");
+        }
+
+        await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+        (await verifyContext.Categories.IgnoreQueryFilters().CountAsync(c => c.Id == categoryId, ct)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task UnitOfWork_WhenCommitIsCalledInsideNestedTransaction_ThrowsAndRollsBackOuterTransaction()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var tenant = new Tenant { Id = tenantId, Code = $"tenant-commit-inner-{Guid.NewGuid():N}", Name = "Tenant Commit Inner" };
+
+        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        {
+            seedContext.Tenants.Add(tenant);
+            await seedContext.SaveChangesAsync(ct);
+        }
+
+        var outerCategoryId = Guid.NewGuid();
+        var innerCategoryId = Guid.NewGuid();
+
+        await using (var dbContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
+        {
+            var unitOfWork = new UnitOfWork(dbContext);
+
+            var ex = await Should.ThrowAsync<InvalidOperationException>(() =>
+                unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    dbContext.Categories.Add(new Category
+                    {
+                        Id = outerCategoryId,
+                        TenantId = tenantId,
+                        Name = $"Commit-Outer-{Guid.NewGuid():N}"
+                    });
+
+                    await unitOfWork.ExecuteInTransactionAsync(async () =>
+                    {
+                        dbContext.Categories.Add(new Category
+                        {
+                            Id = innerCategoryId,
+                            TenantId = tenantId,
+                            Name = $"Commit-Inner-{Guid.NewGuid():N}"
+                        });
+
+                        await unitOfWork.CommitAsync(ct);
+                    }, ct);
+                }, ct));
+
+            ex.Message.ShouldContain("CommitAsync cannot be called inside ExecuteInTransactionAsync");
+        }
+
+        await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+        (await verifyContext.Categories.IgnoreQueryFilters().CountAsync(c => c.Id == outerCategoryId, ct)).ShouldBe(0);
+        (await verifyContext.Categories.IgnoreQueryFilters().CountAsync(c => c.Id == innerCategoryId, ct)).ShouldBe(0);
+    }
+
+    [Fact]
     public async Task CategoryStats_FunctionCallable_ReturnsZeroValuesForEmptyCategory()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -327,5 +762,38 @@ public sealed class PostgresDataIntegrityTests
         payload.GetProperty("productCount").GetInt64().ShouldBe(0);
         payload.GetProperty("averagePrice").GetDecimal().ShouldBe(0m);
         payload.GetProperty("totalReviews").GetInt64().ShouldBe(0);
+    }
+
+    private async Task<AppDbContext> CreateDbContextAsync(bool hasTenant, Guid tenantId, Guid actorId, CancellationToken ct)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var connectionString = scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.GetConnectionString()
+            ?? throw new InvalidOperationException("Postgres connection string was not available.");
+        var transactionDefaults = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<TransactionDefaultsOptions>>().Value;
+
+        var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
+        PersistenceServiceCollectionExtensions.ConfigurePostgresDbContext(optionsBuilder, connectionString, transactionDefaults);
+        var options = optionsBuilder.Options;
+
+        var context = new AppDbContext(
+            options,
+            new TestTenantProvider(tenantId, hasTenant),
+            new TestActorProvider(actorId),
+            TimeProvider.System,
+            [new ProductSoftDeleteCascadeRule()]);
+
+        await context.Database.OpenConnectionAsync(ct);
+        return context;
+    }
+
+    private sealed class TestTenantProvider(Guid tenantId, bool hasTenant) : ITenantProvider
+    {
+        public Guid TenantId => tenantId;
+        public bool HasTenant => hasTenant;
+    }
+
+    private sealed class TestActorProvider(Guid actorId) : IActorProvider
+    {
+        public Guid ActorId => actorId;
     }
 }

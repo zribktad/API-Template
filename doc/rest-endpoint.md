@@ -16,6 +16,14 @@ HTTP Request
   → Database   (PostgreSQL via EF Core)
 ```
 
+For relational features, keep these boundaries explicit:
+
+- Use a query service when the read returns API/read-model DTOs.
+- Put paginated, filtered, cross-aggregate, or batched reads in the query service.
+- Keep command-side validation lookups in the write service and use repositories for them.
+- Load entities you intend to update/delete through repositories, not query services.
+- Use `IUnitOfWork.ExecuteInTransactionAsync(...)` for explicit relational transaction flows in services.
+
 ---
 
 ## Step 1 – Define the Domain Entity
@@ -152,56 +160,51 @@ namespace APITemplate.Application.Services;
 public sealed class OrderService : IOrderService
 {
     private readonly IOrderRepository _repository;
+    private readonly IOrderQueryService _queryService;
     private readonly IUnitOfWork _unitOfWork;
 
-    public OrderService(IOrderRepository repository, IUnitOfWork unitOfWork)
+    public OrderService(
+        IOrderRepository repository,
+        IOrderQueryService queryService,
+        IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _queryService = queryService;
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<OrderResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
-    {
-        var order = await _repository.GetByIdAsync(id, ct);
-        return order?.ToResponse();
-    }
+    public Task<OrderResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => _queryService.GetByIdAsync(id, ct);
 
-    public async Task<PagedResponse<OrderResponse>> GetAllAsync(
+    public Task<PagedResponse<OrderResponse>> GetAllAsync(
         PaginationFilter filter, CancellationToken ct = default)
-    {
-        var items = await _repository.ListAsync(ct);
-        var total = await _repository.CountAsync(ct);
-
-        var skip = (filter.PageNumber - 1) * filter.PageSize;
-        var pagedItems = items
-            .Skip(skip)
-            .Take(filter.PageSize)
-            .Select(o => o.ToResponse())
-            .ToList();
-
-        return new PagedResponse<OrderResponse>(pagedItems, total,
-            filter.PageNumber, filter.PageSize);
-    }
+        => _queryService.GetPagedAsync(filter, ct);
 
     public async Task<OrderResponse> CreateAsync(CreateOrderRequest request, CancellationToken ct = default)
     {
-        var order = new Order
+        var order = await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            Id          = Guid.NewGuid(),
-            CustomerId  = request.CustomerId,
-            TotalAmount = request.TotalAmount,
-            CreatedAt   = DateTime.UtcNow
-        };
+            var entity = new Order
+            {
+                Id          = Guid.NewGuid(),
+                CustomerId  = request.CustomerId,
+                TotalAmount = request.TotalAmount,
+                CreatedAt   = DateTime.UtcNow
+            };
 
-        await _repository.AddAsync(order, ct);
-        await _unitOfWork.CommitAsync(ct);
+            await _repository.AddAsync(entity, ct);
+            return entity;
+        }, ct);
+
         return order.ToResponse();
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        await _repository.DeleteAsync(id, ct);
-        await _unitOfWork.CommitAsync(ct);
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            await _repository.DeleteAsync(id, ct);
+        }, ct);
     }
 }
 ```
@@ -209,6 +212,8 @@ public sealed class OrderService : IOrderService
 ---
 
 ## Step 6 – Create the Repository
+
+If the feature exposes paginated or reusable API reads, add a query service alongside the repository. The repository remains the command-side data access abstraction; the query service becomes the read-model boundary.
 
 **Interface** in `Domain/Interfaces/`:
 

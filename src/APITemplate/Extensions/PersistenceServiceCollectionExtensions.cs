@@ -1,3 +1,4 @@
+using APITemplate.Application.Common.Options;
 using APITemplate.Application.Features.ProductData.Services;
 using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Persistence;
@@ -12,13 +13,18 @@ namespace APITemplate.Extensions;
 
 public static class PersistenceServiceCollectionExtensions
 {
+    public const string TransactionsSectionName = "Persistence:Transactions";
+
     public static IServiceCollection AddPersistence(
         this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection")!;
+        var transactionDefaults = configuration.GetSection(TransactionsSectionName).Get<TransactionDefaultsOptions>() ?? new TransactionDefaultsOptions();
+
+        services.Configure<TransactionDefaultsOptions>(configuration.GetSection(TransactionsSectionName));
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            ConfigurePostgresDbContext(options, connectionString, transactionDefaults));
 
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IProductReviewRepository, ProductReviewRepository>();
@@ -33,6 +39,15 @@ public static class PersistenceServiceCollectionExtensions
             .AddNpgSql(connectionString, name: "postgresql", tags: ["database"]);
 
         return services;
+    }
+
+    internal static void ConfigurePostgresDbContext(
+        DbContextOptionsBuilder options,
+        string connectionString,
+        TransactionDefaultsOptions transactionDefaults)
+    {
+        _ = transactionDefaults;
+        options.UseNpgsql(connectionString);
     }
 
     public static IServiceCollection AddMongoDB(

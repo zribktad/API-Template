@@ -6,21 +6,21 @@ A scalable, clean, and modern template designed to jumpstart **.NET 10** Web API
 
 Step-by-step guides for the most common workflows in this project:
 
-| Guide | Description |
-|-------|-------------|
-| [GraphQL Endpoint](doc/graphql-endpoint.md) | Add a type, query, mutation, and optional DataLoader |
-| [REST Endpoint](doc/rest-endpoint.md) | Full workflow: entity → DTO → validator → service → controller |
-| [EF Core Migration](doc/ef-migration.md) | Create and apply PostgreSQL schema migrations |
-| [MongoDB Migration](doc/mongodb-migration.md) | Create index and data migrations with Kot.MongoDB.Migrations |
-| [Transactions](doc/transactions.md) | Wrap multiple operations in an atomic Unit of Work transaction |
-| [Authentication](doc/authentication.md) | JWT login flow, protecting endpoints, and production guidance |
-| [Stored Procedures](doc/stored-procedures.md) | Add a PostgreSQL function and call it safely from C# |
-| [MongoDB Polymorphism](doc/mongodb-polymorphism.md) | Store multiple document subtypes in one collection |
-| [Validation](doc/validation.md) | Add FluentValidation rules, cross-field rules, and shared validators |
-| [Specifications](doc/specifications.md) | Write reusable EF Core query specifications with Ardalis |
-| [Scalar & GraphQL UI](doc/scalar-and-graphql-ui.md) | Use the Scalar REST explorer and Nitro GraphQL playground |
-| [Testing](doc/testing.md) | Write unit tests (services, validators, repositories) and integration tests |
-| [Result Pattern](doc/result-pattern.md) | Guidelines for introducing selective `Result<T>` flow in phase 2 |
+| Guide                                               | Description                                                                 |
+| --------------------------------------------------- | --------------------------------------------------------------------------- |
+| [GraphQL Endpoint](doc/graphql-endpoint.md)         | Add a type, query, mutation, and optional DataLoader                        |
+| [REST Endpoint](doc/rest-endpoint.md)               | Full workflow: entity → DTO → validator → service → controller              |
+| [EF Core Migration](doc/ef-migration.md)            | Create and apply PostgreSQL schema migrations                               |
+| [MongoDB Migration](doc/mongodb-migration.md)       | Create index and data migrations with Kot.MongoDB.Migrations                |
+| [Transactions](doc/transactions.md)                 | Wrap multiple operations in an atomic Unit of Work transaction              |
+| [Authentication](doc/authentication.md)             | JWT login flow, protecting endpoints, and production guidance               |
+| [Stored Procedures](doc/stored-procedures.md)       | Add a PostgreSQL function and call it safely from C#                        |
+| [MongoDB Polymorphism](doc/mongodb-polymorphism.md) | Store multiple document subtypes in one collection                          |
+| [Validation](doc/validation.md)                     | Add FluentValidation rules, cross-field rules, and shared validators        |
+| [Specifications](doc/specifications.md)             | Write reusable EF Core query specifications with Ardalis                    |
+| [Scalar & GraphQL UI](doc/scalar-and-graphql-ui.md) | Use the Scalar REST explorer and Nitro GraphQL playground                   |
+| [Testing](doc/testing.md)                           | Write unit tests (services, validators, repositories) and integration tests |
+| [Result Pattern](doc/result-pattern.md)             | Guidelines for introducing selective `Result<T>` flow in phase 2            |
 
 ---
 
@@ -268,52 +268,52 @@ All versioned REST resource endpoints sit under the base path `api/v{version}`. 
 
 ### Products
 
-| Method | Path | Auth Required | Description |
-|--------|------|:---:|-------------|
-| `GET` | `/api/v1/Products` | ✅ | List products with filtering, sorting & paging |
-| `GET` | `/api/v1/Products/{id}` | ✅ | Get a single product by GUID |
-| `POST` | `/api/v1/Products` | ✅ | Create a new product |
-| `PUT` | `/api/v1/Products/{id}` | ✅ | Update an existing product |
-| `DELETE` | `/api/v1/Products/{id}` | ✅ | Soft-delete a product (cascades to reviews) |
+| Method   | Path                    | Auth Required | Description                                    |
+| -------- | ----------------------- | :-----------: | ---------------------------------------------- |
+| `GET`    | `/api/v1/Products`      |       ✅       | List products with filtering, sorting & paging |
+| `GET`    | `/api/v1/Products/{id}` |       ✅       | Get a single product by GUID                   |
+| `POST`   | `/api/v1/Products`      |       ✅       | Create a new product                           |
+| `PUT`    | `/api/v1/Products/{id}` |       ✅       | Update an existing product                     |
+| `DELETE` | `/api/v1/Products/{id}` |       ✅       | Soft-delete a product (cascades to reviews)    |
 
 ### Categories
 
-| Method | Path | Auth Required | Description |
-|--------|------|:---:|-------------|
-| `GET` | `/api/v1/Categories` | ✅ | List all categories |
-| `GET` | `/api/v1/Categories/{id}` | ✅ | Get a category by GUID |
-| `POST` | `/api/v1/Categories` | ✅ | Create a new category |
-| `PUT` | `/api/v1/Categories/{id}` | ✅ | Update a category |
-| `DELETE` | `/api/v1/Categories/{id}` | ✅ | Soft-delete a category |
-| `GET` | `/api/v1/Categories/{id}/stats` | ✅ | Aggregated stats via stored procedure |
+| Method   | Path                            | Auth Required | Description                           |
+| -------- | ------------------------------- | :-----------: | ------------------------------------- |
+| `GET`    | `/api/v1/Categories`            |       ✅       | List all categories                   |
+| `GET`    | `/api/v1/Categories/{id}`       |       ✅       | Get a category by GUID                |
+| `POST`   | `/api/v1/Categories`            |       ✅       | Create a new category                 |
+| `PUT`    | `/api/v1/Categories/{id}`       |       ✅       | Update a category                     |
+| `DELETE` | `/api/v1/Categories/{id}`       |       ✅       | Soft-delete a category                |
+| `GET`    | `/api/v1/Categories/{id}/stats` |       ✅       | Aggregated stats via stored procedure |
 
 ### Product Reviews
 
-| Method | Path | Auth Required | Description |
-|--------|------|:---:|-------------|
-| `GET` | `/api/v1/ProductReviews` | ✅ | List reviews with filtering & paging |
-| `GET` | `/api/v1/ProductReviews/{id}` | ✅ | Get a review by GUID |
-| `GET` | `/api/v1/ProductReviews/by-product/{productId}` | ✅ | All reviews for a given product |
-| `POST` | `/api/v1/ProductReviews` | ✅ | Create a new review |
-| `DELETE` | `/api/v1/ProductReviews/{id}` | ✅ | Soft-delete a review |
+| Method   | Path                                            | Auth Required | Description                          |
+| -------- | ----------------------------------------------- | :-----------: | ------------------------------------ |
+| `GET`    | `/api/v1/ProductReviews`                        |       ✅       | List reviews with filtering & paging |
+| `GET`    | `/api/v1/ProductReviews/{id}`                   |       ✅       | Get a review by GUID                 |
+| `GET`    | `/api/v1/ProductReviews/by-product/{productId}` |       ✅       | All reviews for a given product      |
+| `POST`   | `/api/v1/ProductReviews`                        |       ✅       | Create a new review                  |
+| `DELETE` | `/api/v1/ProductReviews/{id}`                   |       ✅       | Soft-delete a review                 |
 
 ### Product Data (MongoDB)
 
-| Method | Path | Auth Required | Description |
-|--------|------|:---:|-------------|
-| `GET` | `/api/v1/product-data` | ✅ | List all or filter by `type` (image/video) |
-| `GET` | `/api/v1/product-data/{id}` | ✅ | Get by MongoDB ObjectId |
-| `POST` | `/api/v1/product-data/image` | ✅ | Create image media metadata |
-| `POST` | `/api/v1/product-data/video` | ✅ | Create video media metadata |
-| `DELETE` | `/api/v1/product-data/{id}` | ✅ | Delete by MongoDB ObjectId |
+| Method   | Path                         | Auth Required | Description                                |
+| -------- | ---------------------------- | :-----------: | ------------------------------------------ |
+| `GET`    | `/api/v1/product-data`       |       ✅       | List all or filter by `type` (image/video) |
+| `GET`    | `/api/v1/product-data/{id}`  |       ✅       | Get by MongoDB ObjectId                    |
+| `POST`   | `/api/v1/product-data/image` |       ✅       | Create image media metadata                |
+| `POST`   | `/api/v1/product-data/video` |       ✅       | Create video media metadata                |
+| `DELETE` | `/api/v1/product-data/{id}`  |       ✅       | Delete by MongoDB ObjectId                 |
 
 ### Utility
 
-| Method | Path | Auth Required | Description |
-|--------|------|:---:|-------------|
-| `GET` | `/health` | ❌ | JSON health status for PostgreSQL, MongoDB & Valkey |
-| `GET` | `/scalar` | ❌ | Interactive Scalar OpenAPI UI (**Development only** — disabled in Production) |
-| `GET` | `/graphql/ui` | ❌ | HotChocolate Nitro GraphQL IDE |
+| Method | Path          | Auth Required | Description                                                                   |
+| ------ | ------------- | :-----------: | ----------------------------------------------------------------------------- |
+| `GET`  | `/health`     |       ❌       | JSON health status for PostgreSQL, MongoDB & Valkey                           |
+| `GET`  | `/scalar`     |       ❌       | Interactive Scalar OpenAPI UI (**Development only** — disabled in Production) |
+| `GET`  | `/graphql/ui` |       ❌       | HotChocolate Nitro GraphQL IDE                                                |
 
 ---
 
@@ -321,31 +321,36 @@ All versioned REST resource endpoints sit under the base path `api/v{version}`. 
 
 All configuration lives in `appsettings.json` (production defaults) and is overridden by `appsettings.Development.json` locally or by environment variables at runtime.
 
-| Key | Example Value | Description |
-|-----|--------------|-------------|
-| `ConnectionStrings:DefaultConnection` | `Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres` | PostgreSQL connection string |
-| `MongoDB:ConnectionString` | `mongodb://localhost:27017` | MongoDB connection string |
-| `MongoDB:DatabaseName` | `apitemplate` | MongoDB database name |
-| `Valkey:ConnectionString` | `localhost:6379` | Valkey (Redis-compatible) connection string for distributed output cache. Omit to use in-memory cache. |
-| `Keycloak:auth-server-url` | `http://localhost:8180/` | Keycloak base URL |
-| `Keycloak:realm` | `api-template` | Keycloak realm name |
-| `Keycloak:resource` | `api-template` | Keycloak client ID |
-| `Keycloak:credentials:secret` | `dev-client-secret` | Keycloak client secret — **never commit a real secret** |
-| `Keycloak:SkipReadinessCheck` | `false` | Set to `true` to skip the startup Keycloak reachability check |
-| `Bff:CookieName` | `.APITemplate.Auth` | BFF session cookie name |
-| `Bff:SessionTimeoutMinutes` | `60` | BFF cookie session lifetime |
-| `Bff:PostLogoutRedirectUri` | `/` | Redirect URI after BFF logout |
-| `Bff:Scopes` | `["openid","profile","email","offline_access"]` | OIDC scopes requested during BFF login |
-| `Bff:TokenRefreshThresholdMinutes` | `2` | Refresh the access token this many minutes before expiry |
-| `RateLimiting:Fixed:PermitLimit` | `100` | Maximum requests allowed per window |
-| `RateLimiting:Fixed:WindowMinutes` | `1` | Fixed window duration in minutes |
-| `Caching:ProductsExpirationSeconds` | `30` | Output cache TTL for the Products policy |
-| `Caching:CategoriesExpirationSeconds` | `60` | Output cache TTL for the Categories policy |
-| `Caching:ReviewsExpirationSeconds` | `30` | Output cache TTL for the Reviews policy |
-| `SystemIdentity:DefaultActorId` | `00000000-0000-0000-0000-000000000000` | Default actor GUID used when no request actor context is available |
-| `Bootstrap:Tenant:Code` | `default` | Bootstrap tenant code seeded at startup |
-| `Bootstrap:Tenant:Name` | `Default Tenant` | Bootstrap tenant display name |
-| `Cors:AllowedOrigins` | `["http://localhost:3000","http://localhost:5173"]` | Allowed origins for the default CORS policy |
+| Key                                   | Example Value                                                                       | Description                                                                                            |
+| ------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `ConnectionStrings:DefaultConnection` | `Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres` | PostgreSQL connection string                                                                           |
+| `MongoDB:ConnectionString`            | `mongodb://localhost:27017`                                                         | MongoDB connection string                                                                              |
+| `MongoDB:DatabaseName`                | `apitemplate`                                                                       | MongoDB database name                                                                                  |
+| `Valkey:ConnectionString`             | `localhost:6379`                                                                    | Valkey (Redis-compatible) connection string for distributed output cache. Omit to use in-memory cache. |
+| `Keycloak:auth-server-url`            | `http://localhost:8180/`                                                            | Keycloak base URL                                                                                      |
+| `Keycloak:realm`                      | `api-template`                                                                      | Keycloak realm name                                                                                    |
+| `Keycloak:resource`                   | `api-template`                                                                      | Keycloak client ID                                                                                     |
+| `Keycloak:credentials:secret`         | `dev-client-secret`                                                                 | Keycloak client secret — **never commit a real secret**                                                |
+| `Keycloak:SkipReadinessCheck`         | `false`                                                                             | Set to `true` to skip the startup Keycloak reachability check                                          |
+| `Bff:CookieName`                      | `.APITemplate.Auth`                                                                 | BFF session cookie name                                                                                |
+| `Bff:SessionTimeoutMinutes`           | `60`                                                                                | BFF cookie session lifetime                                                                            |
+| `Bff:PostLogoutRedirectUri`           | `/`                                                                                 | Redirect URI after BFF logout                                                                          |
+| `Bff:Scopes`                          | `["openid","profile","email","offline_access"]`                                     | OIDC scopes requested during BFF login                                                                 |
+| `Bff:TokenRefreshThresholdMinutes`    | `2`                                                                                 | Refresh the access token this many minutes before expiry                                               |
+| `RateLimiting:Fixed:PermitLimit`      | `100`                                                                               | Maximum requests allowed per window                                                                    |
+| `RateLimiting:Fixed:WindowMinutes`    | `1`                                                                                 | Fixed window duration in minutes                                                                       |
+| `Caching:ProductsExpirationSeconds`   | `30`                                                                                | Output cache TTL for the Products policy                                                               |
+| `Caching:CategoriesExpirationSeconds` | `60`                                                                                | Output cache TTL for the Categories policy                                                             |
+| `Caching:ReviewsExpirationSeconds`    | `30`                                                                                | Output cache TTL for the Reviews policy                                                                |
+| `Persistence:Transactions:IsolationLevel` | `ReadCommitted`                                                                  | Default isolation level for explicit `UnitOfWork` transactions                                         |
+| `Persistence:Transactions:TimeoutSeconds` | `30`                                                                             | Default command timeout applied while an explicit `UnitOfWork` transaction is running                  |
+| `Persistence:Transactions:RetryEnabled` | `true`                                                                             | Enables transient PostgreSQL retry behavior for EF Core/Npgsql                                         |
+| `Persistence:Transactions:RetryCount` | `3`                                                                                 | Maximum retry attempts for transient PostgreSQL failures                                               |
+| `Persistence:Transactions:RetryDelaySeconds` | `5`                                                                           | Maximum delay between transient PostgreSQL retry attempts in seconds                                   |
+| `SystemIdentity:DefaultActorId`       | `00000000-0000-0000-0000-000000000000`                                              | Default actor GUID used when no request actor context is available                                     |
+| `Bootstrap:Tenant:Code`               | `default`                                                                           | Bootstrap tenant code seeded at startup                                                                |
+| `Bootstrap:Tenant:Name`               | `Default Tenant`                                                                    | Bootstrap tenant display name                                                                          |
+| `Cors:AllowedOrigins`                 | `["http://localhost:3000","http://localhost:5173"]`                                 | Allowed origins for the default CORS policy                                                            |
 
 > **Security note:** `Keycloak:credentials:secret` must be supplied via an environment variable or secret manager in production — never from a committed config file.
 
@@ -355,29 +360,29 @@ All configuration lives in `appsettings.json` (production defaults) and is overr
 
 Authentication is handled by **Keycloak** using a hybrid approach that supports both **JWT Bearer tokens** (for API clients and Scalar) and **BFF Cookie sessions** (for SPA frontends).
 
-| Flow | Use Case | How it works |
-|------|----------|-------------|
-| **JWT Bearer** | Scalar UI, API clients, service-to-service | `Authorization: Bearer <token>` header |
-| **BFF Cookie** | SPA frontend | `/api/v1/bff/login` → Keycloak login → session cookie → direct API calls with cookie + `X-CSRF: 1` header |
+| Flow           | Use Case                                   | How it works                                                                                              |
+| -------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| **JWT Bearer** | Scalar UI, API clients, service-to-service | `Authorization: Bearer <token>` header                                                                    |
+| **BFF Cookie** | SPA frontend                               | `/api/v1/bff/login` → Keycloak login → session cookie → direct API calls with cookie + `X-CSRF: 1` header |
 
 #### BFF Production Hardening
 
-| Feature | Detail |
-|---------|--------|
-| **Secure cookie** | `CookieSecurePolicy.Always` in production; `SameAsRequest` in development |
-| **Server-side session store** | `ValkeyTicketStore` serialises the auth ticket to Valkey — the cookie contains only a GUID key, keeping cookie size small and preventing token leakage |
-| **Shared DataProtection keys** | Keys persisted to Valkey under `DataProtection:Keys` so multiple instances can decrypt each other's cookies |
-| **Silent token refresh** | `CookieSessionRefresher.OnValidatePrincipal` exchanges the refresh token with Keycloak when the access token is within `Bff:TokenRefreshThresholdMinutes` (default 2 min) of expiry |
-| **CSRF protection** | `CsrfValidationMiddleware` requires the `X-CSRF: 1` header on all non-GET/HEAD/OPTIONS requests authenticated via the cookie scheme. JWT Bearer requests are exempt. Call `GET /api/v1/bff/csrf` to retrieve the expected header name/value |
+| Feature                        | Detail                                                                                                                                                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Secure cookie**              | `CookieSecurePolicy.Always` in production; `SameAsRequest` in development                                                                                                                                                                   |
+| **Server-side session store**  | `ValkeyTicketStore` serialises the auth ticket to Valkey — the cookie contains only a GUID key, keeping cookie size small and preventing token leakage                                                                                      |
+| **Shared DataProtection keys** | Keys persisted to Valkey under `DataProtection:Keys` so multiple instances can decrypt each other's cookies                                                                                                                                 |
+| **Silent token refresh**       | `CookieSessionRefresher.OnValidatePrincipal` exchanges the refresh token with Keycloak when the access token is within `Bff:TokenRefreshThresholdMinutes` (default 2 min) of expiry                                                         |
+| **CSRF protection**            | `CsrfValidationMiddleware` requires the `X-CSRF: 1` header on all non-GET/HEAD/OPTIONS requests authenticated via the cookie scheme. JWT Bearer requests are exempt. Call `GET /api/v1/bff/csrf` to retrieve the expected header name/value |
 
 ### BFF Endpoints
 
-| Method | Path | Auth | Description |
-|--------|------|:---:|-------------|
-| `GET` | `/api/v1/bff/login` | ❌ | Redirects to Keycloak login page |
-| `GET` | `/api/v1/bff/logout` | 🍪 | Signs out from both cookie and Keycloak |
-| `GET` | `/api/v1/bff/user` | 🍪 | Returns current user info (id, username, email, tenantId, roles) |
-| `GET` | `/api/v1/bff/csrf` | ❌ | Returns the required CSRF header name and value (`X-CSRF: 1`) |
+| Method | Path                 | Auth  | Description                                                      |
+| ------ | -------------------- | :---: | ---------------------------------------------------------------- |
+| `GET`  | `/api/v1/bff/login`  |   ❌   | Redirects to Keycloak login page                                 |
+| `GET`  | `/api/v1/bff/logout` |   🍪   | Signs out from both cookie and Keycloak                          |
+| `GET`  | `/api/v1/bff/user`   |   🍪   | Returns current user info (id, username, email, tenantId, roles) |
+| `GET`  | `/api/v1/bff/csrf`   |   ❌   | Returns the required CSRF header name and value (`X-CSRF: 1`)    |
 
 ### Manual Testing Guide
 
@@ -472,7 +477,20 @@ Every data-store interaction is hidden behind a typed interface defined in `Doma
 
 ### 2 — Unit of Work Pattern
 
-`IUnitOfWork` (implemented by `UnitOfWork`) groups multiple repository writes into a single atomic `SaveChanges` call. It also exposes `ExecuteInTransactionAsync` for multi-step mutations that must succeed or roll back together.
+`IUnitOfWork` (implemented by `UnitOfWork`) is the only commit boundary for relational persistence. Repositories stage changes in EF Core's change tracker, but they never call `SaveChangesAsync` directly. Relational write services call `ExecuteInTransactionAsync(...)` directly when they need an explicit transaction boundary.
+
+**Rules:**
+- Query services own API/read-model reads that return DTOs.
+- Paginated, filtered, cross-aggregate, and batching reads belong in query services, usually backed by specifications or projections.
+- Command-side validation lookups stay in the write service and use repositories directly.
+- Write services load entities they intend to mutate through repositories, not query services.
+- `ExecuteInTransactionAsync(...)` is the explicit relational transaction entry point used by services.
+- Some single-write flows do not strictly require an explicit transaction; use `CommitAsync()` when a direct save is enough and `ExecuteInTransactionAsync(...)` when you want one explicit transaction shape.
+- `Persistence:Transactions` configures the default isolation level, timeout, and retry policy for explicit relational transactions.
+- Explicit transactional writes run inside EF Core's execution strategy so the full transaction block can be replayed on transient provider failures.
+- Nested transactional writes use savepoints inside the current `UnitOfWork` transaction instead of opening a second top-level transaction.
+- Per-call overrides use `ExecuteInTransactionAsync(action, ct, new TransactionOptions { ... })`; effective policy is `configured defaults + per-call override`.
+- Nested transaction calls inherit the active outer policy. Passing conflicting nested options fails fast instead of silently changing isolation, timeout, or retry behavior.
 
 ```csharp
 // Wraps two repository writes in a single database transaction
@@ -482,6 +500,32 @@ await _unitOfWork.ExecuteInTransactionAsync(async () =>
     await _reviewRepository.AddAsync(review);
 });
 // Both rows committed or both rolled back
+```
+
+```csharp
+await _unitOfWork.ExecuteInTransactionAsync(
+    async () =>
+    {
+        await _productRepository.AddAsync(product, ct);
+        await _reviewRepository.AddAsync(review, ct);
+    },
+    ct,
+    new TransactionOptions
+    {
+        IsolationLevel = IsolationLevel.Serializable,
+        TimeoutSeconds = 15,
+        RetryEnabled = false
+    });
+```
+
+Service code can call `IUnitOfWork` directly for explicit transactional writes:
+
+```csharp
+await _unitOfWork.ExecuteInTransactionAsync(async () =>
+{
+    await _repository.AddAsync(product, ct);
+    return product;
+}, ct);
 ```
 
 ### 3 — Specification Pattern (Ardalis.Specification)
@@ -533,14 +577,14 @@ Validator classes are auto-discovered via `AddValidatorsFromAssemblyContaining<C
 
 `ApiExceptionHandler` sits in the ASP.NET exception pipeline (`UseExceptionHandler`) and converts typed `AppException` instances into RFC 7807 `ProblemDetails` responses. HTTP status/title are mapped by exception type (`ValidationException`, `NotFoundException`, `ConflictException`, `ForbiddenException`), while `ErrorCode` is resolved from `AppException.ErrorCode` or metadata fallback. `DbUpdateConcurrencyException` is mapped directly to HTTP 409.
 
-| Exception type | HTTP Status | Logged at |
-|----------------|-------------|-----------|
-| `NotFoundException` | 404 | Warning |
-| `ValidationException` | 400 | Warning |
-| `ForbiddenException` | 403 | Warning |
-| `ConflictException` | 409 | Warning |
-| `DbUpdateConcurrencyException` | 409 | Warning |
-| Anything else | 500 | Error |
+| Exception type                 | HTTP Status | Logged at |
+| ------------------------------ | ----------- | --------- |
+| `NotFoundException`            | 404         | Warning   |
+| `ValidationException`          | 400         | Warning   |
+| `ForbiddenException`           | 403         | Warning   |
+| `ConflictException`            | 409         | Warning   |
+| `DbUpdateConcurrencyException` | 409         | Warning   |
+| Anything else                  | 500         | Error     |
 
 Response extensions are standardized through `AddProblemDetails(...)` customization:
 - `errorCode` (primary code, e.g. `PRD-0404`)
@@ -563,18 +607,18 @@ Example payload:
 
 Error code catalog:
 
-| Code | HTTP | Meaning |
-|------|------|---------|
-| `GEN-0001` | 500 | Unknown/unhandled server error |
-| `GEN-0400` | 400 | Generic validation failure |
-| `GEN-0404` | 404 | Generic resource not found |
-| `GEN-0409` | 409 | Generic conflict |
-| `GEN-0409-CONCURRENCY` | 409 | Optimistic concurrency conflict |
-| `AUTH-0403` | 403 | Forbidden |
-| `PRD-0404` | 404 | Product not found |
-| `CAT-0404` | 404 | Category not found |
-| `REV-0404` | 404 | Review not found |
-| `REV-2101` | 404 | Product not found when creating a review |
+| Code                   | HTTP | Meaning                                  |
+| ---------------------- | ---- | ---------------------------------------- |
+| `GEN-0001`             | 500  | Unknown/unhandled server error           |
+| `GEN-0400`             | 400  | Generic validation failure               |
+| `GEN-0404`             | 404  | Generic resource not found               |
+| `GEN-0409`             | 409  | Generic conflict                         |
+| `GEN-0409-CONCURRENCY` | 409  | Optimistic concurrency conflict          |
+| `AUTH-0403`            | 403  | Forbidden                                |
+| `PRD-0404`             | 404  | Product not found                        |
+| `CAT-0404`             | 404  | Category not found                       |
+| `REV-0404`             | 404  | Review not found                         |
+| `REV-2101`             | 404  | Product not found when creating a review |
 
 > GraphQL requests are explicitly bypassed — HotChocolate handles its own error serialisation.
 
@@ -625,12 +669,12 @@ Mutations (Create / Update / Delete) evict the relevant tag via `IOutputCacheSto
 
 HotChocolate is configured with several safeguards:
 
-| Guard | Setting | Purpose |
-|-------|---------|---------|
-| `MaxPageSize` | 100 | Prevents unbounded result sets |
-| `DefaultPageSize` | 20 | Sensible default for clients |
-| `AddMaxExecutionDepthRule(5)` | depth ≤ 5 | Prevents deeply nested query attacks |
-| `AddAuthorization()` | policy support enabled | Enables `[Authorize]` on GraphQL fields/mutations |
+| Guard                         | Setting                | Purpose                                           |
+| ----------------------------- | ---------------------- | ------------------------------------------------- |
+| `MaxPageSize`                 | 100                    | Prevents unbounded result sets                    |
+| `DefaultPageSize`             | 20                     | Sensible default for clients                      |
+| `AddMaxExecutionDepthRule(5)` | depth ≤ 5              | Prevents deeply nested query attacks              |
+| `AddAuthorization()`          | policy support enabled | Enables `[Authorize]` on GraphQL fields/mutations |
 
 GraphQL query and mutation fields are protected with `[Authorize]`.
 
@@ -659,15 +703,15 @@ Only the compiled artefacts from Stage 2 are copied into the slim Stage 3 runtim
 
 ### 13 — Polyglot Persistence Decision Guide
 
-| Data characteristic | Recommended store |
-|---------------------|------------------|
-| Relational data with foreign keys | PostgreSQL |
-| Fixed, well-defined schema | PostgreSQL |
-| ACID transactions across tables | PostgreSQL |
-| Complex aggregations / reporting | PostgreSQL + stored procedure |
-| Semi-structured or evolving schemas | MongoDB |
-| Polymorphic document hierarchies | MongoDB |
-| Media metadata, logs, audit events | MongoDB |
+| Data characteristic                 | Recommended store             |
+| ----------------------------------- | ----------------------------- |
+| Relational data with foreign keys   | PostgreSQL                    |
+| Fixed, well-defined schema          | PostgreSQL                    |
+| ACID transactions across tables     | PostgreSQL                    |
+| Complex aggregations / reporting    | PostgreSQL + stored procedure |
+| Semi-structured or evolving schemas | MongoDB                       |
+| Polymorphic document hierarchies    | MongoDB                       |
+| Media metadata, logs, audit events  | MongoDB                       |
 
 ---
 
@@ -677,12 +721,12 @@ EF Core's `FromSql()` lets you call stored procedures while still getting full o
 
 ### When to use a stored procedure
 
-| Situation | Use LINQ | Use Stored Procedure |
-|-----------|----------|----------------------|
-| Simple CRUD filtering / paging | ✅ | |
-| Complex multi-table aggregations | | ✅ |
-| Reusable DB-side business logic | | ✅ |
-| Query needs full EF change tracking | ✅ | |
+| Situation                           | Use LINQ | Use Stored Procedure |
+| ----------------------------------- | -------- | -------------------- |
+| Simple CRUD filtering / paging      | ✅        |                      |
+| Complex multi-table aggregations    |          | ✅                    |
+| Reusable DB-side business logic     |          | ✅                    |
+| Query needs full EF change tracking | ✅        |                      |
 
 ### 4-step implementation
 
@@ -790,14 +834,14 @@ The `ProductData` feature demonstrates a **polymorphic document model** in Mongo
 
 ### When to use MongoDB vs PostgreSQL
 
-| Situation | Use PostgreSQL | Use MongoDB |
-|-----------|---------------|-------------|
-| Relational data with foreign keys | ✅ | |
-| Fixed, well-defined schema | ✅ | |
-| ACID transactions across tables | ✅ | |
-| Semi-structured or evolving schemas | | ✅ |
-| Polymorphic document hierarchies | | ✅ |
-| Media metadata, logs, events | | ✅ |
+| Situation                           | Use PostgreSQL | Use MongoDB |
+| ----------------------------------- | -------------- | ----------- |
+| Relational data with foreign keys   | ✅              |             |
+| Fixed, well-defined schema          | ✅              |             |
+| ACID transactions across tables     | ✅              |             |
+| Semi-structured or evolving schemas |                | ✅           |
+| Polymorphic document hierarchies    |                | ✅           |
+| Media metadata, logs, events        |                | ✅           |
 
 ### Discriminator-based inheritance
 
@@ -842,13 +886,13 @@ MongoDB stores a `_t` discriminator field automatically, enabling polymorphic qu
 
 Base route: `api/v{version}/product-data` — all endpoints require JWT authorization.
 
-| Method | Endpoint | Request | Response | Purpose |
-|--------|----------|---------|----------|---------|
-| `GET` | `/` | Query: `type` (optional) | `List<ProductDataResponse>` | List all or filter by type |
-| `GET` | `/{id}` | MongoDB ObjectId string | `ProductDataResponse` / 404 | Get by ID |
-| `POST` | `/image` | `CreateImageProductDataRequest` | `ProductDataResponse` 201 | Create image metadata |
-| `POST` | `/video` | `CreateVideoProductDataRequest` | `ProductDataResponse` 201 | Create video metadata |
-| `DELETE` | `/{id}` | MongoDB ObjectId string | 204 No Content | Delete by ID |
+| Method   | Endpoint | Request                         | Response                    | Purpose                    |
+| -------- | -------- | ------------------------------- | --------------------------- | -------------------------- |
+| `GET`    | `/`      | Query: `type` (optional)        | `List<ProductDataResponse>` | List all or filter by type |
+| `GET`    | `/{id}`  | MongoDB ObjectId string         | `ProductDataResponse` / 404 | Get by ID                  |
+| `POST`   | `/image` | `CreateImageProductDataRequest` | `ProductDataResponse` 201   | Create image metadata      |
+| `POST`   | `/video` | `CreateVideoProductDataRequest` | `ProductDataResponse` 201   | Create video metadata      |
+| `DELETE` | `/{id}`  | MongoDB ObjectId string         | 204 No Content              | Delete by ID               |
 
 ### Full request flow
 
@@ -897,13 +941,13 @@ The repository maintains an inclusive combination of **Unit Tests** and **Integr
 
 ### Test structure
 
-| Folder | Technology | What it tests |
-|--------|-----------|---------------|
-| `tests/APITemplate.Tests/Unit/Services/` | xUnit + Moq | Service business logic in isolation |
-| `tests/APITemplate.Tests/Unit/Repositories/` | xUnit + Moq | Repository filtering/query logic |
-| `tests/APITemplate.Tests/Unit/Validators/` | xUnit + FluentValidation.TestHelper | Validator rules per DTO |
-| `tests/APITemplate.Tests/Unit/ExceptionHandling/` | xUnit + Moq | Explicit `errorCode` mapping and exception-to-HTTP conversion in `ApiExceptionHandler` |
-| `tests/APITemplate.Tests/Integration/` | xUnit + `WebApplicationFactory` | Full HTTP round-trips over in-memory database |
+| Folder                                            | Technology                          | What it tests                                                                          |
+| ------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `tests/APITemplate.Tests/Unit/Services/`          | xUnit + Moq                         | Service business logic in isolation                                                    |
+| `tests/APITemplate.Tests/Unit/Repositories/`      | xUnit + Moq                         | Repository filtering/query logic                                                       |
+| `tests/APITemplate.Tests/Unit/Validators/`        | xUnit + FluentValidation.TestHelper | Validator rules per DTO                                                                |
+| `tests/APITemplate.Tests/Unit/ExceptionHandling/` | xUnit + Moq                         | Explicit `errorCode` mapping and exception-to-HTTP conversion in `ApiExceptionHandler` |
+| `tests/APITemplate.Tests/Integration/`            | xUnit + `WebApplicationFactory`     | Full HTTP round-trips over in-memory database                                          |
 
 ### Integration test isolation
 
