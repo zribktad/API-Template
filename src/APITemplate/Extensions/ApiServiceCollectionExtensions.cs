@@ -5,6 +5,7 @@ using APITemplate.Api.Filters;
 using APITemplate.Api.OpenApi;
 using APITemplate.Application.Common.Options;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 namespace APITemplate.Extensions;
@@ -43,25 +44,30 @@ public static class ApiServiceCollectionExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        var rateLimitOpts = configuration.GetSection("RateLimiting:Fixed").Get<RateLimitingOptions>()
-            ?? new RateLimitingOptions();
         // Per-client fixed window rate limiter. Partition key priority:
         //   1. JWT username (authenticated users)
         //   2. Remote IP address (anonymous users)
         //   3. "anonymous" fallback (shared bucket when neither is available)
+        // IConfigureOptions is used so values are resolved from DI at first request,
+        // not captured at registration time — this allows tests to override RateLimitingOptions.
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.AddPolicy(CachePolicyNames.RateLimitPolicy, httpContext =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: httpContext.User.Identity?.Name
-                        ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                        ?? "anonymous",
-                    factory: _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = rateLimitOpts.PermitLimit,
-                        Window = TimeSpan.FromMinutes(rateLimitOpts.WindowMinutes)
-                    }));
+        });
+        services.AddSingleton<IConfigureOptions<RateLimiterOptions>>(sp =>
+        {
+            var rateLimitOpts = sp.GetRequiredService<IOptions<RateLimitingOptions>>().Value;
+            return new ConfigureOptions<RateLimiterOptions>(o =>
+                o.AddPolicy(CachePolicyNames.RateLimitPolicy, httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.User.Identity?.Name
+                            ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                            ?? "anonymous",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = rateLimitOpts.PermitLimit,
+                            Window = TimeSpan.FromMinutes(rateLimitOpts.WindowMinutes)
+                        })));
         });
 
         // Output Cache with optional Valkey backing store.
