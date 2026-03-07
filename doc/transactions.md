@@ -1,6 +1,6 @@
 # How to Use Transactions
 
-This guide explains how to wrap multiple database operations in a single atomic transaction using the **Unit of Work** pattern implemented in this project.
+This guide explains the relational write rules used in this project and how to wrap multiple database operations in a single atomic transaction using the **Unit of Work** pattern.
 
 ---
 
@@ -10,45 +10,59 @@ The project provides two transaction mechanisms:
 
 | Mechanism | When to use |
 |-----------|------------|
-| **Implicit (auto-commit)** | A single service operation — one entity, one save. Most common case. |
-| **Explicit transaction via `IUnitOfWork.ExecuteInTransactionAsync`** | Multiple entities must succeed or fail together. |
+| **Service write wrapper via `ExecuteTransactionalWriteAsync(...)`** | Default relational write shape used by application services in this template. |
+| **Explicit transaction via `IUnitOfWork.ExecuteInTransactionAsync`** | Underlying transaction mechanism used by the service write wrapper. |
 
 Both mechanisms are available through `IUnitOfWork`, which is registered as a scoped dependency and wraps `AppDbContext` (PostgreSQL/EF Core).
+
+For relational persistence, the service layer owns commit orchestration:
+
+- Repositories only stage changes in the EF Core change tracker.
+- Application services call `ExecuteTransactionalWriteAsync(...)` for relational writes.
+- `ExecuteTransactionalWriteAsync(...)` delegates to `IUnitOfWork.ExecuteInTransactionAsync(...)`.
+- `IUnitOfWork.CommitAsync()` remains the low-level commit primitive used by `UnitOfWork` itself.
+- Command-side validation lookups can still happen before the wrapper when that keeps the command flow clearer.
 
 > **MongoDB note:** MongoDB multi-document ACID transactions require a replica set or sharded cluster. See the [MongoDB transaction section](#mongodb-transactions) at the end of this guide.
 
 ---
 
-## Implicit Commit (Single Entity)
+## Service Write Wrapper
 
-The most common case: add or update one entity and commit.
+The default relational write pattern in this template is the application helper `ExecuteTransactionalWriteAsync(...)`.
 
 ```csharp
 public async Task<ProductResponse> CreateAsync(CreateProductRequest request, CancellationToken ct = default)
 {
-    var product = new Product
+    var product = await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
     {
-        Id          = Guid.NewGuid(),
-        Name        = request.Name,
-        Description = request.Description,
-        Price       = request.Price,
-        CategoryId  = request.CategoryId,
-        CreatedAt   = DateTime.UtcNow
-    };
+        var entity = new Product
+        {
+            Id          = Guid.NewGuid(),
+            Name        = request.Name,
+            Description = request.Description,
+            Price       = request.Price,
+            CategoryId  = request.CategoryId,
+            CreatedAt   = DateTime.UtcNow
+        };
 
-    await _repository.AddAsync(product, ct);   // stages the entity in the EF change tracker
-    await _unitOfWork.CommitAsync(ct);          // calls SaveChangesAsync → one INSERT
+        await _repository.AddAsync(entity, ct); // stages the entity in the EF change tracker
+        return entity;
+    }, ct);
+
     return product.ToResponse();
 }
 ```
 
-`CommitAsync` calls `AppDbContext.SaveChangesAsync`. With our EF Core/PostgreSQL setup, EF Core will create and use a database transaction when needed (for example, when multiple statements are generated), but the exact implicit transaction behavior can vary by provider and configuration.
+This helper keeps all relational writes on one entry point, even when the underlying write is only a single staged repository operation.
 
 ---
 
 ## Explicit Transaction (Multiple Entities)
 
-When two or more entities must be persisted atomically — either both succeed or the database is left unchanged — use `ExecuteInTransactionAsync`:
+`ExecuteTransactionalWriteAsync(...)` is backed by `ExecuteInTransactionAsync(...)`. When you need to understand or change the transaction boundary itself, this is the underlying mechanism:
+
+The current shipped features use the higher-level helper, so treat the example below as the lower-level reference for future transaction-boundary work.
 
 ```csharp
 public async Task TransferCategoryAsync(
@@ -72,14 +86,11 @@ public async Task TransferCategoryAsync(
         category.ProductCount += 1;
         await _categoryRepository.UpdateAsync(category, ct);
 
-        // 3. Commit both changes inside the same transaction
-        await _unitOfWork.CommitAsync(ct);
-
     }, ct);
 }
 ```
 
-If any statement inside the lambda throws, `ExecuteInTransactionAsync` calls `RollbackAsync` and re-throws the exception — the database is left unchanged.
+If any statement inside the lambda throws, `ExecuteInTransactionAsync` calls `RollbackAsync` and re-throws the exception — the database is left unchanged. Do not call `CommitAsync` inside the transaction lambda; the wrapper saves and commits after the delegate completes successfully.
 
 ### How `ExecuteInTransactionAsync` Works
 
@@ -91,6 +102,7 @@ public async Task ExecuteInTransactionAsync(Func<Task> action, CancellationToken
     try
     {
         await action();
+        await _dbContext.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
     }
     catch
@@ -157,14 +169,35 @@ public sealed class OrderService : IOrderService
 
             await _orderRepo.AddAsync(order, ct);
 
-            // Both changes saved in one atomic transaction
-            await _unitOfWork.CommitAsync(ct);
-
             response = order.ToResponse();
         }, ct);
 
         return response!;
     }
+}
+```
+
+The helper keeps single-write and multi-step write flows on the same service-level shape:
+
+```csharp
+public async Task<ProductReviewResponse> CreateAsync(CreateProductReviewRequest request, CancellationToken ct)
+{
+    var product = await _productRepository.GetByIdAsync(request.ProductId, ct)
+        ?? throw new NotFoundException("Product", request.ProductId);
+
+    var review = await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
+    {
+        var entity = new ProductReview
+        {
+            ProductId = product.Id,
+            Rating = request.Rating
+        };
+
+        await _reviewRepository.AddAsync(entity, ct);
+        return entity;
+    }, ct);
+
+    return review.ToResponse();
 }
 ```
 

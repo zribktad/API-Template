@@ -1,4 +1,5 @@
 using APITemplate.Application.Features.Product.Mappings;
+using APITemplate.Application.Common.Persistence;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
@@ -33,17 +34,21 @@ public sealed class ProductService : IProductService
     {
         await ValidateCategoryExistsAsync(request.CategoryId, ct);
 
-        var product = new ProductEntity
+        var product = await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
         {
-            Id = Guid.NewGuid(),
-            Name = request.Name,
-            Description = request.Description,
-            Price = request.Price,
-            CategoryId = request.CategoryId
-        };
+            var entity = new ProductEntity
+            {
+                Id = Guid.NewGuid(),
+                Name = request.Name,
+                Description = request.Description,
+                Price = request.Price,
+                CategoryId = request.CategoryId
+            };
 
-        await _repository.AddAsync(product, ct);
-        await _unitOfWork.CommitAsync(ct);
+            await _repository.AddAsync(entity, ct);
+            return entity;
+        }, ct);
+
         return product.ToResponse();
     }
 
@@ -57,19 +62,23 @@ public sealed class ProductService : IProductService
 
         await ValidateCategoryExistsAsync(request.CategoryId, ct);
 
-        product.Name = request.Name;
-        product.Description = request.Description;
-        product.Price = request.Price;
-        product.CategoryId = request.CategoryId;
+        await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
+        {
+            product.Name = request.Name;
+            product.Description = request.Description;
+            product.Price = request.Price;
+            product.CategoryId = request.CategoryId;
 
-        await _repository.UpdateAsync(product, ct);
-        await _unitOfWork.CommitAsync(ct);
+            await _repository.UpdateAsync(product, ct);
+        }, ct);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        await _repository.DeleteAsync(id, ct, ErrorCatalog.Products.NotFound);
-        await _unitOfWork.CommitAsync(ct);
+        await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
+        {
+            await _repository.DeleteAsync(id, ct, ErrorCatalog.Products.NotFound);
+        }, ct);
     }
 
     private async Task ValidateCategoryExistsAsync(Guid? categoryId, CancellationToken ct)

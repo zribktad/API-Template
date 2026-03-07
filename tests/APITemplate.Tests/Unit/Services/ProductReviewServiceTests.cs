@@ -27,9 +27,8 @@ public class ProductReviewServiceTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _actorProviderMock = new Mock<IActorProvider>();
         _actorProviderMock.Setup(a => a.ActorId).Returns(_currentUserId);
-        _unitOfWorkMock
-            .Setup(u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task<ProductReview>>>(), It.IsAny<CancellationToken>()))
-            .Returns((Func<Task<ProductReview>> action, CancellationToken _) => action());
+        _unitOfWorkMock.SetupImmediateTransactionExecution();
+        _unitOfWorkMock.SetupImmediateTransactionExecution<ProductReview>();
         _sut = new ProductReviewService(
             _reviewRepoMock.Object,
             _queryServiceMock.Object,
@@ -140,6 +139,9 @@ public class ProductReviewServiceTests
         result.Id.ShouldNotBe(Guid.Empty);
 
         _reviewRepoMock.Verify(r => r.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task<ProductReview>>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -169,7 +171,9 @@ public class ProductReviewServiceTests
         await _sut.DeleteAsync(id, TestContext.Current.CancellationToken);
 
         _reviewRepoMock.Verify(r => r.DeleteAsync(id, It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

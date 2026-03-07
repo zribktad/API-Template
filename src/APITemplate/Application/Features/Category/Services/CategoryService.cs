@@ -1,4 +1,5 @@
 using APITemplate.Application.Features.Category.Mappings;
+using APITemplate.Application.Common.Persistence;
 using CategoryEntity = APITemplate.Domain.Entities.Category;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
@@ -29,15 +30,19 @@ public sealed class CategoryService : ICategoryService
 
     public async Task<CategoryResponse> CreateAsync(CreateCategoryRequest request, CancellationToken ct = default)
     {
-        var category = new CategoryEntity
+        var category = await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
         {
-            Id = Guid.NewGuid(),
-            Name = request.Name,
-            Description = request.Description
-        };
+            var entity = new CategoryEntity
+            {
+                Id = Guid.NewGuid(),
+                Name = request.Name,
+                Description = request.Description
+            };
 
-        await _repository.AddAsync(category, ct);
-        await _unitOfWork.CommitAsync(ct);
+            await _repository.AddAsync(entity, ct);
+            return entity;
+        }, ct);
+
         return category.ToResponse();
     }
 
@@ -49,17 +54,21 @@ public sealed class CategoryService : ICategoryService
                 id,
                 ErrorCatalog.Categories.NotFound);
 
-        category.Name = request.Name;
-        category.Description = request.Description;
+        await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
+        {
+            category.Name = request.Name;
+            category.Description = request.Description;
 
-        await _repository.UpdateAsync(category, ct);
-        await _unitOfWork.CommitAsync(ct);
+            await _repository.UpdateAsync(category, ct);
+        }, ct);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        await _repository.DeleteAsync(id, ct, ErrorCatalog.Categories.NotFound);
-        await _unitOfWork.CommitAsync(ct);
+        await _unitOfWork.ExecuteTransactionalWriteAsync(async () =>
+        {
+            await _repository.DeleteAsync(id, ct, ErrorCatalog.Categories.NotFound);
+        }, ct);
     }
 
     public async Task<ProductCategoryStatsResponse?> GetStatsAsync(Guid id, CancellationToken ct = default)

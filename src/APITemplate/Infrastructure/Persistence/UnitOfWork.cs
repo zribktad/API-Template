@@ -14,6 +14,7 @@ public sealed class UnitOfWork : IUnitOfWork
     public Task CommitAsync(CancellationToken ct = default)
         => _dbContext.SaveChangesAsync(ct);
 
+    // For multi-step write flows only. Single writes should use repository + CommitAsync.
     public async Task ExecuteInTransactionAsync(Func<Task> action, CancellationToken ct = default)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
@@ -30,6 +31,7 @@ public sealed class UnitOfWork : IUnitOfWork
         }
     }
 
+    // Same as above, but returns a value produced inside the transaction.
     public async Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken ct = default)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);

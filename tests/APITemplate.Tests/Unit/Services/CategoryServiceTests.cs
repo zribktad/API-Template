@@ -18,6 +18,8 @@ public class CategoryServiceTests
     {
         _repositoryMock = new Mock<ICategoryRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _unitOfWorkMock.SetupImmediateTransactionExecution();
+        _unitOfWorkMock.SetupImmediateTransactionExecution<Category>();
         _sut = new CategoryService(_repositoryMock.Object, _unitOfWorkMock.Object);
     }
 
@@ -110,7 +112,9 @@ public class CategoryServiceTests
         result.Description.ShouldBe("Electronic devices");
 
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task<Category>>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -151,7 +155,9 @@ public class CategoryServiceTests
             It.Is<Category>(c => c.Name == "New Name" && c.Description == "New Description"),
             It.IsAny<CancellationToken>()), Times.Once);
 
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -164,7 +170,9 @@ public class CategoryServiceTests
         var act = () => _sut.UpdateAsync(Guid.NewGuid(), new UpdateCategoryRequest("Name", null), TestContext.Current.CancellationToken);
 
         await Should.ThrowAsync<NotFoundException>(act);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWorkMock.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -175,7 +183,9 @@ public class CategoryServiceTests
         await _sut.DeleteAsync(id, TestContext.Current.CancellationToken);
 
         _repositoryMock.Verify(r => r.DeleteAsync(id, It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
