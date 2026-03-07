@@ -62,23 +62,20 @@ public static class TenantClaimValidator
 
         if (principal?.Identity is not ClaimsIdentity identity)
         {
-            logger.LogWarning("[{Scheme}] Token validated but no identity found", scheme);
+            logger.TokenValidatedNoIdentity(scheme);
             return;
         }
 
         var claims = identity.Claims
-            .Select(c => new { c.Type, c.Value })
+            .Select(c => $"{c.Type}={c.Value}")
             .ToList();
 
-        logger.LogDebug("[{Scheme}] Token validated with {ClaimCount} claims: {@Claims}",
-            scheme, claims.Count, claims);
+        logger.TokenValidatedWithClaims(scheme, claims.Count, string.Join("; ", claims));
 
         var name = identity.FindFirst(ClaimTypes.Name)?.Value;
         var roles = identity.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
         var tenantId = identity.FindFirst(CustomClaimTypes.TenantId)?.Value;
 
-        logger.LogInformation(
-            "[{Scheme}] Authenticated user={User}, tenant={TenantId}, roles=[{Roles}]",
-            scheme, name, tenantId, string.Join(", ", roles));
+        logger.UserAuthenticated(scheme, name, tenantId, string.Join(", ", roles));
     }
 }

@@ -71,13 +71,13 @@ public static class ApplicationBuilderExtensions
 
         if (string.IsNullOrEmpty(keycloak.AuthServerUrl) || string.IsNullOrEmpty(keycloak.Realm))
         {
-            app.Logger.LogWarning("Keycloak configuration is missing, skipping readiness check");
+            app.Logger.KeycloakConfigMissing();
             return;
         }
 
         if (app.Configuration.GetValue<bool>("Keycloak:SkipReadinessCheck"))
         {
-            app.Logger.LogInformation("Keycloak readiness check skipped via configuration");
+            app.Logger.KeycloakReadinessCheckSkipped();
             return;
         }
 
@@ -97,7 +97,7 @@ public static class ApplicationBuilderExtensions
                 var response = await httpClient.GetAsync(discoveryUrl, cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
-                    app.Logger.LogInformation("Keycloak is ready at {Url}", keycloak.AuthServerUrl);
+                    app.Logger.KeycloakReady(keycloak.AuthServerUrl);
                     return;
                 }
             }
@@ -106,7 +106,7 @@ public static class ApplicationBuilderExtensions
                 // Keycloak not reachable yet
             }
 
-            app.Logger.LogWarning("Keycloak not ready, retrying ({Attempt}/{MaxRetries})...", i, maxRetries);
+            app.Logger.KeycloakRetrying(i, maxRetries);
             await Task.Delay(delayMs, cancellationToken);
         }
 
