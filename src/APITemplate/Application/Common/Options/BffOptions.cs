@@ -6,4 +6,5 @@ public sealed class BffOptions
     public string PostLogoutRedirectUri { get; init; } = "/";
     public int SessionTimeoutMinutes { get; init; } = 60;
     public string[] Scopes { get; init; } = ["openid", "profile", "email"];
+    public int TokenRefreshThresholdMinutes { get; init; } = 2;
 }

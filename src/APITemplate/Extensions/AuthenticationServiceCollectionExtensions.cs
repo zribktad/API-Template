@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 
@@ -104,7 +105,9 @@ public static class AuthenticationServiceCollectionExtensions
                 options.Cookie.Name = bffOptions.CookieName;
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                options.Cookie.SecurePolicy = environment.IsDevelopment()
+                    ? CookieSecurePolicy.SameAsRequest
+                    : CookieSecurePolicy.Always;
                 options.ExpireTimeSpan = TimeSpan.FromMinutes(bffOptions.SessionTimeoutMinutes);
                 options.SlidingExpiration = true;
                 options.Events.OnRedirectToLogin = ctx =>
@@ -112,6 +115,7 @@ public static class AuthenticationServiceCollectionExtensions
                     ctx.Response.StatusCode = 401;
                     return Task.CompletedTask;
                 };
+                options.Events.OnValidatePrincipal = CookieSessionRefresher.OnValidatePrincipal;
             })
             .AddOpenIdConnect(BffAuthenticationSchemes.Oidc, options =>
             {
@@ -133,6 +137,10 @@ public static class AuthenticationServiceCollectionExtensions
                 };
             });
 
+        services.AddSingleton<ValkeyTicketStore>();
+        services.AddOptions<CookieAuthenticationOptions>(BffAuthenticationSchemes.Cookie)
+            .Configure<ValkeyTicketStore>((opts, store) => opts.SessionStore = store);
+
         services.AddKeycloakAuthorization(configuration)
             .AddAuthorizationBuilder()
             .SetFallbackPolicy(new AuthorizationPolicyBuilder()
@@ -144,6 +152,7 @@ public static class AuthenticationServiceCollectionExtensions
                 policy => policy.RequireRole(UserRole.PlatformAdmin.ToString()));
 
         services.AddHttpClient(nameof(KeycloakHealthCheck));
+        services.AddHttpClient("KeycloakTokenClient");
         services.AddHealthChecks()
             .AddCheck<KeycloakHealthCheck>("keycloak", tags: ["identity"]);
 
