@@ -4,10 +4,7 @@ using System.Text.Json;
 using APITemplate.Domain.Entities;
 using APITemplate.Tests.Integration.Helpers;
 using APITemplate.Domain.Interfaces;
-using APITemplate.Infrastructure.Persistence;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -22,17 +19,9 @@ public class ProductDataControllerTests
 
     public ProductDataControllerTests(CustomWebApplicationFactory factory)
     {
-        _repositoryMock = new Mock<IProductDataRepository>();
-
-        _client = factory.WithWebHostBuilder(builder =>
-        {
-            builder.ConfigureTestServices(services =>
-            {
-                services.RemoveAll<MongoDbContext>();
-                services.RemoveAll<IProductDataRepository>();
-                services.AddSingleton(_repositoryMock.Object);
-            });
-        }).CreateClient();
+        _client = factory.CreateClient();
+        _repositoryMock = factory.Services.GetRequiredService<Mock<IProductDataRepository>>();
+        _repositoryMock.Reset();
     }
 
     [Fact]

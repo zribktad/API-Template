@@ -10,8 +10,8 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-[Collection(nameof(IntegrationCollection))]
-public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFactory>
+[Collection("Integration.Bff")]
+public sealed class BffSecurityTests
 {
     private readonly BffSecurityWebApplicationFactory _factory;
 

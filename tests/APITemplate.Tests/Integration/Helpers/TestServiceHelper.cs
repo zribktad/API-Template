@@ -94,6 +94,8 @@ internal static class TestServiceHelper
     {
         services.RemoveAll(typeof(MongoDbContext));
         services.RemoveAll(typeof(IProductDataRepository));
-        services.AddSingleton(new Mock<IProductDataRepository>().Object);
+        var mock = new Mock<IProductDataRepository>();
+        services.AddSingleton(mock);
+        services.AddSingleton(mock.Object);
     }
 }

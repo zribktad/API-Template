@@ -1,5 +1,5 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
@@ -7,28 +7,31 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class RateLimitingTests : IAsyncLifetime
+public sealed class RateLimitingWebApplicationFactory : CustomWebApplicationFactory
 {
-    private WebApplicationFactory<Program> _factory = null!;
-    private const int PermitLimit = 3;
+    public const int PermitLimit = 3;
 
-    public Task InitializeAsync()
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        _factory = new CustomWebApplicationFactory().WithWebHostBuilder(builder =>
-        {
-            builder.ConfigureTestServices(services =>
+        base.ConfigureWebHost(builder);
+        builder.ConfigureTestServices(services =>
+            services.Configure<RateLimitingOptions>(o =>
             {
-                services.Configure<RateLimitingOptions>(o =>
-                {
-                    o.PermitLimit = PermitLimit;
-                    o.WindowMinutes = 1;
-                });
-            });
-        });
-        return Task.CompletedTask;
+                o.PermitLimit = PermitLimit;
+                o.WindowMinutes = 1;
+            }));
     }
+}
 
-    public async Task DisposeAsync() => await _factory.DisposeAsync();
+public class RateLimitingTests : IClassFixture<RateLimitingWebApplicationFactory>
+{
+    private readonly RateLimitingWebApplicationFactory _factory;
+    private const int PermitLimit = RateLimitingWebApplicationFactory.PermitLimit;
+
+    public RateLimitingTests(RateLimitingWebApplicationFactory factory)
+    {
+        _factory = factory;
+    }
 
     [Fact]
     public async Task ExceedingLimit_SameUser_Returns429()
