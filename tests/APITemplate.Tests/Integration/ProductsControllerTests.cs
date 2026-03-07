@@ -16,9 +16,10 @@ public class ProductsControllerTests
     [Fact]
     public async Task GetAll_WithValidToken_ReturnsOk()
     {
+        var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var response = await _client.GetAsync("/api/v1/products");
+        var response = await _client.GetAsync("/api/v1/products", ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }

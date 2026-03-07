@@ -22,11 +22,13 @@ public sealed class BffSecurityTests
     [Fact]
     public async Task PostWithCookieAuth_WithoutCsrfHeader_Returns403()
     {
+        var ct = TestContext.Current.CancellationToken;
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Cookie-Auth", "1");
 
         var response = await client.PostAsync("/api/v1/products",
-            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
+            ct);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -34,12 +36,14 @@ public sealed class BffSecurityTests
     [Fact]
     public async Task PostWithCookieAuth_WithCsrfHeader_PassesCsrfCheck()
     {
+        var ct = TestContext.Current.CancellationToken;
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Cookie-Auth", "1");
         client.DefaultRequestHeaders.Add(CsrfConstants.HeaderName, CsrfConstants.HeaderValue);
 
         var response = await client.PostAsync("/api/v1/products",
-            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
+            ct);
 
         // CSRF passes; authorization middleware rejects the fake cookie identity (no real session),
         // so we expect 401 rather than 403 (which would mean CSRF blocked the request).
@@ -49,11 +53,13 @@ public sealed class BffSecurityTests
     [Fact]
     public async Task PostWithJwtBearer_WithoutCsrfHeader_PassesCsrfCheck()
     {
+        var ct = TestContext.Current.CancellationToken;
         var client = _factory.CreateClient();
         IntegrationAuthHelper.Authenticate(client);
 
         var response = await client.PostAsync("/api/v1/products",
-            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
+            ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -61,12 +67,13 @@ public sealed class BffSecurityTests
     [Fact]
     public async Task GetCsrfEndpoint_ReturnsHeaderConfig()
     {
+        var ct = TestContext.Current.CancellationToken;
         var client = _factory.CreateClient();
 
-        var response = await client.GetAsync("/api/v1/bff/csrf");
+        var response = await client.GetAsync("/api/v1/bff/csrf", ct);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
+        var body = await response.Content.ReadAsStringAsync(ct);
         Assert.Contains("X-CSRF", body);
         Assert.Contains("headerName", body);
         Assert.Contains("headerValue", body);

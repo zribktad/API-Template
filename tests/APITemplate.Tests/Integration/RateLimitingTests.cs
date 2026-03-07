@@ -36,29 +36,32 @@ public class RateLimitingTests
     [Fact]
     public async Task ExceedingLimit_SameUser_Returns429()
     {
+        var ct = TestContext.Current.CancellationToken;
         var client = _factory.CreateClient();
         IntegrationAuthHelper.Authenticate(client, username: "rl-exceed-user");
 
         for (var i = 0; i < PermitLimit; i++)
-            (await client.GetAsync("/api/v1/products")).StatusCode.ShouldBe(HttpStatusCode.OK);
+            (await client.GetAsync("/api/v1/products", ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var throttled = await client.GetAsync("/api/v1/products");
+        var throttled = await client.GetAsync("/api/v1/products", ct);
         throttled.StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
     }
 
     [Fact]
     public async Task WithinLimit_ReturnsOk()
     {
+        var ct = TestContext.Current.CancellationToken;
         var client = _factory.CreateClient();
         IntegrationAuthHelper.Authenticate(client, username: "rl-within-user");
 
         for (var i = 0; i < PermitLimit; i++)
-            (await client.GetAsync("/api/v1/products")).StatusCode.ShouldBe(HttpStatusCode.OK);
+            (await client.GetAsync("/api/v1/products", ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
     public async Task DifferentUsers_HaveIndependentBuckets()
     {
+        var ct = TestContext.Current.CancellationToken;
         var clientA = _factory.CreateClient();
         IntegrationAuthHelper.Authenticate(clientA, username: "rl-user-a");
 
@@ -67,13 +70,13 @@ public class RateLimitingTests
 
         // Exhaust user-a's bucket
         for (var i = 0; i < PermitLimit; i++)
-            await clientA.GetAsync("/api/v1/products");
+            await clientA.GetAsync("/api/v1/products", ct);
 
-        (await clientA.GetAsync("/api/v1/products")).StatusCode
+        (await clientA.GetAsync("/api/v1/products", ct)).StatusCode
             .ShouldBe(HttpStatusCode.TooManyRequests);
 
         // user-b has their own independent bucket — not affected
-        (await clientB.GetAsync("/api/v1/products")).StatusCode
+        (await clientB.GetAsync("/api/v1/products", ct)).StatusCode
             .ShouldBe(HttpStatusCode.OK);
     }
 }
