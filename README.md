@@ -147,6 +147,7 @@ classDiagram
         +string PasswordHash
         +bool IsActive
         +UserRole Role
+        +Tenant Tenant
         +Guid TenantId
         +AuditInfo Audit
         +bool IsDeleted
@@ -177,9 +178,10 @@ classDiagram
     class ProductReview {
         +Guid Id
         +Guid ProductId
-        +string ReviewerName
-        +string Comment
+        +Guid UserId
+        +string? Comment
         +int Rating
+        +AppUser User
         +Guid TenantId
         +AuditInfo Audit
         +bool IsDeleted
@@ -215,11 +217,19 @@ classDiagram
         +long FileSizeBytes
     }
 
-    Tenant "1" *-- "0..*" AppUser : owns
-    Category "0..1" o-- "0..*" Product : categorises
-    Product "1" *-- "0..*" ProductReview : owns
+    Tenant "1" --> "0..*" AppUser : users
+    Tenant "1" --> "0..*" Category : scope
+    Tenant "1" --> "0..*" Product : scope
+    Tenant "1" --> "0..*" ProductReview : scope
+    Category "1" --> "0..*" Product : products
+    Product "0..*" --> "0..1" Category : category
+    Product "1" --> "0..*" ProductReview : reviews
+    AppUser "1" --> "0..*" ProductReview : authors
+    ProductReview "0..*" --> "1" AppUser : user
     Product --> AuditInfo
     Category --> AuditInfo
+    AppUser --> AuditInfo
+    Tenant --> AuditInfo
     ProductReview --> AuditInfo
     ProductData <|-- ImageProductData : discriminator image
     ProductData <|-- VideoProductData : discriminator video
