@@ -32,14 +32,21 @@ Step-by-step guides for the most common workflows in this project:
     *   **GraphQL API:** Complex query batching via `HotChocolate`, integrated Mutations and DataLoaders to eliminate the N+1 problem.
 *   **Modern Interactive Documentation:** Native `.NET 10` OpenAPI integrations displayed smoothly in the browser using **Scalar** `/scalar`. Includes **Nitro UI** `/graphql/ui` for testing queries natively.
 *   **Dual Database Architecture:**
-    *   **PostgreSQL + EF Core 10:** Relational entities (Products, Categories, Reviews) with the Repository + Unit of Work pattern.
+    *   **PostgreSQL + EF Core 10:** Relational entities (Products, Categories, Reviews, Tenants, Users) with the Repository + Unit of Work pattern.
     *   **MongoDB:** Semi-structured media metadata (ProductData) with a polymorphic document model and BSON discriminators.
+*   **Multi-Tenancy:** Every relational entity implements `IAuditableTenantEntity`. `AppDbContext` enforces per-tenant read isolation via global query filters (`TenantId == currentTenant && !IsDeleted`). New rows are automatically stamped with the current tenant from the request JWT.
+*   **Soft Delete with Cascade:** Delete operations are converted to soft-delete updates in `AppDbContext.SaveChangesAsync`. Cascade rules (e.g. `ProductSoftDeleteCascadeRule`) propagate soft-deletes to dependent entities without relying on database-level cascades.
+*   **Audit Fields:** All entities carry `AuditInfo` (owned EF type) with `CreatedAtUtc`, `CreatedBy`, `UpdatedAtUtc`, `UpdatedBy`. Fields are stamped automatically in `SaveChangesAsync`.
+*   **Optimistic Concurrency:** PostgreSQL native `xmin` system column configured as a concurrency token. `DbUpdateConcurrencyException` is mapped to HTTP 409 by `ApiExceptionHandler`.
+*   **Rate Limiting:** Fixed-window per-client rate limiter (`100 req/min` default). Partition key priority: JWT username → remote IP → `"anonymous"`. Returns HTTP 429 on breach. Limits are configurable via `RateLimiting:Fixed`.
+*   **Output Caching:** Tenant-isolated ASP.NET Core output cache backed by **Valkey** (Redis-compatible). Policies: `Products` (30 s), `Categories` (60 s), `Reviews` (30 s). Mutations evict affected tags. Falls back to in-memory when `Valkey:ConnectionString` is absent.
 *   **Domain Filtering:** Seamless filtering, sorting, and paging powered by `Ardalis.Specification` to decouple query models from infrastructural EF abstractions.
 *   **Enterprise-Grade Utilities:**
     *   **Validation:** Pipelined model validation using `FluentValidation.AspNetCore`.
-    *   **Cross-Cutting Concerns:** Unified configuration via `Serilog` (Logging) and centralized exception handling via `IExceptionHandler` + RFC 7807 `ProblemDetails`.
-    *   **Authentication:** Pre-configured JWT secure endpoint access.
-    *   **Observability:** Health Checks (`/health`) natively tracking both PostgreSQL and MongoDB state.
+    *   **Cross-Cutting Concerns:** Unified configuration via `Serilog` (structured logging with `MachineName` and `ThreadId` enrichers) and centralized exception handling via `IExceptionHandler` + RFC 7807 `ProblemDetails`.
+    *   **Data Redaction:** Sensitive log properties (PII, secrets) are classified with `Microsoft.Extensions.Compliance` (`[PersonalData]`, `[SensitiveData]`) and HMAC-redacted before writing.
+    *   **Authentication:** Pre-configured Keycloak JWT + BFF Cookie dual-auth.
+    *   **Observability:** Health Checks (`/health`) natively tracking PostgreSQL, MongoDB, and Valkey state.
 *   **Robust Testing Engine:** Provides isolated internal `Integration` tests using `UseInMemoryDatabase` combined with `WebApplicationFactory`, plus a comprehensive `Unit` test suite.
 
 ---
@@ -108,8 +115,10 @@ graph TD
 
     DB[(PostgreSQL)]
     MDB[(MongoDB)]
+    VK[(Valkey)]
     EF ---> DB
     Mongo ---> MDB
+    REST -..-> VK
 ```
 
 ---
@@ -120,11 +129,36 @@ This class diagram models the aggregate roots and entities located natively with
 
 ```mermaid
 classDiagram
+    class Tenant {
+        +Guid Id
+        +string Code
+        +string Name
+        +bool IsActive
+        +ICollection~AppUser~ Users
+        +AuditInfo Audit
+        +bool IsDeleted
+    }
+
+    class AppUser {
+        +Guid Id
+        +string Username
+        +string NormalizedUsername
+        +string Email
+        +string PasswordHash
+        +bool IsActive
+        +UserRole Role
+        +Guid TenantId
+        +AuditInfo Audit
+        +bool IsDeleted
+    }
+
     class Category {
         +Guid Id
         +string Name
         +string? Description
-        +DateTime CreatedAt
+        +Guid TenantId
+        +AuditInfo Audit
+        +bool IsDeleted
         +ICollection~Product~ Products
     }
 
@@ -133,9 +167,10 @@ classDiagram
         +string Name
         +string? Description
         +decimal Price
-        +DateTime CreatedAt
         +Guid? CategoryId
-        +Category? Category
+        +Guid TenantId
+        +AuditInfo Audit
+        +bool IsDeleted
         +ICollection~ProductReview~ Reviews
     }
 
@@ -145,8 +180,17 @@ classDiagram
         +string ReviewerName
         +string Comment
         +int Rating
-        +DateTime CreatedAt
+        +Guid TenantId
+        +AuditInfo Audit
+        +bool IsDeleted
         +Product Product
+    }
+
+    class AuditInfo {
+        +DateTime CreatedAtUtc
+        +Guid CreatedBy
+        +DateTime UpdatedAtUtc
+        +Guid UpdatedBy
     }
 
     class ProductData {
@@ -171,8 +215,12 @@ classDiagram
         +long FileSizeBytes
     }
 
+    Tenant "1" *-- "0..*" AppUser : owns
     Category "0..1" o-- "0..*" Product : categorises
     Product "1" *-- "0..*" ProductReview : owns
+    Product --> AuditInfo
+    Category --> AuditInfo
+    ProductReview --> AuditInfo
     ProductData <|-- ImageProductData : discriminator image
     ProductData <|-- VideoProductData : discriminator video
 ```
@@ -182,13 +230,15 @@ classDiagram
 ## 🛠 Technology Stack
 
 *   **Runtime:** `.NET 10.0` Web SDK
-*   **Relational Database:** PostgreSQL (`Npgsql`)
-*   **Document Database:** MongoDB (`MongoDB.Driver`)
+*   **Relational Database:** PostgreSQL 17 (`Npgsql`)
+*   **Document Database:** MongoDB 8 (`MongoDB.Driver`)
+*   **Cache / Rate Limit Backing Store:** Valkey 8 (Redis-compatible, `StackExchange.Redis`)
 *   **ORM:** Entity Framework Core (`Microsoft.EntityFrameworkCore.Design`, `10.0`)
 *   **API Toolkit:** ASP.NET Core, Asp.Versioning, `Scalar.AspNetCore`
 *   **GraphQL Core:** HotChocolate `15.1`
-*   **Utilities:** `Serilog.AspNetCore`, `FluentValidation`, `Ardalis.Specification`
-*   **Test Suite:** xUnit, `Microsoft.AspNetCore.Mvc.Testing`
+*   **Auth:** Keycloak 26 (JWT Bearer + BFF Cookie via OIDC)
+*   **Utilities:** `Serilog.AspNetCore`, `FluentValidation`, `Ardalis.Specification`, `Kot.MongoDB.Migrations`
+*   **Test Suite:** xUnit, `Microsoft.AspNetCore.Mvc.Testing`, Moq, `MockQueryable.Moq`, `FluentValidation.TestHelper`
 
 ---
 
@@ -198,10 +248,10 @@ This architecture deliberately leverages a single project (`APITemplate.csproj`)
 
 ```text
 src/APITemplate/
-├── Api/              # Presentation Tier (V1 REST Controllers, GraphQL Queries/Mutations, Global Middleware)
-├── Application/      # Business Logic (Services, DTOs, FluentValidation, Ardalis Specs)
+├── Api/              # Presentation Tier (V1 REST Controllers, GraphQL Queries/Mutations, Cache policies, Global Middleware)
+├── Application/      # Business Logic (Services, DTOs, FluentValidation, Ardalis Specs, Error catalog)
 ├── Domain/           # Core Logic (Entities, Value Objects, Domain Exceptions, Interfaces)
-├── Infrastructure/   # Outer boundaries (AppDbContext, MongoDbContext, EF Core Repositories, MongoDB Repositories, Unit of Work)
+├── Infrastructure/   # Outer boundaries (AppDbContext, MongoDbContext, EF Core Repositories, MongoDB Repositories, Unit of Work, Logging redaction)
 └── Extensions/       # Startup IoC container bootstrappers
 tests/APITemplate.Tests/
 ├── Integration/      # End-to-End API endpoint testing bridging a real/in-memory DB via WebApplicationFactory
@@ -214,6 +264,8 @@ tests/APITemplate.Tests/
 
 All versioned REST resource endpoints sit under the base path `api/v{version}`. JWT `Authorization: Bearer <token>` is required for these versioned API routes. Authentication is handled externally by Keycloak (see [Authentication](#-authentication) section). Utility endpoints such as `/health` and `/graphql/ui` are anonymous, and `/scalar` is only mapped in Development.
 
+> **Rate limiting:** all controller routes require the `fixed` rate-limit policy (100 requests per minute per authenticated user or remote IP).
+
 ### Products
 
 | Method | Path | Auth Required | Description |
@@ -222,7 +274,7 @@ All versioned REST resource endpoints sit under the base path `api/v{version}`. 
 | `GET` | `/api/v1/Products/{id}` | ✅ | Get a single product by GUID |
 | `POST` | `/api/v1/Products` | ✅ | Create a new product |
 | `PUT` | `/api/v1/Products/{id}` | ✅ | Update an existing product |
-| `DELETE` | `/api/v1/Products/{id}` | ✅ | Delete a product |
+| `DELETE` | `/api/v1/Products/{id}` | ✅ | Soft-delete a product (cascades to reviews) |
 
 ### Categories
 
@@ -232,7 +284,7 @@ All versioned REST resource endpoints sit under the base path `api/v{version}`. 
 | `GET` | `/api/v1/Categories/{id}` | ✅ | Get a category by GUID |
 | `POST` | `/api/v1/Categories` | ✅ | Create a new category |
 | `PUT` | `/api/v1/Categories/{id}` | ✅ | Update a category |
-| `DELETE` | `/api/v1/Categories/{id}` | ✅ | Delete a category |
+| `DELETE` | `/api/v1/Categories/{id}` | ✅ | Soft-delete a category |
 | `GET` | `/api/v1/Categories/{id}/stats` | ✅ | Aggregated stats via stored procedure |
 
 ### Product Reviews
@@ -243,7 +295,7 @@ All versioned REST resource endpoints sit under the base path `api/v{version}`. 
 | `GET` | `/api/v1/ProductReviews/{id}` | ✅ | Get a review by GUID |
 | `GET` | `/api/v1/ProductReviews/by-product/{productId}` | ✅ | All reviews for a given product |
 | `POST` | `/api/v1/ProductReviews` | ✅ | Create a new review |
-| `DELETE` | `/api/v1/ProductReviews/{id}` | ✅ | Delete a review |
+| `DELETE` | `/api/v1/ProductReviews/{id}` | ✅ | Soft-delete a review |
 
 ### Product Data (MongoDB)
 
@@ -259,7 +311,7 @@ All versioned REST resource endpoints sit under the base path `api/v{version}`. 
 
 | Method | Path | Auth Required | Description |
 |--------|------|:---:|-------------|
-| `GET` | `/health` | ❌ | JSON health status for PostgreSQL & MongoDB |
+| `GET` | `/health` | ❌ | JSON health status for PostgreSQL, MongoDB & Valkey |
 | `GET` | `/scalar` | ❌ | Interactive Scalar OpenAPI UI (**Development only** — disabled in Production) |
 | `GET` | `/graphql/ui` | ❌ | HotChocolate Nitro GraphQL IDE |
 
@@ -274,17 +326,25 @@ All configuration lives in `appsettings.json` (production defaults) and is overr
 | `ConnectionStrings:DefaultConnection` | `Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres` | PostgreSQL connection string |
 | `MongoDB:ConnectionString` | `mongodb://localhost:27017` | MongoDB connection string |
 | `MongoDB:DatabaseName` | `apitemplate` | MongoDB database name |
+| `Valkey:ConnectionString` | `localhost:6379` | Valkey (Redis-compatible) connection string for distributed output cache. Omit to use in-memory cache. |
 | `Keycloak:auth-server-url` | `http://localhost:8180/` | Keycloak base URL |
 | `Keycloak:realm` | `api-template` | Keycloak realm name |
 | `Keycloak:resource` | `api-template` | Keycloak client ID |
 | `Keycloak:credentials:secret` | `dev-client-secret` | Keycloak client secret — **never commit a real secret** |
+| `Keycloak:SkipReadinessCheck` | `false` | Set to `true` to skip the startup Keycloak reachability check |
 | `Bff:CookieName` | `.APITemplate.Auth` | BFF session cookie name |
 | `Bff:SessionTimeoutMinutes` | `60` | BFF cookie session lifetime |
 | `Bff:PostLogoutRedirectUri` | `/` | Redirect URI after BFF logout |
-| `SystemIdentity:DefaultActorId` | `system` | Default actor ID used when request actor context is unavailable |
+| `Bff:Scopes` | `["openid","profile","email","offline_access"]` | OIDC scopes requested during BFF login |
+| `RateLimiting:Fixed:PermitLimit` | `100` | Maximum requests allowed per window |
+| `RateLimiting:Fixed:WindowMinutes` | `1` | Fixed window duration in minutes |
+| `Caching:ProductsExpirationSeconds` | `30` | Output cache TTL for the Products policy |
+| `Caching:CategoriesExpirationSeconds` | `60` | Output cache TTL for the Categories policy |
+| `Caching:ReviewsExpirationSeconds` | `30` | Output cache TTL for the Reviews policy |
+| `SystemIdentity:DefaultActorId` | `00000000-0000-0000-0000-000000000000` | Default actor GUID used when no request actor context is available |
 | `Bootstrap:Tenant:Code` | `default` | Bootstrap tenant code seeded at startup |
 | `Bootstrap:Tenant:Name` | `Default Tenant` | Bootstrap tenant display name |
-| `Cors:AllowedOrigins` | `http://localhost:3000` | Allowed origins for CORS default policy |
+| `Cors:AllowedOrigins` | `["http://localhost:3000","http://localhost:5173"]` | Allowed origins for the default CORS policy |
 
 > **Security note:** `Keycloak:credentials:secret` must be supplied via an environment variable or secret manager in production — never from a committed config file.
 
@@ -349,7 +409,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:5174/api/v1/products
 ### ⚡ GraphQL DataLoaders (N+1 Problem Solved)
 By leveraging HotChocolate's built-in **DataLoaders** pipeline (`ProductReviewsByProductDataLoader`), fetching deeply nested parent-child relationships avoids querying the database `n` times. The framework collects IDs requested entirely within the GraphQL query, then queries the underlying EF Core PostgreSQL implementation precisely *once*.
 
-**2. Example GraphQL Query:**
+**Example GraphQL Query:**
 ```graphql
 query {
   products(input: { pageNumber: 1, pageSize: 10 }) {
@@ -370,7 +430,7 @@ query {
 }
 ```
 
-**3. Example GraphQL Mutation:**
+**Example GraphQL Mutation:**
 ```graphql
 mutation {
   createProduct(input: {
@@ -392,7 +452,7 @@ This template deliberately applies a number of industry-accepted patterns. Under
 
 ### 1 — Repository Pattern
 
-Every data-store interaction is hidden behind a typed interface defined in `Domain/Interfaces/`. Application services depend only on `IProductRepository`, `ICategoryRepository`, etc., while controllers depend on those services — never directly on `AppDbContext` or `IMongoCollection<T>` .
+Every data-store interaction is hidden behind a typed interface defined in `Domain/Interfaces/`. Application services depend only on `IProductRepository`, `ICategoryRepository`, etc., while controllers depend on those services — never directly on `AppDbContext` or `IMongoCollection<T>`.
 
 **Benefits:**
 - Database provider can be swapped without touching business logic.
@@ -438,7 +498,7 @@ public sealed class ProductSpecification : Specification<Product, ProductRespons
 
 ### 4 — FluentValidation with Auto-Validation & Cross-Field Rules
 
-Models are validated automatically by `AddFluentValidationAutoValidation()` before the controller action body executes. Unlike Data Annotations, FluentValidation supports dynamic, cross-field business rules:
+Models are validated automatically by `FluentValidationActionFilter` before the controller action body executes. Unlike Data Annotations, FluentValidation supports dynamic, cross-field business rules:
 
 ```csharp
 // A shared base validator reused by both Create and Update validators
@@ -459,16 +519,19 @@ Validator classes are auto-discovered via `AddValidatorsFromAssemblyContaining<C
 
 ### 5 — Global Exception Handling (`IExceptionHandler` + ProblemDetails)
 
-`ApiExceptionHandler` sits in the ASP.NET exception pipeline (`UseExceptionHandler`) and converts typed `AppException` instances into RFC 7807 `ProblemDetails` responses. HTTP status/title are mapped by exception type (`ValidationException`, `NotFoundException`, `ConflictException`), while `ErrorCode` is resolved from `AppException.ErrorCode` or metadata fallback.
+`ApiExceptionHandler` sits in the ASP.NET exception pipeline (`UseExceptionHandler`) and converts typed `AppException` instances into RFC 7807 `ProblemDetails` responses. HTTP status/title are mapped by exception type (`ValidationException`, `NotFoundException`, `ConflictException`, `ForbiddenException`), while `ErrorCode` is resolved from `AppException.ErrorCode` or metadata fallback. `DbUpdateConcurrencyException` is mapped directly to HTTP 409.
 
 | Exception type | HTTP Status | Logged at |
 |----------------|-------------|-----------|
 | `NotFoundException` | 404 | Warning |
 | `ValidationException` | 400 | Warning |
+| `ForbiddenException` | 403 | Warning |
+| `ConflictException` | 409 | Warning |
+| `DbUpdateConcurrencyException` | 409 | Warning |
 | Anything else | 500 | Error |
 
 Response extensions are standardized through `AddProblemDetails(...)` customization:
-- `errorCode` (primary code, e.g. `REV-2101`)
+- `errorCode` (primary code, e.g. `PRD-0404`)
 - `traceId` (request correlation)
 - `metadata` (optional structured details for business errors)
 
@@ -476,17 +539,17 @@ Example payload:
 
 ```json
 {
-  "type": "https://api-template.local/errors/REV-2101",
+  "type": "https://api-template.local/errors/PRD-0404",
   "title": "Not Found",
   "status": 404,
   "detail": "Product with id '...' not found.",
-  "instance": "/api/v1/productreviews",
+  "instance": "/api/v1/products/...",
   "traceId": "0HN...",
-  "errorCode": "REV-2101"
+  "errorCode": "PRD-0404"
 }
 ```
 
-Error code catalog (excerpt):
+Error code catalog:
 
 | Code | HTTP | Meaning |
 |------|------|---------|
@@ -494,7 +557,12 @@ Error code catalog (excerpt):
 | `GEN-0400` | 400 | Generic validation failure |
 | `GEN-0404` | 404 | Generic resource not found |
 | `GEN-0409` | 409 | Generic conflict |
-| `REV-2101` | 404 | Product not found when creating review |
+| `GEN-0409-CONCURRENCY` | 409 | Optimistic concurrency conflict |
+| `AUTH-0403` | 403 | Forbidden |
+| `PRD-0404` | 404 | Product not found |
+| `CAT-0404` | 404 | Category not found |
+| `REV-0404` | 404 | Review not found |
+| `REV-2101` | 404 | Product not found when creating a review |
 
 > GraphQL requests are explicitly bypassed — HotChocolate handles its own error serialisation.
 
@@ -508,7 +576,40 @@ All controllers use URL-segment versioning (`/api/v1/…`) via `Asp.Versioning.M
 public sealed class ProductsController : ControllerBase { ... }
 ```
 
-### 7 — GraphQL Security & Performance Guards
+### 7 — Multi-Tenancy & Audit
+
+All relational entities implement `IAuditableTenantEntity` (combines `ITenantEntity`, `IAuditableEntity`, `ISoftDeletable`). `AppDbContext` automatically:
+
+- **Applies global query filters** on every read: `!entity.IsDeleted && entity.TenantId == currentTenant`.
+- **Stamps audit fields** on Add (`CreatedAtUtc`, `CreatedBy`) and Modify (`UpdatedAtUtc`, `UpdatedBy`).
+- **Auto-assigns TenantId** on insert from the JWT claim resolved by `HttpTenantProvider`.
+- **Converts hard deletes to soft deletes**, running registered `ISoftDeleteCascadeRule` implementations to propagate to dependents (e.g. `ProductSoftDeleteCascadeRule` cascades to `ProductReviews`).
+
+### 8 — Rate Limiting
+
+All REST controller routes require the `fixed` rate-limit policy. Partitioning isolates limits per authenticated user or per IP for anonymous callers:
+
+```
+Partition key priority:
+  1. JWT username  (authenticated users each get their own bucket)
+  2. Remote IP     (anonymous callers share a per-IP bucket)
+  3. "anonymous"   (fallback when neither is available)
+```
+
+Limits are configured in `appsettings.json` under `RateLimiting:Fixed` and resolved via `IOptions<RateLimitingOptions>` so integration tests can override them without rebuilding the host.
+
+### 9 — Output Caching (Tenant-Isolated, Valkey-backed)
+
+GET endpoints on Products, Categories, and Reviews use `[OutputCache(PolicyName = ...)]` with the `TenantAwareOutputCachePolicy`. This policy:
+
+1. **Enables caching for authenticated requests** (ASP.NET Core's default skips Authorization-header requests).
+2. **Varies the cache key by tenant ID** so one tenant never receives another tenant's cached response.
+
+When `Valkey:ConnectionString` is configured, all cache entries are stored in **Valkey** so every application instance shares a single distributed cache. Without it, each instance maintains its own in-memory cache.
+
+Mutations (Create / Update / Delete) evict the relevant tag via `IOutputCacheStore.EvictByTagAsync()` so stale data is immediately invalidated.
+
+### 10 — GraphQL Security & Performance Guards
 
 HotChocolate is configured with several safeguards:
 
@@ -521,32 +622,30 @@ HotChocolate is configured with several safeguards:
 
 GraphQL query and mutation fields are protected with `[Authorize]`.
 
-### 8 — Automatic Schema Migration at Startup
+### 11 — Automatic Schema Migration at Startup
 
 `UseDatabaseAsync()` runs EF Core migrations, auth bootstrap seeding, and MongoDB migrations automatically on startup. This means a fresh container deployment is fully self-initialising — no manual `dotnet ef database update` step required in production.
 
 ```csharp
 // Extensions/ApplicationBuilderExtensions.cs
-await dbContext.Database.MigrateAsync();   // PostgreSQL
-await seeder.SeedAsync();                  // bootstrap tenant/admin user
+await dbContext.Database.MigrateAsync();   // PostgreSQL (skipped for InMemory provider)
+await seeder.SeedAsync();                  // bootstrap tenant + admin user
 await migrator.MigrateAsync();             // MongoDB (Kot.MongoDB.Migrations)
 ```
 
-EF Core migrations are skipped when using the in-memory provider, and MongoDB migrations run only if a `MongoDbContext` is registered (they do not automatically skip when MongoDB is unreachable).
-
-### 9 — Multi-Stage Docker Build
+### 12 — Multi-Stage Docker Build
 
 The `Dockerfile` follows Docker's multi-stage build best practice to minimise the final image size:
 
 ```
-Stage 1 (build)  — mcr.microsoft.com/dotnet/sdk:10.0   ← includes compiler tools
+Stage 1 (build)   — mcr.microsoft.com/dotnet/sdk:10.0   ← includes compiler tools
 Stage 2 (publish) — same SDK, runs dotnet publish -c Release
-Stage 3 (final)  — mcr.microsoft.com/dotnet/aspnet:10.0 ← runtime only, ~60 MB
+Stage 3 (final)   — mcr.microsoft.com/dotnet/aspnet:10.0 ← runtime only, ~60 MB
 ```
 
 Only the compiled artefacts from Stage 2 are copied into the slim Stage 3 runtime image.
 
-### 10 — Polyglot Persistence Decision Guide
+### 13 — Polyglot Persistence Decision Guide
 
 | Data characteristic | Recommended store |
 |---------------------|------------------|
@@ -739,29 +838,6 @@ Base route: `api/v{version}/product-data` — all endpoints require JWT authoriz
 | `POST` | `/video` | `CreateVideoProductDataRequest` | `ProductDataResponse` 201 | Create video metadata |
 | `DELETE` | `/{id}` | MongoDB ObjectId string | 204 No Content | Delete by ID |
 
-### Configuration
-
-```json
-// appsettings.json
-{
-  "MongoDB": {
-    "ConnectionString": "mongodb://localhost:27017",
-    "DatabaseName": "apitemplate"
-  }
-}
-```
-
-### Service registration
-
-```csharp
-// Extensions/ServiceCollectionExtensions.cs — AddMongoDB()
-services.Configure<MongoDbSettings>(configuration.GetSection("MongoDB"));
-services.AddSingleton<MongoDbContext>();
-services.AddScoped<IProductDataRepository, ProductDataRepository>();
-services.AddScoped<IProductDataService, ProductDataService>();
-services.AddHealthChecks().AddMongoDb(...);
-```
-
 ### Full request flow
 
 ```
@@ -851,26 +927,30 @@ dotnet test --filter "FullyQualifiedName~Integration"
 
 ### Quick Start (Using Docker Compose)
 
-The template consists of a ready-to-use Docker environment to spool up both the PostgreSQL and MongoDB containers alongside the built API application immediately:
+The template consists of a ready-to-use Docker environment to spool up PostgreSQL, MongoDB, Keycloak, Valkey, and the built API container:
 
 ```bash
-# Start up databases along with the API container
-docker-compose up -d --build
+# Start up all services including the API container
+docker compose up -d --build
 ```
 > The API will bind natively to `http://localhost:8080`.
 
 ### Running Locally without Containerization
 
-If you prefer spinning the `.NET Web API` application bare-metal, guarantee that reachable PostgreSQL and MongoDB instances are available. Apply your connection strings in `src/APITemplate/appsettings.Development.json`.
+Start the infrastructure services only, then run the API on the host:
 
-1. Run EF Migrations to build the default database tables:
-    ```bash
-    dotnet ef database update --project src/APITemplate
-    ```
-2. Spawn the Web Application:
-    ```bash
-    dotnet run --project src/APITemplate
-    ```
+```bash
+# Start only the databases and Keycloak
+docker compose up -d postgres mongodb keycloak valkey
+```
+
+Apply your connection strings in `src/APITemplate/appsettings.Development.json`, then run:
+
+```bash
+dotnet run --project src/APITemplate
+```
+
+EF Core migrations and MongoDB migrations run automatically at startup — no manual `dotnet ef database update` needed.
 
 ### Available Endpoints & User Interfaces
 
