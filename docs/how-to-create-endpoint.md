@@ -200,11 +200,11 @@ using APITemplate.Application.Common.Validation;
 namespace APITemplate.Application.Features.Product.DTOs;
 
 public sealed record CreateProductRequest(
-    [property: NotEmpty(ErrorMessage = "Product name is required.")]
-    [property: MaxLength(200, ErrorMessage = "Product name must not exceed 200 characters.")]
+    [NotEmpty(ErrorMessage = "Product name is required.")]
+    [MaxLength(200, ErrorMessage = "Product name must not exceed 200 characters.")]
     string Name,
     string? Description,
-    [property: Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than zero.")]
+    [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than zero.")]
     decimal Price,
     Guid? CategoryId = null) : IProductRequest;
 ```
@@ -679,7 +679,7 @@ public sealed class ProductsController : ControllerBase
 }
 ```
 
-> Controllers depend only on service interfaces. Validation is automatic (FluentValidation auto-validation middleware). Exceptions are caught by `ApiExceptionHandler` and converted to RFC 7807 ProblemDetails.
+> Controllers depend only on service interfaces. Validation is automatic via `FluentValidationActionFilter`. Exceptions are caught by `ApiExceptionHandler` and converted to RFC 7807 ProblemDetails.
 
 ---
 
@@ -738,7 +738,7 @@ dotnet ef migrations add Add{Feature} --project src/APITemplate
 | **Soft delete** | `Remove()` → sets `IsDeleted = true` | `AppDbContext.SaveChangesAsync` |
 | **Audit trail** | Auto-stamps `CreatedAtUtc`, `CreatedBy`, `UpdatedAtUtc`, `UpdatedBy` | `AppDbContext.SaveChangesAsync` |
 | **Concurrency** | PostgreSQL `xmin` system column as concurrency token → HTTP 409 on conflict | `ApiExceptionHandler` |
-| **Validation** | Data Annotations + FluentValidation auto-validation | Middleware |
+| **Validation** | Data Annotations + FluentValidation via action filter | MVC action filter |
 | **Error handling** | `AppException` hierarchy → RFC 7807 ProblemDetails | `ApiExceptionHandler` |
 | **JWT auth** | `[Authorize]` + tenant claim validation | Middleware |
 
@@ -752,7 +752,7 @@ HTTP Request
     → Request Context Middleware (extracts tenant/actor from JWT)
       → Authentication Middleware (validates JWT)
         → Authorization Middleware (checks [Authorize])
-          → FluentValidation Auto-Validation (validates DTOs)
+          → FluentValidationActionFilter (validates DTOs)
             → Controller action
               → Service (business logic)
                 → Repository (data access via Specification)
