@@ -91,11 +91,10 @@ public sealed class Product : IAuditableTenantEntity
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAtUtc { get; set; }
     public string? DeletedBy { get; set; }
-    public byte[] RowVersion { get; set; } = [];
 }
 ```
 
-> `IAuditableTenantEntity` = `ITenantEntity` + `IAuditableEntity` + `ISoftDeletable` + `IHasRowVersion`. The `AppDbContext` auto-handles tenancy, auditing, and soft-delete for any entity implementing this interface.
+> `IAuditableTenantEntity` = `ITenantEntity` + `IAuditableEntity` + `ISoftDeletable`. The `AppDbContext` auto-handles tenancy, auditing, and soft-delete for any entity implementing this interface. Optimistic concurrency is handled automatically via the PostgreSQL `xmin` system column.
 
 ---
 
@@ -738,7 +737,7 @@ dotnet ef migrations add Add{Feature} --project src/APITemplate
 | **Multi-tenancy** | Global query filter on `TenantId` | `AppDbContext` |
 | **Soft delete** | `Remove()` → sets `IsDeleted = true` | `AppDbContext.SaveChangesAsync` |
 | **Audit trail** | Auto-stamps `CreatedAtUtc`, `CreatedBy`, `UpdatedAtUtc`, `UpdatedBy` | `AppDbContext.SaveChangesAsync` |
-| **Concurrency** | Application-managed `RowVersion` | `AppDbContext.SaveChangesAsync` |
+| **Concurrency** | PostgreSQL `xmin` system column as concurrency token → HTTP 409 on conflict | `ApiExceptionHandler` |
 | **Validation** | Data Annotations + FluentValidation auto-validation | Middleware |
 | **Error handling** | `AppException` hierarchy → RFC 7807 ProblemDetails | `ApiExceptionHandler` |
 | **JWT auth** | `[Authorize]` + tenant claim validation | Middleware |
