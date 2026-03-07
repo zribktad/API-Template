@@ -1,5 +1,6 @@
 using APITemplate.Api.Cache;
 using APITemplate.Application.Common.Options;
+using APITemplate.Application.Common.Security;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Security;
 using APITemplate.Api.Middleware;
@@ -160,7 +161,7 @@ public static class ApplicationBuilderExtensions
         app.MapControllers().RequireRateLimiting(CachePolicyNames.RateLimitPolicy);
         app.MapGraphQL();
         app.MapNitroApp("/graphql/ui");
-app.UseHealthChecks();
+        app.UseHealthChecks();
 
         return app;
     }
@@ -175,11 +176,11 @@ app.UseHealthChecks();
         {
             options.WithTitle("APITemplate");
             options
-                .AddPreferredSecuritySchemes("OAuth2")
-                .AddAuthorizationCodeFlow("OAuth2", flow =>
+                .AddPreferredSecuritySchemes(AuthConstants.OpenApi.OAuth2Scheme)
+                .AddAuthorizationCodeFlow(AuthConstants.OpenApi.OAuth2Scheme, flow =>
                 {
-                    flow.ClientId = "api-template-scalar";
-                    flow.SelectedScopes = ["openid", "profile", "email"];
+                    flow.ClientId = AuthConstants.OpenApi.ScalarClientId;
+                    flow.SelectedScopes = [.. AuthConstants.Scopes.Default];
                 });
         }).AllowAnonymous();
 

@@ -152,7 +152,7 @@ public static class AuthenticationServiceCollectionExtensions
                 policy => policy.RequireRole(UserRole.PlatformAdmin.ToString()));
 
         services.AddHttpClient(nameof(KeycloakHealthCheck));
-        services.AddHttpClient("KeycloakTokenClient");
+        services.AddHttpClient(AuthConstants.HttpClients.KeycloakToken);
         services.AddHealthChecks()
             .AddCheck<KeycloakHealthCheck>("keycloak", tags: ["identity"]);
 
