@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Security;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics;
 
 namespace APITemplate.Api.Middleware;
@@ -29,9 +30,27 @@ public sealed class CsrfValidationMiddleware(RequestDelegate next, IProblemDetai
             return;
         }
 
-        // JWT Bearer requests carry their own proof of origin; skip CSRF check.
+        // Explicit bearer tokens carry their own proof of origin; skip CSRF checks even if
+        // a browser also happens to send a session cookie on the same request.
+        if (context.Request.Headers.TryGetValue("Authorization", out var authorizationValues) &&
+            authorizationValues.Any(static value =>
+                !string.IsNullOrEmpty(value) && value.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)))
+        {
+            await next(context);
+            return;
+        }
+
+        // The default auth scheme is JWT Bearer, so UseAuthentication does not automatically
+        // populate HttpContext.User from the BFF cookie scheme. Check both the current user
+        // and the cookie scheme explicitly so cookie-authenticated requests cannot bypass CSRF.
         var isCookieAuthenticated = context.User.Identities
             .Any(i => i.AuthenticationType == BffAuthenticationSchemes.Cookie);
+
+        if (!isCookieAuthenticated)
+        {
+            var cookieAuthResult = await context.AuthenticateAsync(BffAuthenticationSchemes.Cookie);
+            isCookieAuthenticated = cookieAuthResult.Succeeded;
+        }
 
         if (!isCookieAuthenticated)
         {

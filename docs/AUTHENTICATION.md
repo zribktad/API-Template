@@ -361,7 +361,7 @@ Returns `401` (not redirect) when unauthenticated — SPA should redirect to `/a
 | Session timeout              | 60 min  | `Bff:SessionTimeoutMinutes`              |
 | Sliding expiration           | enabled | `CookieAuthenticationOptions`            |
 | Token refresh threshold      | 2 min   | `Bff:TokenRefreshThresholdMinutes`       |
-| Scopes requested from OIDC   | openid, profile, email | `Bff:Scopes`               |
+| Scopes requested from OIDC   | openid, profile, email, offline_access | `Bff:Scopes` |
 
 **Token refresh trigger:** On every cookie-authenticated request, `CookieSessionRefresher` checks if the access token expires within `TokenRefreshThresholdMinutes`. If so, it silently calls Keycloak `/token` with `grant_type=refresh_token` and updates the session in Valkey.
 
@@ -450,7 +450,7 @@ When the API sets `options.Authority`, ASP.NET auto-discovers all endpoints via 
     "CookieName": ".APITemplate.Auth",
     "PostLogoutRedirectUri": "/",
     "SessionTimeoutMinutes": 60,
-    "Scopes": ["openid", "profile", "email"],
+    "Scopes": ["openid", "profile", "email", "offline_access"],
     "TokenRefreshThresholdMinutes": 2
   }
 }
@@ -513,3 +513,5 @@ Test tokens are signed with RSA-256 using an in-memory test key pair and include
 | `Infrastructure/Security/KeycloakUrlHelper.cs` | Builds Keycloak authority URL |
 | `Infrastructure/Health/KeycloakHealthCheck.cs` | Keycloak health check endpoint |
 | `infrastructure/keycloak/realms/api-template-realm.json` | Keycloak realm auto-import |
+
+
