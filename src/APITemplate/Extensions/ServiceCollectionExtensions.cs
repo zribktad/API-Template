@@ -1,12 +1,11 @@
 using APITemplate.Application.Common.Context;
+using APITemplate.Infrastructure.Security;
 using APITemplate.Application.Features.Category.Services;
 using APITemplate.Application.Features.Product.Services;
 using APITemplate.Application.Features.Product.Validation;
 using APITemplate.Application.Features.ProductReview.Services;
-using APITemplate.Infrastructure.Security;
 using Asp.Versioning;
 using FluentValidation;
-using FluentValidation.AspNetCore;
 
 namespace APITemplate.Extensions;
 
@@ -23,7 +22,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProductReviewQueryService, ProductReviewQueryService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
-        services.AddFluentValidationAutoValidation();
 
         return services;
     }
@@ -47,13 +45,4 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddBffReverseProxy(
-        this IServiceCollection services, IConfiguration configuration)
-    {
-        services.AddReverseProxy()
-            .LoadFromConfig(configuration.GetSection("ReverseProxy"))
-            .AddTransforms<BffTokenTransformProvider>();
-
-        return services;
-    }
 }

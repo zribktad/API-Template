@@ -20,18 +20,19 @@ public sealed class ProductSoftDeleteCascadeRule : ISoftDeleteCascadeRule
     /// Query filters are intentionally ignored because dependent rows may already
     /// be filtered from normal query paths during delete operations.
     /// </summary>
-    public IReadOnlyCollection<IAuditableTenantEntity> GetDependents(
+    public async Task<IReadOnlyCollection<IAuditableTenantEntity>> GetDependentsAsync(
         AppDbContext dbContext,
-        IAuditableTenantEntity entity)
+        IAuditableTenantEntity entity,
+        CancellationToken cancellationToken = default)
     {
         if (entity is not Product product)
             return [];
 
-        var reviews = dbContext.ProductReviews
-            .IgnoreQueryFilters()
+        var reviews = await dbContext.ProductReviews
+            .IgnoreQueryFilters(["SoftDelete", "Tenant"])
             .Where(r => r.ProductId == product.Id && r.TenantId == product.TenantId && !r.IsDeleted)
             .Cast<IAuditableTenantEntity>()
-            .ToList();
+            .ToListAsync(cancellationToken);
 
         return reviews;
     }

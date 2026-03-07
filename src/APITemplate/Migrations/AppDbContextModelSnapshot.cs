@@ -31,9 +31,8 @@ namespace APITemplate.Migrations
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -67,11 +66,6 @@ namespace APITemplate.Migrations
                         .HasColumnType("character varying(32)")
                         .HasDefaultValue("User");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
@@ -79,6 +73,12 @@ namespace APITemplate.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id");
 
@@ -107,9 +107,8 @@ namespace APITemplate.Migrations
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
@@ -125,13 +124,14 @@ namespace APITemplate.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id");
 
@@ -160,9 +160,8 @@ namespace APITemplate.Migrations
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
@@ -182,13 +181,14 @@ namespace APITemplate.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id");
 
@@ -243,9 +243,8 @@ namespace APITemplate.Migrations
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -258,16 +257,17 @@ namespace APITemplate.Migrations
                     b.Property<int>("Rating")
                         .HasColumnType("integer");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id");
 
@@ -301,9 +301,8 @@ namespace APITemplate.Migrations
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -320,13 +319,14 @@ namespace APITemplate.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id");
 
@@ -364,12 +364,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("CreatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("CreatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("CreatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("CreatedBy");
 
                             b1.Property<DateTime>("UpdatedAtUtc")
@@ -378,12 +376,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("UpdatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("UpdatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("UpdatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("UpdatedBy");
 
                             b1.HasKey("AppUserId");
@@ -419,12 +415,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("CreatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("CreatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("CreatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("CreatedBy");
 
                             b1.Property<DateTime>("UpdatedAtUtc")
@@ -433,12 +427,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("UpdatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("UpdatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("UpdatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("UpdatedBy");
 
                             b1.HasKey("CategoryId");
@@ -477,12 +469,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("CreatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("CreatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("CreatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("CreatedBy");
 
                             b1.Property<DateTime>("UpdatedAtUtc")
@@ -491,12 +481,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("UpdatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("UpdatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("UpdatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("UpdatedBy");
 
                             b1.HasKey("ProductId");
@@ -544,12 +532,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("CreatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("CreatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("CreatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("CreatedBy");
 
                             b1.Property<DateTime>("UpdatedAtUtc")
@@ -558,12 +544,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("UpdatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("UpdatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("UpdatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("UpdatedBy");
 
                             b1.HasKey("ProductReviewId");
@@ -595,12 +579,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("CreatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("CreatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("CreatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("CreatedBy");
 
                             b1.Property<DateTime>("UpdatedAtUtc")
@@ -609,12 +591,10 @@ namespace APITemplate.Migrations
                                 .HasColumnName("UpdatedAtUtc")
                                 .HasDefaultValueSql("now()");
 
-                            b1.Property<string>("UpdatedBy")
-                                .IsRequired()
+                            b1.Property<Guid>("UpdatedBy")
                                 .ValueGeneratedOnAdd()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasDefaultValue("system")
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
                                 .HasColumnName("UpdatedBy");
 
                             b1.HasKey("TenantId");

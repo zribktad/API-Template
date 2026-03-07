@@ -63,6 +63,7 @@ public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Progra
                 .AddNpgSql(connectionString, name: "postgresql", tags: ["database"]);
 
             TestServiceHelper.MockMongoServices(services);
+            TestServiceHelper.ReplaceOutputCacheWithInMemory(services);
             TestServiceHelper.ConfigureTestAuthentication(services);
         });
 

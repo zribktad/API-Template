@@ -15,7 +15,7 @@ public class ProductDataServiceTests
     public ProductDataServiceTests()
     {
         _repositoryMock = new Mock<IProductDataRepository>();
-        _sut = new ProductDataService(_repositoryMock.Object);
+        _sut = new ProductDataService(_repositoryMock.Object, TimeProvider.System);
     }
 
     [Fact]
@@ -86,8 +86,9 @@ public class ProductDataServiceTests
         result!.Id.ShouldBe(image.Id);
         result.Type.ShouldBe("image");
         result.Title.ShouldBe("Banner");
-        result.Width.ShouldBe(800);
-        result.Height.ShouldBe(600);
+        var imageResult = result.ShouldBeOfType<ImageProductDataResponse>();
+        imageResult.Width.ShouldBe(800);
+        imageResult.Height.ShouldBe(600);
     }
 
     [Fact]
@@ -117,10 +118,11 @@ public class ProductDataServiceTests
         result.Type.ShouldBe("image");
         result.Title.ShouldBe("Banner");
         result.Description.ShouldBe("A banner");
-        result.Width.ShouldBe(1920);
-        result.Height.ShouldBe(1080);
-        result.Format.ShouldBe("jpg");
-        result.FileSizeBytes.ShouldBe(500000);
+        var imageResult = result.ShouldBeOfType<ImageProductDataResponse>();
+        imageResult.Width.ShouldBe(1920);
+        imageResult.Height.ShouldBe(1080);
+        imageResult.Format.ShouldBe("jpg");
+        imageResult.FileSizeBytes.ShouldBe(500000);
 
         _repositoryMock.Verify(
             r => r.CreateAsync(It.Is<ImageProductData>(e => e.Title == "Banner"), It.IsAny<CancellationToken>()),
@@ -142,10 +144,11 @@ public class ProductDataServiceTests
         result.Type.ShouldBe("video");
         result.Title.ShouldBe("Intro");
         result.Description.ShouldBeNull();
-        result.DurationSeconds.ShouldBe(60);
-        result.Resolution.ShouldBe("1080p");
-        result.Format.ShouldBe("mp4");
-        result.FileSizeBytes.ShouldBe(10000000);
+        var videoResult = result.ShouldBeOfType<VideoProductDataResponse>();
+        videoResult.DurationSeconds.ShouldBe(60);
+        videoResult.Resolution.ShouldBe("1080p");
+        videoResult.Format.ShouldBe("mp4");
+        videoResult.FileSizeBytes.ShouldBe(10000000);
     }
 
     [Fact]

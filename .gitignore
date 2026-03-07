@@ -53,3 +53,6 @@ coverage/
 
 # Published output
 publish/
+
+# Other
+CLAUDE.md

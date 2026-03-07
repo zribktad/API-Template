@@ -17,16 +17,14 @@ internal static class TestConfigurationHelper
             ["Keycloak:resource"] = "api-template",
             ["Keycloak:credentials:secret"] = "test-secret",
             ["Keycloak:SkipReadinessCheck"] = "true",
-            ["SystemIdentity:DefaultActorId"] = "system",
+            ["SystemIdentity:DefaultActorId"] = "00000000-0000-0000-0000-000000000000",
             ["Bootstrap:Tenant:Code"] = "default",
             ["Bootstrap:Tenant:Name"] = "Default Tenant",
-            ["ReverseProxy:Routes:bff-proxy:ClusterId"] = "api-self",
-            ["ReverseProxy:Routes:bff-proxy:Match:Path"] = "/bff/proxy/{**catch-all}",
-            ["ReverseProxy:Clusters:api-self:Destinations:self:Address"] = "http://localhost/",
-            ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
+["Cors:AllowedOrigins:0"] = "http://localhost:3000",
             ["Redaction:HmacKeyEnvironmentVariable"] = "APITEMPLATE_REDACTION_HMAC_KEY",
             ["Redaction:HmacKey"] = testRedactionHmacKey,
-            ["Redaction:KeyId"] = "1001"
+            ["Redaction:KeyId"] = "1001",
+            ["Valkey:ConnectionString"] = ""
         };
     }
 }

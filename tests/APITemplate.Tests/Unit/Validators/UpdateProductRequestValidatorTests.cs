@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using APITemplate.Application.Features.Product.Validation;
 using Shouldly;
 using Xunit;
@@ -9,7 +8,7 @@ public class UpdateProductRequestValidatorTests
 {
     private readonly UpdateProductRequestValidator _sut = new();
 
-    // --- Data Annotation tests ([NotEmpty], [MaxLength], [Range]) ---
+    // --- Data Annotation tests ([NotEmpty], [MaxLength], [Range]) via FluentValidation bridge ---
 
     [Theory]
     [InlineData(null)]
@@ -18,24 +17,22 @@ public class UpdateProductRequestValidatorTests
     public void Annotation_InvalidName_IsInvalid(string? name)
     {
         var request = new UpdateProductRequest(name!, null, 19.99m);
-        var results = new List<ValidationResult>();
 
-        var isValid = Validator.TryValidateObject(request, new ValidationContext(request), results, true);
+        var result = _sut.Validate(request);
 
-        isValid.ShouldBeFalse();
-        results.ShouldContain(r => r.MemberNames.Contains("Name"));
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == "Name");
     }
 
     [Fact]
     public void Annotation_NameExceeds200Characters_IsInvalid()
     {
         var request = new UpdateProductRequest(new string('A', 201), null, 19.99m);
-        var results = new List<ValidationResult>();
 
-        var isValid = Validator.TryValidateObject(request, new ValidationContext(request), results, true);
+        var result = _sut.Validate(request);
 
-        isValid.ShouldBeFalse();
-        results.ShouldContain(r => r.MemberNames.Contains("Name"));
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == "Name");
     }
 
     [Theory]
@@ -45,12 +42,11 @@ public class UpdateProductRequestValidatorTests
     public void Annotation_PriceZeroOrNegative_IsInvalid(decimal price)
     {
         var request = new UpdateProductRequest("Valid Name", null, price);
-        var results = new List<ValidationResult>();
 
-        var isValid = Validator.TryValidateObject(request, new ValidationContext(request), results, true);
+        var result = _sut.Validate(request);
 
-        isValid.ShouldBeFalse();
-        results.ShouldContain(r => r.MemberNames.Contains("Price"));
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == "Price");
     }
 
     // --- FluentValidation tests (cross-field rules) ---

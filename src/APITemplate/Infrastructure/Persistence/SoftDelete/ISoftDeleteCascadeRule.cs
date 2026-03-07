@@ -21,7 +21,8 @@ public interface ISoftDeleteCascadeRule
     /// Returns dependents that should be soft-deleted when the root entity is deleted.
     /// Returned entities must be tracked/auditable entities.
     /// </summary>
-    IReadOnlyCollection<IAuditableTenantEntity> GetDependents(
+    Task<IReadOnlyCollection<IAuditableTenantEntity>> GetDependentsAsync(
         AppDbContext dbContext,
-        IAuditableTenantEntity entity);
+        IAuditableTenantEntity entity,
+        CancellationToken cancellationToken = default);
 }

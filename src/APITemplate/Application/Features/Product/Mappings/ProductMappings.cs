@@ -1,8 +1,13 @@
+using System.Linq.Expressions;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product.Mappings;
 public static class ProductMappings
 {
-    public static ProductResponse ToResponse(this ProductEntity product) =>
-        new(product.Id, product.Name, product.Description, product.Price, product.Audit.CreatedAtUtc);
+    public static readonly Expression<Func<ProductEntity, ProductResponse>> Projection =
+        p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.Audit.CreatedAtUtc);
+
+    private static readonly Func<ProductEntity, ProductResponse> CompiledProjection = Projection.Compile();
+
+    public static ProductResponse ToResponse(this ProductEntity product) => CompiledProjection(product);
 }

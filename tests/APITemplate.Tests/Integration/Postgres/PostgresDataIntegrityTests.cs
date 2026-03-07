@@ -24,61 +24,34 @@ public sealed class PostgresDataIntegrityTests
     }
 
     [Fact]
-    public async Task RowVersion_OnUserInsert_IsGeneratedByApplication()
+    public async Task XminConcurrency_ConcurrentUpdate_ThrowsDbUpdateConcurrencyException()
     {
-        var username = $"rv-insert-{Guid.NewGuid():N}";
+        var username = $"xmin-test-{Guid.NewGuid():N}";
         var (_, user) = await IntegrationAuthHelper.SeedTenantUserAsync(
             _factory.Services,
             username,
             $"{username}@example.com",
             "secret-pass");
 
-        await using var scope = _factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await using var scope1 = _factory.Services.CreateAsyncScope();
+        await using var scope2 = _factory.Services.CreateAsyncScope();
 
-        var persisted = await db.Users
+        var db1 = scope1.ServiceProvider.GetRequiredService<AppDbContext>();
+        var db2 = scope2.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var entity1 = await db1.Users
             .IgnoreQueryFilters()
-            .AsNoTracking()
             .SingleAsync(u => u.Id == user.Id);
 
-        persisted.RowVersion.ShouldNotBeNull();
-        persisted.RowVersion.Length.ShouldBeGreaterThan(0);
-    }
-
-    [Fact]
-    public async Task RowVersion_OnUserUpdate_ChangesAfterUpdate()
-    {
-        var username = $"rv-update-{Guid.NewGuid():N}";
-        var (_, user) = await IntegrationAuthHelper.SeedTenantUserAsync(
-            _factory.Services,
-            username,
-            $"{username}@example.com",
-            "secret-pass");
-
-        byte[] before;
-
-        await using (var beforeScope = _factory.Services.CreateAsyncScope())
-        {
-            var db = beforeScope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var entity = await db.Users
-                .IgnoreQueryFilters()
-                .SingleAsync(u => u.Id == user.Id);
-
-            before = entity.RowVersion.ToArray();
-            entity.Email = $"{username}.updated@example.com";
-            await db.SaveChangesAsync();
-        }
-
-        await using var afterScope = _factory.Services.CreateAsyncScope();
-        var afterDb = afterScope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var after = await afterDb.Users
+        var entity2 = await db2.Users
             .IgnoreQueryFilters()
-            .AsNoTracking()
             .SingleAsync(u => u.Id == user.Id);
 
-        after.RowVersion.ShouldNotBeNull();
-        after.RowVersion.Length.ShouldBeGreaterThan(0);
-        after.RowVersion.SequenceEqual(before).ShouldBeFalse();
+        entity1.Email = $"{username}.first@example.com";
+        await db1.SaveChangesAsync();
+
+        entity2.Email = $"{username}.second@example.com";
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(db2.SaveChangesAsync());
     }
 
     [Fact]
@@ -184,11 +157,11 @@ public sealed class PostgresDataIntegrityTests
             // Mark one review and one product as soft-deleted to verify SQL function filtering.
             reviewA2.IsDeleted = true;
             reviewA2.DeletedAtUtc = DateTime.UtcNow;
-            reviewA2.DeletedBy = "test";
+            reviewA2.DeletedBy = Guid.NewGuid();
 
             productA2.IsDeleted = true;
             productA2.DeletedAtUtc = DateTime.UtcNow;
-            productA2.DeletedBy = "test";
+            productA2.DeletedBy = Guid.NewGuid();
             await db.SaveChangesAsync();
 
             categoryAId = categoryA.Id;

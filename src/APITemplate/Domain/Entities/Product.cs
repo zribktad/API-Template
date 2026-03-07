@@ -11,13 +11,25 @@ public sealed class Product
     public Guid Id { get; set; }
 
     /// <summary>Display name of the product. Required, max 200 characters (enforced by EF config + FluentValidation).</summary>
-    public required string Name { get; set; }
+    public required string Name
+    {
+        get => field;
+        set => field = string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("Product name cannot be empty.", nameof(Name))
+            : value.Trim();
+    }
 
     /// <summary>Optional longer description of the product.</summary>
     public string? Description { get; set; }
 
     /// <summary>Price with 18,2 decimal precision (enforced by EF config).</summary>
-    public decimal Price { get; set; }
+    public decimal Price
+    {
+        get => field;
+        set => field = value >= 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(Price), "Price must be greater than or equal to zero.");
+    }
 
     public Guid? CategoryId { get; set; }
 
@@ -29,6 +41,5 @@ public sealed class Product
     public AuditInfo Audit { get; set; } = new();
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAtUtc { get; set; }
-    public string? DeletedBy { get; set; }
-    public byte[] RowVersion { get; set; } = [];
+    public Guid? DeletedBy { get; set; }
 }
