@@ -343,7 +343,7 @@ See [ef-migration.md](ef-migration.md) for the full migration workflow.
 | `POST` | `/api/v1/Orders` | ✅ Bearer | Create |
 | `DELETE` | `/api/v1/Orders/{id}` | ✅ Bearer | Delete |
 
-To obtain a Bearer token, see [authentication.md](authentication.md).
+To obtain a Bearer token, see [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ---
 

@@ -8,19 +8,20 @@ Step-by-step guides for the most common workflows in this project:
 
 | Guide                                               | Description                                                                 |
 | --------------------------------------------------- | --------------------------------------------------------------------------- |
-| [GraphQL Endpoint](doc/graphql-endpoint.md)         | Add a type, query, mutation, and optional DataLoader                        |
-| [REST Endpoint](doc/rest-endpoint.md)               | Full workflow: entity → DTO → validator → service → controller              |
-| [EF Core Migration](doc/ef-migration.md)            | Create and apply PostgreSQL schema migrations                               |
-| [MongoDB Migration](doc/mongodb-migration.md)       | Create index and data migrations with Kot.MongoDB.Migrations                |
-| [Transactions](doc/transactions.md)                 | Wrap multiple operations in an atomic Unit of Work transaction              |
-| [Authentication](doc/authentication.md)             | JWT login flow, protecting endpoints, and production guidance               |
-| [Stored Procedures](doc/stored-procedures.md)       | Add a PostgreSQL function and call it safely from C#                        |
-| [MongoDB Polymorphism](doc/mongodb-polymorphism.md) | Store multiple document subtypes in one collection                          |
-| [Validation](doc/validation.md)                     | Add FluentValidation rules, cross-field rules, and shared validators        |
-| [Specifications](doc/specifications.md)             | Write reusable EF Core query specifications with Ardalis                    |
-| [Scalar & GraphQL UI](doc/scalar-and-graphql-ui.md) | Use the Scalar REST explorer and Nitro GraphQL playground                   |
-| [Testing](doc/testing.md)                           | Write unit tests (services, validators, repositories) and integration tests |
-| [Result Pattern](doc/result-pattern.md)             | Guidelines for introducing selective `Result<T>` flow in phase 2            |
+| [GraphQL Endpoint](docs/graphql-endpoint.md)         | Add a type, query, mutation, and optional DataLoader                        |
+| [REST Endpoint](docs/rest-endpoint.md)               | Full workflow: entity → DTO → validator → service → controller              |
+| [EF Core Migration](docs/ef-migration.md)            | Create and apply PostgreSQL schema migrations                               |
+| [MongoDB Migration](docs/mongodb-migration.md)       | Create index and data migrations with Kot.MongoDB.Migrations                |
+| [Transactions](docs/transactions.md)                 | Wrap multiple operations in an atomic Unit of Work transaction              |
+| [Authentication](docs/AUTHENTICATION.md)             | JWT login flow, protecting endpoints, and production guidance               |
+| [Stored Procedures](docs/stored-procedures.md)       | Add a PostgreSQL function and call it safely from C#                        |
+| [MongoDB Polymorphism](docs/mongodb-polymorphism.md) | Store multiple document subtypes in one collection                          |
+| [Validation](docs/validation.md)                     | Add FluentValidation rules, cross-field rules, and shared validators        |
+| [Specifications](docs/specifications.md)             | Write reusable EF Core query specifications with Ardalis                    |
+| [Scalar & GraphQL UI](docs/scalar-and-graphql-ui.md) | Use the Scalar REST explorer and Nitro GraphQL playground                   |
+| [Testing](docs/testing.md)                           | Write unit tests (services, validators, repositories) and integration tests |
+| [Observability](docs/observability.md)               | Run OpenTelemetry locally with Aspire Dashboard or Grafana LGTM             |
+| [Result Pattern](docs/result-pattern.md)             | Guidelines for introducing selective `Result<T>` flow in phase 2            |
 
 ---
 

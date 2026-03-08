@@ -1,9 +1,11 @@
 using APITemplate.Application.Options;
+using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Logging;
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Compliance.Redaction;
+using Serilog;
+using Serilog.Sinks.OpenTelemetry;
 using System.ComponentModel.DataAnnotations;
-
 namespace APITemplate.Extensions;
 
 public static class LoggingExtensions
@@ -42,5 +44,39 @@ public static class LoggingExtensions
         builder.Logging.EnableRedaction();
 
         return builder;
+    }
+
+    public static LoggerConfiguration AddOpenTelemetrySinks(
+        this LoggerConfiguration loggerConfiguration,
+        IConfiguration configuration,
+        IHostEnvironment environment)
+    {
+        loggerConfiguration
+            .Enrich.FromLogContext()
+            .Enrich.With<ActivityTraceEnricher>();
+
+        var options = configuration
+            .GetSection(ObservabilityServiceCollectionExtensions.ObservabilitySectionName)
+            .Get<ObservabilityOptions>() ?? new ObservabilityOptions();
+
+        var resourceAttributes = ObservabilityServiceCollectionExtensions.BuildResourceAttributes(options, environment);
+        var endpoints = ObservabilityServiceCollectionExtensions.GetEnabledOtlpEndpoints(options, environment);
+
+        foreach (var endpoint in endpoints)
+        {
+            loggerConfiguration.WriteTo.OpenTelemetry(otel =>
+            {
+                otel.Endpoint = endpoint;
+                otel.Protocol = OtlpProtocol.Grpc;
+                otel.IncludedData =
+                    IncludedData.MessageTemplateTextAttribute |
+                    IncludedData.SpecRequiredResourceAttributes |
+                    IncludedData.TraceIdField |
+                    IncludedData.SpanIdField;
+                otel.ResourceAttributes = resourceAttributes;
+            });
+        }
+
+        return loggerConfiguration;
     }
 }

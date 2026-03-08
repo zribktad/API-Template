@@ -1,4 +1,5 @@
 using APITemplate.Domain.Exceptions;
+using APITemplate.Infrastructure.Observability;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,7 @@ namespace APITemplate.Api.ExceptionHandling;
 /// </remarks>
 public sealed class ApiExceptionHandler : IExceptionHandler
 {
+    private const int ClientClosedRequestStatusCode = 499;
     private readonly ILogger<ApiExceptionHandler> _logger;
     private readonly IProblemDetailsService _problemDetailsService;
 
@@ -31,8 +33,16 @@ public sealed class ApiExceptionHandler : IExceptionHandler
     public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
     {
         // GraphQL has its own error format and middleware, so let that pipeline handle GraphQL exceptions.
-        if (context.Request.Path.StartsWithSegments("/graphql"))
+        if (context.Request.Path.StartsWithSegments(TelemetryPathPrefixes.GraphQl))
             return false;
+
+        if (IsClientAbortedRequest(context, exception, cancellationToken))
+        {
+            if (!context.Response.HasStarted)
+                context.Response.StatusCode = ClientClosedRequestStatusCode;
+
+            return true;
+        }
 
         var (statusCode, title, detail, errorCode, metadata) = Resolve(exception);
         var problemDetails = new ProblemDetails
@@ -65,6 +75,13 @@ public sealed class ApiExceptionHandler : IExceptionHandler
                 context.TraceIdentifier);
         }
 
+        ApiMetrics.RecordHandledException(
+            statusCode,
+            errorCode,
+            exception.GetType().Name);
+
+        ConflictTelemetry.Record(exception, errorCode);
+
         context.Response.StatusCode = statusCode;
         var wasWritten = await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
@@ -75,6 +92,10 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         return wasWritten;
     }
+
+    private static bool IsClientAbortedRequest(HttpContext context, Exception exception, CancellationToken cancellationToken)
+        => exception is OperationCanceledException
+           && (context.RequestAborted.IsCancellationRequested || cancellationToken.IsCancellationRequested);
 
     private static (int StatusCode, string Title, string Detail, string ErrorCode, IReadOnlyDictionary<string, object?>? Metadata) Resolve(Exception exception)
     {
