@@ -32,5 +32,8 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(p => new { p.TenantId, p.Name });
+        builder.HasIndex(p => new { p.Name, p.Description })
+            .HasMethod("GIN")
+            .IsTsVectorExpressionIndex("english");
     }
 }

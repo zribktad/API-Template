@@ -11,6 +11,7 @@ public static class GraphQLServiceCollectionExtensions
         services
             .AddGraphQLServer()
             .AddQueryType<Api.GraphQL.Queries.ProductQueries>()
+            .AddTypeExtension<Api.GraphQL.Queries.CategoryQueries>()
             .AddTypeExtension<Api.GraphQL.Queries.ProductReviewQueries>()
             .AddMutationType<Api.GraphQL.Mutations.ProductMutations>()
             .AddTypeExtension<Api.GraphQL.Mutations.ProductReviewMutations>()

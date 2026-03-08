@@ -34,7 +34,7 @@ public sealed class ProductService : IProductService
     public Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _queryService.GetByIdAsync(id, ct);
 
-    public Task<PagedResponse<ProductResponse>> GetAllAsync(ProductFilter filter, CancellationToken ct = default)
+    public Task<ProductsResponse> GetAllAsync(ProductFilter filter, CancellationToken ct = default)
         => _queryService.GetPagedAsync(filter, ct);
 
     public async Task<ProductResponse> CreateAsync(CreateProductRequest request, CancellationToken ct = default)

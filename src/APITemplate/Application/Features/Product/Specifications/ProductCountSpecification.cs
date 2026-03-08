@@ -7,5 +7,6 @@ public sealed class ProductCountSpecification : Specification<ProductEntity>
     public ProductCountSpecification(ProductFilter filter)
     {
         ProductFilterCriteria.Apply(Query, filter);
+        Query.AsNoTracking();
     }
 }

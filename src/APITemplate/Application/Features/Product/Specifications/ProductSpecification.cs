@@ -8,6 +8,7 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
     public ProductSpecification(ProductFilter filter)
     {
         ProductFilterCriteria.Apply(Query, filter);
+        Query.AsNoTracking();
 
         ProductSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
 

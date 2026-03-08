@@ -23,7 +23,7 @@ public sealed class ProductsController : ControllerBase
 
     [HttpGet]
     [OutputCache(PolicyName = CachePolicyNames.Products)]
-    public async Task<ActionResult<PagedResponse<ProductResponse>>> GetAll([FromQuery] ProductFilter filter, CancellationToken ct)
+    public async Task<ActionResult<ProductsResponse>> GetAll([FromQuery] ProductFilter filter, CancellationToken ct)
     {
         var products = await _productService.GetAllAsync(filter, ct);
         return Ok(products);

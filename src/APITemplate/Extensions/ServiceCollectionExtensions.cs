@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IActorProvider, HttpActorProvider>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IProductQueryService, ProductQueryService>();
+        services.AddScoped<ICategoryQueryService, CategoryQueryService>();
         services.AddScoped<IProductReviewService, ProductReviewService>();
         services.AddScoped<IProductReviewQueryService, ProductReviewQueryService>();
         services.AddScoped<ICategoryService, CategoryService>();

@@ -377,11 +377,13 @@ public class ProductServiceTests
 
         _queryServiceMock
             .Setup(q => q.GetPagedAsync(It.IsAny<ProductFilter>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PagedResponse<ProductResponse>(responses, 2, 1, 10));
+            .ReturnsAsync(new ProductsResponse(
+                new PagedResponse<ProductResponse>(responses, 2, 1, 10),
+                new ProductSearchFacetsResponse([], [])));
 
         var result = await _sut.GetAllAsync(new ProductFilter(), ct);
 
-        result.Items.Count().ShouldBe(2);
-        result.TotalCount.ShouldBe(2);
+        result.Page.Items.Count().ShouldBe(2);
+        result.Page.TotalCount.ShouldBe(2);
     }
 }

@@ -2,7 +2,7 @@
 namespace APITemplate.Application.Features.Category.Interfaces;
 public interface ICategoryService
 {
-    Task<IReadOnlyList<CategoryResponse>> GetAllAsync(CancellationToken ct = default);
+    Task<PagedResponse<CategoryResponse>> GetAllAsync(CategoryFilter filter, CancellationToken ct = default);
 
     Task<CategoryResponse?> GetByIdAsync(Guid id, CancellationToken ct = default);
 

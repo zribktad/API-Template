@@ -27,8 +27,8 @@ public class CategoriesControllerTests
         var getAllResponse = await _client.GetAsync("/api/v1/categories", ct);
         getAllResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var allCategories = await getAllResponse.Content.ReadFromJsonAsync<JsonElement[]>(TestJsonOptions.CaseInsensitive, ct);
-        allCategories.ShouldNotBeNull();
+        var allCategories = await getAllResponse.Content.ReadFromJsonAsync<JsonElement>(TestJsonOptions.CaseInsensitive, ct);
+        allCategories.GetProperty("items").EnumerateArray().ShouldBeEmpty();
 
         // 2. Create category
         var createResponse = await _client.PostAsJsonAsync(
@@ -117,8 +117,29 @@ public class CategoriesControllerTests
         var response = await _client.GetAsync("/api/v1/categories", ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var categories = await response.Content.ReadFromJsonAsync<JsonElement[]>(TestJsonOptions.CaseInsensitive, ct);
-        categories.ShouldNotBeNull();
-        categories!.Length.ShouldBeGreaterThanOrEqualTo(2);
+        var categories = await response.Content.ReadFromJsonAsync<JsonElement>(TestJsonOptions.CaseInsensitive, ct);
+        categories.GetProperty("items").EnumerateArray().Count().ShouldBeGreaterThanOrEqualTo(2);
+        categories.GetProperty("totalCount").GetInt32().ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task GetAll_ReturnsPagedEnvelope()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+
+        await _client.PostAsJsonAsync("/api/v1/categories", new { Name = "Office Furniture", Description = "Desk and chair" }, ct);
+        await _client.PostAsJsonAsync("/api/v1/categories", new { Name = "Kitchen Tools", Description = "Pans and knives" }, ct);
+
+        var response = await _client.GetAsync("/api/v1/categories?pageNumber=1&pageSize=1&sortBy=name&sortDirection=asc", ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(TestJsonOptions.CaseInsensitive, ct);
+        var items = payload.GetProperty("items").EnumerateArray().ToArray();
+
+        items.Length.ShouldBe(1);
+        payload.GetProperty("pageNumber").GetInt32().ShouldBe(1);
+        payload.GetProperty("pageSize").GetInt32().ShouldBe(1);
+        payload.GetProperty("totalCount").GetInt32().ShouldBeGreaterThanOrEqualTo(2);
     }
 }

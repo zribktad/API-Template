@@ -24,5 +24,8 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(c => new { c.TenantId, c.Name }).IsUnique();
+        builder.HasIndex(c => new { c.Name, c.Description })
+            .HasMethod("GIN")
+            .IsTsVectorExpressionIndex("english");
     }
 }

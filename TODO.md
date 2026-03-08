@@ -29,8 +29,8 @@
 
 ## Search
 
-- [ ] Add full-text search for products and categories.
-- [ ] Add faceted filtering for search results.
+- [x] Add full-text search for products and categories.
+- [x] Add faceted filtering for search results.
 
 ## Background Jobs
 

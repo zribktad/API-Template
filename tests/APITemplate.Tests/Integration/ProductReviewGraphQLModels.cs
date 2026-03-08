@@ -2,7 +2,9 @@ namespace APITemplate.Tests.Integration;
 
 public sealed record ProductReviewItem(Guid Id, Guid UserId, int Rating, Guid ProductId);
 
-public sealed record ProductReviewPage(List<ProductReviewItem> Items, int TotalCount, int PageNumber, int PageSize);
+public sealed record ProductReviewResultsPage(List<ProductReviewItem> Items, int TotalCount, int PageNumber, int PageSize);
+
+public sealed record ProductReviewPage(ProductReviewResultsPage Page);
 
 public sealed record CreateProductReviewData(ProductReviewItem CreateProductReview);
 

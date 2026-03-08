@@ -23,9 +23,9 @@ public sealed class CategoriesController : ControllerBase
 
     [HttpGet]
     [OutputCache(PolicyName = CachePolicyNames.Categories)]
-    public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetAll(CancellationToken ct)
+    public async Task<ActionResult<PagedResponse<CategoryResponse>>> GetAll([FromQuery] CategoryFilter filter, CancellationToken ct)
     {
-        var categories = await _categoryService.GetAllAsync(ct);
+        var categories = await _categoryService.GetAllAsync(filter, ct);
         return Ok(categories);
     }
 

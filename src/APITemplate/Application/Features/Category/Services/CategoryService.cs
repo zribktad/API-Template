@@ -7,25 +7,21 @@ namespace APITemplate.Application.Features.Category.Services;
 public sealed class CategoryService : ICategoryService
 {
     private readonly ICategoryRepository _repository;
+    private readonly ICategoryQueryService _queryService;
     private readonly IUnitOfWork _unitOfWork;
 
-    public CategoryService(ICategoryRepository repository, IUnitOfWork unitOfWork)
+    public CategoryService(ICategoryRepository repository, ICategoryQueryService queryService, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _queryService = queryService;
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IReadOnlyList<CategoryResponse>> GetAllAsync(CancellationToken ct = default)
-    {
-        var categories = await _repository.ListAsync(ct);
-        return categories.Select(c => c.ToResponse()).ToList();
-    }
+    public Task<PagedResponse<CategoryResponse>> GetAllAsync(CategoryFilter filter, CancellationToken ct = default)
+        => _queryService.GetPagedAsync(filter, ct);
 
-    public async Task<CategoryResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
-    {
-        var category = await _repository.GetByIdAsync(id, ct);
-        return category?.ToResponse();
-    }
+    public Task<CategoryResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => _queryService.GetByIdAsync(id, ct);
 
     public async Task<CategoryResponse> CreateAsync(CreateCategoryRequest request, CancellationToken ct = default)
     {

@@ -24,12 +24,16 @@ public class ProductQueries
             input?.SortBy,
             input?.SortDirection,
             input?.PageNumber ?? 1,
-            input?.PageSize ?? 20);
+            input?.PageSize ?? 20,
+            input?.Query,
+            input?.CategoryIds);
 
         await validator.ValidateAndThrowAppAsync(filter, ct);
 
         var page = await queryService.GetPagedAsync(filter, ct);
-        return new ProductPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
+        return new ProductPageResult(
+            page.Page,
+            page.Facets);
     }
 
     public async Task<ProductResponse?> GetProductById(

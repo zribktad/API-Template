@@ -1,6 +1,6 @@
-namespace APITemplate.Api.GraphQL.Models;
+namespace APITemplate.Application.Features.Product.DTOs;
 
-public sealed record ProductPageResult(
+public sealed record ProductsResponse(
     PagedResponse<ProductResponse> Page,
     ProductSearchFacetsResponse Facets)
     : IPagedItems<ProductResponse>, IHasFacets<ProductSearchFacetsResponse>;

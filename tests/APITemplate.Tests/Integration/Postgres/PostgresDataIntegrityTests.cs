@@ -12,6 +12,7 @@ using APITemplate.Extensions;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Persistence.SoftDelete;
 using APITemplate.Infrastructure.Repositories;
+using APITemplate.Tests.Integration.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -31,6 +32,231 @@ public sealed class PostgresDataIntegrityTests
     {
         _factory = factory;
         _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task ProductSearch_FullTextAndFacets_ReturnTenantScopedResults()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var username = $"search-{Guid.NewGuid():N}";
+        var (tenant, _) = await IntegrationAuthHelper.SeedTenantUserAsync(
+            _factory.Services,
+            username,
+            $"{username}@example.com",
+            "pass-search",
+            ct: ct);
+
+        var otherTenant = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Code = $"search-other-{Guid.NewGuid():N}",
+            Name = "Other Search Tenant"
+        };
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var electronics = new Category
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                Name = "Electronics"
+            };
+
+            var books = new Category
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                Name = "Books"
+            };
+
+            var otherCategory = new Category
+            {
+                Id = Guid.NewGuid(),
+                TenantId = otherTenant.Id,
+                Name = "Electronics"
+            };
+
+            db.Tenants.Add(otherTenant);
+            db.Categories.AddRange(electronics, books, otherCategory);
+            db.Products.AddRange(
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Wireless Mouse",
+                    Description = "Silent office mouse",
+                    Price = 30m,
+                    CategoryId = electronics.Id
+                },
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Wireless Keyboard",
+                    Description = "Mechanical office keyboard",
+                    Price = 80m,
+                    CategoryId = electronics.Id
+                },
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Fantasy Novel",
+                    Description = "Epic dragon story",
+                    Price = 15m,
+                    CategoryId = books.Id
+                },
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = otherTenant.Id,
+                    Name = "Wireless Speaker",
+                    Description = "Other tenant item",
+                    Price = 120m,
+                    CategoryId = otherCategory.Id
+                });
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        IntegrationAuthHelper.Authenticate(_client, tenantId: tenant.Id, username: username, role: Domain.Enums.UserRole.User);
+
+        var response = await _client.GetAsync("/api/v1/products?query=wireless", ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+        var items = payload.GetProperty("page").GetProperty("items").EnumerateArray().ToArray();
+        var categoryFacets = payload.GetProperty("facets").GetProperty("categories").EnumerateArray().ToArray();
+        var priceBuckets = payload.GetProperty("facets").GetProperty("priceBuckets").EnumerateArray().ToArray();
+
+        items.Length.ShouldBe(2);
+        items.Select(item => item.GetProperty("name").GetString()).ShouldBe(["Wireless Mouse", "Wireless Keyboard"], ignoreOrder: true);
+        categoryFacets.Length.ShouldBe(1);
+        categoryFacets[0].GetProperty("categoryName").GetString().ShouldBe("Electronics");
+        categoryFacets[0].GetProperty("count").GetInt32().ShouldBe(2);
+        priceBuckets.Single(bucket => bucket.GetProperty("label").GetString() == "0 - 50").GetProperty("count").GetInt32().ShouldBe(1);
+        priceBuckets.Single(bucket => bucket.GetProperty("label").GetString() == "50 - 100").GetProperty("count").GetInt32().ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GraphQL_SearchQueries_UsePostgresFullText()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var graphql = new GraphQLTestHelper(_client);
+        var username = $"graphql-search-{Guid.NewGuid():N}";
+        var (tenant, _) = await IntegrationAuthHelper.SeedTenantUserAsync(
+            _factory.Services,
+            username,
+            $"{username}@example.com",
+            "pass-graphql-search",
+            ct: ct);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            db.Categories.AddRange(
+                new Category
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Office Supplies",
+                    Description = "Desk organization"
+                },
+                new Category
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Kitchen Goods",
+                    Description = "Cookware"
+                });
+
+            db.Products.AddRange(
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Wireless Charger",
+                    Description = "Fast charging pad",
+                    Price = 40m
+                },
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Paper Notebook",
+                    Description = "Meeting notes",
+                    Price = 12m
+                });
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        IntegrationAuthHelper.Authenticate(_client, tenantId: tenant.Id, username: username, role: Domain.Enums.UserRole.User);
+
+        var productsQuery = new
+        {
+            query = @"
+                query($input: ProductQueryInput) {
+                    products(input: $input) {
+                        page {
+                            items { id name price }
+                            totalCount
+                        }
+                        facets { priceBuckets { label count } }
+                    }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    query = "wireless",
+                    pageNumber = 1,
+                    pageSize = 10
+                }
+            }
+        };
+
+        var products = await graphql.ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
+            await graphql.PostAsync(productsQuery),
+            data => data.Products,
+            "products");
+
+        products.Page.Items.Count.ShouldBe(1);
+        products.Page.Items[0].Name.ShouldBe("Wireless Charger");
+
+        var categoriesQuery = new
+        {
+            query = @"
+                query($input: CategoryQueryInput) {
+                    categories(input: $input) {
+                        page {
+                            items { id name }
+                            totalCount
+                        }
+                    }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    query = "office",
+                    pageNumber = 1,
+                    pageSize = 10
+                }
+            }
+        };
+
+        var categories = await graphql.ReadRequiredGraphQLFieldAsync<CategoriesData, CategoryPage>(
+            await graphql.PostAsync(categoriesQuery),
+            data => data.Categories,
+            "categories");
+
+        categories.Page.Items.Count.ShouldBe(1);
+        categories.Page.Items[0].Name.ShouldBe("Office Supplies");
+        categories.Page.TotalCount.ShouldBe(1);
     }
 
     [Fact]

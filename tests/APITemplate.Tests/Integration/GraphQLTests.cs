@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using APITemplate.Tests.Integration.Helpers;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
@@ -31,15 +32,15 @@ public class GraphQLTests
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
-        var query = new { query = "{ products { items { id name price } totalCount pageNumber pageSize } }" };
+        var query = new { query = "{ products { page { items { id name price } totalCount pageNumber pageSize } facets { categories { categoryName count } priceBuckets { label count } } } }" };
 
         var response = await _graphql.PostAsync(query);
         var products = await _graphql.ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
             response,
             data => data.Products,
             "products");
-        products.Items.Count.ShouldBeGreaterThanOrEqualTo(0);
-        products.PageNumber.ShouldBeGreaterThan(0);
+        products.Page.Items.Count.ShouldBeGreaterThanOrEqualTo(0);
+        products.Page.PageNumber.ShouldBeGreaterThan(0);
     }
 
     [Fact]
@@ -170,10 +171,16 @@ public class GraphQLTests
             query = @"
                 query($input: ProductQueryInput) {
                     products(input: $input) {
-                        items { id name price }
-                        totalCount
-                        pageNumber
-                        pageSize
+                        page {
+                            items { id name price }
+                            totalCount
+                            pageNumber
+                            pageSize
+                        }
+                        facets {
+                            categories { categoryId categoryName count }
+                            priceBuckets { label minPrice maxPrice count }
+                        }
                     }
                 }",
             variables = new
@@ -194,13 +201,14 @@ public class GraphQLTests
             response,
             data => data.Products,
             "products");
-        var items = products.Items;
+        var items = products.Page.Items;
 
         items.Count.ShouldBe(2);
         items[0].Price.ShouldBeLessThanOrEqualTo(items[1].Price);
-        products.TotalCount.ShouldBeGreaterThanOrEqualTo(3);
-        products.PageNumber.ShouldBe(1);
-        products.PageSize.ShouldBe(2);
+        products.Page.TotalCount.ShouldBeGreaterThanOrEqualTo(3);
+        products.Page.PageNumber.ShouldBe(1);
+        products.Page.PageSize.ShouldBe(2);
+        products.Facets.ShouldNotBeNull();
     }
 
     [Fact]
@@ -222,15 +230,18 @@ public class GraphQLTests
             query = @"
                 query($input: ProductQueryInput) {
                     products(input: $input) {
-                        items {
-                            id
-                            name
-                            price
-                            reviews { id rating productId }
+                        page {
+                            items {
+                                id
+                                name
+                                price
+                                reviews { id rating productId }
+                            }
+                            totalCount
+                            pageNumber
+                            pageSize
                         }
-                        totalCount
-                        pageNumber
-                        pageSize
+                        facets { categories { categoryName count } }
                     }
                 }",
             variables = new
@@ -249,10 +260,111 @@ public class GraphQLTests
             response,
             data => data.Products,
             "products");
-        var items = products.Items;
+        var items = products.Page.Items;
 
         items.Count.ShouldBeGreaterThanOrEqualTo(2);
         items.ShouldContain(x => x.Id == p1 && x.Reviews.Count >= 2);
         items.ShouldContain(x => x.Id == p2 && x.Reviews.Count >= 1);
+    }
+
+    [Fact]
+    public async Task GraphQL_GetProducts_WithFacets_ReturnsFacetPayload()
+    {
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+
+        await _graphql.CreateProductAsync("Wireless Charger", 40m);
+        await _graphql.CreateProductAsync("Wireless Earbuds", 90m);
+        await _graphql.CreateProductAsync("Paper Notebook", 12m);
+
+        var query = new
+        {
+            query = @"
+                query($input: ProductQueryInput) {
+                    products(input: $input) {
+                        page {
+                            items { id name price }
+                            totalCount
+                            pageNumber
+                            pageSize
+                        }
+                        facets {
+                            categories { categoryName count }
+                            priceBuckets { label count }
+                        }
+                    }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    pageNumber = 1,
+                    pageSize = 10,
+                    sortBy = "price",
+                    sortDirection = "asc"
+                }
+            }
+        };
+
+        var response = await _graphql.PostAsync(query);
+        var products = await _graphql.ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
+            response,
+            data => data.Products,
+            "products");
+
+        products.Page.Items.Count.ShouldBe(3);
+        products.Facets.ShouldNotBeNull();
+        products.Facets!.PriceBuckets.ShouldContain(bucket => bucket.Label == "0 - 50" && bucket.Count >= 2);
+    }
+
+    [Fact]
+    public async Task GraphQL_GetCategories_ReturnsPagedCategories()
+    {
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+
+        var officeResponse = await _client.PostAsJsonAsync(
+            "/api/v1/categories",
+            new { Name = "Office Supplies", Description = "Desk organization" },
+            TestContext.Current.CancellationToken);
+        officeResponse.EnsureSuccessStatusCode();
+
+        var kitchenResponse = await _client.PostAsJsonAsync(
+            "/api/v1/categories",
+            new { Name = "Kitchen Goods", Description = "Cookware and utensils" },
+            TestContext.Current.CancellationToken);
+        kitchenResponse.EnsureSuccessStatusCode();
+
+        var query = new
+        {
+            query = @"
+                query($input: CategoryQueryInput) {
+                    categories(input: $input) {
+                        page {
+                            items { id name description }
+                            totalCount
+                            pageNumber
+                            pageSize
+                        }
+                    }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    pageNumber = 1,
+                    pageSize = 10,
+                    sortBy = "name",
+                    sortDirection = "asc"
+                }
+            }
+        };
+
+        var response = await _graphql.PostAsync(query);
+        var categories = await _graphql.ReadRequiredGraphQLFieldAsync<CategoriesData, CategoryPage>(
+            response,
+            data => data.Categories,
+            "categories");
+
+        categories.Page.Items.Count.ShouldBeGreaterThanOrEqualTo(2);
+        categories.Page.TotalCount.ShouldBeGreaterThanOrEqualTo(2);
     }
 }
