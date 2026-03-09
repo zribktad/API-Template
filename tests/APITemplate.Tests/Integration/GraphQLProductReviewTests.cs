@@ -62,15 +62,15 @@ public class GraphQLProductReviewTests
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
-        var query = new { query = "{ reviews { items { id userId rating } totalCount pageNumber pageSize } }" };
+        var query = new { query = "{ reviews { page { items { id userId rating } totalCount pageNumber pageSize } } }" };
 
         var response = await _graphql.PostAsync(query);
         var reviews = await _graphql.ReadRequiredGraphQLFieldAsync<ReviewsData, ProductReviewPage>(
             response,
             data => data.Reviews,
             "reviews");
-        reviews.Items.Count.ShouldBeGreaterThanOrEqualTo(0);
-        reviews.PageNumber.ShouldBeGreaterThan(0);
+        reviews.Page.Items.Count.ShouldBeGreaterThanOrEqualTo(0);
+        reviews.Page.PageNumber.ShouldBeGreaterThan(0);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class GraphQLProductReviewTests
 
         var query = new
         {
-            query = $@"{{ reviewsByProductId(productId: ""{productId}"", pageNumber: 1, pageSize: 20) {{ items {{ id userId rating }} totalCount }} }}"
+            query = $@"{{ reviewsByProductId(productId: ""{productId}"", pageNumber: 1, pageSize: 20) {{ page {{ items {{ id userId rating }} totalCount }} }} }}"
         };
 
         var response = await _graphql.PostAsync(query);
@@ -103,7 +103,7 @@ public class GraphQLProductReviewTests
             response,
             data => data.ReviewsByProductId,
             "reviewsByProductId");
-        reviewsByProductId.Items.Count.ShouldBeGreaterThanOrEqualTo(1);
+        reviewsByProductId.Page.Items.Count.ShouldBeGreaterThanOrEqualTo(1);
     }
 
     [Fact]
@@ -122,10 +122,12 @@ public class GraphQLProductReviewTests
             query = @"
                 query($input: ProductReviewQueryInput) {
                     reviews(input: $input) {
-                        items { id userId rating productId }
-                        totalCount
-                        pageNumber
-                        pageSize
+                        page {
+                            items { id userId rating productId }
+                            totalCount
+                            pageNumber
+                            pageSize
+                        }
                     }
                 }",
             variables = new
@@ -146,13 +148,13 @@ public class GraphQLProductReviewTests
             response,
             data => data.Reviews,
             "reviews");
-        var items = reviews.Items;
+        var items = reviews.Page.Items;
 
         items.Count.ShouldBe(2);
         items[0].Rating.ShouldBeGreaterThanOrEqualTo(items[1].Rating);
-        reviews.TotalCount.ShouldBeGreaterThanOrEqualTo(3);
-        reviews.PageNumber.ShouldBe(1);
-        reviews.PageSize.ShouldBe(2);
+        reviews.Page.TotalCount.ShouldBeGreaterThanOrEqualTo(3);
+        reviews.Page.PageNumber.ShouldBe(1);
+        reviews.Page.PageSize.ShouldBe(2);
     }
 
     [Fact]

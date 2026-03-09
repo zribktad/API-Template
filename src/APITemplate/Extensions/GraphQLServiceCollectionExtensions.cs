@@ -11,6 +11,7 @@ public static class GraphQLServiceCollectionExtensions
         services
             .AddGraphQLServer()
             .AddQueryType<Api.GraphQL.Queries.ProductQueries>()
+            .AddTypeExtension<Api.GraphQL.Queries.CategoryQueries>()
             .AddTypeExtension<Api.GraphQL.Queries.ProductReviewQueries>()
             .AddMutationType<Api.GraphQL.Mutations.ProductMutations>()
             .AddTypeExtension<Api.GraphQL.Mutations.ProductReviewMutations>()
@@ -22,8 +23,8 @@ public static class GraphQLServiceCollectionExtensions
             .AddDiagnosticEventListener(sp => sp.GetRequiredService<GraphQlExecutionMetricsListener>())
             .ModifyPagingOptions(o =>
             {
-                o.MaxPageSize = 100;
-                o.DefaultPageSize = 20;
+                o.MaxPageSize = PaginationFilter.MaxPageSize;
+                o.DefaultPageSize = PaginationFilter.DefaultPageSize;
                 o.IncludeTotalCount = true;
             })
             .AddMaxExecutionDepthRule(5);

@@ -4,6 +4,8 @@ namespace APITemplate.Domain.Interfaces;
 
 public interface IProductRepository : IRepository<Product>
 {
-    // Add product-specific query methods here, e.g.:
-    // Task<IReadOnlyList<Product>> GetByNameAsync(string name, CancellationToken ct = default);
+    Task<IReadOnlyList<ProductResponse>> ListAsync(ProductFilter filter, CancellationToken ct = default);
+    Task<int> CountAsync(ProductFilter filter, CancellationToken ct = default);
+    Task<IReadOnlyList<ProductCategoryFacetValue>> GetCategoryFacetsAsync(ProductFilter filter, CancellationToken ct = default);
+    Task<IReadOnlyList<ProductPriceFacetBucketResponse>> GetPriceFacetsAsync(ProductFilter filter, CancellationToken ct = default);
 }

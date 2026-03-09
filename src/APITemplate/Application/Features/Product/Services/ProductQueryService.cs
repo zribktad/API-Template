@@ -1,4 +1,3 @@
-using APITemplate.Application.Features.Product.Mappings;
 using APITemplate.Application.Features.Product.Specifications;
 using APITemplate.Domain.Interfaces;
 
@@ -6,22 +5,29 @@ namespace APITemplate.Application.Features.Product.Services;
 
 public sealed class ProductQueryService : IProductQueryService
 {
-    private readonly IProductRepository _repository;
+    private readonly IProductRepository _productRepository;
 
-    public ProductQueryService(IProductRepository repository)
+    public ProductQueryService(IProductRepository productRepository)
     {
-        _repository = repository;
+        _productRepository = productRepository;
     }
 
-    public async Task<PagedResponse<ProductResponse>> GetPagedAsync(ProductFilter filter, CancellationToken ct = default)
+    public async Task<ProductsResponse> GetPagedAsync(ProductFilter filter, CancellationToken ct = default)
     {
-        var items = await _repository.ListAsync(new ProductSpecification(filter), ct);
-        var totalCount = await _repository.CountAsync(new ProductCountSpecification(filter), ct);
-        return new PagedResponse<ProductResponse>(items, totalCount, filter.PageNumber, filter.PageSize);
+        var itemsTask = _productRepository.ListAsync(filter, ct);
+        var totalCountTask = _productRepository.CountAsync(filter, ct);
+        var categoryFacetsTask = _productRepository.GetCategoryFacetsAsync(filter, ct);
+        var priceFacetsTask = _productRepository.GetPriceFacetsAsync(filter, ct);
+
+        await Task.WhenAll(itemsTask, totalCountTask, categoryFacetsTask, priceFacetsTask);
+
+        return new ProductsResponse(
+            new PagedResponse<ProductResponse>(itemsTask.Result, totalCountTask.Result, filter.PageNumber, filter.PageSize),
+            new ProductSearchFacetsResponse(categoryFacetsTask.Result, priceFacetsTask.Result));
     }
 
     public async Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        return await _repository.FirstOrDefaultAsync(new ProductByIdSpecification(id), ct);
+        return await _productRepository.FirstOrDefaultAsync(new ProductByIdSpecification(id), ct);
     }
 }

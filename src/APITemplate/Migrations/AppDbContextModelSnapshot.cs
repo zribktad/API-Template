@@ -137,6 +137,11 @@ namespace APITemplate.Migrations
 
                     b.HasIndex("TenantId");
 
+                    b.HasIndex("Name", "Description")
+                        .HasAnnotation("Npgsql:TsVectorConfig", "english");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Name", "Description"), "GIN");
+
                     b.HasIndex("TenantId", "IsDeleted");
 
                     b.HasIndex("TenantId", "Name")
@@ -195,6 +200,11 @@ namespace APITemplate.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("Name", "Description")
+                        .HasAnnotation("Npgsql:TsVectorConfig", "english");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Name", "Description"), "GIN");
 
                     b.HasIndex("TenantId", "IsDeleted");
 

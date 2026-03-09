@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Options;
 
@@ -12,6 +11,7 @@ using APITemplate.Extensions;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Persistence.SoftDelete;
 using APITemplate.Infrastructure.Repositories;
+using APITemplate.Tests.Integration.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -31,6 +31,229 @@ public sealed class PostgresDataIntegrityTests
     {
         _factory = factory;
         _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task ProductSearch_FullTextAndFacets_ReturnTenantScopedResults()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var username = $"search-{Guid.NewGuid():N}";
+        var (tenant, _) = await IntegrationAuthHelper.SeedTenantUserAsync(
+            _factory.Services,
+            username,
+            $"{username}@example.com",
+            "pass-search",
+            ct: ct);
+
+        var otherTenant = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Code = $"search-other-{Guid.NewGuid():N}",
+            Name = "Other Search Tenant"
+        };
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var electronics = new Category
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                Name = "Electronics"
+            };
+
+            var books = new Category
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                Name = "Books"
+            };
+
+            var otherCategory = new Category
+            {
+                Id = Guid.NewGuid(),
+                TenantId = otherTenant.Id,
+                Name = "Electronics"
+            };
+
+            db.Tenants.Add(otherTenant);
+            db.Categories.AddRange(electronics, books, otherCategory);
+            db.Products.AddRange(
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Wireless Mouse",
+                    Description = "Silent office mouse",
+                    Price = 30m,
+                    CategoryId = electronics.Id
+                },
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Wireless Keyboard",
+                    Description = "Mechanical office keyboard",
+                    Price = 80m,
+                    CategoryId = electronics.Id
+                },
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Fantasy Novel",
+                    Description = "Epic dragon story",
+                    Price = 15m,
+                    CategoryId = books.Id
+                },
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = otherTenant.Id,
+                    Name = "Wireless Speaker",
+                    Description = "Other tenant item",
+                    Price = 120m,
+                    CategoryId = otherCategory.Id
+                });
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        IntegrationAuthHelper.Authenticate(_client, tenantId: tenant.Id, username: username, role: Domain.Enums.UserRole.User);
+
+        var response = await _client.GetAsync("/api/v1/products?query=wireless", ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        payload.ShouldNotBeNull();
+
+        payload!.Page.Items.Count().ShouldBe(2);
+        payload.Page.Items.Select(item => item.Name).ShouldBe(["Wireless Mouse", "Wireless Keyboard"], ignoreOrder: true);
+        payload.Facets.Categories.Count.ShouldBe(1);
+        payload.Facets.Categories.Single().CategoryName.ShouldBe("Electronics");
+        payload.Facets.Categories.Single().Count.ShouldBe(2);
+        payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "0 - 50").Count.ShouldBe(1);
+        payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "50 - 100").Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GraphQL_SearchQueries_UsePostgresFullText()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var graphql = new GraphQLTestHelper(_client);
+        var username = $"graphql-search-{Guid.NewGuid():N}";
+        var (tenant, _) = await IntegrationAuthHelper.SeedTenantUserAsync(
+            _factory.Services,
+            username,
+            $"{username}@example.com",
+            "pass-graphql-search",
+            ct: ct);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            db.Categories.AddRange(
+                new Category
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Office Supplies",
+                    Description = "Desk organization"
+                },
+                new Category
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Kitchen Goods",
+                    Description = "Cookware"
+                });
+
+            db.Products.AddRange(
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Wireless Charger",
+                    Description = "Fast charging pad",
+                    Price = 40m
+                },
+                new Product
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Name = "Paper Notebook",
+                    Description = "Meeting notes",
+                    Price = 12m
+                });
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        IntegrationAuthHelper.Authenticate(_client, tenantId: tenant.Id, username: username, role: Domain.Enums.UserRole.User);
+
+        var productsQuery = new
+        {
+            query = @"
+                query($input: ProductQueryInput) {
+                    products(input: $input) {
+                        page {
+                            items { id name price }
+                            totalCount
+                        }
+                        facets { priceBuckets { label count } }
+                    }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    query = "wireless",
+                    pageNumber = 1,
+                    pageSize = 10
+                }
+            }
+        };
+
+        var products = await graphql.ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
+            await graphql.PostAsync(productsQuery),
+            data => data.Products,
+            "products");
+
+        products.Page.Items.Count.ShouldBe(1);
+        products.Page.Items[0].Name.ShouldBe("Wireless Charger");
+
+        var categoriesQuery = new
+        {
+            query = @"
+                query($input: CategoryQueryInput) {
+                    categories(input: $input) {
+                        page {
+                            items { id name }
+                            totalCount
+                        }
+                    }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    query = "office",
+                    pageNumber = 1,
+                    pageSize = 10
+                }
+            }
+        };
+
+        var categories = await graphql.ReadRequiredGraphQLFieldAsync<CategoriesData, CategoryPage>(
+            await graphql.PostAsync(categoriesQuery),
+            data => data.Categories,
+            "categories");
+
+        categories.Page.Items.Count.ShouldBe(1);
+        categories.Page.Items[0].Name.ShouldBe("Office Supplies");
+        categories.Page.TotalCount.ShouldBe(1);
     }
 
     [Fact]
@@ -243,11 +466,12 @@ public sealed class PostgresDataIntegrityTests
         var statsResponse = await _client.GetAsync($"/api/v1/categories/{categoryAId}/stats", ct);
         statsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var payload = await statsResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        payload.GetProperty("categoryId").GetGuid().ShouldBe(categoryAId);
-        payload.GetProperty("productCount").GetInt64().ShouldBe(1);
-        payload.GetProperty("averagePrice").GetDecimal().ShouldBe(100m);
-        payload.GetProperty("totalReviews").GetInt64().ShouldBe(1);
+        var payload = await statsResponse.Content.ReadFromJsonAsync<ProductCategoryStatsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        payload.ShouldNotBeNull();
+        payload!.CategoryId.ShouldBe(categoryAId);
+        payload.ProductCount.ShouldBe(1);
+        payload.AveragePrice.ShouldBe(100m);
+        payload.TotalReviews.ShouldBe(1);
 
         // Tenant A token must not access stats of tenant B category.
         var forbiddenByIsolation = await _client.GetAsync($"/api/v1/categories/{categoryBId}/stats", ct);
@@ -259,7 +483,7 @@ public sealed class PostgresDataIntegrityTests
 
         var reviewsByProduct = await _client.GetAsync($"/api/v1/productreviews/by-product/{productAId}", ct);
         reviewsByProduct.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var reviews = await reviewsByProduct.Content.ReadFromJsonAsync<JsonElement[]>(cancellationToken: ct);
+        var reviews = await reviewsByProduct.Content.ReadFromJsonAsync<ProductReviewResponse[]>(TestJsonOptions.CaseInsensitive, ct);
         reviews.ShouldNotBeNull();
         reviews!.Length.ShouldBe(1);
     }
@@ -310,24 +534,27 @@ public sealed class PostgresDataIntegrityTests
             ct);
         createProductResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        var createdProduct = await createProductResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        productId = createdProduct.GetProperty("id").GetGuid();
+        var createdProduct = await createProductResponse.Content.ReadFromJsonAsync<ProductResponse>(TestJsonOptions.CaseInsensitive, ct);
+        createdProduct.ShouldNotBeNull();
+        productId = createdProduct!.Id;
 
         var createReview1 = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
             new { ProductId = productId, Rating = 5 },
             ct);
         createReview1.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var createdReview1 = await createReview1.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        review1Id = createdReview1.GetProperty("id").GetGuid();
+        var createdReview1 = await createReview1.Content.ReadFromJsonAsync<ProductReviewResponse>(TestJsonOptions.CaseInsensitive, ct);
+        createdReview1.ShouldNotBeNull();
+        review1Id = createdReview1!.Id;
 
         var createReview2 = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
             new { ProductId = productId, Rating = 4 },
             ct);
         createReview2.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var createdReview2 = await createReview2.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        review2Id = createdReview2.GetProperty("id").GetGuid();
+        var createdReview2 = await createReview2.Content.ReadFromJsonAsync<ProductReviewResponse>(TestJsonOptions.CaseInsensitive, ct);
+        createdReview2.ShouldNotBeNull();
+        review2Id = createdReview2!.Id;
 
         var deleteResponse = await _client.DeleteAsync($"/api/v1/products/{productId}", ct);
         deleteResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -335,7 +562,7 @@ public sealed class PostgresDataIntegrityTests
         var reviewsResponse = await _client.GetAsync($"/api/v1/productreviews/by-product/{productId}", ct);
         reviewsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var visibleReviews = await reviewsResponse.Content.ReadFromJsonAsync<JsonElement[]>(cancellationToken: ct);
+        var visibleReviews = await reviewsResponse.Content.ReadFromJsonAsync<ProductReviewResponse[]>(TestJsonOptions.CaseInsensitive, ct);
         visibleReviews.ShouldNotBeNull();
         visibleReviews.ShouldBeEmpty();
 
@@ -383,7 +610,7 @@ public sealed class PostgresDataIntegrityTests
 
         await using (var deleteContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
         {
-            var repository = new ProductRepository(deleteContext);
+            var repository = new ProductRepository(deleteContext, _factory.Services.GetRequiredService<IServiceScopeFactory>());
             var unitOfWork = new UnitOfWork(deleteContext);
 
             await repository.DeleteAsync(product.Id, ct);
@@ -440,7 +667,7 @@ public sealed class PostgresDataIntegrityTests
         await using (var deleteContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
         {
             var service = new APITemplate.Application.Features.Product.Services.ProductService(
-                new ProductRepository(deleteContext),
+                new ProductRepository(deleteContext, _factory.Services.GetRequiredService<IServiceScopeFactory>()),
                 Mock.Of<IProductQueryService>(),
                 Mock.Of<ICategoryRepository>(),
                 Mock.Of<IProductDataRepository>(),
@@ -484,7 +711,7 @@ public sealed class PostgresDataIntegrityTests
 
         await using (var transactionContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
         {
-            var productRepository = new ProductRepository(transactionContext);
+            var productRepository = new ProductRepository(transactionContext, _factory.Services.GetRequiredService<IServiceScopeFactory>());
             var failingReviewRepository = new Mock<IProductReviewRepository>();
             failingReviewRepository
                 .Setup(repository => repository.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()))
@@ -808,11 +1035,12 @@ public sealed class PostgresDataIntegrityTests
         var response = await _client.GetAsync($"/api/v1/categories/{categoryId}/stats", ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        payload.GetProperty("categoryId").GetGuid().ShouldBe(categoryId);
-        payload.GetProperty("productCount").GetInt64().ShouldBe(0);
-        payload.GetProperty("averagePrice").GetDecimal().ShouldBe(0m);
-        payload.GetProperty("totalReviews").GetInt64().ShouldBe(0);
+        var payload = await response.Content.ReadFromJsonAsync<ProductCategoryStatsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        payload.ShouldNotBeNull();
+        payload!.CategoryId.ShouldBe(categoryId);
+        payload.ProductCount.ShouldBe(0);
+        payload.AveragePrice.ShouldBe(0m);
+        payload.TotalReviews.ShouldBe(0);
     }
 
     [Fact]

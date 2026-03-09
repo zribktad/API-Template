@@ -22,5 +22,9 @@ public sealed class ProductFilterValidator : AbstractValidator<ProductFilter>
             .GreaterThanOrEqualTo(x => x.MinPrice!.Value)
             .WithMessage("MaxPrice must be greater than or equal to MinPrice.")
             .When(x => x.MinPrice.HasValue && x.MaxPrice.HasValue);
+
+        RuleForEach(x => x.CategoryIds)
+            .NotEqual(Guid.Empty)
+            .WithMessage("CategoryIds cannot contain an empty value.");
     }
 }

@@ -30,7 +30,7 @@ public class ProductReviewQueries
         await validator.ValidateAndThrowAppAsync(filter, ct);
 
         var page = await queryService.GetPagedAsync(filter, ct);
-        return new ProductReviewPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
+        return new ProductReviewPageResult(page);
     }
 
     public async Task<ProductReviewResponse?> GetReviewById(
@@ -52,6 +52,6 @@ public class ProductReviewQueries
         await validator.ValidateAndThrowAppAsync(filter, ct);
 
         var page = await queryService.GetPagedAsync(filter, ct);
-        return new ProductReviewPageResult(page.Items, page.TotalCount, page.PageNumber, page.PageSize);
+        return new ProductReviewPageResult(page);
     }
 }

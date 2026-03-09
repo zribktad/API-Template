@@ -2,6 +2,7 @@ using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
+using APITemplate.Application.Features.Category.Mappings;
 using APITemplate.Application.Features.Category.Services;
 using Moq;
 using Shouldly;
@@ -12,51 +13,54 @@ namespace APITemplate.Tests.Unit.Services;
 public class CategoryServiceTests
 {
     private readonly Mock<ICategoryRepository> _repositoryMock;
+    private readonly Mock<ICategoryQueryService> _queryServiceMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly CategoryService _sut;
 
     public CategoryServiceTests()
     {
         _repositoryMock = new Mock<ICategoryRepository>();
+        _queryServiceMock = new Mock<ICategoryQueryService>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _unitOfWorkMock.SetupImmediateTransactionExecution();
         _unitOfWorkMock.SetupImmediateTransactionExecution<Category>();
-        _sut = new CategoryService(_repositoryMock.Object, _unitOfWorkMock.Object);
+        _sut = new CategoryService(_repositoryMock.Object, _queryServiceMock.Object, _unitOfWorkMock.Object);
     }
 
     [Fact]
-    public async Task GetAllAsync_ReturnsAllCategories()
+    public async Task GetAllAsync_ReturnsPagedCategories()
     {
         var ct = TestContext.Current.CancellationToken;
         var categories = new List<Category>
         {
-            new() { Id = Guid.NewGuid(), Name = "Electronics", Audit = new() { CreatedAtUtc = DateTime.UtcNow } },
-            new() { Id = Guid.NewGuid(), Name = "Books", Description = "All books", Audit = new() { CreatedAtUtc = DateTime.UtcNow } }
+            new() { Id = Guid.NewGuid(), Name = "Electronics", TenantId = Guid.NewGuid(), Audit = new() { CreatedAtUtc = DateTime.UtcNow } },
+            new() { Id = Guid.NewGuid(), Name = "Books", Description = "All books", TenantId = Guid.NewGuid(), Audit = new() { CreatedAtUtc = DateTime.UtcNow } }
         };
+        var response = new PagedResponse<CategoryResponse>(categories.Select(x => x.ToResponse()).ToArray(), 2, 1, 10);
 
-        _repositoryMock
-            .Setup(r => r.ListAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(categories);
+        _queryServiceMock
+            .Setup(q => q.GetPagedAsync(It.IsAny<CategoryFilter>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response);
 
-        var result = await _sut.GetAllAsync(ct);
+        var result = await _sut.GetAllAsync(new CategoryFilter(), ct);
 
-        result.Count.ShouldBe(2);
-        result[0].Name.ShouldBe("Electronics");
-        result[1].Name.ShouldBe("Books");
-        result[1].Description.ShouldBe("All books");
+        result.Items.Count().ShouldBe(2);
+        result.Items.First().Name.ShouldBe("Electronics");
+        result.Items.Last().Name.ShouldBe("Books");
+        result.Items.Last().Description.ShouldBe("All books");
     }
 
     [Fact]
     public async Task GetAllAsync_WhenEmpty_ReturnsEmptyList()
     {
         var ct = TestContext.Current.CancellationToken;
-        _repositoryMock
-            .Setup(r => r.ListAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
+        _queryServiceMock
+            .Setup(q => q.GetPagedAsync(It.IsAny<CategoryFilter>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResponse<CategoryResponse>([], 0, 1, 10));
 
-        var result = await _sut.GetAllAsync(ct);
+        var result = await _sut.GetAllAsync(new CategoryFilter(), ct);
 
-        result.ShouldBeEmpty();
+        result.Items.ShouldBeEmpty();
     }
 
     [Fact]
@@ -71,9 +75,9 @@ public class CategoryServiceTests
             Audit = new() { CreatedAtUtc = DateTime.UtcNow }
         };
 
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(category.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(category);
+        _queryServiceMock
+            .Setup(q => q.GetByIdAsync(category.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(category.ToResponse());
 
         var result = await _sut.GetByIdAsync(category.Id, ct);
 
@@ -87,9 +91,9 @@ public class CategoryServiceTests
     public async Task GetByIdAsync_WhenCategoryDoesNotExist_ReturnsNull()
     {
         var ct = TestContext.Current.CancellationToken;
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Category?)null);
+        _queryServiceMock
+            .Setup(q => q.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CategoryResponse?)null);
 
         var result = await _sut.GetByIdAsync(Guid.NewGuid(), ct);
 
