@@ -28,7 +28,6 @@ public static class PersistenceServiceCollectionExtensions
             ConfigurePostgresDbContext(options, connectionString, transactionDefaults));
 
         services.AddScoped<IProductRepository, ProductRepository>();
-        services.AddScoped<IProductReadRepository, ProductReadRepository>();
         services.AddScoped<IProductDataLinkRepository, ProductDataLinkRepository>();
         services.AddScoped<IProductReviewRepository, ProductReviewRepository>();
         services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();

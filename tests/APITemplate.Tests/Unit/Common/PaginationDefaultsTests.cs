@@ -16,5 +16,6 @@ public sealed class PaginationDefaultsTests
         new ProductReviewFilter().PageSize.ShouldBe(PaginationFilter.DefaultPageSize);
         new CategoryQueryInput().PageSize.ShouldBe(PaginationFilter.DefaultPageSize);
         new ProductQueryInput().PageSize.ShouldBe(PaginationFilter.DefaultPageSize);
+        new ProductReviewQueryInput().PageSize.ShouldBe(PaginationFilter.DefaultPageSize);
     }
 }
