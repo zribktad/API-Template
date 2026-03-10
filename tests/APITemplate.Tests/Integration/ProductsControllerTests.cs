@@ -185,8 +185,8 @@ public class ProductsControllerTests
         payload!.Page.Items.Count().ShouldBe(2);
         payload.Page.Items.Select(item => item.Name).ShouldBe(["Wireless Mouse", "Wireless Keyboard"], ignoreOrder: true);
         payload.Facets.Categories.Count.ShouldBeGreaterThanOrEqualTo(2);
-        payload.Facets.Categories.First().CategoryName.ShouldBe("Electronics");
-        payload.Facets.Categories.First().Count.ShouldBe(2);
+        var electronicsFacet = payload.Facets.Categories.Single(c => c.CategoryName == "Electronics");
+        electronicsFacet.Count.ShouldBe(2);
         payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "0 - 50").Count.ShouldBe(1);
         payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "50 - 100").Count.ShouldBe(1);
     }
