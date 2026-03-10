@@ -11,8 +11,23 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Infrastructure.Security;
 
+/// <summary>
+/// Provides the cookie authentication principal validation callback used to transparently
+/// refresh Keycloak-backed BFF sessions when access tokens are close to expiration.
+/// </summary>
+/// <remarks>
+/// This type is part of the Infrastructure assembly's public surface so that authentication
+/// configuration in the API layer can wire <see cref="OnValidatePrincipal"/> into
+/// <see cref="CookieAuthenticationOptions.Events"/> for the BFF cookie scheme.
+/// It is not intended for general-purpose use outside of authentication setup.
+/// </remarks>
 public static class CookieSessionRefresher
 {
+    /// <summary>
+    /// Validates an incoming cookie principal and, when appropriate, attempts to refresh
+    /// the underlying Keycloak session and update the authentication cookie.
+    /// </summary>
+    /// <param name="context">The cookie validation context supplied by ASP.NET Core authentication.</param>
     public static async Task OnValidatePrincipal(CookieValidatePrincipalContext context)
     {
         if (!TryCreateRefreshRequest(context, out var refreshRequest))

@@ -80,8 +80,17 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
         // 3) If anything failed, throw a domain validation exception that the API layer can map to a proper HTTP response.
         if (failures.Count > 0)
         {
+            var message = string.Join(
+                "; ",
+                failures
+                    .Select(failure =>
+                        string.IsNullOrWhiteSpace(failure.PropertyName)
+                            ? failure.ErrorMessage
+                            : $"{failure.PropertyName}: {failure.ErrorMessage}")
+                    .Distinct());
+
             throw new Domain.Exceptions.ValidationException(
-                string.Join("; ", failures.Select(failure => failure.ErrorMessage).Distinct()),
+                message,
                 ErrorCatalog.General.ValidationFailed);
         }
 
