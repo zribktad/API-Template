@@ -106,6 +106,7 @@ public class ProductDataRequestHandlersTests
         var ct = TestContext.Current.CancellationToken;
         var image = new ImageProductData
         {
+            TenantId = _tenantId,
             Title = "Banner",
             Width = 800,
             Height = 600,
@@ -211,7 +212,7 @@ public class ProductDataRequestHandlersTests
         var id = Guid.NewGuid();
         _repositoryMock
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ImageProductData { Id = id, Title = "Image" });
+            .ReturnsAsync(new ImageProductData { Id = id, TenantId = _tenantId, Title = "Image" });
 
         await _sut.Handle(new DeleteProductDataCommand(id), TestContext.Current.CancellationToken);
 

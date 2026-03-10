@@ -1053,7 +1053,7 @@ public sealed class PostgresDataIntegrityTests
         mongoRepositoryMock.Reset();
         mongoRepositoryMock
             .Setup(r => r.GetByIdAsync(productDataId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ImageProductData { Id = productDataId, Title = "Image" });
+            .ReturnsAsync(new ImageProductData { Id = productDataId, TenantId = tenantId, Title = "Image" });
 
         var tenant = new Tenant { Id = tenantId, Code = $"tenant-pd-{Guid.NewGuid():N}", Name = "Tenant ProductData" };
         var category = new Category { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Category-PD-{Guid.NewGuid():N}" };
