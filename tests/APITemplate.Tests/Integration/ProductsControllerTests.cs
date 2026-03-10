@@ -185,9 +185,40 @@ public class ProductsControllerTests
         payload!.Page.Items.Count().ShouldBe(2);
         payload.Page.Items.Select(item => item.Name).ShouldBe(["Wireless Mouse", "Wireless Keyboard"], ignoreOrder: true);
         payload.Facets.Categories.Count.ShouldBeGreaterThanOrEqualTo(2);
-        payload.Facets.Categories.First().CategoryName.ShouldBe("Electronics");
-        payload.Facets.Categories.First().Count.ShouldBe(2);
+        var electronicsFacet = payload.Facets.Categories.Single(c => c.CategoryName == "Electronics");
+        electronicsFacet.Count.ShouldBe(2);
         payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "0 - 50").Count.ShouldBe(1);
         payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "50 - 100").Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetAll_AfterCreate_ReturnsNewProduct_WhenCacheIsInvalidated()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client);
+
+        var initialResponse = await _client.GetAsync("/api/v1/products", ct);
+        initialResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var initialPayload = await initialResponse.Content.ReadFromJsonAsync<ProductsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        initialPayload.ShouldNotBeNull();
+
+        var createResponse = await _client.PostAsJsonAsync(
+            "/api/v1/products",
+            new
+            {
+                name = "Cached product",
+                description = "Created while cache is warm",
+                price = 10
+            },
+            ct);
+
+        var createBody = await createResponse.Content.ReadAsStringAsync(ct);
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.Created, createBody);
+
+        var secondResponse = await _client.GetAsync("/api/v1/products", ct);
+        secondResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var secondPayload = await secondResponse.Content.ReadFromJsonAsync<ProductsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        secondPayload.ShouldNotBeNull();
+        secondPayload!.Page.Items.ShouldContain(p => p.Name == "Cached product");
     }
 }

@@ -25,19 +25,42 @@ public static class ApiServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddApiFoundation(this IServiceCollection services, IConfiguration configuration)
     {
+        services
+            .AddProblemDetailsAndExceptionHandling()
+            .AddOpenApiDocumentation()
+            .AddRateLimiting(configuration)
+            .AddValkeyAndDataProtection(configuration)
+            .AddOutputCaching(configuration);
+
+        return services;
+    }
+
+    private static IServiceCollection AddProblemDetailsAndExceptionHandling(this IServiceCollection services)
+    {
         services.AddControllers();
         services.AddProblemDetails(ApiProblemDetailsOptions.Configure);
 
         // Registers the handler in DI; middleware activation happens in UseApiPipeline via app.UseExceptionHandler().
         services.AddExceptionHandler<ApiExceptionHandler>();
+        return services;
+    }
+
+    private static IServiceCollection AddOpenApiDocumentation(this IServiceCollection services)
+    {
         services.AddOpenApi(options =>
         {
             options.AddDocumentTransformer<BearerSecuritySchemeDocumentTransformer>();
             options.AddDocumentTransformer<HealthCheckOpenApiDocumentTransformer>();
             options.AddDocumentTransformer<ProblemDetailsOpenApiTransformer>();
-            options.AddOperationTransformer<AuthorizationResponsesOperationTransformer>();
         });
 
+        return services;
+    }
+
+    private static IServiceCollection AddRateLimiting(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         services.AddOptions<RateLimitingOptions>()
             .Bind(configuration.GetSection("RateLimiting:Fixed"))
             .ValidateDataAnnotations()
@@ -62,6 +85,7 @@ public static class ApiServiceCollectionExtensions
                 return ValueTask.CompletedTask;
             };
         });
+
         services.AddSingleton<IConfigureOptions<RateLimiterOptions>>(sp =>
         {
             var rateLimitOpts = sp.GetRequiredService<IOptions<RateLimitingOptions>>().Value;
@@ -78,6 +102,13 @@ public static class ApiServiceCollectionExtensions
                         })));
         });
 
+        return services;
+    }
+
+    private static IServiceCollection AddValkeyAndDataProtection(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         // Output Cache with optional Valkey backing store.
         // When Valkey:ConnectionString is configured, cached responses are stored in Valkey
         // so all application instances share the same cache. Without it, falls back to in-memory.
@@ -128,6 +159,13 @@ public static class ApiServiceCollectionExtensions
             services.AddDistributedMemoryCache();
         }
 
+        return services;
+    }
+
+    private static IServiceCollection AddOutputCaching(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         services.AddSingleton<TenantAwareOutputCachePolicy>();
         services.AddScoped<IOutputCacheInvalidationService, OutputCacheInvalidationService>();
 
