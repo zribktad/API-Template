@@ -18,3 +18,4 @@ Step-by-step workflow guides for this API template. Each guide covers a complete
 | [Testing](testing.md) | Write unit tests (services, validators, repositories) and integration tests |
 | [Observability](observability.md) | Run OpenTelemetry locally with Aspire Dashboard or Grafana LGTM |
 | [Result Pattern](result-pattern.md) | Guidelines for introducing selective `Result<T>` flow in phase 2 |
+| [Git Hooks](GIT_HOOKS.md) | Auto-install Husky.Net hooks and format staged C# files with CSharpier |
