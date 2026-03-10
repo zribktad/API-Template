@@ -1,5 +1,7 @@
 # APITemplate
 
+[![PR Validation](https://github.com/zribktad/API-Template/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/zribktad/API-Template/actions/workflows/pr-validation.yml)
+
 A scalable, clean, and modern template designed to jumpstart **.NET 10** Web API and Data-Driven applications. By providing a curated set of industry-standard libraries and combining modern **REST** APIs side-by-side with a robust **GraphQL** backend, it bridges the gap between typical monolithic development speed and Clean Architecture principles within a single maintainable repository.
 
 ## 📚 How-To Guides
