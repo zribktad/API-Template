@@ -5,7 +5,11 @@ namespace APITemplate.Api.OpenApi;
 
 internal static class OpenApiErrorResponseHelper
 {
-    internal static void AddErrorResponse(OpenApiOperation operation, int statusCode, string? description = null)
+    internal static void AddErrorResponse(
+        OpenApiOperation operation,
+        int statusCode,
+        IOpenApiSchema? schema = null,
+        string? description = null)
     {
         var statusCodeKey = statusCode.ToString();
         operation.Responses ??= new OpenApiResponses();
@@ -23,7 +27,7 @@ internal static class OpenApiErrorResponseHelper
             {
                 ["application/problem+json"] = new OpenApiMediaType
                 {
-                    Schema = new OpenApiSchemaReference("ApiProblemDetails", null)
+                    Schema = schema
                 }
             }
         };

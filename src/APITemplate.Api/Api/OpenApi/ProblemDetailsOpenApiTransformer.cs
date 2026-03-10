@@ -16,7 +16,8 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
         document.Components ??= new OpenApiComponents();
         document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>();
 
-        document.Components.Schemas["ApiProblemDetails"] = BuildProblemDetailsSchema();
+        var problemDetailsSchema = BuildProblemDetailsSchema();
+        document.Components.Schemas["ApiProblemDetails"] = problemDetailsSchema;
 
         foreach (var pathEntry in document.Paths)
         {
@@ -26,12 +27,12 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
 
             foreach (var operation in path.Operations.Values)
             {
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status400BadRequest);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status401Unauthorized);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status403Forbidden);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status404NotFound);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status409Conflict);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status500InternalServerError);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status400BadRequest, problemDetailsSchema);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status401Unauthorized, problemDetailsSchema);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status403Forbidden, problemDetailsSchema);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status404NotFound, problemDetailsSchema);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status409Conflict, problemDetailsSchema);
+                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status500InternalServerError, problemDetailsSchema);
             }
         }
 

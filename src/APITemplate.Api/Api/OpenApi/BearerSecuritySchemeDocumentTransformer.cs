@@ -58,7 +58,8 @@ public sealed class BearerSecuritySchemeDocumentTransformer : IOpenApiDocumentTr
         components.SecuritySchemes[AuthConstants.OpenApi.OAuth2Scheme] = securityScheme;
 
         var requirement = new OpenApiSecurityRequirement();
-        requirement[new OpenApiSecuritySchemeReference(AuthConstants.OpenApi.OAuth2Scheme)] = [AuthConstants.Scopes.OpenId];
+        requirement[new OpenApiSecuritySchemeReference(AuthConstants.OpenApi.OAuth2Scheme, document, null)] =
+            [AuthConstants.Scopes.OpenId];
 
         document.Security ??= [];
         document.Security.Add(requirement);

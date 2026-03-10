@@ -13,7 +13,7 @@ public sealed class HealthCheckOpenApiDocumentTransformer : IOpenApiDocumentTran
         var pathItem = new OpenApiPathItem();
         pathItem.AddOperation(HttpMethod.Get, new OpenApiOperation
         {
-            Tags = new HashSet<OpenApiTagReference> { new OpenApiTagReference("Health") },
+            Tags = new HashSet<OpenApiTagReference> { new OpenApiTagReference("Health", document, null) },
             Summary = "Health check",
             Description = "Returns the health status of all registered services.",
             Responses = new OpenApiResponses

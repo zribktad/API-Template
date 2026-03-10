@@ -176,7 +176,6 @@ public static class ApplicationBuilderExtensions
         app.UseHttpsRedirection();
         app.UseSecurityPipeline();         // CORS → Authentication → CSRF → Authorization.
         app.UseRequestContextPipeline();   // Correlation enrichment + structured request logging (after auth for tenant context).
-        app.UseApiDocumentation();         // Scalar / OpenAPI — development only.
         app.UseRateLimiter();
         app.UseOutputCache();
 
