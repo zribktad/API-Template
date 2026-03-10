@@ -58,8 +58,13 @@ public sealed class ProductDataRequestHandlers :
 
     public async Task<ProductDataResponse?> Handle(GetProductDataByIdQuery request, CancellationToken ct)
     {
+        var tenantId = _tenantProvider.TenantId;
         var data = await _repository.GetByIdAsync(request.Id, ct);
-        return data?.ToResponse();
+
+        if (data is null || data.TenantId != tenantId)
+            return null;
+
+        return data.ToResponse();
     }
 
     public async Task<List<ProductDataResponse>> Handle(GetProductDataQuery request, CancellationToken ct)
@@ -106,12 +111,16 @@ public sealed class ProductDataRequestHandlers :
 
     public async Task Handle(DeleteProductDataCommand command, CancellationToken ct)
     {
+        var tenantId = _tenantProvider.TenantId;
+
         var data = await _repository.GetByIdAsync(command.Id, ct)
             ?? throw new NotFoundException(nameof(Domain.Entities.ProductData), command.Id, ErrorCatalog.ProductData.NotFound);
 
+        if (data.TenantId != tenantId)
+            throw new NotFoundException(nameof(Domain.Entities.ProductData), command.Id, ErrorCatalog.ProductData.NotFound);
+
         var deletedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
         var actorId = _actorProvider.ActorId;
-        var tenantId = _tenantProvider.TenantId;
 
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
