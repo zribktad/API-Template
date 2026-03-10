@@ -118,7 +118,7 @@ Client (Postman, mobile app, microservice)
 ▼
 [ Authorization Middleware ]
   - Fallback policy: requires authenticated user (Bearer OR Cookie)
-  - PlatformAdminOnly: requires role "PlatformAdmin"
+  - PlatformAdmin: requires role "PlatformAdmin"
 ▼
 Controller Action
 ```
@@ -324,7 +324,7 @@ JWT tokens must contain these claims:
 | Policy              | Requirement                          | Used on               |
 |---------------------|--------------------------------------|-----------------------|
 | Fallback (default)  | Authenticated via Bearer OR Cookie   | All endpoints         |
-| `PlatformAdminOnly` | Role: `PlatformAdmin`                | Admin-only endpoints  |
+| `PlatformAdmin` | Role: `PlatformAdmin`                | Admin-only endpoints  |
 
 ---
 

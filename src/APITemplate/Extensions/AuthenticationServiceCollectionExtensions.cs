@@ -185,7 +185,7 @@ public static class AuthenticationServiceCollectionExtensions
                 .RequireAuthenticatedUser()
                 .Build())
             .AddPolicy(
-                AuthorizationPolicies.PlatformAdminOnly,
+                AuthorizationPolicies.PlatformAdmin,
                 policy => policy.RequireRole(UserRole.PlatformAdmin.ToString()));
     }
 
