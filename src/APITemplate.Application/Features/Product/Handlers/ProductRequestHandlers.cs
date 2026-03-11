@@ -1,6 +1,7 @@
 using APITemplate.Application.Features.Product.Mappings;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.Product.Specifications;
+using APITemplate.Application.Common.Events;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
@@ -31,19 +32,22 @@ public sealed class ProductRequestHandlers :
     private readonly IProductDataRepository _productDataRepository;
     private readonly IProductDataLinkRepository _productDataLinkRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IPublisher _publisher;
 
     public ProductRequestHandlers(
         IProductRepository repository,
         ICategoryRepository categoryRepository,
         IProductDataRepository productDataRepository,
         IProductDataLinkRepository productDataLinkRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IPublisher publisher)
     {
         _repository = repository;
         _categoryRepository = categoryRepository;
         _productDataRepository = productDataRepository;
         _productDataLinkRepository = productDataLinkRepository;
         _unitOfWork = unitOfWork;
+        _publisher = publisher;
     }
 
     public async Task<ProductResponse?> Handle(GetProductByIdQuery request, CancellationToken ct)
@@ -51,20 +55,18 @@ public sealed class ProductRequestHandlers :
 
     public async Task<ProductsResponse> Handle(GetProductsQuery request, CancellationToken ct)
     {
-        var itemsTask = _repository.ListAsync(request.Filter, ct);
-        var totalCountTask = _repository.CountAsync(request.Filter, ct);
-        var categoryFacetsTask = _repository.GetCategoryFacetsAsync(request.Filter, ct);
-        var priceFacetsTask = _repository.GetPriceFacetsAsync(request.Filter, ct);
-
-        await Task.WhenAll(itemsTask, totalCountTask, categoryFacetsTask, priceFacetsTask);
+        var items = await _repository.ListAsync(request.Filter, ct);
+        var totalCount = await _repository.CountAsync(request.Filter, ct);
+        var categoryFacets = await _repository.GetCategoryFacetsAsync(request.Filter, ct);
+        var priceFacets = await _repository.GetPriceFacetsAsync(request.Filter, ct);
 
         return new ProductsResponse(
             new PagedResponse<ProductResponse>(
-                itemsTask.Result,
-                totalCountTask.Result,
+                items,
+                totalCount,
                 request.Filter.PageNumber,
                 request.Filter.PageSize),
-            new ProductSearchFacetsResponse(categoryFacetsTask.Result, priceFacetsTask.Result));
+            new ProductSearchFacetsResponse(categoryFacets, priceFacets));
     }
 
     public async Task<ProductResponse> Handle(CreateProductCommand command, CancellationToken ct)
@@ -91,6 +93,7 @@ public sealed class ProductRequestHandlers :
             return entity;
         }, ct);
 
+        await _publisher.Publish(new ProductsChangedNotification(), ct);
         return product.ToResponse();
     }
 
@@ -121,6 +124,8 @@ public sealed class ProductRequestHandlers :
 
             await _repository.UpdateAsync(product, ct);
         }, ct);
+
+        await _publisher.Publish(new ProductsChangedNotification(), ct);
     }
 
     public async Task Handle(DeleteProductCommand command, CancellationToken ct)
@@ -136,6 +141,9 @@ public sealed class ProductRequestHandlers :
             product.SoftDeleteProductDataLinks();
             await _repository.DeleteAsync(product, ct);
         }, ct);
+
+        await _publisher.Publish(new ProductsChangedNotification(), ct);
+        await _publisher.Publish(new ProductReviewsChangedNotification(), ct);
     }
 
     private async Task ValidateCategoryExistsAsync(Guid? categoryId, CancellationToken ct)

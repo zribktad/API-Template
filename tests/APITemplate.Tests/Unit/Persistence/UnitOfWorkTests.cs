@@ -5,10 +5,14 @@ using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
 using APITemplate.Infrastructure.Persistence;
+using APITemplate.Infrastructure.Persistence.Auditing;
+using APITemplate.Infrastructure.Persistence.EntityNormalization;
+using APITemplate.Infrastructure.Persistence.SoftDelete;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
 
@@ -21,7 +25,6 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        TransactionOptions? capturedOptions = null;
         var defaults = new TransactionDefaultsOptions
         {
             IsolationLevel = IsolationLevel.ReadCommitted,
@@ -30,17 +33,8 @@ public class UnitOfWorkTests
             RetryCount = 6,
             RetryDelaySeconds = 8
         };
-        var sut = new UnitOfWork(
-            dbContext,
-            defaults,
-            NullLogger<UnitOfWork>.Instance,
-            options =>
-            {
-                capturedOptions = options;
-                return executionStrategy;
-            },
-            () => null,
-            (_, _) => throw new ShouldAssertException("CommitAsync should not open an explicit transaction."));
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, defaults, provider);
 
         dbContext.Categories.Add(new Category
         {
@@ -51,7 +45,7 @@ public class UnitOfWorkTests
         await sut.CommitAsync(TestContext.Current.CancellationToken);
 
         executionStrategy.ExecuteAsyncCallCount.ShouldBe(1);
-        capturedOptions.ShouldBe(new TransactionOptions
+        provider.CapturedOptions.ShouldBe(new TransactionOptions
         {
             IsolationLevel = IsolationLevel.ReadCommitted,
             TimeoutSeconds = 30,
@@ -67,25 +61,8 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        IDbContextTransaction? currentTransaction = null;
-        IsolationLevel? begunIsolationLevel = null;
-        TransactionOptions? capturedOptions = null;
-        var sut = new UnitOfWork(
-            dbContext,
-            new TransactionDefaultsOptions(),
-            NullLogger<UnitOfWork>.Instance,
-            options =>
-            {
-                capturedOptions = options;
-                return executionStrategy;
-            },
-            () => currentTransaction,
-            (isolationLevel, _) =>
-            {
-                begunIsolationLevel = isolationLevel;
-                currentTransaction = new RecordingTransaction();
-                return Task.FromResult(currentTransaction);
-            });
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, new TransactionDefaultsOptions(), provider);
 
         await sut.ExecuteInTransactionAsync(async () =>
         {
@@ -99,9 +76,9 @@ public class UnitOfWorkTests
         }, TestContext.Current.CancellationToken);
 
         executionStrategy.ExecuteAsyncCallCount.ShouldBe(1);
-        begunIsolationLevel.ShouldBe(IsolationLevel.ReadCommitted);
-        capturedOptions.ShouldNotBeNull();
-        capturedOptions.TimeoutSeconds.ShouldBe(30);
+        provider.BegunIsolationLevel.ShouldBe(IsolationLevel.ReadCommitted);
+        provider.CapturedOptions.ShouldNotBeNull();
+        provider.CapturedOptions.TimeoutSeconds.ShouldBe(30);
         (await dbContext.Categories.CountAsync(TestContext.Current.CancellationToken)).ShouldBe(1);
     }
 
@@ -110,9 +87,6 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        IDbContextTransaction? currentTransaction = null;
-        IsolationLevel? begunIsolationLevel = null;
-        TransactionOptions? capturedOptions = null;
         var defaults = new TransactionDefaultsOptions
         {
             IsolationLevel = IsolationLevel.ReadCommitted,
@@ -121,22 +95,8 @@ public class UnitOfWorkTests
             RetryCount = 3,
             RetryDelaySeconds = 5
         };
-        var sut = new UnitOfWork(
-            dbContext,
-            defaults,
-            NullLogger<UnitOfWork>.Instance,
-            options =>
-            {
-                capturedOptions = options;
-                return executionStrategy;
-            },
-            () => currentTransaction,
-            (isolationLevel, _) =>
-            {
-                begunIsolationLevel = isolationLevel;
-                currentTransaction = new RecordingTransaction();
-                return Task.FromResult(currentTransaction);
-            });
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, defaults, provider);
 
         var result = await sut.ExecuteInTransactionAsync(
             async () =>
@@ -160,8 +120,8 @@ public class UnitOfWorkTests
             });
 
         executionStrategy.ExecuteAsyncCallCount.ShouldBe(1);
-        begunIsolationLevel.ShouldBe(IsolationLevel.Serializable);
-        capturedOptions.ShouldBe(new TransactionOptions
+        provider.BegunIsolationLevel.ShouldBe(IsolationLevel.Serializable);
+        provider.CapturedOptions.ShouldBe(new TransactionOptions
         {
             IsolationLevel = IsolationLevel.Serializable,
             TimeoutSeconds = 12,
@@ -177,19 +137,8 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        IDbContextTransaction? currentTransaction = null;
-        var transaction = new RecordingTransaction();
-        var sut = new UnitOfWork(
-            dbContext,
-            new TransactionDefaultsOptions(),
-            NullLogger<UnitOfWork>.Instance,
-            _ => executionStrategy,
-            () => currentTransaction,
-            (_, _) =>
-            {
-                currentTransaction = transaction;
-                return Task.FromResult<IDbContextTransaction>(transaction);
-            });
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, new TransactionDefaultsOptions(), provider);
 
         var act = () => sut.ExecuteInTransactionAsync(async () =>
         {
@@ -205,7 +154,7 @@ public class UnitOfWorkTests
 
         await Should.ThrowAsync<InvalidOperationException>(act);
         executionStrategy.ExecuteAsyncCallCount.ShouldBe(1);
-        transaction.RollbackCount.ShouldBe(1);
+        provider.LastCreatedTransaction!.RollbackCount.ShouldBe(1);
         (await dbContext.Categories.CountAsync(TestContext.Current.CancellationToken)).ShouldBe(0);
     }
 
@@ -214,19 +163,8 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        IDbContextTransaction? currentTransaction = null;
-        var transaction = new RecordingTransaction();
-        var sut = new UnitOfWork(
-            dbContext,
-            new TransactionDefaultsOptions(),
-            NullLogger<UnitOfWork>.Instance,
-            _ => executionStrategy,
-            () => currentTransaction,
-            (_, _) =>
-            {
-                currentTransaction = transaction;
-                return Task.FromResult<IDbContextTransaction>(transaction);
-            });
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, new TransactionDefaultsOptions(), provider);
 
         await sut.ExecuteInTransactionAsync(async () =>
         {
@@ -248,6 +186,7 @@ public class UnitOfWorkTests
             dbContext.Categories.Add(new Category { Id = Guid.NewGuid(), Name = "Outer-B" });
         }, TestContext.Current.CancellationToken);
 
+        var transaction = provider.LastCreatedTransaction!;
         executionStrategy.ExecuteAsyncCallCount.ShouldBe(1);
         transaction.BeginCount.ShouldBe(1);
         transaction.CreateSavepointCount.ShouldBe(1);
@@ -267,19 +206,8 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        IDbContextTransaction? currentTransaction = null;
-        var transaction = new RecordingTransaction();
-        var sut = new UnitOfWork(
-            dbContext,
-            new TransactionDefaultsOptions(),
-            NullLogger<UnitOfWork>.Instance,
-            _ => executionStrategy,
-            () => currentTransaction,
-            (_, _) =>
-            {
-                currentTransaction = transaction;
-                return Task.FromResult<IDbContextTransaction>(transaction);
-            });
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, new TransactionDefaultsOptions(), provider);
 
         var nestedResult = await sut.ExecuteInTransactionAsync(async () =>
         {
@@ -292,6 +220,7 @@ public class UnitOfWorkTests
             }, TestContext.Current.CancellationToken);
         }, TestContext.Current.CancellationToken);
 
+        var transaction = provider.LastCreatedTransaction!;
         nestedResult.ShouldBe("Nested");
         executionStrategy.ExecuteAsyncCallCount.ShouldBe(1);
         transaction.CreateSavepointCount.ShouldBe(1);
@@ -303,19 +232,8 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        IDbContextTransaction? currentTransaction = null;
-        var transaction = new RecordingTransaction();
-        var sut = new UnitOfWork(
-            dbContext,
-            new TransactionDefaultsOptions(),
-            NullLogger<UnitOfWork>.Instance,
-            _ => executionStrategy,
-            () => currentTransaction,
-            (_, _) =>
-            {
-                currentTransaction = transaction;
-                return Task.FromResult<IDbContextTransaction>(transaction);
-            });
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, new TransactionDefaultsOptions(), provider);
 
         var act = () => sut.ExecuteInTransactionAsync(async () =>
         {
@@ -340,19 +258,8 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        IDbContextTransaction? currentTransaction = null;
-        var transaction = new RecordingTransaction();
-        var sut = new UnitOfWork(
-            dbContext,
-            new TransactionDefaultsOptions(),
-            NullLogger<UnitOfWork>.Instance,
-            _ => executionStrategy,
-            () => currentTransaction,
-            (_, _) =>
-            {
-                currentTransaction = transaction;
-                return Task.FromResult<IDbContextTransaction>(transaction);
-            });
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, new TransactionDefaultsOptions(), provider);
 
         var act = () => sut.ExecuteInTransactionAsync(async () =>
         {
@@ -367,6 +274,7 @@ public class UnitOfWorkTests
         }, TestContext.Current.CancellationToken);
 
         await Should.ThrowAsync<InvalidOperationException>(act);
+        var transaction = provider.LastCreatedTransaction!;
         executionStrategy.ExecuteAsyncCallCount.ShouldBe(1);
         transaction.CreateSavepointCount.ShouldBe(1);
         transaction.RollbackToSavepointCount.ShouldBe(1);
@@ -379,19 +287,8 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        IDbContextTransaction? currentTransaction = null;
-        var transaction = new RecordingTransaction();
-        var sut = new UnitOfWork(
-            dbContext,
-            new TransactionDefaultsOptions(),
-            NullLogger<UnitOfWork>.Instance,
-            _ => executionStrategy,
-            () => currentTransaction,
-            (_, _) =>
-            {
-                currentTransaction = transaction;
-                return Task.FromResult<IDbContextTransaction>(transaction);
-            });
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, new TransactionDefaultsOptions(), provider);
 
         var act = () => sut.ExecuteInTransactionAsync(async () =>
         {
@@ -402,7 +299,7 @@ public class UnitOfWorkTests
         var ex = await Should.ThrowAsync<InvalidOperationException>(act);
 
         ex.Message.ShouldContain("CommitAsync cannot be called inside ExecuteInTransactionAsync");
-        transaction.RollbackCount.ShouldBe(1);
+        provider.LastCreatedTransaction!.RollbackCount.ShouldBe(1);
         (await dbContext.Categories.CountAsync(TestContext.Current.CancellationToken)).ShouldBe(0);
     }
 
@@ -411,19 +308,8 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-        IDbContextTransaction? currentTransaction = null;
-        var transaction = new RecordingTransaction();
-        var sut = new UnitOfWork(
-            dbContext,
-            new TransactionDefaultsOptions(),
-            NullLogger<UnitOfWork>.Instance,
-            _ => executionStrategy,
-            () => currentTransaction,
-            (_, _) =>
-            {
-                currentTransaction = transaction;
-                return Task.FromResult<IDbContextTransaction>(transaction);
-            });
+        var provider = new RecordingTransactionProvider(executionStrategy);
+        var sut = CreateUnitOfWork(dbContext, new TransactionDefaultsOptions(), provider);
 
         var act = () => sut.ExecuteInTransactionAsync(async () =>
         {
@@ -438,6 +324,7 @@ public class UnitOfWorkTests
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(act);
 
+        var transaction = provider.LastCreatedTransaction!;
         ex.Message.ShouldContain("CommitAsync cannot be called inside ExecuteInTransactionAsync");
         transaction.CreateSavepointCount.ShouldBe(1);
         transaction.RollbackToSavepointCount.ShouldBe(1);
@@ -450,14 +337,12 @@ public class UnitOfWorkTests
     {
         var executionStrategy = new RecordingExecutionStrategy();
         await using var dbContext = CreateDbContext();
-
-        var sut = new UnitOfWork(
-            dbContext,
-            new TransactionDefaultsOptions(),
-            NullLogger<UnitOfWork>.Instance,
-            _ => executionStrategy,
-            () => null,
-            (_, _) => throw new NotSupportedException("Transactions are not supported by this provider."));
+        var provider = new RecordingTransactionProvider(executionStrategy)
+        {
+            BeginTransactionOverride = (_, _) =>
+                throw new NotSupportedException("Transactions are not supported by this provider.")
+        };
+        var sut = CreateUnitOfWork(dbContext, new TransactionDefaultsOptions(), provider);
 
         await sut.ExecuteInTransactionAsync(
             async () =>
@@ -476,6 +361,16 @@ public class UnitOfWorkTests
         (await dbContext.Categories.CountAsync(TestContext.Current.CancellationToken)).ShouldBe(1);
     }
 
+    private static UnitOfWork CreateUnitOfWork(
+        AppDbContext dbContext,
+        TransactionDefaultsOptions defaults,
+        IDbTransactionProvider transactionProvider)
+        => new(
+            dbContext,
+            Options.Create(defaults),
+            NullLogger<UnitOfWork>.Instance,
+            transactionProvider);
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -483,7 +378,17 @@ public class UnitOfWorkTests
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
-        return new AppDbContext(options, new TestTenantProvider(), new TestActorProvider());
+        var stateManager = new AuditableEntityStateManager();
+
+        return new AppDbContext(
+            options,
+            new TestTenantProvider(),
+            new TestActorProvider(),
+            TimeProvider.System,
+            [],
+            new AppUserEntityNormalizationService(),
+            stateManager,
+            new SoftDeleteProcessor(stateManager));
     }
 
     private sealed class TestTenantProvider : ITenantProvider
@@ -495,6 +400,40 @@ public class UnitOfWorkTests
     private sealed class TestActorProvider : IActorProvider
     {
         public Guid ActorId => Guid.Empty;
+    }
+
+    private sealed class RecordingTransactionProvider : IDbTransactionProvider
+    {
+        private readonly RecordingExecutionStrategy _executionStrategy;
+
+        public RecordingTransactionProvider(RecordingExecutionStrategy executionStrategy)
+        {
+            _executionStrategy = executionStrategy;
+        }
+
+        public IDbContextTransaction? CurrentTransaction { get; set; }
+        public TransactionOptions? CapturedOptions { get; private set; }
+        public IsolationLevel? BegunIsolationLevel { get; private set; }
+        public RecordingTransaction? LastCreatedTransaction { get; private set; }
+        public Func<IsolationLevel, CancellationToken, Task<IDbContextTransaction>>? BeginTransactionOverride { get; set; }
+
+        public IExecutionStrategy CreateExecutionStrategy(TransactionOptions options)
+        {
+            CapturedOptions = options;
+            return _executionStrategy;
+        }
+
+        public Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken ct)
+        {
+            if (BeginTransactionOverride is not null)
+                return BeginTransactionOverride(isolationLevel, ct);
+
+            BegunIsolationLevel = isolationLevel;
+            var transaction = new RecordingTransaction();
+            LastCreatedTransaction = transaction;
+            CurrentTransaction = transaction;
+            return Task.FromResult<IDbContextTransaction>(transaction);
+        }
     }
 
     private sealed class RecordingExecutionStrategy : IExecutionStrategy

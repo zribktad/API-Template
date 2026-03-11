@@ -5,6 +5,7 @@ using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
+using MediatR;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -15,15 +16,17 @@ public class CategoryRequestHandlersTests
 {
     private readonly Mock<ICategoryRepository> _repositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<IPublisher> _publisherMock;
     private readonly CategoryRequestHandlers _sut;
 
     public CategoryRequestHandlersTests()
     {
         _repositoryMock = new Mock<ICategoryRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _publisherMock = new Mock<IPublisher>();
         _unitOfWorkMock.SetupImmediateTransactionExecution();
         _unitOfWorkMock.SetupImmediateTransactionExecution<Category>();
-        _sut = new CategoryRequestHandlers(_repositoryMock.Object, _unitOfWorkMock.Object);
+        _sut = new CategoryRequestHandlers(_repositoryMock.Object, _unitOfWorkMock.Object, _publisherMock.Object);
     }
 
     [Fact]
