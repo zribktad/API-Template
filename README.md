@@ -24,6 +24,7 @@ Step-by-step guides for the most common workflows in this project:
 | [Testing](docs/testing.md)                           | Write unit tests (services, validators, repositories) and integration tests |
 | [Observability](docs/observability.md)               | Run OpenTelemetry locally with Aspire Dashboard or Grafana LGTM             |
 | [Result Pattern](docs/result-pattern.md)             | Guidelines for introducing selective `Result<T>` flow in phase 2            |
+| [Git Hooks](docs/GIT_HOOKS.md)                       | Auto-install Husky.Net hooks and format staged C# files with CSharpier      |
 
 ---
 
