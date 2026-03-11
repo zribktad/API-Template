@@ -20,83 +20,76 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
 
     public ProductRepository(AppDbContext dbContext) : base(dbContext) { }
 
-    public Task<IReadOnlyList<ProductResponse>> ListAsync(ProductFilter filter, CancellationToken ct = default)
-        => WithDbContextAsync(async dbContext =>
-        {
-            var specification = new ProductSpecification(filter);
-            var query = Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(dbContext.Products.AsQueryable(), specification);
-            return (IReadOnlyList<ProductResponse>)await query.ToListAsync(ct);
-        });
+    public async Task<IReadOnlyList<ProductResponse>> ListAsync(ProductFilter filter, CancellationToken ct = default)
+    {
+        var specification = new ProductSpecification(filter);
+        var query = Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(AppDb.Products.AsQueryable(), specification);
+        return (IReadOnlyList<ProductResponse>)await query.ToListAsync(ct);
+    }
 
-    public Task<int> CountAsync(ProductFilter filter, CancellationToken ct = default)
-        => WithDbContextAsync(async dbContext =>
-        {
-            var specification = new ProductCountSpecification(filter);
-            var query = Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(dbContext.Products.AsQueryable(), specification);
-            return await query.CountAsync(ct);
-        });
+    public async Task<int> CountAsync(ProductFilter filter, CancellationToken ct = default)
+    {
+        var specification = new ProductCountSpecification(filter);
+        var query = Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(AppDb.Products.AsQueryable(), specification);
+        return await query.CountAsync(ct);
+    }
 
-    public Task<IReadOnlyList<ProductCategoryFacetValue>> GetCategoryFacetsAsync(ProductFilter filter, CancellationToken ct = default)
-        => WithDbContextAsync(async dbContext =>
-        {
-            var specification = new ProductCategoryFacetSpecification(filter);
-            var query = Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(dbContext.Products.AsQueryable(), specification);
+    public async Task<IReadOnlyList<ProductCategoryFacetValue>> GetCategoryFacetsAsync(ProductFilter filter, CancellationToken ct = default)
+    {
+        var specification = new ProductCategoryFacetSpecification(filter);
+        var query = Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(AppDb.Products.AsQueryable(), specification);
 
-            return (IReadOnlyList<ProductCategoryFacetValue>)await query
-                .GroupBy(product => new
+        return (IReadOnlyList<ProductCategoryFacetValue>)await query
+            .GroupBy(product => new
+            {
+                product.CategoryId,
+                CategoryName = product.Category != null ? product.Category.Name : "Uncategorized"
+            })
+            .Select(group => new
+            {
+                group.Key.CategoryId,
+                group.Key.CategoryName,
+                Count = group.Count()
+            })
+            .OrderByDescending(group => group.Count)
+            .ThenBy(group => group.CategoryName)
+            .Select(group => new ProductCategoryFacetValue(
+                group.CategoryId,
+                group.CategoryName,
+                group.Count))
+            .ToArrayAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ProductPriceFacetBucketResponse>> GetPriceFacetsAsync(ProductFilter filter, CancellationToken ct = default)
+    {
+        var specification = new ProductPriceFacetSpecification(filter);
+        var query = Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(AppDb.Products.AsQueryable(), specification);
+
+        var counts = await query
+            .GroupBy(_ => 1)
+            .Select(group => new PriceFacetCounts(
+                group.Count(product => product.Price >= 0m && product.Price < 50m),
+                group.Count(product => product.Price >= 50m && product.Price < 100m),
+                group.Count(product => product.Price >= 100m && product.Price < 250m),
+                group.Count(product => product.Price >= 250m && product.Price < 500m),
+                group.Count(product => product.Price >= 500m)))
+            .SingleOrDefaultAsync(ct);
+
+        return (IReadOnlyList<ProductPriceFacetBucketResponse>)DefaultPriceBuckets
+            .Select(bucket => bucket with
+            {
+                Count = bucket.Label switch
                 {
-                    product.CategoryId,
-                    CategoryName = product.Category != null ? product.Category.Name : "Uncategorized"
-                })
-                .Select(group => new
-                {
-                    group.Key.CategoryId,
-                    group.Key.CategoryName,
-                    Count = group.Count()
-                })
-                .OrderByDescending(group => group.Count)
-                .ThenBy(group => group.CategoryName)
-                .Select(group => new ProductCategoryFacetValue(
-                    group.CategoryId,
-                    group.CategoryName,
-                    group.Count))
-                .ToArrayAsync(ct);
-        });
-
-    public Task<IReadOnlyList<ProductPriceFacetBucketResponse>> GetPriceFacetsAsync(ProductFilter filter, CancellationToken ct = default)
-        => WithDbContextAsync(async dbContext =>
-        {
-            var specification = new ProductPriceFacetSpecification(filter);
-            var query = Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(dbContext.Products.AsQueryable(), specification);
-
-            var counts = await query
-                .GroupBy(_ => 1)
-                .Select(group => new PriceFacetCounts(
-                    group.Count(product => product.Price >= 0m && product.Price < 50m),
-                    group.Count(product => product.Price >= 50m && product.Price < 100m),
-                    group.Count(product => product.Price >= 100m && product.Price < 250m),
-                    group.Count(product => product.Price >= 250m && product.Price < 500m),
-                    group.Count(product => product.Price >= 500m)))
-                .SingleOrDefaultAsync(ct);
-
-            return (IReadOnlyList<ProductPriceFacetBucketResponse>)DefaultPriceBuckets
-                .Select(bucket => bucket with
-                {
-                    Count = bucket.Label switch
-                    {
-                        "0 - 50" => counts?.ZeroToFifty ?? 0,
-                        "50 - 100" => counts?.FiftyToOneHundred ?? 0,
-                        "100 - 250" => counts?.OneHundredToTwoHundredFifty ?? 0,
-                        "250 - 500" => counts?.TwoHundredFiftyToFiveHundred ?? 0,
-                        "500+" => counts?.FiveHundredAndAbove ?? 0,
-                        _ => 0
-                    }
-                })
-                .ToArray();
-        });
-
-    private Task<TResult> WithDbContextAsync<TResult>(Func<AppDbContext, Task<TResult>> action)
-        => action(AppDb);
+                    "0 - 50" => counts?.ZeroToFifty ?? 0,
+                    "50 - 100" => counts?.FiftyToOneHundred ?? 0,
+                    "100 - 250" => counts?.OneHundredToTwoHundredFifty ?? 0,
+                    "250 - 500" => counts?.TwoHundredFiftyToFiveHundred ?? 0,
+                    "500+" => counts?.FiveHundredAndAbove ?? 0,
+                    _ => 0
+                }
+            })
+            .ToArray();
+    }
 
     private sealed record PriceFacetCounts(
         int ZeroToFifty,
