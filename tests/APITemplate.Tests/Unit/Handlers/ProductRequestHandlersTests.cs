@@ -5,6 +5,7 @@ using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
+using MediatR;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -18,6 +19,7 @@ public class ProductRequestHandlersTests
     private readonly Mock<IProductDataRepository> _productDataRepositoryMock;
     private readonly Mock<IProductDataLinkRepository> _productDataLinkRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<IPublisher> _publisherMock;
     private readonly ProductRequestHandlers _sut;
 
     public ProductRequestHandlersTests()
@@ -27,6 +29,7 @@ public class ProductRequestHandlersTests
         _productDataRepositoryMock = new Mock<IProductDataRepository>();
         _productDataLinkRepositoryMock = new Mock<IProductDataLinkRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _publisherMock = new Mock<IPublisher>();
         _unitOfWorkMock.SetupImmediateTransactionExecution();
         _unitOfWorkMock.SetupImmediateTransactionExecution<Product>();
         _sut = new ProductRequestHandlers(
@@ -34,7 +37,8 @@ public class ProductRequestHandlersTests
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
             _productDataLinkRepositoryMock.Object,
-            _unitOfWorkMock.Object);
+            _unitOfWorkMock.Object,
+            _publisherMock.Object);
     }
 
     [Theory]

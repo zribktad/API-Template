@@ -51,15 +51,6 @@ public sealed class ProductReviewRequestHandlers :
         _publisher = publisher;
     }
 
-    public ProductReviewRequestHandlers(
-        IProductReviewRepository reviewRepository,
-        IProductRepository productRepository,
-        IUnitOfWork unitOfWork,
-        IActorProvider actorProvider)
-        : this(reviewRepository, productRepository, unitOfWork, actorProvider, NullPublisher.Instance)
-    {
-    }
-
     public async Task<PagedResponse<ProductReviewResponse>> Handle(GetProductReviewsQuery request, CancellationToken ct)
     {
         var items = await _reviewRepository.ListAsync(new ProductReviewSpecification(request.Filter), ct);

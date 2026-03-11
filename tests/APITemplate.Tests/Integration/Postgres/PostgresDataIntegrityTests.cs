@@ -13,6 +13,7 @@ using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Persistence.SoftDelete;
 using APITemplate.Infrastructure.Repositories;
 using APITemplate.Tests.Integration.Helpers;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -672,7 +673,8 @@ public sealed class PostgresDataIntegrityTests
                 Mock.Of<ICategoryRepository>(),
                 Mock.Of<IProductDataRepository>(),
                 new ProductDataLinkRepository(deleteContext, new TestTenantProvider(tenantId, true)),
-                new UnitOfWork(deleteContext));
+                new UnitOfWork(deleteContext),
+                Mock.Of<IPublisher>());
 
             await handler.Handle(new DeleteProductCommand(product.Id), ct);
         }
@@ -725,7 +727,8 @@ public sealed class PostgresDataIntegrityTests
                 failingReviewRepository.Object,
                 productRepository,
                 unitOfWork,
-                new TestActorProvider(actorId));
+                new TestActorProvider(actorId),
+                Mock.Of<IPublisher>());
 
             var ex = await Should.ThrowAsync<InvalidOperationException>(() =>
                 handler.Handle(new CreateProductReviewCommand(new CreateProductReviewRequest(product.Id, "rollback", 4)), ct));

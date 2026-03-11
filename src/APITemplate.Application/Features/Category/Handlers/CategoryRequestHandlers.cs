@@ -39,11 +39,6 @@ public sealed class CategoryRequestHandlers :
         _publisher = publisher;
     }
 
-    public CategoryRequestHandlers(ICategoryRepository repository, IUnitOfWork unitOfWork)
-        : this(repository, unitOfWork, NullPublisher.Instance)
-    {
-    }
-
     public async Task<PagedResponse<CategoryResponse>> Handle(GetCategoriesQuery request, CancellationToken ct)
     {
         var items = await _repository.ListAsync(new CategorySpecification(request.Filter), ct);

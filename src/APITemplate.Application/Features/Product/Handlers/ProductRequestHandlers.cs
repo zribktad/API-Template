@@ -50,22 +50,6 @@ public sealed class ProductRequestHandlers :
         _publisher = publisher;
     }
 
-    public ProductRequestHandlers(
-        IProductRepository repository,
-        ICategoryRepository categoryRepository,
-        IProductDataRepository productDataRepository,
-        IProductDataLinkRepository productDataLinkRepository,
-        IUnitOfWork unitOfWork)
-        : this(
-            repository,
-            categoryRepository,
-            productDataRepository,
-            productDataLinkRepository,
-            unitOfWork,
-            NullPublisher.Instance)
-    {
-    }
-
     public async Task<ProductResponse?> Handle(GetProductByIdQuery request, CancellationToken ct)
         => await _repository.FirstOrDefaultAsync(new ProductByIdSpecification(request.Id), ct);
 
