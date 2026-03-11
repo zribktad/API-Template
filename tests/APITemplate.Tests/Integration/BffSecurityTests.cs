@@ -10,11 +10,12 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Shouldly;
 using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public sealed class BffSecurityTests
+public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFactory>
 {
     private readonly BffSecurityWebApplicationFactory _factory;
 
@@ -34,7 +35,7 @@ public sealed class BffSecurityTests
             new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
             ct);
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -50,7 +51,7 @@ public sealed class BffSecurityTests
             ct);
 
         // CSRF passes; request reaches the controller where the empty body fails validation.
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -64,7 +65,7 @@ public sealed class BffSecurityTests
             new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
             ct);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -75,11 +76,11 @@ public sealed class BffSecurityTests
 
         var response = await client.GetAsync("/api/v1/bff/csrf", ct);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await response.Content.ReadAsStringAsync(ct);
-        Assert.Contains("X-CSRF", body);
-        Assert.Contains("headerName", body);
-        Assert.Contains("headerValue", body);
+        body.ShouldContain("X-CSRF");
+        body.ShouldContain("headerName");
+        body.ShouldContain("headerValue");
     }
 }
 

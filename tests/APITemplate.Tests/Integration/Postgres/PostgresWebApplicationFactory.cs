@@ -10,34 +10,65 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
-using Testcontainers.PostgreSql;
+using Npgsql;
 using Xunit;
 
 namespace APITemplate.Tests.Integration.Postgres;
 
 public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder("postgres:16-alpine")
-        .WithDatabase($"apitemplate_tests_{Guid.NewGuid():N}")
-        .WithUsername("postgres")
-        .WithPassword("postgres")
-        .WithCleanUp(true)
-        .Build();
+    private readonly string _serverConnectionString;
+    private readonly string _databaseName = $"test_{Guid.NewGuid():N}";
 
-    public ValueTask InitializeAsync() => new(_postgresContainer.StartAsync());
+    public PostgresWebApplicationFactory(string serverConnectionString)
+    {
+        _serverConnectionString = serverConnectionString;
+    }
+
+    public string ConnectionString =>
+        new NpgsqlConnectionStringBuilder(_serverConnectionString) { Database = _databaseName }.ConnectionString;
+
+    public async ValueTask InitializeAsync()
+    {
+        await using var conn = new NpgsqlConnection(_serverConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"CREATE DATABASE \"{_databaseName}\"";
+        await cmd.ExecuteNonQueryAsync();
+
+        // Pre-warm: trigger host build so EF migrations run before tests execute.
+        _ = Services;
+    }
 
     public new async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
-        await _postgresContainer.DisposeAsync();
+
+        try
+        {
+            await using var conn = new NpgsqlConnection(_serverConnectionString);
+            await conn.OpenAsync();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"""
+                SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{_databaseName}' AND pid <> pg_backend_pid();
+                DROP DATABASE IF EXISTS "{_databaseName}";
+                """;
+            await cmd.ExecuteNonQueryAsync();
+        }
+        catch
+        {
+            // Best-effort cleanup — container disposal handles the rest.
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        var connectionString = ConnectionString;
+
         builder.ConfigureAppConfiguration((_, configBuilder) =>
         {
             var config = TestConfigurationHelper.GetBaseConfiguration("APITemplate.Tests.RedactionKey.Postgres");
-            config["ConnectionStrings:DefaultConnection"] = _postgresContainer.GetConnectionString();
+            config["ConnectionStrings:DefaultConnection"] = connectionString;
             configBuilder.AddInMemoryCollection(config);
         });
 
@@ -56,7 +87,6 @@ public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Progra
             foreach (var d in optionsConfigs)
                 services.Remove(d);
 
-            var connectionString = _postgresContainer.GetConnectionString();
             using var bootstrapProvider = services.BuildServiceProvider();
             var transactionDefaults = bootstrapProvider.GetRequiredService<IOptions<TransactionDefaultsOptions>>().Value;
             services.AddDbContext<AppDbContext>(options =>
