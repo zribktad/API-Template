@@ -31,23 +31,26 @@ public abstract class PostgresTestBase : IAsyncLifetime
     {
         await _factory.InitializeAsync();
         _client = _factory.CreateClient();
-
-        await using var conn = new NpgsqlConnection(_factory.ConnectionString);
-        await conn.OpenAsync();
-        _respawner = await Respawner.CreateAsync(conn, new RespawnerOptions
-        {
-            DbAdapter = DbAdapter.Postgres,
-            TablesToIgnore = [new Respawn.Graph.Table("__EFMigrationsHistory"), new Respawn.Graph.Table("Tenants")]
-        });
     }
 
     public async ValueTask DisposeAsync() => await _factory.DisposeAsync();
 
     protected async Task ResetDatabaseAsync()
     {
+        if (_respawner is null)
+        {
+            await using var initConn = new NpgsqlConnection(_factory.ConnectionString);
+            await initConn.OpenAsync();
+            _respawner = await Respawner.CreateAsync(initConn, new RespawnerOptions
+            {
+                DbAdapter = DbAdapter.Postgres,
+                TablesToIgnore = [new Respawn.Graph.Table("__EFMigrationsHistory"), new Respawn.Graph.Table("Tenants")]
+            });
+        }
+
         await using var conn = new NpgsqlConnection(_factory.ConnectionString);
         await conn.OpenAsync();
-        await _respawner!.ResetAsync(conn);
+        await _respawner.ResetAsync(conn);
     }
 
     protected async Task<AppDbContext> CreateDbContextAsync(bool hasTenant, Guid tenantId, Guid actorId, CancellationToken ct)

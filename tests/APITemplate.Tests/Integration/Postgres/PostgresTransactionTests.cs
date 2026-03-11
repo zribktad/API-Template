@@ -60,9 +60,19 @@ public sealed class PostgresTransactionTests(SharedPostgresContainer postgres) :
         var category = new Category { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Category-Tx-{Guid.NewGuid():N}" };
         var product = new Product { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Product-Tx-{Guid.NewGuid():N}", Price = 99m, CategoryId = category.Id };
 
+        var user = new AppUser
+        {
+            Id = actorId,
+            TenantId = tenantId,
+            Username = $"tx-user-{Guid.NewGuid():N}",
+            Email = $"tx-user-{Guid.NewGuid():N}@example.com",
+            PasswordHash = "not-relevant"
+        };
+
         await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
         {
             seedContext.Tenants.Add(tenant);
+            seedContext.Users.Add(user);
             seedContext.Categories.Add(category);
             seedContext.Products.Add(product);
             await seedContext.SaveChangesAsync(ct);
@@ -76,9 +86,10 @@ public sealed class PostgresTransactionTests(SharedPostgresContainer postgres) :
             var failingReviewRepository = new Mock<IProductReviewRepository>();
             failingReviewRepository
                 .Setup(repository => repository.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()))
-                .Returns((ProductReview entity, CancellationToken _) =>
+                .Returns(async (ProductReview entity, CancellationToken token) =>
                 {
                     transactionContext.ProductReviews.Add(entity);
+                    await transactionContext.SaveChangesAsync(token);
                     throw new InvalidOperationException(expectedMessage);
                 });
             var unitOfWork = CreateUnitOfWork(transactionContext);

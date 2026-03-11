@@ -3,7 +3,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class CorsTests
+public class CorsTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
 

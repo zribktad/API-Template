@@ -3,7 +3,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class AuthEdgeCasesTests
+public class AuthEdgeCasesTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
 

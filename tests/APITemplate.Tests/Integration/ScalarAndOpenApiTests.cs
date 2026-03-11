@@ -7,7 +7,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class ScalarAndOpenApiTests
+public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
 

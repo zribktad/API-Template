@@ -7,7 +7,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class UsersControllerTests
+public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
     private readonly HttpClient _client;
