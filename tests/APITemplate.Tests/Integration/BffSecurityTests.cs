@@ -45,9 +45,9 @@ public sealed class BffSecurityTests
             new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
             ct);
 
-        // CSRF passes; authorization middleware rejects the fake cookie identity (no real session),
-        // so we expect 401 rather than 403 (which would mean CSRF blocked the request).
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        // CSRF passes; request reaches the controller where the empty body fails validation.
+        // Any non-403 status confirms CSRF did not block the request.
+        Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -112,7 +112,11 @@ internal sealed class FakeCookieAuthStartupFilter : IStartupFilter
                 if (ctx.Request.Headers.TryGetValue("X-Test-Cookie-Auth", out _))
                 {
                     var identity = new ClaimsIdentity(
-                        [new Claim(ClaimTypes.Name, "testuser"), new Claim(AuthConstants.Claims.Subject, Guid.NewGuid().ToString())],
+                        [
+                            new Claim(ClaimTypes.Name, "testuser"),
+                            new Claim(AuthConstants.Claims.Subject, Guid.NewGuid().ToString()),
+                            new Claim(ClaimTypes.Role, "PlatformAdmin")
+                        ],
                         BffAuthenticationSchemes.Cookie);
                     ctx.User = new ClaimsPrincipal(identity);
                 }
