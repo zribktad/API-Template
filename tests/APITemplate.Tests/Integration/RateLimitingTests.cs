@@ -23,7 +23,7 @@ public sealed class RateLimitingWebApplicationFactory : CustomWebApplicationFact
     }
 }
 
-public class RateLimitingTests
+public class RateLimitingTests : IClassFixture<RateLimitingWebApplicationFactory>
 {
     private readonly RateLimitingWebApplicationFactory _factory;
     private const int PermitLimit = RateLimitingWebApplicationFactory.PermitLimit;

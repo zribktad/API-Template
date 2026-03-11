@@ -5,7 +5,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class GraphQLProductReviewTests
+public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
     private readonly GraphQLTestHelper _graphql;

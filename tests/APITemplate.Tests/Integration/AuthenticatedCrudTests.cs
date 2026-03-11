@@ -6,7 +6,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-public class AuthenticatedCrudTests
+public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
     private readonly Guid _tenantId = Guid.NewGuid();

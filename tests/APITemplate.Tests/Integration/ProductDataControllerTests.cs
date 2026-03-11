@@ -10,8 +10,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-[Collection("Integration.ProductDataController")]
-public class ProductDataControllerTests
+public class ProductDataControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
     private readonly Mock<IProductDataRepository> _repositoryMock;

@@ -11,8 +11,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-[Collection("Integration.ProductDataController")]
-public class ProductsControllerTests
+public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
     private readonly Mock<IProductDataRepository> _productDataRepositoryMock;

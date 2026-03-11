@@ -6,8 +6,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Security;
 
-[Collection("Integration.ProductDataController")]
-public class PermissionAuthorizationIntegrationTests
+public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
 

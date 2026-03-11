@@ -10,8 +10,7 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
-[Collection("Integration.ProductDataController")]
-public class GraphQLTests
+public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
     private readonly GraphQLTestHelper _graphql;
