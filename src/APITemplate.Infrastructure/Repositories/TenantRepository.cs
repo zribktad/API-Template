@@ -32,6 +32,18 @@ public sealed class TenantRepository : RepositoryBase<Tenant>, ITenantRepository
         return SpecificationEvaluator.GetQuery(UnfilteredTenants, specification);
     }
 
+    public override async Task<Tenant?> GetByIdAsync<TId>(
+        TId id,
+        CancellationToken cancellationToken = default
+    )
+        where TId : default
+    {
+        return await UnfilteredTenants.FirstOrDefaultAsync(
+            t => t.Id == (Guid)(object)id,
+            cancellationToken
+        );
+    }
+
     public Task<bool> CodeExistsAsync(string code, CancellationToken ct = default)
     {
         return UnfilteredTenants.AnyAsync(t => t.Code == code, ct);
