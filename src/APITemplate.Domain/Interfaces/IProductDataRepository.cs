@@ -12,5 +12,17 @@ public interface IProductDataRepository
 
     Task<ProductData> CreateAsync(ProductData productData, CancellationToken ct = default);
 
-    Task SoftDeleteAsync(Guid id, Guid actorId, DateTime deletedAtUtc, CancellationToken ct = default);
+    Task SoftDeleteAsync(
+        Guid id,
+        Guid actorId,
+        DateTime deletedAtUtc,
+        CancellationToken ct = default
+    );
+
+    Task<long> SoftDeleteByTenantAsync(
+        Guid tenantId,
+        Guid actorId,
+        DateTime deletedAtUtc,
+        CancellationToken ct = default
+    );
 }

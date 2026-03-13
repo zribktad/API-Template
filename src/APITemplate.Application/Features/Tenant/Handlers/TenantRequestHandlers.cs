@@ -1,3 +1,5 @@
+using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Tenant.DTOs;
 using APITemplate.Application.Features.Tenant.Mappings;
 using APITemplate.Application.Features.Tenant.Specifications;
@@ -24,11 +26,23 @@ public sealed class TenantRequestHandlers
 {
     private readonly ITenantRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IPublisher _publisher;
+    private readonly IActorProvider _actorProvider;
+    private readonly TimeProvider _timeProvider;
 
-    public TenantRequestHandlers(ITenantRepository repository, IUnitOfWork unitOfWork)
+    public TenantRequestHandlers(
+        ITenantRepository repository,
+        IUnitOfWork unitOfWork,
+        IPublisher publisher,
+        IActorProvider actorProvider,
+        TimeProvider timeProvider
+    )
     {
         _repository = repository;
         _unitOfWork = unitOfWork;
+        _publisher = publisher;
+        _actorProvider = actorProvider;
+        _timeProvider = timeProvider;
     }
 
     public async Task<PagedResponse<TenantResponse>> Handle(
@@ -88,6 +102,15 @@ public sealed class TenantRequestHandlers
             {
                 await _repository.DeleteAsync(command.Id, ct, ErrorCatalog.Tenants.NotFound);
             },
+            ct
+        );
+
+        await _publisher.Publish(
+            new TenantSoftDeletedNotification(
+                command.Id,
+                _actorProvider.ActorId,
+                _timeProvider.GetUtcNow().UtcDateTime
+            ),
             ct
         );
     }
