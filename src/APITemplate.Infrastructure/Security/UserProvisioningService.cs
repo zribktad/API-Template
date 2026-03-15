@@ -73,7 +73,7 @@ public sealed class UserProvisioningService : IUserProvisioningService
             return null;
         }
 
-        // 3. Provision the new user from the invitation data.
+        // 3. Provision a new user from the invitation data.
         var user = new AppUser
         {
             Username = username,
@@ -99,12 +99,15 @@ public sealed class UserProvisioningService : IUserProvisioningService
                 invitation.TenantId);
             return user;
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
-            // Concurrent request already provisioned this user — re-fetch and return
-            _logger.LogDebug("Concurrent provisioning detected for {KeycloakUserId} — re-fetching.", keycloakUserId);
+            // Concurrent request may have provisioned this user — re-fetch the winner.
+            _logger.LogWarning(ex, "DbUpdateException during provisioning for {KeycloakUserId}. Re-fetching.", keycloakUserId);
+
             return await _db.Users.IgnoreQueryFilters()
-                .FirstOrDefaultAsync(u => u.KeycloakUserId == keycloakUserId, ct);
+                .FirstOrDefaultAsync(u => u.KeycloakUserId == keycloakUserId, ct)
+                ?? throw new InvalidOperationException(
+                    $"Provisioning failed for KeycloakUserId={keycloakUserId} and no existing user was found.", ex);
         }
     }
 }

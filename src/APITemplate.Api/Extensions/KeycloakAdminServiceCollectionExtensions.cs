@@ -23,7 +23,8 @@ public static class KeycloakAdminServiceCollectionExtensions
                 adminOpts.Realm = keycloakOpts.Value.Realm;
             });
 
-        services.AddSingleton<KeycloakAdminTokenHandler>();
+        services.AddSingleton<KeycloakAdminTokenProvider>();
+        services.AddTransient<KeycloakAdminTokenHandler>();
 
         // Pass a no-op action so the SDK registers its IKeycloakClient registrations and
         // the named HttpClient; the actual option values come from the Configure call above.

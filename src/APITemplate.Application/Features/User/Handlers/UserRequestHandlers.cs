@@ -125,7 +125,7 @@ public sealed class UserRequestHandlers
             _logger.LogError(ex, "DB save failed after creating Keycloak user {KeycloakUserId}. Attempting compensating delete.", keycloakUserId);
             try
             {
-                await _keycloakAdmin.DeleteUserAsync(keycloakUserId, ct);
+                await _keycloakAdmin.DeleteUserAsync(keycloakUserId, CancellationToken.None);
             }
             catch (Exception compensationEx)
             {

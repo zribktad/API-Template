@@ -44,17 +44,26 @@ public sealed class KeycloakAdminService : IKeycloakAdminService
             username,
             keycloakUserId);
 
-        // NOTE: If ExecuteActionsEmailAsync fails, the user will already exist in Keycloak
-        // but will have no setup email. Callers should handle HttpRequestException and
-        // retry via SendPasswordResetEmailAsync(keycloakUserId) as a recovery path.
-        await _userClient.ExecuteActionsEmailAsync(
-            _realm,
-            keycloakUserId,
-            new ExecuteActionsEmailRequest
-            {
-                Actions = ["VERIFY_EMAIL", "UPDATE_PASSWORD"],
-            },
-            ct);
+        // Best-effort: if the setup email fails, we still return the created user ID so the
+        // caller can persist the local record. The user can be sent a password reset later.
+        try
+        {
+            await _userClient.ExecuteActionsEmailAsync(
+                _realm,
+                keycloakUserId,
+                new ExecuteActionsEmailRequest
+                {
+                    Actions = [AuthConstants.KeycloakActions.VerifyEmail, AuthConstants.KeycloakActions.UpdatePassword],
+                },
+                ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to send setup email for Keycloak user {KeycloakUserId}. User was created but has no setup email.",
+                keycloakUserId);
+        }
 
         return keycloakUserId;
     }
@@ -66,7 +75,7 @@ public sealed class KeycloakAdminService : IKeycloakAdminService
             keycloakUserId,
             new ExecuteActionsEmailRequest
             {
-                Actions = ["UPDATE_PASSWORD"],
+                Actions = [AuthConstants.KeycloakActions.UpdatePassword],
             },
             ct);
 
