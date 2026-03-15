@@ -6,95 +6,155 @@ This guide walks through the full workflow for adding a new versioned REST endpo
 
 ## Overview
 
-The REST layer follows **Clean Architecture**:
+The REST layer follows **Clean Architecture** with **CQRS** via MediatR:
 
 ```
 HTTP Request
-  → Controller (Api/Controllers/V1/)     ← thin, no business logic
-  → Service    (Application/Features/<Feature>/Services/)   ← business rules, maps DTOs ↔ entities
-  → Repository (Infrastructure/Repositories/) ← data access
-  → Database   (PostgreSQL via EF Core)
+  → Controller  (Api/Controllers/V1/)                         ← thin, dispatches via ISender
+  → Handler     (Application/Features/<Feature>/Handlers/)    ← CQRS commands & queries
+  → Repository  (Infrastructure/Repositories/)                ← data access (Ardalis.Specification)
+  → Database    (PostgreSQL via EF Core)
 ```
 
-For relational features, keep these boundaries explicit:
+Key boundaries:
 
-- Use a query service when the read returns API/read-model DTOs.
-- Put paginated, filtered, cross-aggregate, or batched reads in the query service.
-- Keep command-side validation lookups in the write service and use repositories for them.
-- Load entities you intend to update/delete through repositories, not query services.
-- Use `IUnitOfWork.ExecuteInTransactionAsync(...)` for explicit relational transaction flows in services.
+- Controllers dispatch MediatR commands/queries — no business logic.
+- Handlers orchestrate business rules, use repositories and `IUnitOfWork` for writes.
+- Specifications encapsulate all query logic (filtering, sorting, paging, projection).
+- Repositories extend `Ardalis.Specification` — command-side writes + specification-based reads.
+- Use `IUnitOfWork.ExecuteInTransactionAsync(...)` for transactional writes.
 
 ---
 
 ## Step 1 – Define the Domain Entity
 
-Create the entity in `src/APITemplate/Domain/Entities/`:
+Create the entity in `src/APITemplate.Domain/Domain/Entities/`. All entities implement `IAuditableTenantEntity` (multi-tenancy + auditing + soft delete):
 
 ```csharp
 // Domain/Entities/Order.cs
 namespace APITemplate.Domain.Entities;
 
-public sealed class Order
+public sealed class Order : IAuditableTenantEntity
 {
     public Guid Id { get; set; }
-    public Guid CustomerId { get; set; }
+
+    public required string CustomerName
+    {
+        get => field;
+        set => field = string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("Customer name cannot be empty.", nameof(CustomerName))
+            : value.Trim();
+    }
+
     public decimal TotalAmount { get; set; }
-    public DateTime CreatedAt { get; set; }
 
     public ICollection<OrderItem> Items { get; set; } = [];
+
+    // IAuditableTenantEntity
+    public Guid TenantId { get; set; }
+    public AuditInfo Audit { get; set; } = new();
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAtUtc { get; set; }
+    public Guid? DeletedBy { get; set; }
 }
 ```
+
+> **Note:** Put domain validation in property setters (e.g., trimming, null checks). `AuditInfo` fields are stamped automatically by `AppDbContext.SaveChangesAsync`.
 
 ---
 
 ## Step 2 – Create the DTOs
 
-DTOs decouple the API contract from the domain model. Place them in `src/APITemplate/Application/Features/<Feature>/DTOs/`.
+DTOs live in `src/APITemplate.Application/Features/<Feature>/DTOs/`.
 
-**Request DTO** (what the client sends):
+**Filter DTO** (query parameters — extends `PaginationFilter`):
 
 ```csharp
-// Application/Features/<Feature>/DTOs/CreateOrderRequest.cs
-namespace APITemplate.Application.DTOs;
+// Application/Features/Order/DTOs/OrderFilter.cs
+using APITemplate.Application.Common.Contracts;
+using APITemplate.Application.Common.DTOs;
 
-public sealed record CreateOrderRequest(
-    Guid CustomerId,
-    decimal TotalAmount
-);
+namespace APITemplate.Application.Features.Order.DTOs;
+
+public sealed record OrderFilter(
+    string? Query = null,
+    string? SortBy = null,
+    string? SortDirection = null,
+    int PageNumber = 1,
+    int PageSize = PaginationFilter.DefaultPageSize) : PaginationFilter(PageNumber, PageSize), ISortableFilter;
 ```
 
 **Response DTO** (what the API returns):
 
 ```csharp
-// Application/Features/<Feature>/DTOs/OrderResponse.cs
-namespace APITemplate.Application.DTOs;
+// Application/Features/Order/DTOs/OrderResponse.cs
+namespace APITemplate.Application.Features.Order.DTOs;
 
 public sealed record OrderResponse(
     Guid Id,
-    Guid CustomerId,
+    string CustomerName,
     decimal TotalAmount,
-    DateTime CreatedAt
-);
+    DateTime CreatedAtUtc);
+```
+
+**Request DTOs** (what the client sends):
+
+```csharp
+// Application/Features/Order/DTOs/CreateOrderRequest.cs
+namespace APITemplate.Application.Features.Order.DTOs;
+
+public sealed record CreateOrderRequest(
+    string CustomerName,
+    decimal TotalAmount);
+```
+
+```csharp
+// Application/Features/Order/DTOs/UpdateOrderRequest.cs
+namespace APITemplate.Application.Features.Order.DTOs;
+
+public sealed record UpdateOrderRequest(
+    string CustomerName,
+    decimal TotalAmount);
 ```
 
 ---
 
-## Step 3 – Add the FluentValidation Validator
+## Step 3 – Add the FluentValidation Validators
 
-Validators live in `src/APITemplate/Application/Features/<Feature>/Validation/`. They are auto-discovered and invoked by `FluentValidation.AspNetCore` before the controller action runs.
+Validators live in `src/APITemplate.Application/Features/<Feature>/Validation/`. They are auto-discovered and invoked by the `ValidationBehavior<,>` MediatR pipeline before handlers run.
 
 ```csharp
-// Application/Features/<Feature>/Validation/CreateOrderRequestValidator.cs
+// Application/Features/Order/Validation/OrderFilterValidator.cs
+using APITemplate.Application.Common.Validation;
 using FluentValidation;
 
-namespace APITemplate.Application.Validators;
+namespace APITemplate.Application.Features.Order.Validation;
+
+public sealed class OrderFilterValidator : AbstractValidator<OrderFilter>
+{
+    public OrderFilterValidator()
+    {
+        Include(new PaginationFilterValidator());
+        Include(new SortableFilterValidator<OrderFilter>(OrderSortFields.Map.AllowedNames));
+    }
+}
+```
+
+For request validators, use `AbstractValidator<T>` or inherit from a shared base when Create/Update share rules:
+
+```csharp
+// Application/Features/Order/Validation/CreateOrderRequestValidator.cs
+using FluentValidation;
+
+namespace APITemplate.Application.Features.Order.Validation;
 
 public sealed class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 {
     public CreateOrderRequestValidator()
     {
-        RuleFor(x => x.CustomerId)
-            .NotEmpty().WithMessage("CustomerId is required.");
+        RuleFor(x => x.CustomerName)
+            .NotEmpty().WithMessage("CustomerName is required.")
+            .MaximumLength(200).WithMessage("CustomerName must not exceed 200 characters.");
 
         RuleFor(x => x.TotalAmount)
             .GreaterThan(0).WithMessage("TotalAmount must be greater than zero.");
@@ -102,120 +162,276 @@ public sealed class CreateOrderRequestValidator : AbstractValidator<CreateOrderR
 }
 ```
 
-FluentValidation returns HTTP 400 with a structured error body automatically when validation fails — no additional controller code needed.
+Validation failures throw `Domain.Exceptions.ValidationException`, which is mapped to HTTP 400 by `ApiExceptionHandler`.
 
 ---
 
 ## Step 4 – Define the Mapping Extension
 
-Mappings keep the service layer clean. Place them in `src/APITemplate/Application/Features/<Feature>/Mappings/`:
+Mappings use **Expression projections** for EF Core query efficiency. Place them in `src/APITemplate.Application/Features/<Feature>/Mappings/`:
 
 ```csharp
-// Application/Features/<Feature>/Mappings/OrderMappings.cs
-using APITemplate.Domain.Entities;
+// Application/Features/Order/Mappings/OrderMappings.cs
+using System.Linq.Expressions;
+using OrderEntity = APITemplate.Domain.Entities.Order;
 
-namespace APITemplate.Application.Mappings;
+namespace APITemplate.Application.Features.Order.Mappings;
 
 public static class OrderMappings
 {
-    public static OrderResponse ToResponse(this Order order)
-        => new(order.Id, order.CustomerId, order.TotalAmount, order.CreatedAt);
+    public static readonly Expression<Func<OrderEntity, OrderResponse>> Projection =
+        order => new OrderResponse(
+            order.Id,
+            order.CustomerName,
+            order.TotalAmount,
+            order.Audit.CreatedAtUtc);
+
+    private static readonly Func<OrderEntity, OrderResponse> CompiledProjection = Projection.Compile();
+
+    public static OrderResponse ToResponse(this OrderEntity order) =>
+        CompiledProjection(order);
+}
+```
+
+> `Projection` is used by specifications for server-side SELECT. `ToResponse()` is used in handlers after entity creation/update.
+
+---
+
+## Step 5 – Define the Specifications
+
+Specifications encapsulate query logic using `Ardalis.Specification`. Place them in `src/APITemplate.Application/Features/<Feature>/Specifications/`.
+
+**List specification** (paged, filtered, sorted, projected):
+
+```csharp
+// Application/Features/Order/Specifications/OrderSpecification.cs
+using APITemplate.Application.Features.Order.Mappings;
+using Ardalis.Specification;
+using OrderEntity = APITemplate.Domain.Entities.Order;
+
+namespace APITemplate.Application.Features.Order.Specifications;
+
+public sealed class OrderSpecification : Specification<OrderEntity, OrderResponse>
+{
+    public OrderSpecification(OrderFilter filter)
+    {
+        OrderFilterCriteria.Apply(Query, filter);
+        Query.AsNoTracking();
+        OrderSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
+        Query.Select(OrderMappings.Projection);
+        Query.Skip((filter.PageNumber - 1) * filter.PageSize)
+            .Take(filter.PageSize);
+    }
+}
+```
+
+**Count specification** (for pagination total):
+
+```csharp
+// Application/Features/Order/Specifications/OrderCountSpecification.cs
+using Ardalis.Specification;
+using OrderEntity = APITemplate.Domain.Entities.Order;
+
+namespace APITemplate.Application.Features.Order.Specifications;
+
+public sealed class OrderCountSpecification : Specification<OrderEntity>
+{
+    public OrderCountSpecification(OrderFilter filter)
+    {
+        OrderFilterCriteria.Apply(Query, filter);
+        Query.AsNoTracking();
+    }
+}
+```
+
+**By-ID specification**:
+
+```csharp
+// Application/Features/Order/Specifications/OrderByIdSpecification.cs
+using APITemplate.Application.Features.Order.Mappings;
+using Ardalis.Specification;
+using OrderEntity = APITemplate.Domain.Entities.Order;
+
+namespace APITemplate.Application.Features.Order.Specifications;
+
+public sealed class OrderByIdSpecification : Specification<OrderEntity, OrderResponse>
+{
+    public OrderByIdSpecification(Guid id)
+    {
+        Query.Where(order => order.Id == id)
+            .AsNoTracking()
+            .Select(OrderMappings.Projection);
+    }
+}
+```
+
+**Filter criteria** (reusable between list and count specs):
+
+```csharp
+// Application/Features/Order/Specifications/OrderFilterCriteria.cs
+using Ardalis.Specification;
+using Microsoft.EntityFrameworkCore;
+using OrderEntity = APITemplate.Domain.Entities.Order;
+
+namespace APITemplate.Application.Features.Order.Specifications;
+
+internal static class OrderFilterCriteria
+{
+    private const string SearchConfiguration = "english";
+
+    internal static void Apply(ISpecificationBuilder<OrderEntity> query, OrderFilter filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter.Query))
+            return;
+
+        query.Where(order =>
+            EF.Functions
+                .ToTsVector(SearchConfiguration, order.CustomerName)
+                .Matches(EF.Functions.WebSearchToTsQuery(SearchConfiguration, filter.Query)));
+    }
 }
 ```
 
 ---
 
-## Step 5 – Define the Service Interface and Implementation
+## Step 6 – Define the Sort Fields
 
-**Interface** in `Application/Features/<Feature>/Interfaces/`:
+Sort field maps provide type-safe, configurable sorting. Place in `src/APITemplate.Application/Features/<Feature>/`:
 
 ```csharp
-// Application/Features/<Feature>/Interfaces/IOrderService.cs
-using APITemplate.Application.DTOs;
+// Application/Features/Order/OrderSortFields.cs
+using APITemplate.Application.Common.Sorting;
+using OrderEntity = APITemplate.Domain.Entities.Order;
 
-namespace APITemplate.Application.Interfaces;
+namespace APITemplate.Application.Features.Order;
 
-public interface IOrderService
+public static class OrderSortFields
 {
-    Task<OrderResponse?> GetByIdAsync(Guid id, CancellationToken ct = default);
-    Task<PagedResponse<OrderResponse>> GetAllAsync(PaginationFilter filter, CancellationToken ct = default);
-    Task<OrderResponse> CreateAsync(CreateOrderRequest request, CancellationToken ct = default);
-    Task DeleteAsync(Guid id, CancellationToken ct = default);
+    public static readonly SortField CustomerName = new("customerName");
+    public static readonly SortField TotalAmount = new("totalAmount");
+    public static readonly SortField CreatedAt = new("createdAt");
+
+    public static readonly SortFieldMap<OrderEntity> Map = new SortFieldMap<OrderEntity>()
+        .Add(CustomerName, o => o.CustomerName)
+        .Add(TotalAmount, o => (object)o.TotalAmount)
+        .Add(CreatedAt, o => o.Audit.CreatedAtUtc)
+        .Default(o => o.Audit.CreatedAtUtc);
 }
 ```
 
-**Implementation** in `Application/Features/<Feature>/Services/`:
+---
+
+## Step 7 – Define the MediatR Handlers
+
+All commands, queries, and their handlers live in a single file per feature. Place in `src/APITemplate.Application/Features/<Feature>/Handlers/`:
 
 ```csharp
-// Application/Features/<Feature>/Services/OrderService.cs
-using APITemplate.Application.DTOs;
-using APITemplate.Application.Interfaces;
-using APITemplate.Application.Mappings;
-using APITemplate.Domain.Entities;
+// Application/Features/Order/Handlers/OrderRequestHandlers.cs
+using APITemplate.Application.Features.Order.Mappings;
+using APITemplate.Application.Features.Order.Specifications;
+using APITemplate.Application.Common.Events;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using MediatR;
+using OrderEntity = APITemplate.Domain.Entities.Order;
 
-namespace APITemplate.Application.Services;
+namespace APITemplate.Application.Features.Order;
 
-public sealed class OrderService : IOrderService
+// Queries
+public sealed record GetOrdersQuery(OrderFilter Filter) : IRequest<PagedResponse<OrderResponse>>;
+public sealed record GetOrderByIdQuery(Guid Id) : IRequest<OrderResponse?>;
+
+// Commands
+public sealed record CreateOrderCommand(CreateOrderRequest Request) : IRequest<OrderResponse>;
+public sealed record UpdateOrderCommand(Guid Id, UpdateOrderRequest Request) : IRequest;
+public sealed record DeleteOrderCommand(Guid Id) : IRequest;
+
+// Handlers
+public sealed class OrderRequestHandlers :
+    IRequestHandler<GetOrdersQuery, PagedResponse<OrderResponse>>,
+    IRequestHandler<GetOrderByIdQuery, OrderResponse?>,
+    IRequestHandler<CreateOrderCommand, OrderResponse>,
+    IRequestHandler<UpdateOrderCommand>,
+    IRequestHandler<DeleteOrderCommand>
 {
     private readonly IOrderRepository _repository;
-    private readonly IOrderQueryService _queryService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IPublisher _publisher;
 
-    public OrderService(
-        IOrderRepository repository,
-        IOrderQueryService queryService,
-        IUnitOfWork unitOfWork)
+    public OrderRequestHandlers(IOrderRepository repository, IUnitOfWork unitOfWork, IPublisher publisher)
     {
         _repository = repository;
-        _queryService = queryService;
         _unitOfWork = unitOfWork;
+        _publisher = publisher;
     }
 
-    public Task<OrderResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
-        => _queryService.GetByIdAsync(id, ct);
+    public async Task<PagedResponse<OrderResponse>> Handle(GetOrdersQuery request, CancellationToken ct)
+    {
+        var items = await _repository.ListAsync(new OrderSpecification(request.Filter), ct);
+        var totalCount = await _repository.CountAsync(new OrderCountSpecification(request.Filter), ct);
+        return new PagedResponse<OrderResponse>(items, totalCount, request.Filter.PageNumber, request.Filter.PageSize);
+    }
 
-    public Task<PagedResponse<OrderResponse>> GetAllAsync(
-        PaginationFilter filter, CancellationToken ct = default)
-        => _queryService.GetPagedAsync(filter, ct);
+    public async Task<OrderResponse?> Handle(GetOrderByIdQuery request, CancellationToken ct)
+        => await _repository.FirstOrDefaultAsync(new OrderByIdSpecification(request.Id), ct);
 
-    public async Task<OrderResponse> CreateAsync(CreateOrderRequest request, CancellationToken ct = default)
+    public async Task<OrderResponse> Handle(CreateOrderCommand command, CancellationToken ct)
     {
         var order = await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            var entity = new Order
+            var entity = new OrderEntity
             {
-                Id          = Guid.NewGuid(),
-                CustomerId  = request.CustomerId,
-                TotalAmount = request.TotalAmount,
-                CreatedAt   = DateTime.UtcNow
+                Id = Guid.NewGuid(),
+                CustomerName = command.Request.CustomerName,
+                TotalAmount = command.Request.TotalAmount
             };
 
             await _repository.AddAsync(entity, ct);
             return entity;
         }, ct);
 
+        await _publisher.Publish(new OrdersChangedNotification(), ct);
         return order.ToResponse();
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    public async Task Handle(UpdateOrderCommand command, CancellationToken ct)
+    {
+        var order = await _repository.GetByIdAsync(command.Id, ct)
+            ?? throw new NotFoundException(
+                nameof(OrderEntity),
+                command.Id,
+                ErrorCatalog.Orders.NotFound);
+
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            order.CustomerName = command.Request.CustomerName;
+            order.TotalAmount = command.Request.TotalAmount;
+
+            await _repository.UpdateAsync(order, ct);
+        }, ct);
+
+        await _publisher.Publish(new OrdersChangedNotification(), ct);
+    }
+
+    public async Task Handle(DeleteOrderCommand command, CancellationToken ct)
     {
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            await _repository.DeleteAsync(id, ct);
+            await _repository.DeleteAsync(command.Id, ct, ErrorCatalog.Orders.NotFound);
         }, ct);
+
+        await _publisher.Publish(new OrdersChangedNotification(), ct);
     }
 }
 ```
 
+> **Note:** Add `OrdersChangedNotification` to `Application/Common/Events/CacheEvents.cs` and register a cache invalidation handler if output caching is used. Add `ErrorCatalog.Orders.NotFound` to `Application/Common/Errors/ErrorCatalog.cs`.
+
 ---
 
-## Step 6 – Create the Repository
+## Step 8 – Create the Repository
 
-If the feature exposes paginated or reusable API reads, add a query service alongside the repository. The repository remains the command-side data access abstraction; the query service becomes the read-model boundary.
-
-**Interface** in `Domain/Interfaces/`:
+**Interface** in `src/APITemplate.Domain/Domain/Interfaces/`:
 
 ```csharp
 // Domain/Interfaces/IOrderRepository.cs
@@ -226,7 +442,9 @@ namespace APITemplate.Domain.Interfaces;
 public interface IOrderRepository : IRepository<Order> { }
 ```
 
-**Implementation** in `Infrastructure/Repositories/`:
+`IRepository<T>` extends `Ardalis.Specification.IRepositoryBase<T>` and adds `DeleteAsync(Guid id, ...)`.
+
+**Implementation** in `src/APITemplate.Infrastructure/Repositories/`:
 
 ```csharp
 // Infrastructure/Repositories/OrderRepository.cs
@@ -242,62 +460,119 @@ public sealed class OrderRepository : RepositoryBase<Order>, IOrderRepository
 }
 ```
 
+`RepositoryBase<T>` overrides `AddAsync`/`UpdateAsync` to **not** call `SaveChangesAsync` — that is the `IUnitOfWork` responsibility.
+
 ---
 
-## Step 7 – Add the Controller
+## Step 9 – Add the EF Core Configuration
 
-Controllers live in `src/APITemplate/Api/Controllers/V1/`. They are thin — no business logic, only HTTP mapping:
+Add `DbSet<Order>` to `AppDbContext` and create the entity configuration in `src/APITemplate.Infrastructure/Persistence/Configurations/`:
+
+```csharp
+// Infrastructure/Persistence/Configurations/OrderConfiguration.cs
+using APITemplate.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace APITemplate.Infrastructure.Persistence.Configurations;
+
+public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
+{
+    public void Configure(EntityTypeBuilder<Order> builder)
+    {
+        builder.HasKey(o => o.Id);
+        builder.ConfigureTenantAuditable();
+
+        builder.Property(o => o.CustomerName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(o => o.TotalAmount)
+            .HasPrecision(18, 2);
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(o => o.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(o => new { o.TenantId, o.CustomerName });
+    }
+}
+```
+
+> `ConfigureTenantAuditable()` is an extension method that configures `AuditInfo`, `TenantId`, `IsDeleted`, and soft delete fields.
+
+---
+
+## Step 10 – Add the Controller
+
+Controllers live in `src/APITemplate.Api/Api/Controllers/V1/`. They dispatch via MediatR `ISender`:
 
 ```csharp
 // Api/Controllers/V1/OrdersController.cs
-using APITemplate.Application.DTOs;
-using APITemplate.Application.Interfaces;
+using APITemplate.Api.Authorization;
+using APITemplate.Api.Cache;
+using APITemplate.Application.Common.Security;
 using Asp.Versioning;
-using Microsoft.AspNetCore.Authorization;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
-[Authorize]
 public sealed class OrdersController : ControllerBase
 {
-    private readonly IOrderService _orderService;
+    private readonly ISender _sender;
 
-    public OrdersController(IOrderService orderService)
+    public OrdersController(ISender sender)
     {
-        _orderService = orderService;
+        _sender = sender;
     }
 
     [HttpGet]
+    [RequirePermission(Permission.Orders.Read)]
+    [OutputCache(PolicyName = CachePolicyNames.Orders)]
     public async Task<ActionResult<PagedResponse<OrderResponse>>> GetAll(
-        [FromQuery] PaginationFilter filter, CancellationToken ct)
+        [FromQuery] OrderFilter filter, CancellationToken ct)
     {
-        var orders = await _orderService.GetAllAsync(filter, ct);
+        var orders = await _sender.Send(new GetOrdersQuery(filter), ct);
         return Ok(orders);
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission(Permission.Orders.Read)]
+    [OutputCache(PolicyName = CachePolicyNames.Orders)]
     public async Task<ActionResult<OrderResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var order = await _orderService.GetByIdAsync(id, ct);
+        var order = await _sender.Send(new GetOrderByIdQuery(id), ct);
         return order is null ? NotFound() : Ok(order);
     }
 
     [HttpPost]
+    [RequirePermission(Permission.Orders.Create)]
     public async Task<ActionResult<OrderResponse>> Create(
         CreateOrderRequest request, CancellationToken ct)
     {
-        var order = await _orderService.CreateAsync(request, ct);
+        var order = await _sender.Send(new CreateOrderCommand(request), ct);
         return CreatedAtAction(nameof(GetById), new { id = order.Id, version = "1.0" }, order);
     }
 
+    [HttpPut("{id:guid}")]
+    [RequirePermission(Permission.Orders.Update)]
+    public async Task<IActionResult> Update(Guid id, UpdateOrderRequest request, CancellationToken ct)
+    {
+        await _sender.Send(new UpdateOrderCommand(id, request), ct);
+        return NoContent();
+    }
+
     [HttpDelete("{id:guid}")]
+    [RequirePermission(Permission.Orders.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await _orderService.DeleteAsync(id, ct);
+        await _sender.Send(new DeleteOrderCommand(id), ct);
         return NoContent();
     }
 }
@@ -305,29 +580,52 @@ public sealed class OrdersController : ControllerBase
 
 ---
 
-## Step 8 – Register in Dependency Injection
+## Step 11 – Register in Dependency Injection
 
-Open `src/APITemplate/Extensions/ServiceCollectionExtensions.cs`:
+**Repository** — add to `AddPersistence()` in `src/APITemplate.Api/Extensions/PersistenceServiceCollectionExtensions.cs`:
 
 ```csharp
-// In AddPersistence():
 services.AddScoped<IOrderRepository, OrderRepository>();
-
-// In AddApplicationServices():
-services.AddScoped<IOrderService, OrderService>();
 ```
 
-Validators are discovered automatically from the assembly — no explicit registration needed.
+**Permissions** — add to `Application/Common/Security/Permission.cs`:
+
+```csharp
+public static class Orders
+{
+    public const string Read = "Orders.Read";
+    public const string Create = "Orders.Create";
+    public const string Update = "Orders.Update";
+    public const string Delete = "Orders.Delete";
+}
+```
+
+**Error codes** — add to `Application/Common/Errors/ErrorCatalog.cs`:
+
+```csharp
+public static class Orders
+{
+    public const string NotFound = "ORD-0404";
+}
+```
+
+**Cache event** — add to `Application/Common/Events/CacheEvents.cs`:
+
+```csharp
+public sealed record OrdersChangedNotification : INotification;
+```
+
+> MediatR handlers and FluentValidation validators are auto-discovered from the assembly — no explicit registration needed.
 
 ---
 
-## Step 9 – Create the EF Core Migration
+## Step 12 – Create the EF Core Migration
 
 After adding the `DbSet<Order>` to `AppDbContext` and the entity configuration:
 
 ```bash
-dotnet ef migrations add AddOrder --project src/APITemplate --output-dir Migrations
-dotnet ef database update --project src/APITemplate
+dotnet ef migrations add AddOrder --project src/APITemplate.Infrastructure --startup-project src/APITemplate.Api --output-dir Persistence/Migrations
+dotnet ef database update --project src/APITemplate.Infrastructure --startup-project src/APITemplate.Api
 ```
 
 See [ef-migration.md](ef-migration.md) for the full migration workflow.
@@ -336,27 +634,61 @@ See [ef-migration.md](ef-migration.md) for the full migration workflow.
 
 ## HTTP Endpoints Summary
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/api/v1/Orders` | ✅ Bearer | Paginated list |
-| `GET` | `/api/v1/Orders/{id}` | ✅ Bearer | Single item |
-| `POST` | `/api/v1/Orders` | ✅ Bearer | Create |
-| `DELETE` | `/api/v1/Orders/{id}` | ✅ Bearer | Delete |
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| `GET` | `/api/v1/Orders` | `Orders.Read` | Paginated, filtered, sorted list |
+| `GET` | `/api/v1/Orders/{id}` | `Orders.Read` | Single item |
+| `POST` | `/api/v1/Orders` | `Orders.Create` | Create |
+| `PUT` | `/api/v1/Orders/{id}` | `Orders.Update` | Update |
+| `DELETE` | `/api/v1/Orders/{id}` | `Orders.Delete` | Delete |
 
 To obtain a Bearer token, see [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ---
 
+## Feature Directory Structure
+
+```
+Application/Features/Order/
+├── DTOs/
+│   ├── OrderFilter.cs
+│   ├── OrderResponse.cs
+│   ├── CreateOrderRequest.cs
+│   └── UpdateOrderRequest.cs
+├── Handlers/
+│   └── OrderRequestHandlers.cs       ← queries, commands & handlers
+├── Mappings/
+│   └── OrderMappings.cs              ← Expression projections
+├── Specifications/
+│   ├── OrderSpecification.cs          ← paged list query
+│   ├── OrderCountSpecification.cs     ← count for pagination
+│   ├── OrderByIdSpecification.cs      ← single entity lookup
+│   └── OrderFilterCriteria.cs         ← shared filter logic
+├── Validation/
+│   ├── OrderFilterValidator.cs
+│   └── CreateOrderRequestValidator.cs
+└── OrderSortFields.cs                 ← sort field mappings
+```
+
+---
+
 ## Checklist
 
-- [ ] Domain entity in `Domain/Entities/`
-- [ ] Request + Response DTOs in `Application/Features/<Feature>/DTOs/`
-- [ ] FluentValidation validator in `Application/Features/<Feature>/Validation/`
-- [ ] Mapping extension in `Application/Features/<Feature>/Mappings/`
-- [ ] Service interface + implementation in `Application/Features/<Feature>/`
-- [ ] Repository interface + implementation
+- [ ] Domain entity implementing `IAuditableTenantEntity` in `Domain/Entities/`
+- [ ] Filter + Response + Request DTOs in `Application/Features/<Feature>/DTOs/`
+- [ ] FluentValidation validators in `Application/Features/<Feature>/Validation/`
+- [ ] Expression projection mappings in `Application/Features/<Feature>/Mappings/`
+- [ ] Specifications (list, count, byId, filter criteria) in `Application/Features/<Feature>/Specifications/`
+- [ ] Sort field map in `Application/Features/<Feature>/`
+- [ ] MediatR queries, commands & handlers in `Application/Features/<Feature>/Handlers/`
+- [ ] Repository interface in `Domain/Interfaces/`
+- [ ] Repository implementation in `Infrastructure/Repositories/`
+- [ ] EF Core entity configuration in `Infrastructure/Persistence/Configurations/`
 - [ ] Controller in `Api/Controllers/V1/`
-- [ ] DI registration in `ServiceCollectionExtensions.cs`
+- [ ] Repository DI registration in `PersistenceServiceCollectionExtensions.cs`
+- [ ] Permissions in `Permission.cs`
+- [ ] Error codes in `ErrorCatalog.cs`
+- [ ] Cache invalidation notification in `CacheEvents.cs`
 - [ ] EF Core migration (see [ef-migration.md](ef-migration.md))
 
 ---
@@ -365,14 +697,19 @@ To obtain a Bearer token, see [AUTHENTICATION.md](AUTHENTICATION.md).
 
 | File | Purpose |
 |------|---------|
-| `Api/Controllers/V1/` | HTTP endpoint definitions |
-| `Application/Features/<Feature>/DTOs/` | Request/response contracts |
-| `Application/Features/<Feature>/Validation/` | Input validation rules |
-| `Application/Features/<Feature>/Mappings/` | Entity ↔ DTO converters |
-| `Application/Features/<Feature>/Services/` | Business logic |
-| `Application/Features/<Feature>/Interfaces/` | Service contracts |
-| `Domain/Entities/` | Domain models |
-| `Domain/Interfaces/` | Repository contracts |
+| `Api/Controllers/V1/` | HTTP endpoint definitions (thin, ISender dispatch) |
+| `Application/Features/<Feature>/DTOs/` | Filter, request & response contracts |
+| `Application/Features/<Feature>/Handlers/` | MediatR queries, commands & handlers |
+| `Application/Features/<Feature>/Specifications/` | Ardalis.Specification query logic |
+| `Application/Features/<Feature>/Mappings/` | Expression projections (Entity → DTO) |
+| `Application/Features/<Feature>/Validation/` | FluentValidation validators |
+| `Application/Features/<Feature>/<Feature>SortFields.cs` | Sort field mappings |
+| `Application/Common/DTOs/` | `PagedResponse<T>`, `PaginationFilter` |
+| `Application/Common/Security/Permission.cs` | Permission constants |
+| `Application/Common/Errors/ErrorCatalog.cs` | Error code constants |
+| `Application/Common/Events/CacheEvents.cs` | Cache invalidation notifications |
+| `Domain/Entities/` | Domain models (`IAuditableTenantEntity`) |
+| `Domain/Interfaces/` | Repository contracts (`IRepository<T>`) |
 | `Infrastructure/Repositories/` | EF Core repository implementations |
-| `Extensions/ServiceCollectionExtensions.cs` | DI registration |
-
+| `Infrastructure/Persistence/Configurations/` | EF Core entity configurations |
+| `Api/Extensions/PersistenceServiceCollectionExtensions.cs` | Repository DI registration |
