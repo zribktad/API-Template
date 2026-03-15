@@ -41,7 +41,7 @@ internal static class TestServiceHelper
         );
 
         services.PostConfigure<OpenIdConnectOptions>(
-            BffAuthenticationSchemes.Oidc,
+            AuthConstants.BffSchemes.Oidc,
             options =>
             {
                 options.MetadataAddress = null;

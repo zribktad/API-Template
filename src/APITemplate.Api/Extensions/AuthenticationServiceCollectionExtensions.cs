@@ -96,7 +96,7 @@ public static class AuthenticationServiceCollectionExtensions
         ConfigureAuthenticationSchemes(services, authSettings, environment);
         ConfigureCookieSessionStore(services);
         ConfigureAuthorization(services, configuration);
-        ConfigureKeycloakInfrastructure(services);
+        ConfigureKeycloakInfrastructure(services, configuration);
 
         return services;
     }
@@ -125,11 +125,11 @@ public static class AuthenticationServiceCollectionExtensions
             })
             .AddJwtBearer(options => ConfigureJwtBearer(options, settings, environment))
             .AddCookie(
-                BffAuthenticationSchemes.Cookie,
+                AuthConstants.BffSchemes.Cookie,
                 options => ConfigureCookie(options, settings, environment)
             )
             .AddOpenIdConnect(
-                BffAuthenticationSchemes.Oidc,
+                AuthConstants.BffSchemes.Oidc,
                 options => ConfigureOpenIdConnect(options, settings, environment)
             );
     }
@@ -199,7 +199,7 @@ public static class AuthenticationServiceCollectionExtensions
         options.ClientSecret = settings.Keycloak.Credentials.Secret;
         options.ResponseType = OpenIdConnectResponseType.Code;
         options.SaveTokens = true;
-        options.SignInScheme = BffAuthenticationSchemes.Cookie;
+        options.SignInScheme = AuthConstants.BffSchemes.Cookie;
 
         options.Scope.Clear();
         foreach (var scope in settings.Bff.Scopes)
@@ -215,7 +215,7 @@ public static class AuthenticationServiceCollectionExtensions
     {
         services.AddSingleton<ValkeyTicketStore>();
         services
-            .AddOptions<CookieAuthenticationOptions>(BffAuthenticationSchemes.Cookie)
+            .AddOptions<CookieAuthenticationOptions>(AuthConstants.BffSchemes.Cookie)
             .Configure<ValkeyTicketStore>((opts, store) => opts.SessionStore = store);
     }
 
@@ -234,29 +234,29 @@ public static class AuthenticationServiceCollectionExtensions
                 new AuthorizationPolicyBuilder()
                     .AddAuthenticationSchemes(
                         JwtBearerDefaults.AuthenticationScheme,
-                        BffAuthenticationSchemes.Cookie
+                        AuthConstants.BffSchemes.Cookie
                     )
                     .RequireAuthenticatedUser()
                     .Build()
             )
             .AddPolicy(
-                AuthorizationPolicies.PlatformAdmin,
+                AuthConstants.Policies.PlatformAdmin,
                 policy =>
                     policy
                         .AddAuthenticationSchemes(
                             JwtBearerDefaults.AuthenticationScheme,
-                            BffAuthenticationSchemes.Cookie
+                            AuthConstants.BffSchemes.Cookie
                         )
                         .RequireAuthenticatedUser()
                         .RequireRole(UserRole.PlatformAdmin.ToString())
             )
             .AddPolicy(
-                AuthorizationPolicies.TenantAdmin,
+                AuthConstants.Policies.TenantAdmin,
                 policy =>
                     policy
                         .AddAuthenticationSchemes(
                             JwtBearerDefaults.AuthenticationScheme,
-                            BffAuthenticationSchemes.Cookie
+                            AuthConstants.BffSchemes.Cookie
                         )
                         .RequireAuthenticatedUser()
                         .RequireRole(
@@ -267,11 +267,16 @@ public static class AuthenticationServiceCollectionExtensions
             .AddPermissionPolicies();
     }
 
-    private static void ConfigureKeycloakInfrastructure(IServiceCollection services)
+    private static void ConfigureKeycloakInfrastructure(
+        IServiceCollection services,
+        IConfiguration configuration
+    )
     {
         services.AddHttpClient(nameof(KeycloakHealthCheck));
         services.AddHttpClient(AuthConstants.HttpClients.KeycloakToken);
         services.AddHealthChecks().AddCheck<KeycloakHealthCheck>("keycloak", tags: ["identity"]);
+
+        var keycloakOptions = configuration.GetSection("Keycloak").Get<KeycloakOptions>()!;
 
         services.AddResiliencePipeline(
             ResiliencePipelineKeys.KeycloakReadiness,
@@ -280,7 +285,7 @@ public static class AuthenticationServiceCollectionExtensions
                 builder.AddRetry(
                     new()
                     {
-                        MaxRetryAttempts = 29,
+                        MaxRetryAttempts = keycloakOptions.ReadinessMaxRetries - 1,
                         BackoffType = DelayBackoffType.Constant,
                         Delay = TimeSpan.FromSeconds(2),
                         ShouldHandle = new PredicateBuilder()

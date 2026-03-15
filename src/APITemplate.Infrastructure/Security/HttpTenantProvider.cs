@@ -25,7 +25,9 @@ public sealed class HttpTenantProvider : ITenantProvider
     {
         get
         {
-            var claimValue = _httpContextAccessor.HttpContext?.User.FindFirstValue(CustomClaimTypes.TenantId);
+            var claimValue = _httpContextAccessor.HttpContext?.User.FindFirstValue(
+                AuthConstants.Claims.TenantId
+            );
             // Invalid or missing tenant claim is represented as Guid.Empty and treated as "no tenant".
             return Guid.TryParse(claimValue, out var tenantId) ? tenantId : Guid.Empty;
         }

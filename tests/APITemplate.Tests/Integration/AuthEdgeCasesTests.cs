@@ -1,3 +1,4 @@
+using APITemplate.Application.Common.Http;
 using Shouldly;
 using Xunit;
 
@@ -17,13 +18,22 @@ public class AuthEdgeCasesTests : IClassFixture<CustomWebApplicationFactory>
     {
         var ct = TestContext.Current.CancellationToken;
         using var request = new HttpRequestMessage(HttpMethod.Get, "/openapi/v1.json");
-        request.Headers.Add("X-Correlation-Id", "corr-edge-123");
+        request.Headers.Add(RequestContextConstants.Headers.CorrelationId, "corr-edge-123");
 
         var response = await _client.SendAsync(request, ct);
 
         response.IsSuccessStatusCode.ShouldBeTrue();
-        response.Headers.GetValues("X-Correlation-Id").Single().ShouldBe("corr-edge-123");
-        response.Headers.GetValues("X-Trace-Id").Single().ShouldNotBeNullOrWhiteSpace();
-        response.Headers.GetValues("X-Elapsed-Ms").Single().ShouldNotBeNullOrWhiteSpace();
+        response
+            .Headers.GetValues(RequestContextConstants.Headers.CorrelationId)
+            .Single()
+            .ShouldBe("corr-edge-123");
+        response
+            .Headers.GetValues(RequestContextConstants.Headers.TraceId)
+            .Single()
+            .ShouldNotBeNullOrWhiteSpace();
+        response
+            .Headers.GetValues(RequestContextConstants.Headers.ElapsedMs)
+            .Single()
+            .ShouldNotBeNullOrWhiteSpace();
     }
 }

@@ -34,8 +34,8 @@ public sealed class TenantAwareOutputCachePolicy : IOutputCachePolicy
 
         // Vary cache key by tenant so each tenant has isolated cache entries.
         var tenantId =
-            context.HttpContext.User.FindFirstValue(CustomClaimTypes.TenantId) ?? string.Empty;
-        context.CacheVaryByRules.VaryByValues[CustomClaimTypes.TenantId] = tenantId;
+            context.HttpContext.User.FindFirstValue(AuthConstants.Claims.TenantId) ?? string.Empty;
+        context.CacheVaryByRules.VaryByValues[AuthConstants.Claims.TenantId] = tenantId;
         CacheTelemetry.ConfigureRequest(context);
 
         return ValueTask.CompletedTask;

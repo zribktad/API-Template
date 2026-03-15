@@ -13,7 +13,7 @@ namespace APITemplate.Api.Controllers.V1;
 [ApiVersion(1.0)]
 [ApiController]
 [Route("api/v{version:apiVersion}/bff")]
-[Authorize(AuthenticationSchemes = BffAuthenticationSchemes.Cookie)]
+[Authorize(AuthenticationSchemes = AuthConstants.BffSchemes.Cookie)]
 public sealed class BffController : ControllerBase
 {
     private readonly BffOptions _bffOptions;
@@ -30,7 +30,7 @@ public sealed class BffController : ControllerBase
         var redirectUri = Url.IsLocalUrl(returnUrl) ? returnUrl : "/";
         return Challenge(
             new AuthenticationProperties { RedirectUri = redirectUri },
-            BffAuthenticationSchemes.Oidc
+            AuthConstants.BffSchemes.Oidc
         );
     }
 
@@ -39,15 +39,21 @@ public sealed class BffController : ControllerBase
     {
         return SignOut(
             new AuthenticationProperties { RedirectUri = _bffOptions.PostLogoutRedirectUri },
-            BffAuthenticationSchemes.Cookie,
-            BffAuthenticationSchemes.Oidc
+            AuthConstants.BffSchemes.Cookie,
+            AuthConstants.BffSchemes.Oidc
         );
     }
 
     [HttpGet("csrf")]
     [AllowAnonymous]
     public IActionResult GetCsrf() =>
-        Ok(new { headerName = CsrfConstants.HeaderName, headerValue = CsrfConstants.HeaderValue });
+        Ok(
+            new
+            {
+                headerName = AuthConstants.Csrf.HeaderName,
+                headerValue = AuthConstants.Csrf.HeaderValue,
+            }
+        );
 
     [HttpGet("user")]
     public IActionResult GetUser()
@@ -58,7 +64,7 @@ public sealed class BffController : ControllerBase
             UserId: user.FindFirstValue(ClaimTypes.NameIdentifier),
             Username: user.FindFirstValue(ClaimTypes.Name),
             Email: user.FindFirstValue(ClaimTypes.Email),
-            TenantId: user.FindFirstValue(CustomClaimTypes.TenantId),
+            TenantId: user.FindFirstValue(AuthConstants.Claims.TenantId),
             Roles: user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray()
         );
 

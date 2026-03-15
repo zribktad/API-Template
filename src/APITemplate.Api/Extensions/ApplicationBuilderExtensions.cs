@@ -150,17 +150,18 @@ public static class ApplicationBuilderExtensions
         }
         catch (HttpRequestException ex)
         {
-            app.Logger.KeycloakUnavailable(ex, 30);
+            app.Logger.KeycloakUnavailable(ex, keycloak.ReadinessMaxRetries);
             throw new InvalidOperationException(
-                $"Keycloak at {keycloak.AuthServerUrl} did not become available after 30 retries.",
+                $"Keycloak at {keycloak.AuthServerUrl} did not become available after {keycloak.ReadinessMaxRetries} retries.",
                 ex
             );
         }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
-            app.Logger.KeycloakUnavailable(null!, 30);
+            app.Logger.KeycloakUnavailable(ex, keycloak.ReadinessMaxRetries);
             throw new InvalidOperationException(
-                $"Keycloak at {keycloak.AuthServerUrl} did not become available after 30 retries."
+                $"Keycloak at {keycloak.AuthServerUrl} did not become available after {keycloak.ReadinessMaxRetries} retries.",
+                ex
             );
         }
     }

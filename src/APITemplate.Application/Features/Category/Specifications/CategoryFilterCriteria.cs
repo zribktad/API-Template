@@ -1,3 +1,4 @@
+using APITemplate.Application.Common.Search;
 using Ardalis.Specification;
 using Microsoft.EntityFrameworkCore;
 using CategoryEntity = APITemplate.Domain.Entities.Category;
@@ -6,8 +7,6 @@ namespace APITemplate.Application.Features.Category.Specifications;
 
 internal static class CategoryFilterCriteria
 {
-    private const string SearchConfiguration = "english";
-
     internal static void ApplyFilter(
         this ISpecificationBuilder<CategoryEntity> query,
         CategoryFilter filter
@@ -18,10 +17,15 @@ internal static class CategoryFilterCriteria
 
         query.Where(category =>
             EF.Functions.ToTsVector(
-                    SearchConfiguration,
+                    SearchDefaults.TextSearchConfiguration,
                     category.Name + " " + (category.Description ?? string.Empty)
                 )
-                .Matches(EF.Functions.WebSearchToTsQuery(SearchConfiguration, filter.Query))
+                .Matches(
+                    EF.Functions.WebSearchToTsQuery(
+                        SearchDefaults.TextSearchConfiguration,
+                        filter.Query
+                    )
+                )
         );
     }
 }

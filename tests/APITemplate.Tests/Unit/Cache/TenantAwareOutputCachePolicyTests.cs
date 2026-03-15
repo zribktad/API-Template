@@ -30,6 +30,23 @@ public sealed class TenantAwareOutputCachePolicyTests
         await sut.ServeFromCacheAsync(context, TestContext.Current.CancellationToken);
     }
 
+    [Theory]
+    [InlineData("POST")]
+    [InlineData("PUT")]
+    [InlineData("DELETE")]
+    [InlineData("PATCH")]
+    public async Task CacheRequestAsync_NonGetHeadMethod_DoesNotEnableCache(string method)
+    {
+        var sut = new TenantAwareOutputCachePolicy();
+        var context = CreateContext(method);
+
+        await sut.CacheRequestAsync(context, TestContext.Current.CancellationToken);
+
+        context.EnableOutputCaching.ShouldBeFalse();
+        context.AllowCacheLookup.ShouldBeFalse();
+        context.AllowCacheStorage.ShouldBeFalse();
+    }
+
     [Fact]
     public async Task ServeResponseAsync_WhenStorageDisabled_CompletesWithoutError()
     {
@@ -40,10 +57,10 @@ public sealed class TenantAwareOutputCachePolicyTests
         await sut.ServeResponseAsync(context, TestContext.Current.CancellationToken);
     }
 
-    private static OutputCacheContext CreateContext()
+    private static OutputCacheContext CreateContext(string method = "GET")
     {
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Method = HttpMethods.Get;
+        httpContext.Request.Method = method;
         httpContext.Request.Path = "/api/v1/products";
         return new OutputCacheContext { HttpContext = httpContext };
     }

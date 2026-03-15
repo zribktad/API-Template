@@ -155,7 +155,7 @@ public static class ApiServiceCollectionExtensions
             var lazyMultiplexer = new Lazy<IConnectionMultiplexer>(() =>
                 ConnectionMultiplexer.Connect(valkeyConnectionString)
             );
-            services.AddSingleton(_ => lazyMultiplexer.Value);
+            services.AddSingleton<IConnectionMultiplexer>(_ => lazyMultiplexer.Value);
 
             services.AddStackExchangeRedisOutputCache(options =>
             {
