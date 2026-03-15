@@ -74,12 +74,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<AppUser> Users => Set<AppUser>();
-public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
-
-    /// <summary>
-    /// Keyless entity — no backing table.
-    /// Materialised only via <c>FromSql()</c> when calling the stored procedure.
-    /// </summary>
+    public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
     public DbSet<ProductCategoryStats> ProductCategoryStats => Set<ProductCategoryStats>();
 
     /// <summary>
@@ -120,10 +115,26 @@ public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
     /// Discovers all model types implementing tenant + soft-delete contracts
     /// and wires a generic global filter for each of them.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// EF Core does not have a built-in way to register a generic query filter for "all
+    /// types that implement these interfaces". This method finds those types at model
+    /// build time and applies the filter using reflection.
+    /// </para>
+    /// <para>
+    /// The applied filters ensure:
+    ///  - soft-deleted rows (IsDeleted == true) are excluded implicitly,
+    ///  - and multi-tenant reads are scoped to the current tenant.
+    /// </para>
+    /// </remarks>
     private void ApplyGlobalFilters(ModelBuilder modelBuilder)
     {
+        // Iterate over every entity type that EF Core knows about.
+        // This includes all DbSet<> entities and entities registered via configurations.
+
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
+            // Only apply the filter to entities that support both multi-tenancy and soft delete.
             if (
                 !typeof(ITenantEntity).IsAssignableFrom(entityType.ClrType)
                 || !typeof(ISoftDeletable).IsAssignableFrom(entityType.ClrType)
@@ -132,6 +143,8 @@ public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
                 continue;
             }
 
+            // The SetGlobalFilter method is generic (<TEntity>). We only know the concrete type
+            // at runtime, so we construct a closed generic method using reflection.
             var method = typeof(AppDbContext)
                 .GetMethod(
                     nameof(SetGlobalFilter),
@@ -140,6 +153,7 @@ public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
                 )!
                 .MakeGenericMethod(entityType.ClrType);
 
+            // Invoke the configured generic helper, applying the query filters to the model.
             method.Invoke(this, [modelBuilder]);
         }
     }
