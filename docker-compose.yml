@@ -151,6 +151,17 @@ services:
       timeout: 5s
       retries: 5
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
   api:
     build:
       context: .
@@ -170,6 +181,9 @@ services:
       Observability__Otlp__Endpoint: "http://alloy:4317"
       Observability__Exporters__Otlp__Enabled: "true"
       Observability__Exporters__Aspire__Enabled: "false"
+      Email__SmtpHost: "mailpit"
+      Email__SmtpPort: "1025"
+      Email__UseSsl: "false"
     depends_on:
       alloy:
         condition: service_started
@@ -181,6 +195,8 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
 volumes:
   prometheusdata:
