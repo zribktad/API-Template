@@ -16,7 +16,7 @@ namespace APITemplate.Application.Common.Behaviors;
 /// - Runs all registered <see cref="IValidator{T}"/> for the request type (TRequest).
 /// - Additionally validates nested complex objects (including items inside enumerable properties),
 ///   if validators for those runtime types are registered in DI.
-/// - Throws <see cref="APITemplate.Domain.Exceptions.ValidationException"/> when any failures are found.
+/// - Throws <see cref="Domain.Exceptions.ValidationException"/> when any failures are found.
 ///
 /// Why this exists:
 /// - Centralizes validation (REST + GraphQL both dispatch via MediatR).
@@ -32,7 +32,10 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
 {
     // Cache of readable public instance properties for each request type.
     // Safe growth: bounded by number of MediatR request types in the application.
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> ReadablePublicInstancePropertiesCache = new();
+    private static readonly ConcurrentDictionary<
+        Type,
+        PropertyInfo[]
+    > ReadablePublicInstancePropertiesCache = new();
 
     // Cache of "IEnumerable<IValidator<SomeRuntimeType>>" constructed types used for DI resolution.
     // This avoids repeated reflection for nested object validation.
@@ -43,7 +46,8 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
 
     public ValidationBehavior(
         IServiceProvider serviceProvider,
-        IEnumerable<IValidator<TRequest>> requestValidators)
+        IEnumerable<IValidator<TRequest>> requestValidators
+    )
     {
         // IServiceProvider is used to resolve validators for nested runtime types (object properties / collection items).
         _serviceProvider = serviceProvider;
@@ -59,13 +63,14 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
     /// <param name="next">Delegate that invokes the next behavior / the handler.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The handler response when validation succeeds.</returns>
-    /// <exception cref="APITemplate.Domain.Exceptions.ValidationException">
+    /// <exception cref="Domain.Exceptions.ValidationException">
     /// Thrown when one or more FluentValidation rules fail.
     /// </exception>
     public async Task<TResponse> Handle(
         TRequest request,
         RequestHandlerDelegate<TResponse> next,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
         // Collect all FluentValidation failures in one list so we can throw a single domain exception.
         var failures = new List<ValidationFailure>();
@@ -86,12 +91,15 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
                     .Select(failure =>
                         string.IsNullOrWhiteSpace(failure.PropertyName)
                             ? failure.ErrorMessage
-                            : $"{failure.PropertyName}: {failure.ErrorMessage}")
-                    .Distinct());
+                            : $"{failure.PropertyName}: {failure.ErrorMessage}"
+                    )
+                    .Distinct()
+            );
 
             throw new Domain.Exceptions.ValidationException(
                 message,
-                ErrorCatalog.General.ValidationFailed);
+                ErrorCatalog.General.ValidationFailed
+            );
         }
 
         // 4) All good → continue to the next behavior / the actual request handler.
@@ -109,7 +117,8 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
     private static async Task<List<ValidationFailure>> ValidateAsync<T>(
         T value,
         IEnumerable<IValidator<T>> validators,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
         // Runs a set of validators for a single value and returns all failures.
         var failures = new List<ValidationFailure>();
@@ -131,7 +140,10 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
     /// <param name="value">Nested object instance to validate.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>List of validation failures (empty when no validators exist or the object is valid).</returns>
-    private async Task<List<ValidationFailure>> ValidateNestedAsync(object value, CancellationToken ct)
+    private async Task<List<ValidationFailure>> ValidateNestedAsync(
+        object value,
+        CancellationToken ct
+    )
     {
         // We resolve "IEnumerable<IValidator<RuntimeType>>" from DI.
         // Example: for value.GetType() == CreateWidgetRequest → IEnumerable<IValidator<CreateWidgetRequest>>.
@@ -143,7 +155,8 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
                 var validatorType = typeof(IValidator<>).MakeGenericType(runtimeType);
                 // Construct IEnumerable<IValidator<RuntimeType>> for DI resolution.
                 return typeof(IEnumerable<>).MakeGenericType(validatorType);
-            });
+            }
+        );
 
         // Resolve validators for this runtime type. If none are registered, nested validation is skipped.
         var validators = _serviceProvider.GetService(validatorsType) as IEnumerable;
@@ -186,9 +199,11 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
         var properties = ReadablePublicInstancePropertiesCache.GetOrAdd(
             typeof(TRequest),
             requestType =>
-                requestType.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                requestType
+                    .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                     .Where(p => p.CanRead && p.GetIndexParameters().Length == 0)
-                    .ToArray());
+                    .ToArray()
+        );
 
         foreach (var property in properties)
         {

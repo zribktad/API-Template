@@ -17,16 +17,16 @@ public sealed class ValidationBehaviorTests
 
         using var provider = services.BuildServiceProvider();
 
-        var sut = new ValidationBehavior<CreateWidgetCommand, string>(
-            provider,
-            []);
+        var sut = new ValidationBehavior<CreateWidgetCommand, string>(provider, []);
 
-        var act = () => sut.Handle(
-            new CreateWidgetCommand(new CreateWidgetRequest(string.Empty)),
-            _ => Task.FromResult("ok"),
-            TestContext.Current.CancellationToken);
+        var act = () =>
+            sut.Handle(
+                new CreateWidgetCommand(new CreateWidgetRequest(string.Empty)),
+                _ => Task.FromResult("ok"),
+                TestContext.Current.CancellationToken
+            );
 
-        await Should.ThrowAsync<APITemplate.Domain.Exceptions.ValidationException>(act);
+        await Should.ThrowAsync<Domain.Exceptions.ValidationException>(act);
     }
 
     [Fact]
@@ -37,9 +37,7 @@ public sealed class ValidationBehaviorTests
 
         using var provider = services.BuildServiceProvider();
 
-        var sut = new ValidationBehavior<CreateWidgetCommand, string>(
-            provider,
-            []);
+        var sut = new ValidationBehavior<CreateWidgetCommand, string>(provider, []);
 
         var wasCalled = false;
         var result = await sut.Handle(
@@ -49,7 +47,8 @@ public sealed class ValidationBehaviorTests
                 wasCalled = true;
                 return Task.FromResult("ok");
             },
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken
+        );
 
         wasCalled.ShouldBeTrue();
         result.ShouldBe("ok");
@@ -75,16 +74,19 @@ public sealed class ValidationBehaviorTests
 
         using var provider = services.BuildServiceProvider();
 
-        var sut = new ValidationBehavior<CreateOrderCommand, string>(
-            provider,
-            []);
+        var sut = new ValidationBehavior<CreateOrderCommand, string>(provider, []);
 
-        var act = () => sut.Handle(
-            new CreateOrderCommand([new OrderLineRequest(string.Empty), new OrderLineRequest("valid")]),
-            _ => Task.FromResult("ok"),
-            TestContext.Current.CancellationToken);
+        var act = () =>
+            sut.Handle(
+                new CreateOrderCommand([
+                    new OrderLineRequest(string.Empty),
+                    new OrderLineRequest("valid"),
+                ]),
+                _ => Task.FromResult("ok"),
+                TestContext.Current.CancellationToken
+            );
 
-        await Should.ThrowAsync<APITemplate.Domain.Exceptions.ValidationException>(act);
+        await Should.ThrowAsync<Domain.Exceptions.ValidationException>(act);
     }
 
     [Fact]
@@ -95,9 +97,7 @@ public sealed class ValidationBehaviorTests
 
         using var provider = services.BuildServiceProvider();
 
-        var sut = new ValidationBehavior<CreateOrderCommand, string>(
-            provider,
-            []);
+        var sut = new ValidationBehavior<CreateOrderCommand, string>(provider, []);
 
         var wasCalled = false;
         var result = await sut.Handle(
@@ -107,7 +107,8 @@ public sealed class ValidationBehaviorTests
                 wasCalled = true;
                 return Task.FromResult("ok");
             },
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken
+        );
 
         wasCalled.ShouldBeTrue();
         result.ShouldBe("ok");
@@ -115,7 +116,8 @@ public sealed class ValidationBehaviorTests
 
     private sealed record OrderLineRequest(string Name);
 
-    private sealed record CreateOrderCommand(IReadOnlyCollection<OrderLineRequest> Lines) : IRequest<string>;
+    private sealed record CreateOrderCommand(IReadOnlyCollection<OrderLineRequest> Lines)
+        : IRequest<string>;
 
     private sealed class OrderLineRequestValidator : AbstractValidator<OrderLineRequest>
     {

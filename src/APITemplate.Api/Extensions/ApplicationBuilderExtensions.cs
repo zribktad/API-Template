@@ -110,7 +110,7 @@ public static class ApplicationBuilderExtensions
             return;
         }
 
-        if (app.Configuration.GetValue<bool>("Keycloak:SkipReadinessCheck"))
+        if (keycloak.SkipReadinessCheck)
         {
             app.Logger.KeycloakReadinessCheckSkipped();
             return;

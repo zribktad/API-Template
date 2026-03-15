@@ -16,6 +16,9 @@ public sealed class KeycloakOptions
     [ConfigurationKeyName("resource")]
     public string Resource { get; init; } = string.Empty;
 
+    [ConfigurationKeyName("SkipReadinessCheck")]
+    public bool SkipReadinessCheck { get; init; }
+
     [ConfigurationKeyName("credentials")]
     public KeycloakCredentialsOptions Credentials { get; init; } = new();
 }
