@@ -49,6 +49,29 @@
       "problemMatcher": []
     },
     {
+      "label": "docker: mailpit up",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "up",
+        "-d",
+        "mailpit"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "docker: mailpit down",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "down",
+        "mailpit"
+      ],
+      "problemMatcher": []
+    },
+    {
       "label": "docker: infra ensure up (dev)",
       "type": "process",
       "command": "pwsh",
