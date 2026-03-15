@@ -16,28 +16,44 @@ namespace APITemplate.Api.Cache;
 /// </remarks>
 public sealed class TenantAwareOutputCachePolicy : IOutputCachePolicy
 {
-    public ValueTask CacheRequestAsync(OutputCacheContext context, CancellationToken cancellationToken)
+    public ValueTask CacheRequestAsync(
+        OutputCacheContext context,
+        CancellationToken cancellationToken
+    )
     {
+        if (
+            !HttpMethods.IsGet(context.HttpContext.Request.Method)
+            && !HttpMethods.IsHead(context.HttpContext.Request.Method)
+        )
+            return ValueTask.CompletedTask;
+
         // Explicitly enable caching even when an Authorization header is present.
         context.EnableOutputCaching = true;
         context.AllowCacheLookup = true;
         context.AllowCacheStorage = true;
 
         // Vary cache key by tenant so each tenant has isolated cache entries.
-        var tenantId = context.HttpContext.User.FindFirstValue(CustomClaimTypes.TenantId) ?? string.Empty;
+        var tenantId =
+            context.HttpContext.User.FindFirstValue(CustomClaimTypes.TenantId) ?? string.Empty;
         context.CacheVaryByRules.VaryByValues[CustomClaimTypes.TenantId] = tenantId;
         CacheTelemetry.ConfigureRequest(context);
 
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask ServeFromCacheAsync(OutputCacheContext context, CancellationToken cancellationToken)
+    public ValueTask ServeFromCacheAsync(
+        OutputCacheContext context,
+        CancellationToken cancellationToken
+    )
     {
         CacheTelemetry.RecordCacheHit(context);
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask ServeResponseAsync(OutputCacheContext context, CancellationToken cancellationToken)
+    public ValueTask ServeResponseAsync(
+        OutputCacheContext context,
+        CancellationToken cancellationToken
+    )
     {
         CacheTelemetry.RecordResponseOutcome(context);
         return ValueTask.CompletedTask;

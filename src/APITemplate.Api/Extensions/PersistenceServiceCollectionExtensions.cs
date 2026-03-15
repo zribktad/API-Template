@@ -40,23 +40,32 @@ public static class PersistenceServiceCollectionExtensions
             ConfigurePostgresDbContext(options, connectionString, transactionDefaults)
         );
 
+        // Repositories (data access)
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IProductDataLinkRepository, ProductDataLinkRepository>();
         services.AddScoped<IProductReviewRepository, ProductReviewRepository>();
-        services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ITenantRepository, TenantRepository>();
-services.AddScoped<ITenantInvitationRepository, TenantInvitationRepository>();
+        services.AddScoped<ITenantInvitationRepository, TenantInvitationRepository>();
+
+        // Infrastructure / persistence helpers
+        services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
         services.AddScoped<IDbTransactionProvider, EfCoreTransactionProvider>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        // Auditing / normalization / soft delete behavior
         services.AddSingleton<IEntityNormalizationService, AppUserEntityNormalizationService>();
         services.AddSingleton<IAuditableEntityStateManager, AuditableEntityStateManager>();
         services.AddSingleton<ISoftDeleteProcessor, SoftDeleteProcessor>();
-        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
-        services.AddScoped<AuthBootstrapSeeder>();
         services.AddScoped<ISoftDeleteCascadeRule, ProductSoftDeleteCascadeRule>();
         services.AddScoped<ISoftDeleteCascadeRule, TenantSoftDeleteCascadeRule>();
+
+        // Application services / initialization
+        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
+        services.AddScoped<AuthBootstrapSeeder>();
+
+        // System services
         services.AddSingleton(TimeProvider.System);
 
         services

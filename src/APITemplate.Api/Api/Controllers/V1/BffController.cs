@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using APITemplate.Api.Cache;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Bff.DTOs;
@@ -6,6 +7,7 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.Options;
 
 namespace APITemplate.Api.Controllers.V1;
@@ -14,6 +16,7 @@ namespace APITemplate.Api.Controllers.V1;
 [ApiController]
 [Route("api/v{version:apiVersion}/bff")]
 [Authorize(AuthenticationSchemes = BffAuthenticationSchemes.Cookie)]
+[OutputCache(PolicyName = CachePolicyNames.NoCache)]
 public sealed class BffController : ControllerBase
 {
     private readonly BffOptions _bffOptions;
@@ -30,7 +33,8 @@ public sealed class BffController : ControllerBase
         var redirectUri = Url.IsLocalUrl(returnUrl) ? returnUrl : "/";
         return Challenge(
             new AuthenticationProperties { RedirectUri = redirectUri },
-            BffAuthenticationSchemes.Oidc);
+            BffAuthenticationSchemes.Oidc
+        );
     }
 
     [HttpGet("logout")]
@@ -39,12 +43,14 @@ public sealed class BffController : ControllerBase
         return SignOut(
             new AuthenticationProperties { RedirectUri = _bffOptions.PostLogoutRedirectUri },
             BffAuthenticationSchemes.Cookie,
-            BffAuthenticationSchemes.Oidc);
+            BffAuthenticationSchemes.Oidc
+        );
     }
 
     [HttpGet("csrf")]
     [AllowAnonymous]
-    public IActionResult GetCsrf() => Ok(new { headerName = CsrfConstants.HeaderName, headerValue = CsrfConstants.HeaderValue });
+    public IActionResult GetCsrf() =>
+        Ok(new { headerName = CsrfConstants.HeaderName, headerValue = CsrfConstants.HeaderValue });
 
     [HttpGet("user")]
     public IActionResult GetUser()
@@ -56,7 +62,8 @@ public sealed class BffController : ControllerBase
             Username: user.FindFirstValue(ClaimTypes.Name),
             Email: user.FindFirstValue(ClaimTypes.Email),
             TenantId: user.FindFirstValue(CustomClaimTypes.TenantId),
-            Roles: user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray());
+            Roles: user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray()
+        );
 
         return Ok(result);
     }

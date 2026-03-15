@@ -43,10 +43,8 @@ public sealed class TenantAwareOutputCachePolicyTests
     private static OutputCacheContext CreateContext()
     {
         var httpContext = new DefaultHttpContext();
+        httpContext.Request.Method = HttpMethods.Get;
         httpContext.Request.Path = "/api/v1/products";
-        return new OutputCacheContext
-        {
-            HttpContext = httpContext
-        };
+        return new OutputCacheContext { HttpContext = httpContext };
     }
 }
