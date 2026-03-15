@@ -1,3 +1,4 @@
+using APITemplate.Application.Common.Search;
 using APITemplate.Application.Features.Tenant.DTOs;
 using Ardalis.Specification;
 using Microsoft.EntityFrameworkCore;
@@ -7,8 +8,6 @@ namespace APITemplate.Application.Features.Tenant.Specifications;
 
 internal static class TenantFilterCriteria
 {
-    private const string SearchConfiguration = "english";
-
     internal static void ApplyFilter(
         this ISpecificationBuilder<TenantEntity> query,
         TenantFilter filter
@@ -18,8 +17,16 @@ internal static class TenantFilterCriteria
             return;
 
         query.Where(tenant =>
-            EF.Functions.ToTsVector(SearchConfiguration, tenant.Code + " " + tenant.Name)
-                .Matches(EF.Functions.WebSearchToTsQuery(SearchConfiguration, filter.Query))
+            EF.Functions.ToTsVector(
+                    SearchDefaults.TextSearchConfiguration,
+                    tenant.Code + " " + tenant.Name
+                )
+                .Matches(
+                    EF.Functions.WebSearchToTsQuery(
+                        SearchDefaults.TextSearchConfiguration,
+                        filter.Query
+                    )
+                )
         );
     }
 }

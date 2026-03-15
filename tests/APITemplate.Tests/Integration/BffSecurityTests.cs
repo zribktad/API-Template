@@ -31,9 +31,11 @@ public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFa
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Cookie-Auth", "1");
 
-        var response = await client.PostAsync("/api/v1/products",
+        var response = await client.PostAsync(
+            "/api/v1/products",
             new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            ct);
+            ct
+        );
 
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
@@ -44,11 +46,16 @@ public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFa
         var ct = TestContext.Current.CancellationToken;
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Cookie-Auth", "1");
-        client.DefaultRequestHeaders.Add(CsrfConstants.HeaderName, CsrfConstants.HeaderValue);
+        client.DefaultRequestHeaders.Add(
+            AuthConstants.Csrf.HeaderName,
+            AuthConstants.Csrf.HeaderValue
+        );
 
-        var response = await client.PostAsync("/api/v1/products",
+        var response = await client.PostAsync(
+            "/api/v1/products",
             new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            ct);
+            ct
+        );
 
         // CSRF passes; request reaches the controller where the empty body fails validation.
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -61,9 +68,11 @@ public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFa
         var client = _factory.CreateClient();
         IntegrationAuthHelper.Authenticate(client);
 
-        var response = await client.PostAsync("/api/v1/products",
+        var response = await client.PostAsync(
+            "/api/v1/products",
             new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            ct);
+            ct
+        );
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
@@ -103,7 +112,7 @@ public sealed class BffSecurityWebApplicationFactory : CustomWebApplicationFacto
             // in the existing SchemeBuilder — avoids "scheme already exists" errors.
             services.PostConfigure<AuthenticationOptions>(options =>
             {
-                if (options.SchemeMap.TryGetValue(BffAuthenticationSchemes.Cookie, out var builder))
+                if (options.SchemeMap.TryGetValue(AuthConstants.BffSchemes.Cookie, out var builder))
                     builder.HandlerType = typeof(FakeCookieAuthHandler);
             });
         });
@@ -119,8 +128,8 @@ public sealed class BffSecurityWebApplicationFactory : CustomWebApplicationFacto
 internal sealed class FakeCookieAuthHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
-    UrlEncoder encoder)
-    : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    UrlEncoder encoder
+) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -131,13 +140,15 @@ internal sealed class FakeCookieAuthHandler(
             [
                 new Claim(ClaimTypes.Name, "testuser"),
                 new Claim(AuthConstants.Claims.Subject, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Role, UserRole.PlatformAdmin.ToString())
+                new Claim(ClaimTypes.Role, UserRole.PlatformAdmin.ToString()),
             ],
-            BffAuthenticationSchemes.Cookie);
+            AuthConstants.BffSchemes.Cookie
+        );
 
         var ticket = new AuthenticationTicket(
             new ClaimsPrincipal(identity),
-            BffAuthenticationSchemes.Cookie);
+            AuthConstants.BffSchemes.Cookie
+        );
 
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }

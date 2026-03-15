@@ -5,4 +5,5 @@ public static class ResiliencePipelineKeys
     public const string MongoProductDataDelete = "mongo-productdata-delete";
     public const string SmtpSend = "smtp-send";
     public const string KeycloakAdmin = "keycloak-admin";
+    public const string KeycloakReadiness = "keycloak-readiness";
 }

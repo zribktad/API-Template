@@ -35,11 +35,18 @@ public static class TenantClaimValidator
 
         if (!HasValidTenantClaim(context.Principal) && !IsServiceAccount(context.Principal))
         {
-            AuthTelemetry.RecordMissingTenantClaim(context.HttpContext, JwtBearerDefaults.AuthenticationScheme);
-            context.Fail($"Missing required {CustomClaimTypes.TenantId} claim.");
+            AuthTelemetry.RecordMissingTenantClaim(
+                context.HttpContext,
+                JwtBearerDefaults.AuthenticationScheme
+            );
+            context.Fail($"Missing required {AuthConstants.Claims.TenantId} claim.");
         }
 
-        LogTokenValidated(context.HttpContext, context.Principal, JwtBearerDefaults.AuthenticationScheme);
+        LogTokenValidated(
+            context.HttpContext,
+            context.Principal,
+            JwtBearerDefaults.AuthenticationScheme
+        );
     }
 
     /// <summary>
@@ -59,11 +66,18 @@ public static class TenantClaimValidator
 
         if (!HasValidTenantClaim(context.Principal) && !IsServiceAccount(context.Principal))
         {
-            AuthTelemetry.RecordMissingTenantClaim(context.HttpContext, OpenIdConnectDefaults.AuthenticationScheme);
-            context.Fail($"Missing required {CustomClaimTypes.TenantId} claim.");
+            AuthTelemetry.RecordMissingTenantClaim(
+                context.HttpContext,
+                OpenIdConnectDefaults.AuthenticationScheme
+            );
+            context.Fail($"Missing required {AuthConstants.Claims.TenantId} claim.");
         }
 
-        LogTokenValidated(context.HttpContext, context.Principal, OpenIdConnectDefaults.AuthenticationScheme);
+        LogTokenValidated(
+            context.HttpContext,
+            context.Principal,
+            OpenIdConnectDefaults.AuthenticationScheme
+        );
     }
 
     /// <summary>
@@ -73,13 +87,17 @@ public static class TenantClaimValidator
     /// <returns><c>true</c> when a valid tenant claim exists; otherwise <c>false</c>.</returns>
     public static bool HasValidTenantClaim(ClaimsPrincipal? principal)
     {
-        return principal?.HasClaim(
-            c => c.Type == CustomClaimTypes.TenantId
-                 && Guid.TryParse(c.Value, out var tenantId)
-                 && tenantId != Guid.Empty) == true;
+        return principal?.HasClaim(c =>
+                c.Type == AuthConstants.Claims.TenantId
+                && Guid.TryParse(c.Value, out var tenantId)
+                && tenantId != Guid.Empty
+            ) == true;
     }
 
-    private static async Task TryProvisionUserAsync(HttpContext httpContext, ClaimsPrincipal? principal)
+    private static async Task TryProvisionUserAsync(
+        HttpContext httpContext,
+        ClaimsPrincipal? principal
+    )
     {
         try
         {
@@ -87,18 +105,22 @@ public static class TenantClaimValidator
             var email = principal?.FindFirstValue(ClaimTypes.Email);
             var username = principal?.FindFirstValue(AuthConstants.Claims.PreferredUsername);
 
-            if (string.IsNullOrEmpty(sub) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(username))
+            if (
+                string.IsNullOrEmpty(sub)
+                || string.IsNullOrEmpty(email)
+                || string.IsNullOrEmpty(username)
+            )
                 return;
 
-            var provisioningService = httpContext.RequestServices
-                .GetRequiredService<IUserProvisioningService>();
+            var provisioningService =
+                httpContext.RequestServices.GetRequiredService<IUserProvisioningService>();
 
             await provisioningService.ProvisionIfNeededAsync(sub, email, username);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            var logger = httpContext.RequestServices
-                .GetRequiredService<ILoggerFactory>()
+            var logger = httpContext
+                .RequestServices.GetRequiredService<ILoggerFactory>()
                 .CreateLogger(typeof(TenantClaimValidator));
 
             logger.UserProvisioningFailed(ex);
@@ -108,13 +130,21 @@ public static class TenantClaimValidator
     private static bool IsServiceAccount(ClaimsPrincipal? principal)
     {
         var username = principal?.FindFirstValue(AuthConstants.Claims.PreferredUsername);
-        return username != null && username.StartsWith(AuthConstants.Claims.ServiceAccountUsernamePrefix, StringComparison.OrdinalIgnoreCase);
+        return username != null
+            && username.StartsWith(
+                AuthConstants.Claims.ServiceAccountUsernamePrefix,
+                StringComparison.OrdinalIgnoreCase
+            );
     }
 
-    private static void LogTokenValidated(HttpContext httpContext, ClaimsPrincipal? principal, string scheme)
+    private static void LogTokenValidated(
+        HttpContext httpContext,
+        ClaimsPrincipal? principal,
+        string scheme
+    )
     {
-        var logger = httpContext.RequestServices
-            .GetRequiredService<ILoggerFactory>()
+        var logger = httpContext
+            .RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger(typeof(TenantClaimValidator));
 
         if (principal?.Identity is not ClaimsIdentity identity)
@@ -123,15 +153,13 @@ public static class TenantClaimValidator
             return;
         }
 
-        var claims = identity.Claims
-            .Select(c => $"{c.Type}={c.Value}")
-            .ToList();
+        var claims = identity.Claims.Select(c => $"{c.Type}={c.Value}").ToList();
 
         logger.TokenValidatedWithClaims(scheme, claims.Count, string.Join("; ", claims));
 
         var name = identity.FindFirst(ClaimTypes.Name)?.Value;
         var roles = identity.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
-        var tenantId = identity.FindFirst(CustomClaimTypes.TenantId)?.Value;
+        var tenantId = identity.FindFirst(AuthConstants.Claims.TenantId)?.Value;
 
         logger.UserAuthenticated(scheme, name, tenantId, string.Join(", ", roles));
     }

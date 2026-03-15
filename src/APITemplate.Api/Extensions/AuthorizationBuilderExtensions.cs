@@ -11,10 +11,17 @@ public static class AuthorizationBuilderExtensions
     {
         foreach (var permission in Permission.All)
         {
-            builder.AddPolicy(permission, policy =>
-                policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme, BffAuthenticationSchemes.Cookie)
-                    .RequireAuthenticatedUser()
-                    .AddRequirements(new PermissionRequirement(permission)));
+            builder.AddPolicy(
+                permission,
+                policy =>
+                    policy
+                        .AddAuthenticationSchemes(
+                            JwtBearerDefaults.AuthenticationScheme,
+                            AuthConstants.BffSchemes.Cookie
+                        )
+                        .RequireAuthenticatedUser()
+                        .AddRequirements(new PermissionRequirement(permission))
+            );
         }
 
         return builder;

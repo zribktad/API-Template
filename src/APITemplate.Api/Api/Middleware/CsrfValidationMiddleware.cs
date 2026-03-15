@@ -17,14 +17,19 @@ namespace APITemplate.Api.Middleware;
 /// The required header name and value are exposed via <c>GET /api/v1/bff/csrf</c>
 /// so that SPAs can discover the contract at runtime.
 /// </remarks>
-public sealed class CsrfValidationMiddleware(RequestDelegate next, IProblemDetailsService problemDetailsService)
+public sealed class CsrfValidationMiddleware(
+    RequestDelegate next,
+    IProblemDetailsService problemDetailsService
+)
 {
     public async Task InvokeAsync(HttpContext context)
     {
         // Safe methods cannot cause state changes, so CSRF is not a concern.
-        if (HttpMethods.IsGet(context.Request.Method) ||
-            HttpMethods.IsHead(context.Request.Method) ||
-            HttpMethods.IsOptions(context.Request.Method))
+        if (
+            HttpMethods.IsGet(context.Request.Method)
+            || HttpMethods.IsHead(context.Request.Method)
+            || HttpMethods.IsOptions(context.Request.Method)
+        )
         {
             await next(context);
             return;
@@ -32,9 +37,13 @@ public sealed class CsrfValidationMiddleware(RequestDelegate next, IProblemDetai
 
         // Explicit bearer tokens carry their own proof of origin; skip CSRF checks even if
         // a browser also happens to send a session cookie on the same request.
-        if (context.Request.Headers.TryGetValue("Authorization", out var authorizationValues) &&
-            authorizationValues.Any(static value =>
-                !string.IsNullOrEmpty(value) && value.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)))
+        if (
+            context.Request.Headers.TryGetValue("Authorization", out var authorizationValues)
+            && authorizationValues.Any(static value =>
+                !string.IsNullOrEmpty(value)
+                && value.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            )
+        )
         {
             await next(context);
             return;
@@ -43,12 +52,13 @@ public sealed class CsrfValidationMiddleware(RequestDelegate next, IProblemDetai
         // The default auth scheme is JWT Bearer, so UseAuthentication does not automatically
         // populate HttpContext.User from the BFF cookie scheme. Check both the current user
         // and the cookie scheme explicitly so cookie-authenticated requests cannot bypass CSRF.
-        var isCookieAuthenticated = context.User.Identities
-            .Any(i => i.AuthenticationType == BffAuthenticationSchemes.Cookie);
+        var isCookieAuthenticated = context.User.Identities.Any(i =>
+            i.AuthenticationType == AuthConstants.BffSchemes.Cookie
+        );
 
         if (!isCookieAuthenticated)
         {
-            var cookieAuthResult = await context.AuthenticateAsync(BffAuthenticationSchemes.Cookie);
+            var cookieAuthResult = await context.AuthenticateAsync(AuthConstants.BffSchemes.Cookie);
             isCookieAuthenticated = cookieAuthResult.Succeeded;
         }
 
@@ -59,8 +69,10 @@ public sealed class CsrfValidationMiddleware(RequestDelegate next, IProblemDetai
         }
 
         // Cookie-authenticated mutating request — require the custom CSRF header.
-        if (context.Request.Headers.TryGetValue(CsrfConstants.HeaderName, out var value) &&
-            value == CsrfConstants.HeaderValue)
+        if (
+            context.Request.Headers.TryGetValue(AuthConstants.Csrf.HeaderName, out var value)
+            && value == AuthConstants.Csrf.HeaderValue
+        )
         {
             await next(context);
             return;
@@ -68,16 +80,19 @@ public sealed class CsrfValidationMiddleware(RequestDelegate next, IProblemDetai
 
         // Header missing or wrong value — reject with 403 and RFC 7807 problem details.
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = context,
-            ProblemDetails =
+        await problemDetailsService.TryWriteAsync(
+            new ProblemDetailsContext
             {
-                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
-                Title = "Forbidden",
-                Status = StatusCodes.Status403Forbidden,
-                Detail = $"Cookie-authenticated requests must include the '{CsrfConstants.HeaderName}: {CsrfConstants.HeaderValue}' header."
+                HttpContext = context,
+                ProblemDetails =
+                {
+                    Type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
+                    Title = "Forbidden",
+                    Status = StatusCodes.Status403Forbidden,
+                    Detail =
+                        $"Cookie-authenticated requests must include the '{AuthConstants.Csrf.HeaderName}: {AuthConstants.Csrf.HeaderValue}' header.",
+                },
             }
-        });
+        );
     }
 }

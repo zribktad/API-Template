@@ -1,19 +1,21 @@
 using APITemplate.Api.Cache;
+using APITemplate.Api.Middleware;
 using APITemplate.Application.Common.Options;
+using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;
 using APITemplate.Infrastructure.Observability;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Security;
-using APITemplate.Api.Middleware;
 using HealthChecks.UI.Client;
 using Kot.MongoDB.Migrations;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.Registry;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
-using System.Net.Http;
 
 namespace APITemplate.Extensions;
 
@@ -25,7 +27,9 @@ public static class ApplicationBuilderExtensions
 
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>(); // Resolve EF Core context for relational migrations.
         if (dbContext.Database.IsRelational())
-            await StartupTelemetry.RunRelationalMigrationAsync(() => dbContext.Database.MigrateAsync());
+            await StartupTelemetry.RunRelationalMigrationAsync(() =>
+                dbContext.Database.MigrateAsync()
+            );
 
         var seeder = scope.ServiceProvider.GetRequiredService<AuthBootstrapSeeder>();
         await StartupTelemetry.RunAuthBootstrapSeedAsync(() => seeder.SeedAsync());
@@ -74,8 +78,9 @@ public static class ApplicationBuilderExtensions
         return app;
     }
 
-    private static bool IsClientAbortedRequest(HttpContext httpContext, Exception? exception)
-        => exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested;
+    private static bool IsClientAbortedRequest(HttpContext httpContext, Exception? exception) =>
+        exception is OperationCanceledException
+        && httpContext.RequestAborted.IsCancellationRequested;
 
     /// <summary>
     /// Identity and access-control pipeline: CORS preflight handling, token/cookie
@@ -84,15 +89,18 @@ public static class ApplicationBuilderExtensions
     /// </summary>
     public static WebApplication UseSecurityPipeline(this WebApplication app)
     {
-        app.UseCors();            // CORS preflight must precede authentication.
-        app.UseAuthentication();  // Populate HttpContext.User from JWT / cookie.
+        app.UseCors(); // CORS preflight must precede authentication.
+        app.UseAuthentication(); // Populate HttpContext.User from JWT / cookie.
         app.UseMiddleware<CsrfValidationMiddleware>(); // Require X-CSRF header for cookie-authenticated mutations.
-        app.UseAuthorization();   // Enforce endpoint authorization policies.
+        app.UseAuthorization(); // Enforce endpoint authorization policies.
 
         return app;
     }
 
-    public static async Task WaitForKeycloakAsync(this WebApplication app, CancellationToken cancellationToken = default)
+    public static async Task WaitForKeycloakAsync(
+        this WebApplication app,
+        CancellationToken cancellationToken = default
+    )
     {
         var keycloak = app.Services.GetRequiredService<IOptions<KeycloakOptions>>().Value;
 
@@ -102,63 +110,60 @@ public static class ApplicationBuilderExtensions
             return;
         }
 
-        if (app.Configuration.GetValue<bool>("Keycloak:SkipReadinessCheck"))
+        if (keycloak.SkipReadinessCheck)
         {
             app.Logger.KeycloakReadinessCheckSkipped();
             return;
         }
 
-        var discoveryUrl = KeycloakUrlHelper.BuildDiscoveryUrl(keycloak.AuthServerUrl, keycloak.Realm);
-        using var httpClient = new HttpClient
+        var discoveryUrl = KeycloakUrlHelper.BuildDiscoveryUrl(
+            keycloak.AuthServerUrl,
+            keycloak.Realm
+        );
+        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+
+        var pipelineProvider = app.Services.GetRequiredService<
+            ResiliencePipelineProvider<string>
+        >();
+        var pipeline = pipelineProvider.GetPipeline(ResiliencePipelineKeys.KeycloakReadiness);
+
+        try
         {
-            Timeout = TimeSpan.FromSeconds(5)
-        };
-
-        const int maxRetries = 30;
-        const int delayMs = 2000;
-        Exception? lastException = null;
-
-        await StartupTelemetry.WaitForKeycloakReadinessAsync(
-            maxRetries,
-            async attempt =>
+            await StartupTelemetry.WaitForKeycloakReadinessAsync(async () =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                try
-                {
-                    lastException = null;
-                    var response = await httpClient.GetAsync(discoveryUrl, cancellationToken);
-                    if (response.IsSuccessStatusCode)
+                await pipeline.ExecuteAsync(
+                    async token =>
                     {
-                        app.Logger.KeycloakReady(keycloak.AuthServerUrl);
-                        return true;
-                    }
+                        var response = await httpClient.GetAsync(discoveryUrl, token);
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            throw new HttpRequestException(
+                                $"Keycloak readiness probe returned HTTP {(int)response.StatusCode} ({response.ReasonPhrase})."
+                            );
+                        }
+                    },
+                    cancellationToken
+                );
+            });
 
-                    lastException = new HttpRequestException(
-                        $"Keycloak readiness probe returned HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).");
-                }
-                catch (HttpRequestException ex)
-                {
-                    lastException = ex;
-                }
-                catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
-                {
-                    lastException = ex;
-                }
-
-                if (attempt == maxRetries)
-                {
-                    if (lastException is not null)
-                        app.Logger.KeycloakUnavailable(lastException, maxRetries);
-
-                    return false;
-                }
-
-                app.Logger.KeycloakRetrying(attempt, maxRetries);
-                await Task.Delay(delayMs, cancellationToken);
-                return false;
-            },
-            () => new InvalidOperationException(
-                $"Keycloak at {keycloak.AuthServerUrl} did not become available after {maxRetries} retries."));
+            app.Logger.KeycloakReady(keycloak.AuthServerUrl);
+        }
+        catch (HttpRequestException ex)
+        {
+            app.Logger.KeycloakUnavailable(ex, keycloak.ReadinessMaxRetries);
+            throw new InvalidOperationException(
+                $"Keycloak at {keycloak.AuthServerUrl} did not become available after {keycloak.ReadinessMaxRetries} retries.",
+                ex
+            );
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            app.Logger.KeycloakUnavailable(ex, keycloak.ReadinessMaxRetries);
+            throw new InvalidOperationException(
+                $"Keycloak at {keycloak.AuthServerUrl} did not become available after {keycloak.ReadinessMaxRetries} retries.",
+                ex
+            );
+        }
     }
 
     /// <summary>
@@ -171,11 +176,11 @@ public static class ApplicationBuilderExtensions
     /// </remarks>
     public static WebApplication UseApiPipeline(this WebApplication app)
     {
-        app.UseExceptionHandler();         // Global exception handling — must be outermost.
-        app.UseApiDocumentation();         // Scalar / OpenAPI — development only.
+        app.UseExceptionHandler(); // Global exception handling — must be outermost.
+        app.UseApiDocumentation(); // Scalar / OpenAPI — development only.
         app.UseHttpsRedirection();
-        app.UseSecurityPipeline();         // CORS → Authentication → CSRF → Authorization.
-        app.UseRequestContextPipeline();   // Correlation enrichment + structured request logging (after auth for tenant context).
+        app.UseSecurityPipeline(); // CORS → Authentication → CSRF → Authorization.
+        app.UseRequestContextPipeline(); // Correlation enrichment + structured request logging (after auth for tenant context).
         app.UseRateLimiter();
         app.UseOutputCache();
 
@@ -201,40 +206,52 @@ public static class ApplicationBuilderExtensions
         var authority = KeycloakUrlHelper.BuildAuthority(keycloak.AuthServerUrl, keycloak.Realm);
 
         app.MapOpenApi().AllowAnonymous(); // Map OpenAPI JSON endpoint.
-        app.MapScalarApiReference("/scalar", (options, httpContext) =>
-        {
-            var redirectUri = BuildScalarRedirectUri(httpContext.Request);
-
-            options.WithTitle("APITemplate");
-            options
-                .AddPreferredSecuritySchemes(AuthConstants.OpenApi.OAuth2Scheme)
-                .AddAuthorizationCodeFlow(AuthConstants.OpenApi.OAuth2Scheme, flow =>
+        app.MapScalarApiReference(
+                "/scalar",
+                (options, httpContext) =>
                 {
-                    flow.ClientId = AuthConstants.OpenApi.ScalarClientId;
-                    flow.SelectedScopes = [.. AuthConstants.Scopes.Default];
-                    flow.AuthorizationUrl = $"{authority}/{AuthConstants.OpenIdConnect.AuthorizationEndpointPath}";
-                    flow.TokenUrl = $"{authority}/{AuthConstants.OpenIdConnect.TokenEndpointPath}";
-                    flow.RedirectUri = redirectUri;
-                    flow.Pkce = Pkce.Sha256;
-                });
-        }).AllowAnonymous();
+                    var redirectUri = BuildScalarRedirectUri(httpContext.Request);
+
+                    options.WithTitle("APITemplate");
+                    options
+                        .AddPreferredSecuritySchemes(AuthConstants.OpenApi.OAuth2Scheme)
+                        .AddAuthorizationCodeFlow(
+                            AuthConstants.OpenApi.OAuth2Scheme,
+                            flow =>
+                            {
+                                flow.ClientId = AuthConstants.OpenApi.ScalarClientId;
+                                flow.SelectedScopes = [.. AuthConstants.Scopes.Default];
+                                flow.AuthorizationUrl =
+                                    $"{authority}/{AuthConstants.OpenIdConnect.AuthorizationEndpointPath}";
+                                flow.TokenUrl =
+                                    $"{authority}/{AuthConstants.OpenIdConnect.TokenEndpointPath}";
+                                flow.RedirectUri = redirectUri;
+                                flow.Pkce = Pkce.Sha256;
+                            }
+                        );
+                }
+            )
+            .AllowAnonymous();
 
         return app;
     }
 
-    private static string BuildScalarRedirectUri(HttpRequest request)
-        => $"{request.Scheme}://{request.Host}{request.PathBase}{request.Path}";
+    private static string BuildScalarRedirectUri(HttpRequest request) =>
+        $"{request.Scheme}://{request.Host}{request.PathBase}{request.Path}";
 
     public static WebApplication UseHealthChecks(this WebApplication app)
     {
-        app.MapHealthChecks("/health", new HealthCheckOptions
-        {
-            ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
-        })
-        .WithTags("Health")
-        .WithSummary("Health check")
-        .WithDescription("Returns the health status of all registered services.")
-        .AllowAnonymous();
+        app.MapHealthChecks(
+                "/health",
+                new HealthCheckOptions
+                {
+                    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse,
+                }
+            )
+            .WithTags("Health")
+            .WithSummary("Health check")
+            .WithDescription("Returns the health status of all registered services.")
+            .AllowAnonymous();
 
         return app;
     }

@@ -16,6 +16,13 @@ public sealed class KeycloakOptions
     [ConfigurationKeyName("resource")]
     public string Resource { get; init; } = string.Empty;
 
+    [ConfigurationKeyName("SkipReadinessCheck")]
+    public bool SkipReadinessCheck { get; init; }
+
+    [Range(1, 100)]
+    [ConfigurationKeyName("ReadinessMaxRetries")]
+    public int ReadinessMaxRetries { get; init; } = 30;
+
     [ConfigurationKeyName("credentials")]
     public KeycloakCredentialsOptions Credentials { get; init; } = new();
 }

@@ -67,5 +67,34 @@ public static class AuthConstants
         public const string Roles = "roles";
         public const string PreferredUsername = "preferred_username";
         public const string ServiceAccountUsernamePrefix = "service-account-";
+        public const string TenantId = "tenant_id";
+    }
+
+    /// <summary>
+    /// Constants for the custom CSRF header contract used by <c>CsrfValidationMiddleware</c>.
+    /// </summary>
+    /// <remarks>
+    /// SPAs retrieve these values at runtime via <c>GET /api/v1/bff/csrf</c> and must send
+    /// <c>X-CSRF: 1</c> on every non-safe (mutating) request authenticated with a session cookie.
+    /// </remarks>
+    public static class Csrf
+    {
+        /// <summary>Name of the required anti-CSRF request header.</summary>
+        public const string HeaderName = "X-CSRF";
+
+        /// <summary>Expected value of the anti-CSRF header.</summary>
+        public const string HeaderValue = "1";
+    }
+
+    public static class BffSchemes
+    {
+        public const string Cookie = "BffCookie";
+        public const string Oidc = "BffOidc";
+    }
+
+    public static class Policies
+    {
+        public const string PlatformAdmin = "PlatformAdmin";
+        public const string TenantAdmin = "TenantAdmin";
     }
 }

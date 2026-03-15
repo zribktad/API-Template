@@ -1,3 +1,4 @@
+using APITemplate.Application.Common.Search;
 using Ardalis.Specification;
 using Microsoft.EntityFrameworkCore;
 using ProductEntity = APITemplate.Domain.Entities.Product;
@@ -6,8 +7,6 @@ namespace APITemplate.Application.Features.Product.Specifications;
 
 internal static class ProductFilterCriteria
 {
-    private const string SearchConfiguration = "english";
-
     internal static void ApplyFilter(
         this ISpecificationBuilder<ProductEntity> query,
         ProductFilter filter,
@@ -26,10 +25,15 @@ internal static class ProductFilterCriteria
         {
             query.Where(p =>
                 EF.Functions.ToTsVector(
-                        SearchConfiguration,
+                        SearchDefaults.TextSearchConfiguration,
                         p.Name + " " + (p.Description ?? string.Empty)
                     )
-                    .Matches(EF.Functions.WebSearchToTsQuery(SearchConfiguration, filter.Query))
+                    .Matches(
+                        EF.Functions.WebSearchToTsQuery(
+                            SearchDefaults.TextSearchConfiguration,
+                            filter.Query
+                        )
+                    )
             );
         }
 
