@@ -203,6 +203,7 @@ public static class ApplicationBuilderExtensions
             return app; // Keep interactive API docs available only in development.
 
         var keycloak = app.Services.GetRequiredService<IOptions<KeycloakOptions>>().Value;
+        var appOptions = app.Services.GetRequiredService<IOptions<AppOptions>>().Value;
         var authority = KeycloakUrlHelper.BuildAuthority(keycloak.AuthServerUrl, keycloak.Realm);
 
         app.MapOpenApi().AllowAnonymous(); // Map OpenAPI JSON endpoint.
@@ -212,7 +213,7 @@ public static class ApplicationBuilderExtensions
                 {
                     var redirectUri = BuildScalarRedirectUri(httpContext.Request);
 
-                    options.WithTitle("APITemplate");
+                    options.WithTitle(appOptions.ServiceName);
                     options
                         .AddPreferredSecuritySchemes(AuthConstants.OpenApi.OAuth2Scheme)
                         .AddAuthorizationCodeFlow(

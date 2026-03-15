@@ -5,7 +5,6 @@ public static class ObservabilityConventions
     public const string ActivitySourceName = "APITemplate";
     public const string MeterName = "APITemplate";
     public const string HealthMeterName = "APITemplate.Health";
-    public const string ServiceNamespace = "APITemplate";
 }
 
 public static class TelemetryMetricNames

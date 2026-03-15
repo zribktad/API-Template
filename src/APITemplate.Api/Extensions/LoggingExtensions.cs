@@ -1,11 +1,11 @@
+using System.ComponentModel.DataAnnotations;
 using APITemplate.Application.Options;
-using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Logging;
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Compliance.Redaction;
 using Serilog;
 using Serilog.Sinks.OpenTelemetry;
-using System.ComponentModel.DataAnnotations;
+
 namespace APITemplate.Extensions;
 
 public static class LoggingExtensions
@@ -20,22 +20,25 @@ public static class LoggingExtensions
             redactionBuilder.SetHmacRedactor(
                 options =>
                 {
-                    var redactionOptions = builder.Configuration
-                        .GetSection("Redaction")
-                        .Get<RedactionOptions>() ?? new RedactionOptions();
+                    var redactionOptions =
+                        builder.Configuration.GetSection("Redaction").Get<RedactionOptions>()
+                        ?? new RedactionOptions();
                     Validator.ValidateObject(
                         redactionOptions,
                         new ValidationContext(redactionOptions),
-                        validateAllProperties: true);
+                        validateAllProperties: true
+                    );
 
                     var hmacKey = RedactionConfiguration.ResolveHmacKey(
                         redactionOptions,
-                        Environment.GetEnvironmentVariable);
+                        Environment.GetEnvironmentVariable
+                    );
 
                     options.KeyId = redactionOptions.KeyId;
                     options.Key = hmacKey;
                 },
-                new DataClassificationSet(LogDataClassifications.Sensitive));
+                new DataClassificationSet(LogDataClassifications.Sensitive)
+            );
 #pragma warning restore EXTEXP0002
 
             redactionBuilder.SetFallbackRedactor<ErasingRedactor>();
@@ -49,18 +52,25 @@ public static class LoggingExtensions
     public static LoggerConfiguration AddOpenTelemetrySinks(
         this LoggerConfiguration loggerConfiguration,
         IConfiguration configuration,
-        IHostEnvironment environment)
+        IHostEnvironment environment
+    )
     {
-        loggerConfiguration
-            .Enrich.FromLogContext()
-            .Enrich.With<ActivityTraceEnricher>();
+        loggerConfiguration.Enrich.FromLogContext().Enrich.With<ActivityTraceEnricher>();
 
-        var options = configuration
-            .GetSection(ObservabilityServiceCollectionExtensions.ObservabilitySectionName)
-            .Get<ObservabilityOptions>() ?? new ObservabilityOptions();
+        var options = ObservabilityServiceCollectionExtensions.GetObservabilityOptions(
+            configuration
+        );
 
-        var resourceAttributes = ObservabilityServiceCollectionExtensions.BuildResourceAttributes(options, environment);
-        var endpoints = ObservabilityServiceCollectionExtensions.GetEnabledOtlpEndpoints(options, environment);
+        var appOptions = ObservabilityServiceCollectionExtensions.GetAppOptions(configuration);
+
+        var resourceAttributes = ObservabilityServiceCollectionExtensions.BuildResourceAttributes(
+            appOptions,
+            environment
+        );
+        var endpoints = ObservabilityServiceCollectionExtensions.GetEnabledOtlpEndpoints(
+            options,
+            environment
+        );
 
         foreach (var endpoint in endpoints)
         {
@@ -69,10 +79,10 @@ public static class LoggingExtensions
                 otel.Endpoint = endpoint;
                 otel.Protocol = OtlpProtocol.Grpc;
                 otel.IncludedData =
-                    IncludedData.MessageTemplateTextAttribute |
-                    IncludedData.SpecRequiredResourceAttributes |
-                    IncludedData.TraceIdField |
-                    IncludedData.SpanIdField;
+                    IncludedData.MessageTemplateTextAttribute
+                    | IncludedData.SpecRequiredResourceAttributes
+                    | IncludedData.TraceIdField
+                    | IncludedData.SpanIdField;
                 otel.ResourceAttributes = resourceAttributes;
             });
         }

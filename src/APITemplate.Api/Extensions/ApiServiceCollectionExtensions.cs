@@ -165,11 +165,18 @@ public static class ApiServiceCollectionExtensions
 
             services
                 .AddDataProtection()
-                .SetApplicationName("APITemplate")
                 .PersistKeysToStackExchangeRedis(
                     () => lazyMultiplexer.Value.GetDatabase(),
                     "DataProtection:Keys"
                 );
+
+            services.AddSingleton<IConfigureOptions<DataProtectionOptions>>(sp =>
+            {
+                var appOptions = sp.GetRequiredService<IOptions<AppOptions>>().Value;
+                return new ConfigureOptions<DataProtectionOptions>(o =>
+                    o.ApplicationDiscriminator = appOptions.ServiceName
+                );
+            });
 
             services.AddStackExchangeRedisCache(options =>
             {

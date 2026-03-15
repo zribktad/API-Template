@@ -2,8 +2,6 @@ namespace APITemplate.Application.Common.Options;
 
 public sealed class ObservabilityOptions
 {
-    public string ServiceName { get; init; } = "APITemplate";
-
     public OtlpEndpointOptions Otlp { get; init; } = new();
 
     public AspireEndpointOptions Aspire { get; init; } = new();

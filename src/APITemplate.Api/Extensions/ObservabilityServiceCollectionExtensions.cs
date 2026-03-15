@@ -15,13 +15,18 @@ namespace APITemplate.Extensions;
 public static class ObservabilityServiceCollectionExtensions
 {
     public const string ObservabilitySectionName = "Observability";
+    public const string AppSectionName = "App";
 
     public static IServiceCollection AddObservability(
         this IServiceCollection services,
         IConfiguration configuration,
-        IHostEnvironment environment)
+        IHostEnvironment environment
+    )
     {
-        services.Configure<ObservabilityOptions>(configuration.GetSection(ObservabilitySectionName));
+        services.Configure<ObservabilityOptions>(
+            configuration.GetSection(ObservabilitySectionName)
+        );
+        services.Configure<AppOptions>(configuration.GetSection(AppSectionName));
         services.AddSingleton<IHealthCheckPublisher, HealthCheckMetricsPublisher>();
         services.Configure<HealthCheckPublisherOptions>(options =>
         {
@@ -32,12 +37,14 @@ public static class ObservabilityServiceCollectionExtensions
         Activity.DefaultIdFormat = ActivityIdFormat.W3C;
         Activity.ForceDefaultIdFormat = true;
 
-        var options = configuration.GetSection(ObservabilitySectionName).Get<ObservabilityOptions>() ?? new();
-        var resourceAttributes = BuildResourceAttributes(options, environment);
+        var options = GetObservabilityOptions(configuration);
+        var appOptions = GetAppOptions(configuration);
+        var resourceAttributes = BuildResourceAttributes(appOptions, environment);
         var enableConsoleExporter = IsConsoleExporterEnabled(options);
         var otlpEndpoints = GetEnabledOtlpEndpoints(options, environment);
 
-        var openTelemetryBuilder = services.AddOpenTelemetry()
+        var openTelemetryBuilder = services
+            .AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddAttributes(resourceAttributes));
 
         openTelemetryBuilder.WithTracing(builder =>
@@ -46,10 +53,14 @@ public static class ObservabilityServiceCollectionExtensions
                 .AddAspNetCoreInstrumentation(options =>
                 {
                     options.RecordException = true;
-                    options.Filter = httpContext => !httpContext.Request.Path.StartsWithSegments(TelemetryPathPrefixes.Health);
+                    options.Filter = httpContext =>
+                        !httpContext.Request.Path.StartsWithSegments(TelemetryPathPrefixes.Health);
                     options.EnrichWithHttpRequest = (activity, httpRequest) =>
                     {
-                        if (TelemetryApiSurfaceResolver.Resolve(httpRequest.Path) != TelemetrySurfaces.Rest)
+                        if (
+                            TelemetryApiSurfaceResolver.Resolve(httpRequest.Path)
+                            != TelemetrySurfaces.Rest
+                        )
                             return;
 
                         var route = HttpRouteResolver.Resolve(httpRequest.HttpContext);
@@ -84,29 +95,66 @@ public static class ObservabilityServiceCollectionExtensions
                     TelemetryMeterNames.AspNetCoreDiagnostics,
                     TelemetryMeterNames.AspNetCoreRateLimiting,
                     TelemetryMeterNames.AspNetCoreAuthentication,
-                    TelemetryMeterNames.AspNetCoreAuthorization)
-                .AddView(TelemetryInstrumentNames.HttpServerRequestDuration, new ExplicitBucketHistogramConfiguration
-                {
-                    Boundaries =
-                    [
-                        0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 10
-                    ]
-                })
-                .AddView(TelemetryInstrumentNames.HttpClientRequestDuration, new ExplicitBucketHistogramConfiguration
-                {
-                    Boundaries =
-                    [
-                        0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 10
-                    ]
-                })
-                .AddView(TelemetryMetricNames.OutputCacheInvalidationDuration, new ExplicitBucketHistogramConfiguration
-                {
-                    Boundaries = [1, 5, 10, 25, 50, 100, 250, 500, 1000]
-                })
-                .AddView(TelemetryMetricNames.GraphQlRequestDuration, new ExplicitBucketHistogramConfiguration
-                {
-                    Boundaries = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000]
-                });
+                    TelemetryMeterNames.AspNetCoreAuthorization
+                )
+                .AddView(
+                    TelemetryInstrumentNames.HttpServerRequestDuration,
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries =
+                        [
+                            0.005,
+                            0.01,
+                            0.025,
+                            0.05,
+                            0.075,
+                            0.1,
+                            0.25,
+                            0.5,
+                            0.75,
+                            1,
+                            2.5,
+                            5,
+                            10,
+                        ],
+                    }
+                )
+                .AddView(
+                    TelemetryInstrumentNames.HttpClientRequestDuration,
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries =
+                        [
+                            0.005,
+                            0.01,
+                            0.025,
+                            0.05,
+                            0.075,
+                            0.1,
+                            0.25,
+                            0.5,
+                            0.75,
+                            1,
+                            2.5,
+                            5,
+                            10,
+                        ],
+                    }
+                )
+                .AddView(
+                    TelemetryMetricNames.OutputCacheInvalidationDuration,
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries = [1, 5, 10, 25, 50, 100, 250, 500, 1000],
+                    }
+                )
+                .AddView(
+                    TelemetryMetricNames.GraphQlRequestDuration,
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000],
+                    }
+                );
 
             ConfigureMetricExporters(builder, otlpEndpoints, enableConsoleExporter);
         });
@@ -116,7 +164,8 @@ public static class ObservabilityServiceCollectionExtensions
 
     internal static IReadOnlyList<string> GetEnabledOtlpEndpoints(
         ObservabilityOptions options,
-        IHostEnvironment environment)
+        IHostEnvironment environment
+    )
     {
         var endpoints = new List<string>();
 
@@ -128,38 +177,53 @@ public static class ObservabilityServiceCollectionExtensions
             endpoints.Add(aspireEndpoint);
         }
 
-        if (IsOtlpExporterEnabled(options, environment) && !string.IsNullOrWhiteSpace(options.Otlp.Endpoint))
+        if (
+            IsOtlpExporterEnabled(options, environment)
+            && !string.IsNullOrWhiteSpace(options.Otlp.Endpoint)
+        )
         {
             endpoints.Add(options.Otlp.Endpoint);
         }
 
-        return endpoints
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        return endpoints.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    internal static bool IsAspireExporterEnabled(ObservabilityOptions options, IHostEnvironment environment)
-        => options.Exporters.Aspire.Enabled ?? (environment.IsDevelopment() && !IsRunningInContainer());
+    internal static bool IsAspireExporterEnabled(
+        ObservabilityOptions options,
+        IHostEnvironment environment
+    ) =>
+        options.Exporters.Aspire.Enabled
+        ?? (environment.IsDevelopment() && !IsRunningInContainer());
 
-    internal static bool IsOtlpExporterEnabled(ObservabilityOptions options, IHostEnvironment environment)
-        => options.Exporters.Otlp.Enabled ?? IsRunningInContainer();
+    internal static bool IsOtlpExporterEnabled(
+        ObservabilityOptions options,
+        IHostEnvironment environment
+    ) => options.Exporters.Otlp.Enabled ?? IsRunningInContainer();
 
-    internal static bool IsConsoleExporterEnabled(ObservabilityOptions options)
-        => options.Exporters.Console.Enabled ?? false;
+    internal static bool IsConsoleExporterEnabled(ObservabilityOptions options) =>
+        options.Exporters.Console.Enabled ?? false;
 
-    private static bool IsRunningInContainer()
-        => string.Equals(
+    private static bool IsRunningInContainer() =>
+        string.Equals(
             Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
             "true",
-            StringComparison.OrdinalIgnoreCase);
+            StringComparison.OrdinalIgnoreCase
+        );
+
+    internal static ObservabilityOptions GetObservabilityOptions(IConfiguration configuration) =>
+        configuration.GetSection(ObservabilitySectionName).Get<ObservabilityOptions>() ?? new();
+
+    internal static AppOptions GetAppOptions(IConfiguration configuration) =>
+        configuration.GetSection(AppSectionName).Get<AppOptions>() ?? new();
 
     internal static Dictionary<string, object> BuildResourceAttributes(
-        ObservabilityOptions options,
-        IHostEnvironment environment)
+        AppOptions appOptions,
+        IHostEnvironment environment
+    )
     {
-        var serviceName = string.IsNullOrWhiteSpace(options.ServiceName)
+        var serviceName = string.IsNullOrWhiteSpace(appOptions.ServiceName)
             ? ObservabilityConventions.ActivitySourceName
-            : options.ServiceName;
+            : appOptions.ServiceName;
         var entryAssembly = Assembly.GetEntryAssembly();
         var assemblyName = entryAssembly?.GetName().Name ?? serviceName;
         var version = entryAssembly?.GetName().Version?.ToString() ?? TelemetryDefaults.Unknown;
@@ -170,21 +234,23 @@ public static class ObservabilityServiceCollectionExtensions
         {
             [TelemetryResourceAttributeKeys.AssemblyName] = assemblyName,
             [TelemetryResourceAttributeKeys.ServiceName] = serviceName,
-            [TelemetryResourceAttributeKeys.ServiceNamespace] = ObservabilityConventions.ServiceNamespace,
+            [TelemetryResourceAttributeKeys.ServiceNamespace] = serviceName,
             [TelemetryResourceAttributeKeys.ServiceVersion] = version,
             [TelemetryResourceAttributeKeys.ServiceInstanceId] = $"{machineName}-{processId}",
-            [TelemetryResourceAttributeKeys.DeploymentEnvironmentName] = environment.EnvironmentName,
+            [TelemetryResourceAttributeKeys.DeploymentEnvironmentName] =
+                environment.EnvironmentName,
             [TelemetryResourceAttributeKeys.HostName] = machineName,
-            [TelemetryResourceAttributeKeys.HostArchitecture] = RuntimeInformation.OSArchitecture.ToString(),
+            [TelemetryResourceAttributeKeys.HostArchitecture] =
+                RuntimeInformation.OSArchitecture.ToString(),
             [TelemetryResourceAttributeKeys.OsType] = GetOsType(),
             [TelemetryResourceAttributeKeys.ProcessPid] = processId,
             [TelemetryResourceAttributeKeys.ProcessRuntimeName] = ".NET",
-            [TelemetryResourceAttributeKeys.ProcessRuntimeVersion] = Environment.Version.ToString()
+            [TelemetryResourceAttributeKeys.ProcessRuntimeVersion] = Environment.Version.ToString(),
         };
     }
 
-    private static string GetOsType()
-        => OperatingSystem.IsWindows() ? "windows"
+    private static string GetOsType() =>
+        OperatingSystem.IsWindows() ? "windows"
         : OperatingSystem.IsLinux() ? "linux"
         : OperatingSystem.IsMacOS() ? "darwin"
         : TelemetryDefaults.Unknown;
@@ -192,7 +258,8 @@ public static class ObservabilityServiceCollectionExtensions
     private static void ConfigureTracingExporters(
         TracerProviderBuilder builder,
         IReadOnlyList<string> otlpEndpoints,
-        bool enableConsoleExporter)
+        bool enableConsoleExporter
+    )
     {
         foreach (var endpoint in otlpEndpoints)
         {
@@ -208,7 +275,8 @@ public static class ObservabilityServiceCollectionExtensions
     private static void ConfigureMetricExporters(
         MeterProviderBuilder builder,
         IReadOnlyList<string> otlpEndpoints,
-        bool enableConsoleExporter)
+        bool enableConsoleExporter
+    )
     {
         foreach (var endpoint in otlpEndpoints)
         {

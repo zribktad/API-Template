@@ -44,6 +44,8 @@
     <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
     <PackageReference Include="Microsoft.Extensions.Resilience" />
     <PackageReference Include="Microsoft.Extensions.Telemetry" />
+    <!-- Explicitly pinned to override the transitive dependency pulled in by MailKit — resolves a minor severity vulnerability. -->
+    <PackageReference Include="MimeKit" />
     <PackageReference Include="MongoDB.Driver" />
     <PackageReference Include="MongoDB.Driver.Core.Extensions.DiagnosticSources" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
