@@ -7,7 +7,7 @@ public sealed class CategoryCountSpecification : Specification<CategoryEntity>
 {
     public CategoryCountSpecification(CategoryFilter filter)
     {
-        CategoryFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
         Query.AsNoTracking();
     }
 }

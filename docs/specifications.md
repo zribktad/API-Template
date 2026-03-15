@@ -31,7 +31,7 @@ public sealed class ProductSpecification : Specification<Product, ProductRespons
 {
     public ProductSpecification(ProductFilter filter)
     {
-        ProductFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
 
         Query.OrderByDescending(p => p.CreatedAt)
              .Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.CreatedAt));
@@ -52,20 +52,20 @@ public sealed class ProductCountSpecification : Specification<Product>
 {
     public ProductCountSpecification(ProductFilter filter)
     {
-        ProductFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
     }
 }
 ```
 
 ### Shared Filter Criteria
 
-Extract reusable `Where` clauses into a static helper:
+Extract reusable `Where` clauses into an extension method on `ISpecificationBuilder<T>`:
 
 ```csharp
 // Application/Specifications/ProductFilterCriteria.cs
 internal static class ProductFilterCriteria
 {
-    internal static void Apply(ISpecificationBuilder<Product> query, ProductFilter filter)
+    internal static void ApplyFilter(this ISpecificationBuilder<Product> query, ProductFilter filter)
     {
         if (!string.IsNullOrWhiteSpace(filter.Name))
             query.Where(p => p.Name.Contains(filter.Name));
@@ -102,7 +102,7 @@ namespace APITemplate.Application.Specifications;
 
 internal static class OrderFilterCriteria
 {
-    internal static void Apply(ISpecificationBuilder<Order> query, OrderFilter filter)
+    internal static void ApplyFilter(this ISpecificationBuilder<Order> query, OrderFilter filter)
     {
         if (filter.CustomerId.HasValue)
             query.Where(o => o.CustomerId == filter.CustomerId.Value);
@@ -141,7 +141,7 @@ public sealed class OrderSpecification : Specification<Order, OrderResponse>
 {
     public OrderSpecification(OrderFilter filter)
     {
-        OrderFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
 
         Query.OrderByDescending(o => o.CreatedAt)
              .Select(o => new OrderResponse(o.Id, o.CustomerId, o.TotalAmount, o.CreatedAt));
@@ -171,7 +171,7 @@ public sealed class OrderCountSpecification : Specification<Order>
 {
     public OrderCountSpecification(OrderFilter filter)
     {
-        OrderFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
     }
 }
 ```
@@ -280,7 +280,7 @@ public sealed class ReviewByProductIdSpecification : Specification<ProductReview
 
 ## Checklist
 
-- [ ] Create `<Entity>FilterCriteria.cs` with static `Apply()` method
+- [ ] Create `<Entity>FilterCriteria.cs` with `ApplyFilter()` extension method
 - [ ] Create `<Entity>Specification.cs` (projection + pagination)
 - [ ] Create `<Entity>CountSpecification.cs` (filter only)
 - [ ] Create single-item specifications as needed (with `.Include()`)
@@ -295,7 +295,7 @@ public sealed class ReviewByProductIdSpecification : Specification<ProductReview
 |------|---------|
 | `Application/Features/Product/Specifications/ProductSpecification.cs` | Projection + pagination example |
 | `Application/Features/Product/Specifications/ProductCountSpecification.cs` | Count-only example |
-| `Application/Features/Product/Specifications/ProductFilterCriteria.cs` | Shared `Where` criteria helper |
+| `Application/Features/Product/Specifications/ProductFilterCriteria.cs` | Shared `Where` criteria extension |
 | `Application/Features/ProductReview/Specifications/ProductReviewByProductIdSpecification.cs` | Single-relation filter |
 | `Infrastructure/Repositories/RepositoryBase.cs` | Base repository that executes specifications |
 | `Application/Features/Product/Services/ProductService.cs` | Usage of `ListAsync(spec)` + `CountAsync(spec)` |

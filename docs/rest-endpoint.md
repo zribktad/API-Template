@@ -215,7 +215,7 @@ public sealed class OrderSpecification : Specification<OrderEntity, OrderRespons
 {
     public OrderSpecification(OrderFilter filter)
     {
-        OrderFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
         Query.AsNoTracking();
         OrderSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
         Query.Select(OrderMappings.Projection);
@@ -238,7 +238,7 @@ public sealed class OrderCountSpecification : Specification<OrderEntity>
 {
     public OrderCountSpecification(OrderFilter filter)
     {
-        OrderFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
         Query.AsNoTracking();
     }
 }
@@ -279,7 +279,7 @@ internal static class OrderFilterCriteria
 {
     private const string SearchConfiguration = "english";
 
-    internal static void Apply(ISpecificationBuilder<OrderEntity> query, OrderFilter filter)
+    internal static void ApplyFilter(this ISpecificationBuilder<OrderEntity> query, OrderFilter filter)
     {
         if (string.IsNullOrWhiteSpace(filter.Query))
             return;

@@ -9,7 +9,10 @@ internal static class TenantFilterCriteria
 {
     private const string SearchConfiguration = "english";
 
-    internal static void Apply(ISpecificationBuilder<TenantEntity> query, TenantFilter filter)
+    internal static void ApplyFilter(
+        this ISpecificationBuilder<TenantEntity> query,
+        TenantFilter filter
+    )
     {
         if (string.IsNullOrWhiteSpace(filter.Query))
             return;

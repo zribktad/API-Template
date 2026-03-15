@@ -6,7 +6,7 @@ namespace APITemplate.Application.Features.User.Specifications;
 
 internal static class UserFilterCriteria
 {
-    internal static void Apply(ISpecificationBuilder<AppUser> query, UserFilter filter)
+    internal static void ApplyFilter(this ISpecificationBuilder<AppUser> query, UserFilter filter)
     {
         if (!string.IsNullOrWhiteSpace(filter.Username))
         {

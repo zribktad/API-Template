@@ -11,7 +11,7 @@ public sealed class TenantInvitationFilterSpecification
 {
     public TenantInvitationFilterSpecification(TenantInvitationFilter filter)
     {
-        TenantInvitationFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
         Query.AsNoTracking();
         Query.OrderByDescending(i => i.Audit.CreatedAtUtc);
         Query.Select(TenantInvitationMappings.Projection);
@@ -23,14 +23,14 @@ public sealed class TenantInvitationCountSpecification : Specification<TenantInv
 {
     public TenantInvitationCountSpecification(TenantInvitationFilter filter)
     {
-        TenantInvitationFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
     }
 }
 
 internal static class TenantInvitationFilterCriteria
 {
-    public static void Apply(
-        ISpecificationBuilder<TenantInvitationEntity> query,
+    public static void ApplyFilter(
+        this ISpecificationBuilder<TenantInvitationEntity> query,
         TenantInvitationFilter filter
     )
     {

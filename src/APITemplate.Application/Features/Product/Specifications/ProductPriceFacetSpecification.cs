@@ -7,10 +7,7 @@ public sealed class ProductPriceFacetSpecification : Specification<ProductEntity
 {
     public ProductPriceFacetSpecification(ProductFilter filter)
     {
-        ProductFilterCriteria.Apply(
-            Query,
-            filter,
-            new ProductFilterCriteriaOptions(IgnorePriceRange: true));
+        Query.ApplyFilter(filter, new ProductFilterCriteriaOptions(IgnorePriceRange: true));
 
         Query.AsNoTracking();
     }

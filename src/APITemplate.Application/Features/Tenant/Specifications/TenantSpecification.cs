@@ -9,7 +9,7 @@ public sealed class TenantSpecification : Specification<TenantEntity, TenantResp
 {
     public TenantSpecification(TenantFilter filter)
     {
-        TenantFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
         Query.AsNoTracking();
         TenantSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
         Query.Select(TenantMappings.Projection);

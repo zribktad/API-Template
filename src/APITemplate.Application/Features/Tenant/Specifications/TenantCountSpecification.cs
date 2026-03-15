@@ -8,7 +8,7 @@ public sealed class TenantCountSpecification : Specification<TenantEntity>
 {
     public TenantCountSpecification(TenantFilter filter)
     {
-        TenantFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
         Query.AsNoTracking();
     }
 }

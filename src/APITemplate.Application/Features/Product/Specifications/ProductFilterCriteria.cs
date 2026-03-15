@@ -3,14 +3,16 @@ using Microsoft.EntityFrameworkCore;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product.Specifications;
+
 internal static class ProductFilterCriteria
 {
     private const string SearchConfiguration = "english";
 
-    internal static void Apply(
-        ISpecificationBuilder<ProductEntity> query,
+    internal static void ApplyFilter(
+        this ISpecificationBuilder<ProductEntity> query,
         ProductFilter filter,
-        ProductFilterCriteriaOptions? options = null)
+        ProductFilterCriteriaOptions? options = null
+    )
     {
         options ??= ProductFilterCriteriaOptions.Default;
 
@@ -23,9 +25,12 @@ internal static class ProductFilterCriteria
         if (!string.IsNullOrWhiteSpace(filter.Query))
         {
             query.Where(p =>
-                EF.Functions
-                    .ToTsVector(SearchConfiguration, p.Name + " " + (p.Description ?? string.Empty))
-                    .Matches(EF.Functions.WebSearchToTsQuery(SearchConfiguration, filter.Query)));
+                EF.Functions.ToTsVector(
+                        SearchConfiguration,
+                        p.Name + " " + (p.Description ?? string.Empty)
+                    )
+                    .Matches(EF.Functions.WebSearchToTsQuery(SearchConfiguration, filter.Query))
+            );
         }
 
         if (!options.IgnorePriceRange && filter.MinPrice.HasValue)
@@ -41,13 +46,16 @@ internal static class ProductFilterCriteria
             query.Where(p => p.Audit.CreatedAtUtc <= filter.CreatedTo.Value);
 
         if (!options.IgnoreCategoryIds && filter.CategoryIds is { Count: > 0 })
-            query.Where(p => p.CategoryId.HasValue && filter.CategoryIds.Contains(p.CategoryId.Value));
+            query.Where(p =>
+                p.CategoryId.HasValue && filter.CategoryIds.Contains(p.CategoryId.Value)
+            );
     }
 }
 
 internal sealed record ProductFilterCriteriaOptions(
     bool IgnoreCategoryIds = false,
-    bool IgnorePriceRange = false)
+    bool IgnorePriceRange = false
+)
 {
     internal static ProductFilterCriteriaOptions Default => new();
 }

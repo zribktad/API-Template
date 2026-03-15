@@ -8,14 +8,20 @@ internal static class CategoryFilterCriteria
 {
     private const string SearchConfiguration = "english";
 
-    internal static void Apply(ISpecificationBuilder<CategoryEntity> query, CategoryFilter filter)
+    internal static void ApplyFilter(
+        this ISpecificationBuilder<CategoryEntity> query,
+        CategoryFilter filter
+    )
     {
         if (string.IsNullOrWhiteSpace(filter.Query))
             return;
 
         query.Where(category =>
-            EF.Functions
-                .ToTsVector(SearchConfiguration, category.Name + " " + (category.Description ?? string.Empty))
-                .Matches(EF.Functions.WebSearchToTsQuery(SearchConfiguration, filter.Query)));
+            EF.Functions.ToTsVector(
+                    SearchConfiguration,
+                    category.Name + " " + (category.Description ?? string.Empty)
+                )
+                .Matches(EF.Functions.WebSearchToTsQuery(SearchConfiguration, filter.Query))
+        );
     }
 }

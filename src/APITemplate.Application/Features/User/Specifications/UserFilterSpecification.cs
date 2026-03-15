@@ -9,14 +9,13 @@ public sealed class UserFilterSpecification : Specification<AppUser, UserRespons
 {
     public UserFilterSpecification(UserFilter filter)
     {
-        UserFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
         Query.AsNoTracking();
 
         UserSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
 
         Query.Select(UserMappings.Projection);
 
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize)
-             .Take(filter.PageSize);
+        Query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
     }
 }

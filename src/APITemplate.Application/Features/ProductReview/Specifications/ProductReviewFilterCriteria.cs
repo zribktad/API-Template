@@ -2,9 +2,13 @@ using Ardalis.Specification;
 using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
 namespace APITemplate.Application.Features.ProductReview.Specifications;
+
 internal static class ProductReviewFilterCriteria
 {
-    internal static void Apply(ISpecificationBuilder<ProductReviewEntity> query, ProductReviewFilter filter)
+    internal static void ApplyFilter(
+        this ISpecificationBuilder<ProductReviewEntity> query,
+        ProductReviewFilter filter
+    )
     {
         if (filter.ProductId.HasValue)
             query.Where(r => r.ProductId == filter.ProductId.Value);

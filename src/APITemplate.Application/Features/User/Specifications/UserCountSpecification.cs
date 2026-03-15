@@ -8,7 +8,7 @@ public sealed class UserCountSpecification : Specification<AppUser>
 {
     public UserCountSpecification(UserFilter filter)
     {
-        UserFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
         Query.AsNoTracking();
     }
 }

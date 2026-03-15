@@ -678,7 +678,7 @@ public sealed class ProductSpecification : Specification<Product, ProductRespons
 {
     public ProductSpecification(ProductFilter filter)
     {
-        ProductFilterCriteria.Apply(Query, filter);   // dynamic WHERE clauses
+        Query.ApplyFilter(filter);                     // dynamic WHERE clauses
         Query.OrderByDescending(p => p.CreatedAt)
              .Select(p => new ProductResponse(...));  // projection to DTO
         Query.Skip((filter.PageNumber - 1) * filter.PageSize)

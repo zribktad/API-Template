@@ -310,7 +310,7 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
     public ProductSpecification(ProductFilter filter)
     {
         // 1. Filter
-        ProductFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
 
         // 2. Sort
         ProductSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
@@ -338,7 +338,7 @@ public sealed class ProductCountSpecification : Specification<ProductEntity>
 {
     public ProductCountSpecification(ProductFilter filter)
     {
-        ProductFilterCriteria.Apply(Query, filter);
+        Query.ApplyFilter(filter);
     }
 }
 ```
@@ -353,7 +353,7 @@ namespace APITemplate.Application.Features.Product.Specifications;
 
 internal static class ProductFilterCriteria
 {
-    internal static void Apply(ISpecificationBuilder<ProductEntity> query, ProductFilter filter)
+    internal static void ApplyFilter(this ISpecificationBuilder<ProductEntity> query, ProductFilter filter)
     {
         if (!string.IsNullOrWhiteSpace(filter.Name))
             query.Where(p => p.Name.Contains(filter.Name));

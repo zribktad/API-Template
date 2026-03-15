@@ -7,10 +7,7 @@ public sealed class ProductCategoryFacetSpecification : Specification<ProductEnt
 {
     public ProductCategoryFacetSpecification(ProductFilter filter)
     {
-        ProductFilterCriteria.Apply(
-            Query,
-            filter,
-            new ProductFilterCriteriaOptions(IgnoreCategoryIds: true));
+        Query.ApplyFilter(filter, new ProductFilterCriteriaOptions(IgnoreCategoryIds: true));
 
         Query.AsNoTracking();
     }
