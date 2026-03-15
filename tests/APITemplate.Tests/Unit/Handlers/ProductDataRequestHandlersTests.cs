@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Features.ProductData;
 using APITemplate.Domain.Entities;
@@ -210,6 +211,14 @@ public class ProductDataRequestHandlersTests
                 ),
             Times.Once
         );
+        _publisherMock.Verify(
+            p =>
+                p.Publish(
+                    It.IsAny<ProductDataChangedNotification>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -245,6 +254,14 @@ public class ProductDataRequestHandlersTests
             r =>
                 r.CreateAsync(
                     It.Is<VideoProductData>(e => e.Title == "Intro" && e.TenantId == _tenantId),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        _publisherMock.Verify(
+            p =>
+                p.Publish(
+                    It.IsAny<ProductDataChangedNotification>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -303,6 +320,14 @@ public class ProductDataRequestHandlersTests
                     It.IsAny<Func<Task>>(),
                     It.IsAny<CancellationToken>(),
                     It.IsAny<TransactionOptions?>()
+                ),
+            Times.Once
+        );
+        _publisherMock.Verify(
+            p =>
+                p.Publish(
+                    It.IsAny<ProductDataChangedNotification>(),
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Once
         );

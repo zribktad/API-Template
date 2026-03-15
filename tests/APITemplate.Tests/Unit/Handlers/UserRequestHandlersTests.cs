@@ -148,7 +148,9 @@ public class UserRequestHandlersTests
             .Setup(r => r.ExistsByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         _keycloakAdminMock
-            .Setup(k => k.CreateUserAsync(request.Username, request.Email, It.IsAny<CancellationToken>()))
+            .Setup(k =>
+                k.CreateUserAsync(request.Username, request.Email, It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync(keycloakId);
         _repositoryMock
             .Setup(r => r.AddAsync(It.IsAny<AppUser>(), It.IsAny<CancellationToken>()))
@@ -175,6 +177,10 @@ public class UserRequestHandlersTests
             p => p.Publish(It.IsAny<UserRegisteredNotification>(), It.IsAny<CancellationToken>()),
             Times.Once
         );
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -183,15 +189,26 @@ public class UserRequestHandlersTests
         var ct = TestContext.Current.CancellationToken;
         var request = new CreateUserRequest("failuser", "fail@example.com");
 
-        _repositoryMock.Setup(r => r.ExistsByEmailAsync(request.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
-        _repositoryMock.Setup(r => r.ExistsByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
-        _keycloakAdminMock.Setup(k => k.CreateUserAsync(request.Username, request.Email, It.IsAny<CancellationToken>()))
+        _repositoryMock
+            .Setup(r => r.ExistsByEmailAsync(request.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _repositoryMock
+            .Setup(r => r.ExistsByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _keycloakAdminMock
+            .Setup(k =>
+                k.CreateUserAsync(request.Username, request.Email, It.IsAny<CancellationToken>())
+            )
             .ThrowsAsync(new HttpRequestException("Keycloak unavailable"));
 
-        await Should.ThrowAsync<HttpRequestException>(
-            () => _sut.Handle(new CreateUserCommand(request), ct));
+        await Should.ThrowAsync<HttpRequestException>(() =>
+            _sut.Handle(new CreateUserCommand(request), ct)
+        );
 
-        _repositoryMock.Verify(r => r.AddAsync(It.IsAny<AppUser>(), It.IsAny<CancellationToken>()), Times.Never);
+        _repositoryMock.Verify(
+            r => r.AddAsync(It.IsAny<AppUser>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -204,9 +221,7 @@ public class UserRequestHandlersTests
 
         var act = () =>
             _sut.Handle(
-                new CreateUserCommand(
-                    new CreateUserRequest("user", "existing@test.com")
-                ),
+                new CreateUserCommand(new CreateUserRequest("user", "existing@test.com")),
                 TestContext.Current.CancellationToken
             );
 
@@ -226,9 +241,7 @@ public class UserRequestHandlersTests
 
         var act = () =>
             _sut.Handle(
-                new CreateUserCommand(
-                    new CreateUserRequest("existinguser", "new@test.com")
-                ),
+                new CreateUserCommand(new CreateUserRequest("existinguser", "new@test.com")),
                 TestContext.Current.CancellationToken
             );
 
@@ -266,6 +279,10 @@ public class UserRequestHandlersTests
         user.Email.ShouldBe("updated@test.com");
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -289,6 +306,10 @@ public class UserRequestHandlersTests
         _repositoryMock.Verify(
             r => r.ExistsByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never
+        );
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+            Times.Once
         );
     }
 
@@ -347,6 +368,10 @@ public class UserRequestHandlersTests
         user.IsActive.ShouldBeTrue();
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -365,6 +390,10 @@ public class UserRequestHandlersTests
         user.IsActive.ShouldBeFalse();
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -405,6 +434,10 @@ public class UserRequestHandlersTests
             p => p.Publish(It.IsAny<UserRoleChangedNotification>(), It.IsAny<CancellationToken>()),
             Times.Once
         );
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -440,6 +473,10 @@ public class UserRequestHandlersTests
 
         _repositoryMock.Verify(r => r.DeleteAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     [Fact]

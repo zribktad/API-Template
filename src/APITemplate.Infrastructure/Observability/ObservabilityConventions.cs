@@ -13,7 +13,8 @@ public static class TelemetryMetricNames
     public const string RateLimitRejections = "apitemplate_rate_limit_rejections";
     public const string HandledExceptions = "apitemplate_exceptions_handled";
     public const string OutputCacheInvalidations = "apitemplate_output_cache_invalidations";
-    public const string OutputCacheInvalidationDuration = "apitemplate_output_cache_invalidation_duration";
+    public const string OutputCacheInvalidationDuration =
+        "apitemplate_output_cache_invalidation_duration";
     public const string OutputCacheOutcomes = "apitemplate_output_cache_outcomes";
     public const string GraphQlRequests = "apitemplate_graphql_requests";
     public const string GraphQlErrors = "apitemplate_graphql_errors";
@@ -55,12 +56,8 @@ public static class TelemetryTagKeys
     public const string HttpResponseStatusCode = "http.response.status_code";
     public const string HttpRoute = "http.route";
     public const string RateLimitPolicy = "rate_limit.policy";
-    public const string RetryAttempt = "retry.attempt";
-    public const string RetryMax = "retry.max";
     public const string Service = "service";
     public const string StartupComponent = "startup.component";
-    public const string StartupMaxRetries = "startup.max_retries";
-    public const string StartupRetryCount = "startup.retry_count";
     public const string StartupStep = "startup.step";
     public const string StartupSuccess = "startup.success";
     public const string ValidationDtoType = "validation.dto_type";
@@ -111,11 +108,6 @@ public static class TelemetryDefaults
     public const string Default = "default";
     public const string Sql = "sql";
     public const string Unknown = "unknown";
-}
-
-public static class TelemetryEventNames
-{
-    public const string Retry = "retry";
 }
 
 public static class TelemetryContextKeys
@@ -205,5 +197,6 @@ public static class TelemetryResourceAttributeKeys
 
 public static class TelemetryActivitySources
 {
-    public const string MongoDbDriverDiagnosticSources = "MongoDB.Driver.Core.Extensions.DiagnosticSources";
+    public const string MongoDbDriverDiagnosticSources =
+        "MongoDB.Driver.Core.Extensions.DiagnosticSources";
 }

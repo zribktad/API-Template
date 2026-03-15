@@ -1,5 +1,6 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Application.Common.Options;
+using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Options;
 using APITemplate.Domain.Enums;
@@ -8,12 +9,13 @@ using APITemplate.Infrastructure.Observability;
 using APITemplate.Infrastructure.Security;
 using Keycloak.AuthServices.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using Polly;
 
 namespace APITemplate.Extensions;
 
@@ -22,16 +24,19 @@ public static class AuthenticationServiceCollectionExtensions
     public static IServiceCollection AddAuthenticationOptions(
         this IServiceCollection services,
         IConfiguration configuration,
-        IHostEnvironment environment)
+        IHostEnvironment environment
+    )
     {
-        services.AddOptions<CorsOptions>()
+        services
+            .AddOptions<CorsOptions>()
             .Bind(configuration.GetSection("Cors"))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        var corsOrigins = configuration.GetSection("Cors:AllowedOrigins")
-            .Get<string[]>()?
-            .Where(origin => !string.IsNullOrWhiteSpace(origin))
+        var corsOrigins = configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>()
+            ?.Where(origin => !string.IsNullOrWhiteSpace(origin))
             .Select(origin => origin.Trim())
             .ToArray();
 
@@ -41,7 +46,8 @@ public static class AuthenticationServiceCollectionExtensions
             {
                 options.AddDefaultPolicy(policy =>
                 {
-                    policy.WithOrigins(corsOrigins)
+                    policy
+                        .WithOrigins(corsOrigins)
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials();
@@ -49,24 +55,29 @@ public static class AuthenticationServiceCollectionExtensions
             });
         }
 
-        services.AddOptions<BffOptions>()
+        services
+            .AddOptions<BffOptions>()
             .Bind(configuration.GetSection("Bff"))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        services.AddOptions<SystemIdentityOptions>()
+        services
+            .AddOptions<SystemIdentityOptions>()
             .Bind(configuration.GetSection("SystemIdentity"))
             .ValidateOnStart();
 
-        services.AddOptions<BootstrapTenantOptions>()
+        services
+            .AddOptions<BootstrapTenantOptions>()
             .Bind(configuration.GetSection("Bootstrap:Tenant"))
             .ValidateDataAnnotations()
             .Validate(
                 o => !string.IsNullOrWhiteSpace(o.Code) && !string.IsNullOrWhiteSpace(o.Name),
-                "Bootstrap tenant code/name is required")
+                "Bootstrap tenant code/name is required"
+            )
             .ValidateOnStart();
 
-        services.AddOptions<KeycloakOptions>()
+        services
+            .AddOptions<KeycloakOptions>()
             .Bind(configuration.GetSection("Keycloak"))
             .ValidateDataAnnotations()
             .ValidateOnStart();
@@ -75,7 +86,10 @@ public static class AuthenticationServiceCollectionExtensions
     }
 
     public static IServiceCollection AddKeycloakBffAuthentication(
-        this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment
+    )
     {
         var authSettings = BuildAuthSettings(configuration);
 
@@ -89,7 +103,8 @@ public static class AuthenticationServiceCollectionExtensions
 
     private static AuthSettings BuildAuthSettings(IConfiguration configuration)
     {
-        var keycloak = configuration.GetSection("Keycloak").Get<KeycloakOptions>()
+        var keycloak =
+            configuration.GetSection("Keycloak").Get<KeycloakOptions>()
             ?? throw new InvalidOperationException("Keycloak configuration section is missing.");
         var bffOptions = configuration.GetSection("Bff").Get<BffOptions>() ?? new BffOptions();
         var authority = KeycloakUrlHelper.BuildAuthority(keycloak.AuthServerUrl, keycloak.Realm);
@@ -99,22 +114,31 @@ public static class AuthenticationServiceCollectionExtensions
     private static void ConfigureAuthenticationSchemes(
         IServiceCollection services,
         AuthSettings settings,
-        IHostEnvironment environment)
+        IHostEnvironment environment
+    )
     {
-        services.AddAuthentication(options =>
+        services
+            .AddAuthentication(options =>
             {
                 options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             })
             .AddJwtBearer(options => ConfigureJwtBearer(options, settings, environment))
-            .AddCookie(BffAuthenticationSchemes.Cookie, options => ConfigureCookie(options, settings, environment))
-            .AddOpenIdConnect(BffAuthenticationSchemes.Oidc, options => ConfigureOpenIdConnect(options, settings, environment));
+            .AddCookie(
+                BffAuthenticationSchemes.Cookie,
+                options => ConfigureCookie(options, settings, environment)
+            )
+            .AddOpenIdConnect(
+                BffAuthenticationSchemes.Oidc,
+                options => ConfigureOpenIdConnect(options, settings, environment)
+            );
     }
 
     private static void ConfigureJwtBearer(
         JwtBearerOptions options,
         AuthSettings settings,
-        IHostEnvironment environment)
+        IHostEnvironment environment
+    )
     {
         var isDevelopment = environment.IsDevelopment();
 
@@ -137,18 +161,19 @@ public static class AuthenticationServiceCollectionExtensions
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
             ValidateTokenReplay = false,
-            ClockSkew = TimeSpan.FromMinutes(5)
+            ClockSkew = TimeSpan.FromMinutes(5),
         };
         options.Events = new JwtBearerEvents
         {
-            OnTokenValidated = TenantClaimValidator.OnTokenValidated
+            OnTokenValidated = TenantClaimValidator.OnTokenValidated,
         };
     }
 
     private static void ConfigureCookie(
         CookieAuthenticationOptions options,
         AuthSettings settings,
-        IHostEnvironment environment)
+        IHostEnvironment environment
+    )
     {
         options.Cookie.Name = settings.Bff.CookieName;
         options.Cookie.HttpOnly = true;
@@ -165,7 +190,8 @@ public static class AuthenticationServiceCollectionExtensions
     private static void ConfigureOpenIdConnect(
         OpenIdConnectOptions options,
         AuthSettings settings,
-        IHostEnvironment environment)
+        IHostEnvironment environment
+    )
     {
         options.Authority = settings.Authority;
         options.RequireHttpsMetadata = !environment.IsDevelopment();
@@ -181,42 +207,63 @@ public static class AuthenticationServiceCollectionExtensions
 
         options.Events = new OpenIdConnectEvents
         {
-            OnTokenValidated = TenantClaimValidator.OnTokenValidated
+            OnTokenValidated = TenantClaimValidator.OnTokenValidated,
         };
     }
 
     private static void ConfigureCookieSessionStore(IServiceCollection services)
     {
         services.AddSingleton<ValkeyTicketStore>();
-        services.AddOptions<CookieAuthenticationOptions>(BffAuthenticationSchemes.Cookie)
+        services
+            .AddOptions<CookieAuthenticationOptions>(BffAuthenticationSchemes.Cookie)
             .Configure<ValkeyTicketStore>((opts, store) => opts.SessionStore = store);
     }
 
-    private static void ConfigureAuthorization(IServiceCollection services, IConfiguration configuration)
+    private static void ConfigureAuthorization(
+        IServiceCollection services,
+        IConfiguration configuration
+    )
     {
         services.AddSingleton<IRolePermissionMap, StaticRolePermissionMap>();
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
-        services.AddKeycloakAuthorization(configuration)
+        services
+            .AddKeycloakAuthorization(configuration)
             .AddAuthorizationBuilder()
-            .SetFallbackPolicy(new AuthorizationPolicyBuilder()
-                .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme, BffAuthenticationSchemes.Cookie)
-                .RequireAuthenticatedUser()
-                .Build())
+            .SetFallbackPolicy(
+                new AuthorizationPolicyBuilder()
+                    .AddAuthenticationSchemes(
+                        JwtBearerDefaults.AuthenticationScheme,
+                        BffAuthenticationSchemes.Cookie
+                    )
+                    .RequireAuthenticatedUser()
+                    .Build()
+            )
             .AddPolicy(
                 AuthorizationPolicies.PlatformAdmin,
-                policy => policy
-                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme, BffAuthenticationSchemes.Cookie)
-                    .RequireAuthenticatedUser()
-                    .RequireRole(UserRole.PlatformAdmin.ToString()))
+                policy =>
+                    policy
+                        .AddAuthenticationSchemes(
+                            JwtBearerDefaults.AuthenticationScheme,
+                            BffAuthenticationSchemes.Cookie
+                        )
+                        .RequireAuthenticatedUser()
+                        .RequireRole(UserRole.PlatformAdmin.ToString())
+            )
             .AddPolicy(
                 AuthorizationPolicies.TenantAdmin,
-                policy => policy
-                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme, BffAuthenticationSchemes.Cookie)
-                    .RequireAuthenticatedUser()
-                    .RequireRole(
-                        UserRole.TenantAdmin.ToString(),
-                        UserRole.PlatformAdmin.ToString()))
+                policy =>
+                    policy
+                        .AddAuthenticationSchemes(
+                            JwtBearerDefaults.AuthenticationScheme,
+                            BffAuthenticationSchemes.Cookie
+                        )
+                        .RequireAuthenticatedUser()
+                        .RequireRole(
+                            UserRole.TenantAdmin.ToString(),
+                            UserRole.PlatformAdmin.ToString()
+                        )
+            )
             .AddPermissionPolicies();
     }
 
@@ -224,19 +271,35 @@ public static class AuthenticationServiceCollectionExtensions
     {
         services.AddHttpClient(nameof(KeycloakHealthCheck));
         services.AddHttpClient(AuthConstants.HttpClients.KeycloakToken);
-        services.AddHealthChecks()
-            .AddCheck<KeycloakHealthCheck>("keycloak", tags: ["identity"]);
+        services.AddHealthChecks().AddCheck<KeycloakHealthCheck>("keycloak", tags: ["identity"]);
+
+        services.AddResiliencePipeline(
+            ResiliencePipelineKeys.KeycloakReadiness,
+            builder =>
+            {
+                builder.AddRetry(
+                    new()
+                    {
+                        MaxRetryAttempts = 29,
+                        BackoffType = DelayBackoffType.Constant,
+                        Delay = TimeSpan.FromSeconds(2),
+                        ShouldHandle = new PredicateBuilder()
+                            .Handle<HttpRequestException>()
+                            .Handle<TaskCanceledException>(),
+                    }
+                );
+            }
+        );
     }
 
-    private static Task RejectUnauthorizedRedirectAsync(Microsoft.AspNetCore.Authentication.RedirectContext<CookieAuthenticationOptions> context)
+    private static Task RejectUnauthorizedRedirectAsync(
+        Microsoft.AspNetCore.Authentication.RedirectContext<CookieAuthenticationOptions> context
+    )
     {
         AuthTelemetry.RecordUnauthorizedRedirect();
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         return Task.CompletedTask;
     }
 
-    private sealed record AuthSettings(
-        KeycloakOptions Keycloak,
-        BffOptions Bff,
-        string Authority);
+    private sealed record AuthSettings(KeycloakOptions Keycloak, BffOptions Bff, string Authority);
 }
