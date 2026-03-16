@@ -104,35 +104,55 @@ public sealed class CleanupService : ICleanupService
 
         var mongoCollection = _mongoDbContext.ProductData;
         var cutoff = _timeProvider.GetUtcNow().UtcDateTime.AddDays(-retentionDays);
+        var totalDeleted = 0;
+        Guid? lastSeenId = null;
 
-        var linkedIds = await _dbContext
-            .ProductDataLinks.IgnoreQueryFilters()
-            .Select(l => l.ProductDataId)
-            .Distinct()
-            .ToListAsync(ct);
-
-        var linkedIdSet = new HashSet<Guid>(linkedIds);
-
-        // Only consider documents older than retention cutoff — gives cascade rules time to complete
-        var filter = Builders<ProductData>.Filter.Lt(d => d.CreatedAt, cutoff);
-        var allDocs = await mongoCollection.Find(filter).Project(d => d.Id).ToListAsync(ct);
-
-        var orphanedIds = allDocs.Where(id => !linkedIdSet.Contains(id)).ToList();
-
-        if (orphanedIds.Count == 0)
+        while (true)
         {
-            return;
+            var pageFilter = Builders<ProductData>.Filter.Lt(d => d.CreatedAt, cutoff);
+            if (lastSeenId.HasValue)
+            {
+                pageFilter &= Builders<ProductData>.Filter.Gt(d => d.Id, lastSeenId.Value);
+            }
+
+            var page = await mongoCollection
+                .Find(pageFilter)
+                .SortBy(d => d.Id)
+                .Limit(batchSize)
+                .Project(d => d.Id)
+                .ToListAsync(ct);
+
+            if (page.Count == 0)
+            {
+                break;
+            }
+
+            var linkedIds = await _dbContext
+                .ProductDataLinks.IgnoreQueryFilters()
+                .Where(l => page.Contains(l.ProductDataId))
+                .Select(l => l.ProductDataId)
+                .Distinct()
+                .ToListAsync(ct);
+
+            var linkedIdSet = linkedIds.ToHashSet();
+            var orphanedIds = page.Where(id => !linkedIdSet.Contains(id)).ToArray();
+
+            if (orphanedIds.Length > 0)
+            {
+                var deleteFilter = Builders<ProductData>.Filter.In(d => d.Id, orphanedIds);
+                await mongoCollection.DeleteManyAsync(deleteFilter, ct);
+                totalDeleted += orphanedIds.Length;
+            }
+
+            lastSeenId = page[^1];
         }
 
-        foreach (var batch in orphanedIds.Chunk(batchSize))
+        if (totalDeleted > 0)
         {
-            var deleteFilter = Builders<ProductData>.Filter.In(d => d.Id, batch);
-            await mongoCollection.DeleteManyAsync(deleteFilter, ct);
+            _logger.LogInformation(
+                "Cleaned up {Count} orphaned product data documents.",
+                totalDeleted
+            );
         }
-
-        _logger.LogInformation(
-            "Cleaned up {Count} orphaned product data documents.",
-            orphanedIds.Count
-        );
     }
 }

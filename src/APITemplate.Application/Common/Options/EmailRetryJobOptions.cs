@@ -3,7 +3,7 @@ namespace APITemplate.Application.Common.Options;
 public sealed class EmailRetryJobOptions
 {
     public bool Enabled { get; set; }
-    public int IntervalMinutes { get; set; } = 15;
+    public string Cron { get; set; } = "*/15 * * * *";
     public int MaxRetryAttempts { get; set; } = 5;
     public int BatchSize { get; set; } = 50;
     public int DeadLetterAfterHours { get; set; } = 48;
