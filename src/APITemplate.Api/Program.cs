@@ -22,7 +22,7 @@ try
     builder.Services.AddPersistence(builder.Configuration); // Register EF Core + repositories + relational health checks.
     builder.Services.AddApplicationServices(); // Register application services + validators.
     builder.Services.AddEmailServices(builder.Configuration); // Register email sending infrastructure (SMTP, templates, queue, background service).
-    builder.Services.AddBackgroundJobs(builder.Configuration); // Register periodic background jobs (cleanup, reindex, email retry).
+    builder.Services.AddBackgroundJobs(builder.Configuration); // Register TickerQ-backed recurring background jobs (cleanup, reindex, email retry).
     builder.Services.AddMongoDB(builder.Configuration); // Register Mongo context/services + Mongo health checks.
     builder.Services.AddKeycloakBffAuthentication(builder.Configuration, builder.Environment); // Register Keycloak hybrid JWT + BFF authentication.
     builder.Services.AddKeycloakAdminService(); // Register Keycloak Admin API client for user management.
@@ -34,6 +34,7 @@ try
 
     await app.UseDatabaseAsync(); // Apply SQL/Mongo migrations before serving traffic.
     await app.WaitForKeycloakAsync(); // Wait for Keycloak to be reachable before serving traffic.
+    await app.UseBackgroundJobsAsync(); // Sync and start recurring TickerQ jobs after dependencies are ready.
 
     app.UseApiPipeline(); // Configure middleware order for request processing.
     app.MapApplicationEndpoints(); // Map REST/GraphQL/health endpoints.

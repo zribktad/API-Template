@@ -3,6 +3,7 @@ using APITemplate.Api.Middleware;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;
+using APITemplate.Infrastructure.BackgroundJobs.TickerQ;
 using APITemplate.Infrastructure.Observability;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Security;
@@ -16,6 +17,8 @@ using Polly.Registry;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
+using TickerQ.DependencyInjection;
+using TickerQ.Utilities.Enums;
 
 namespace APITemplate.Extensions;
 
@@ -31,6 +34,21 @@ public static class ApplicationBuilderExtensions
                 dbContext.Database.MigrateAsync()
             );
 
+        var backgroundJobsOptions = scope.ServiceProvider.GetRequiredService<
+            IOptions<BackgroundJobsOptions>
+        >();
+        if (backgroundJobsOptions.Value.TickerQ.Enabled)
+        {
+            var schedulerDbContext =
+                scope.ServiceProvider.GetRequiredService<TickerQSchedulerDbContext>();
+            if (schedulerDbContext.Database.IsRelational())
+            {
+                await StartupTelemetry.RunRelationalMigrationAsync(() =>
+                    schedulerDbContext.Database.MigrateAsync()
+                );
+            }
+        }
+
         var seeder = scope.ServiceProvider.GetRequiredService<AuthBootstrapSeeder>();
         await StartupTelemetry.RunAuthBootstrapSeedAsync(() => seeder.SeedAsync());
 
@@ -40,6 +58,26 @@ public static class ApplicationBuilderExtensions
             var migrator = scope.ServiceProvider.GetRequiredService<IMigrator>(); // Resolve Mongo migrator from DI.
             await StartupTelemetry.RunMongoMigrationAsync(() => migrator.MigrateAsync());
         }
+    }
+
+    public static async Task UseBackgroundJobsAsync(this WebApplication app)
+    {
+        var options = app.Services.GetRequiredService<IOptions<BackgroundJobsOptions>>().Value;
+        if (!options.TickerQ.Enabled)
+        {
+            app.Logger.LogInformation("TickerQ background jobs are disabled.");
+            return;
+        }
+
+        await using var scope = app.Services.CreateAsyncScope();
+        var registrar = scope.ServiceProvider.GetRequiredService<TickerQRecurringJobRegistrar>();
+        await registrar.SyncAsync();
+
+        app.UseTickerQ(TickerQStartMode.Immediate);
+        app.Logger.LogInformation(
+            "TickerQ background jobs started with schema {SchemaName}.",
+            TickerQSchedulerOptions.DefaultSchemaName
+        );
     }
 
     /// <summary>
