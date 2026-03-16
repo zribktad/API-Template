@@ -31,9 +31,6 @@ public sealed class DragonflyDistributedJobCoordinatorTests
         var ct = TestContext.Current.CancellationToken;
         var database = new Mock<IDatabase>();
         database
-            .Setup(x => x.PingAsync(It.IsAny<CommandFlags>()))
-            .ReturnsAsync(TimeSpan.FromMilliseconds(1));
-        database
             .Setup(x =>
                 x.StringSetAsync(
                     It.IsAny<RedisKey>(),
@@ -65,6 +62,63 @@ public sealed class DragonflyDistributedJobCoordinatorTests
         );
 
         executed.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ExecuteIfLeaderAsync_WhenLeaseIsAcquired_RunsActionAndReleasesLock()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var database = new Mock<IDatabase>();
+        database
+            .Setup(x =>
+                x.StringSetAsync(
+                    It.IsAny<RedisKey>(),
+                    It.IsAny<RedisValue>(),
+                    It.IsAny<TimeSpan?>(),
+                    When.NotExists,
+                    It.IsAny<CommandFlags>()
+                )
+            )
+            .ReturnsAsync(true);
+        database
+            .Setup(x =>
+                x.ScriptEvaluateAsync(
+                    It.IsAny<LuaScript>(),
+                    It.IsAny<object>(),
+                    It.IsAny<CommandFlags>()
+                )
+            )
+            .ReturnsAsync(RedisResult.Create(1));
+
+        var multiplexer = new Mock<IConnectionMultiplexer>();
+        multiplexer.SetupGet(x => x.IsConnected).Returns(true);
+        multiplexer
+            .Setup(x => x.GetDatabase(It.IsAny<int>(), It.IsAny<object>()))
+            .Returns(database.Object);
+
+        var sut = CreateSut(multiplexer.Object, failClosed: true);
+        var executed = false;
+
+        await sut.ExecuteIfLeaderAsync(
+            "cleanup",
+            _ =>
+            {
+                executed = true;
+                return Task.CompletedTask;
+            },
+            ct
+        );
+
+        executed.ShouldBeTrue();
+        database.Verify(
+            x =>
+                x.ScriptEvaluateAsync(
+                    It.IsAny<LuaScript>(),
+                    It.IsAny<object>(),
+                    It.IsAny<CommandFlags>()
+                ),
+            Times.AtLeastOnce
+        );
     }
 
     [Fact]

@@ -39,12 +39,13 @@ public sealed class TickerQRecurringJobRegistrar
     {
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var definitions = _registrations.Select(x => x.Build(_options)).ToList();
-        var tickers = await _dbContext.Set<CronTickerEntity>().ToListAsync(ct);
+        var tickersById = (await _dbContext.Set<CronTickerEntity>().ToListAsync(ct)).ToDictionary(
+            x => x.Id
+        );
 
         foreach (var definition in definitions)
         {
-            var existing = tickers.SingleOrDefault(x => x.Id == definition.Id);
-            if (existing is null)
+            if (!tickersById.TryGetValue(definition.Id, out var existing))
             {
                 var entity = new CronTickerEntity
                 {

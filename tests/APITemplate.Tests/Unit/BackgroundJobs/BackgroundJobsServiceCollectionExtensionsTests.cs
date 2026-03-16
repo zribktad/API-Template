@@ -65,6 +65,23 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddBackgroundJobs_WhenTickerQDisabled_DoesNotRegisterTickerQOnlyServices()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?> { ["BackgroundJobs:TickerQ:Enabled"] = "false" }
+        );
+
+        services.AddBackgroundJobs(configuration);
+
+        services.ShouldNotContain(x => x.ServiceType == typeof(TickerQSchedulerDbContext));
+        services.ShouldNotContain(x => x.ServiceType == typeof(TickerQRecurringJobRegistrar));
+        services.ShouldNotContain(x => x.ServiceType == typeof(IDistributedJobCoordinator));
+    }
+
+    [Fact]
     public void AddBackgroundJobs_WhenTickerQEnabledWithoutDragonflyConnection_Throws()
     {
         var services = new ServiceCollection();

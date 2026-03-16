@@ -60,8 +60,6 @@ public static class BackgroundJobsServiceCollectionExtensions
             IExternalIntegrationSyncService,
             ExternalIntegrationSyncServicePreview
         >();
-        services.AddScoped<TickerQRecurringJobRegistrar>();
-        services.AddSingleton<IDistributedJobCoordinator, DragonflyDistributedJobCoordinator>();
 
         services.AddScoped<
             IRecurringBackgroundJobRegistration,
@@ -125,6 +123,8 @@ public static class BackgroundJobsServiceCollectionExtensions
                 npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", schemaName)
             )
         );
+        services.AddScoped<TickerQRecurringJobRegistrar>();
+        services.AddSingleton<IDistributedJobCoordinator, DragonflyDistributedJobCoordinator>();
 
         services.AddTickerQ(tickerOptions =>
         {

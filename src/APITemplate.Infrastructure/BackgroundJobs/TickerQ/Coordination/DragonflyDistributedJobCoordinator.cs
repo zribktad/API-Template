@@ -8,6 +8,15 @@ namespace APITemplate.Infrastructure.BackgroundJobs.TickerQ.Coordination;
 public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordinator
 {
     private const int LeaseSeconds = 300;
+    private const double LeaseRenewalDivider = 3.0;
+    private static readonly LuaScript RenewLeaseScript = LuaScript.Prepare(
+        """
+        if redis.call('get', @key) == @value then
+            return redis.call('expire', @key, @leaseSeconds)
+        end
+        return 0
+        """
+    );
     private static readonly LuaScript ReleaseLockScript = LuaScript.Prepare(
         "if redis.call('get', @key) == @value then return redis.call('del', @key) else return 0 end"
     );
@@ -33,7 +42,7 @@ public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordina
         CancellationToken ct = default
     )
     {
-        var database = await RequireCoordinationAsync(jobName);
+        var database = RequireCoordination(jobName);
         if (database is null)
         {
             await action(ct);
@@ -74,24 +83,20 @@ public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordina
         }
     }
 
-    private Task<IDatabase?> RequireCoordinationAsync(string jobName)
+    private IDatabase? RequireCoordination(string jobName)
     {
         if (!_connectionMultiplexer.IsConnected)
         {
-            return Task.FromResult(
-                HandleUnavailable(jobName, "DragonFly connection is not established.")
-            );
+            return HandleUnavailable(jobName, "DragonFly connection is not established.");
         }
 
         try
         {
-            return Task.FromResult<IDatabase?>(_connectionMultiplexer.GetDatabase());
+            return _connectionMultiplexer.GetDatabase();
         }
         catch (Exception ex)
         {
-            return Task.FromResult(
-                HandleUnavailable(jobName, "DragonFly coordination is unavailable.", ex)
-            );
+            return HandleUnavailable(jobName, "DragonFly coordination is unavailable.", ex);
         }
     }
 
@@ -154,19 +159,20 @@ public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordina
         CancellationTokenSource executionCts
     )
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(LeaseSeconds / 3d));
+        using var timer = new PeriodicTimer(
+            TimeSpan.FromSeconds(LeaseSeconds / LeaseRenewalDivider)
+        );
         while (await timer.WaitForNextTickAsync(executionCts.Token))
         {
             var renewed = (long)
                 await database.ScriptEvaluateAsync(
-                    """
-                    if redis.call('get', KEYS[1]) == ARGV[1] then
-                        return redis.call('expire', KEYS[1], ARGV[2])
-                    end
-                    return 0
-                    """,
-                    keys: [key],
-                    values: [value, LeaseSeconds]
+                    RenewLeaseScript,
+                    new
+                    {
+                        key,
+                        value,
+                        leaseSeconds = LeaseSeconds,
+                    }
                 );
 
             if (renewed != 0)
