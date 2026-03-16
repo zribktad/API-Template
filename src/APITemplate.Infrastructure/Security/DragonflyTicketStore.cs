@@ -10,14 +10,14 @@ namespace APITemplate.Infrastructure.Security;
 
 /// <summary>
 /// A ticket store implementation that persists ASP.NET Core authentication tickets
-/// into an <see cref="IDistributedCache"/> (typically Redis/Valkey) under a unique key.
+/// into an <see cref="IDistributedCache"/> (typically DragonFly/Redis) under a unique key.
 /// </summary>
 /// <remarks>
 /// This allows the authentication cookie to contain only a small key, while the full
 /// <see cref="AuthenticationTicket"/> (claims + properties) is stored in a shared cache
 /// and can be retrieved by any application instance.
 /// </remarks>
-public sealed class ValkeyTicketStore : ITicketStore
+public sealed class DragonflyTicketStore : ITicketStore
 {
     private const string KeyPrefix = "bff:ticket:";
 
@@ -26,12 +26,12 @@ public sealed class ValkeyTicketStore : ITicketStore
     private readonly IDataProtector _protector;
 
     /// <summary>
-    /// Initializes a new instance of <see cref="ValkeyTicketStore"/>.
+    /// Initializes a new instance of <see cref="DragonflyTicketStore"/>.
     /// </summary>
     /// <param name="cache">A distributed cache instance used to persist ticket bytes.</param>
     /// <param name="options">Configuration options for session timeout etc.</param>
     /// <param name="dataProtection">Data protection provider for encrypting ticket bytes.</param>
-    public ValkeyTicketStore(
+    public DragonflyTicketStore(
         IDistributedCache cache,
         IOptions<BffOptions> options,
         IDataProtectionProvider dataProtection

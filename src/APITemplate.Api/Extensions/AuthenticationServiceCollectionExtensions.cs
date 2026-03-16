@@ -213,10 +213,10 @@ public static class AuthenticationServiceCollectionExtensions
 
     private static void ConfigureCookieSessionStore(IServiceCollection services)
     {
-        services.AddSingleton<ValkeyTicketStore>();
+        services.AddSingleton<DragonflyTicketStore>();
         services
             .AddOptions<CookieAuthenticationOptions>(AuthConstants.BffSchemes.Cookie)
-            .Configure<ValkeyTicketStore>((opts, store) => opts.SessionStore = store);
+            .Configure<DragonflyTicketStore>((opts, store) => opts.SessionStore = store);
     }
 
     private static void ConfigureAuthorization(
