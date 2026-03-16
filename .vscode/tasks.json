@@ -44,7 +44,7 @@
         "postgres",
         "mongodb",
         "keycloak",
-        "valkey"
+        "dragonfly"
       ],
       "problemMatcher": []
     },
@@ -80,7 +80,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        "$ErrorActionPreference = 'Stop'; function Start-Or-Skip([string]$service) { $output = docker compose up -d $service 2>&1; $exitCode = $LASTEXITCODE; if ($exitCode -eq 0) { $output | Out-Host; return }; $msg = ($output | Out-String); if ($msg -match 'port is already allocated' -or $msg -match 'Bind for 0\\.0\\.0\\.0') { Write-Host \"$service port is already allocated. Continuing.\"; return }; throw $msg }; Start-Or-Skip 'postgres'; Start-Or-Skip 'mongodb'; Start-Or-Skip 'keycloak'; Start-Or-Skip 'valkey'; exit 0"
+        "$ErrorActionPreference = 'Stop'; function Start-Or-Skip([string]$service) { $output = docker compose up -d $service 2>&1; $exitCode = $LASTEXITCODE; if ($exitCode -eq 0) { $output | Out-Host; return }; $msg = ($output | Out-String); if ($msg -match 'port is already allocated' -or $msg -match 'Bind for 0\\.0\\.0\\.0') { Write-Host \"$service port is already allocated. Continuing.\"; return }; throw $msg }; Start-Or-Skip 'postgres'; Start-Or-Skip 'mongodb'; Start-Or-Skip 'keycloak'; Start-Or-Skip 'dragonfly'; exit 0"
       ],
       "problemMatcher": []
     },
@@ -98,7 +98,7 @@
         "mongodb",
         "keycloak-db",
         "keycloak",
-        "valkey",
+        "dragonfly",
         "aspire-dashboard"
       ],
       "problemMatcher": []
@@ -115,7 +115,7 @@
         "mongodb",
         "keycloak-db",
         "keycloak",
-        "valkey",
+        "dragonfly",
         "alloy",
         "prometheus",
         "loki",
@@ -138,7 +138,7 @@
         "mongodb",
         "keycloak-db",
         "keycloak",
-        "valkey",
+        "dragonfly",
         "alloy",
         "prometheus",
         "loki",
@@ -169,7 +169,7 @@
         "loki",
         "prometheus",
         "alloy",
-        "valkey",
+        "dragonfly",
         "keycloak",
         "keycloak-db",
         "mongodb",
@@ -184,7 +184,7 @@
       "args": [
         "compose",
         "stop",
-        "valkey",
+        "dragonfly",
         "postgres",
         "mongodb",
         "keycloak",

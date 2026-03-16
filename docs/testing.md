@@ -297,10 +297,10 @@ All integration test classes share `CustomWebApplicationFactory`, which delegate
 | Helper | What it replaces |
 |--------|-----------------|
 | `MockMongoServices` | Removes `MongoDbContext`; mocks `IProductDataRepository` |
-| `RemoveExternalHealthChecks` | Removes `postgresql`, `mongodb`, `keycloak`, `valkey` health registrations |
-| `ReplaceOutputCacheWithInMemory` | Swaps Valkey-backed output cache for in-memory |
-| `ReplaceDataProtectionWithInMemory` | Replaces Valkey-backed DataProtection with `EphemeralDataProtectionProvider` (no key persistence) |
-| `ReplaceTicketStoreWithInMemory` | Replaces Redis-backed `IDistributedCache` with in-memory; re-registers `ValkeyTicketStore` against it |
+| `RemoveExternalHealthChecks` | Removes `postgresql`, `mongodb`, `keycloak`, `dragonfly` health registrations |
+| `ReplaceOutputCacheWithInMemory` | Swaps DragonFly-backed output cache for in-memory |
+| `ReplaceDataProtectionWithInMemory` | Replaces DragonFly-backed DataProtection with `EphemeralDataProtectionProvider` (no key persistence) |
+| `ReplaceTicketStoreWithInMemory` | Replaces Redis-backed `IDistributedCache` with in-memory; re-registers `DragonflyTicketStore` against it |
 | `ConfigureTestAuthentication` | Overrides JWT validation to use a local RSA test key; stubs the OIDC metadata |
 
 ```csharp
