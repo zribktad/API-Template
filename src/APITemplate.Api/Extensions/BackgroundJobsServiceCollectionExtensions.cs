@@ -39,9 +39,17 @@ public static class BackgroundJobsServiceCollectionExtensions
         services.AddScoped<ICleanupService, CleanupService>();
         services.AddScoped<IReindexService, ReindexService>();
         services.AddScoped<IEmailRetryService, EmailRetryService>();
+        services.AddScoped<
+            IExternalIntegrationSyncService,
+            ExternalIntegrationSyncServicePreview
+        >();
         services.AddScoped<TickerQRecurringJobRegistrar>();
         services.AddSingleton<IDistributedJobCoordinator, DragonflyDistributedJobCoordinator>();
 
+        services.AddScoped<
+            IRecurringBackgroundJobRegistration,
+            ExternalSyncRecurringJobRegistration
+        >();
         services.AddScoped<IRecurringBackgroundJobRegistration, CleanupRecurringJobRegistration>();
         services.AddScoped<IRecurringBackgroundJobRegistration, ReindexRecurringJobRegistration>();
         services.AddScoped<

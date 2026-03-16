@@ -53,6 +53,9 @@ public sealed class FailedEmailStore : IFailedEmailStore
                 CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime,
                 LastError = error,
                 TemplateName = message.TemplateName,
+                ClaimedBy = null,
+                ClaimedAtUtc = null,
+                ClaimedUntilUtc = null,
             };
 
             await repository.AddAsync(failedEmail, ct);

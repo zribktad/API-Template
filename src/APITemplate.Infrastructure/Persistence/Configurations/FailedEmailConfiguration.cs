@@ -22,16 +22,25 @@ public sealed class FailedEmailConfiguration : IEntityTypeConfiguration<FailedEm
             .HasColumnType("timestamp with time zone");
 
         builder.Property(e => e.LastAttemptAtUtc).HasColumnType("timestamp with time zone");
+        builder.Property(e => e.ClaimedBy).HasMaxLength(200);
+        builder.Property(e => e.ClaimedAtUtc).HasColumnType("timestamp with time zone");
+        builder.Property(e => e.ClaimedUntilUtc).HasColumnType("timestamp with time zone");
 
-        // Covers GetRetryableAsync: WHERE !IsDeadLettered AND RetryCount < N ORDER BY LastAttemptAtUtc
+        // Covers claim-based retry selection.
         builder.HasIndex(e => new
         {
             e.IsDeadLettered,
             e.RetryCount,
+            e.ClaimedUntilUtc,
             e.LastAttemptAtUtc,
         });
 
-        // Covers GetExpiredAsync: WHERE !IsDeadLettered AND CreatedAtUtc < cutoff ORDER BY CreatedAtUtc
-        builder.HasIndex(e => new { e.IsDeadLettered, e.CreatedAtUtc });
+        // Covers claim-based expiration/dead-letter selection.
+        builder.HasIndex(e => new
+        {
+            e.IsDeadLettered,
+            e.ClaimedUntilUtc,
+            e.CreatedAtUtc,
+        });
     }
 }

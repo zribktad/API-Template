@@ -41,10 +41,10 @@
 - [x] Add cleanup jobs for expired or orphaned data.
 - [x] Add reindex jobs for search data.
 - [x] Add retry jobs for failed notifications.
-- [ ] Add periodic synchronization tasks for external integrations.
-- [ ] Cursor-based pagination for orphaned ProductData cleanup to bound memory usage at scale.
-- [ ] Distributed locking (`SELECT ... FOR UPDATE SKIP LOCKED` or claim column) for email retry to prevent duplicate sends in multi-instance deployments.
-- [ ] Migrate from `PeriodicTimer` to Quartz.NET (or TickerQ) for CRON scheduling, persistent job state, and distributed locking.
+- [x] Add periodic synchronization tasks for external integrations.
+- [x] Cursor-based pagination for orphaned ProductData cleanup to bound memory usage at scale.
+- [x] Distributed locking (`SELECT ... FOR UPDATE SKIP LOCKED` or claim column) for email retry to prevent duplicate sends in multi-instance deployments.
+- [x] Migrate from `PeriodicTimer` to Quartz.NET (or TickerQ) for CRON scheduling, persistent job state, and distributed locking.
 
 ## Permissions
 

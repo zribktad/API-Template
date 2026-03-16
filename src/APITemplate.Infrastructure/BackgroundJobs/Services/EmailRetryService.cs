@@ -1,18 +1,22 @@
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Common.Email;
+using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Polly.Registry;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.Services;
 
 public sealed class EmailRetryService : IEmailRetryService
 {
+    private readonly string _claimOwner;
     private readonly IFailedEmailRepository _repository;
     private readonly IEmailSender _sender;
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _timeProvider;
+    private readonly EmailRetryJobOptions _options;
     private readonly ResiliencePipelineProvider<string> _resiliencePipelineProvider;
     private readonly ILogger<EmailRetryService> _logger;
 
@@ -21,14 +25,17 @@ public sealed class EmailRetryService : IEmailRetryService
         IEmailSender sender,
         IUnitOfWork unitOfWork,
         TimeProvider timeProvider,
+        IOptions<BackgroundJobsOptions> options,
         ResiliencePipelineProvider<string> resiliencePipelineProvider,
         ILogger<EmailRetryService> logger
     )
     {
+        _claimOwner = $"{Environment.MachineName}:{Environment.ProcessId}";
         _repository = repository;
         _sender = sender;
         _unitOfWork = unitOfWork;
         _timeProvider = timeProvider;
+        _options = options.Value.EmailRetry;
         _resiliencePipelineProvider = resiliencePipelineProvider;
         _logger = logger;
     }
@@ -40,7 +47,16 @@ public sealed class EmailRetryService : IEmailRetryService
     )
     {
         var pipeline = _resiliencePipelineProvider.GetPipeline(ResiliencePipelineKeys.SmtpSend);
-        var emails = await _repository.GetRetryableAsync(maxRetryAttempts, batchSize, ct);
+        var claimedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
+        var claimUntilUtc = claimedAtUtc.AddMinutes(_options.ClaimLeaseMinutes);
+        var emails = await _repository.ClaimRetryableBatchAsync(
+            maxRetryAttempts,
+            batchSize,
+            _claimOwner,
+            claimedAtUtc,
+            claimUntilUtc,
+            ct
+        );
 
         foreach (var email in emails)
         {
@@ -69,6 +85,9 @@ public sealed class EmailRetryService : IEmailRetryService
                 email.RetryCount++;
                 email.LastAttemptAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
                 email.LastError = ex.Message;
+                email.ClaimedBy = null;
+                email.ClaimedAtUtc = null;
+                email.ClaimedUntilUtc = null;
                 await _repository.UpdateAsync(email, ct);
 
                 _logger.LogWarning(
@@ -95,12 +114,23 @@ public sealed class EmailRetryService : IEmailRetryService
 
         do
         {
-            var expired = await _repository.GetExpiredAsync(cutoff, batchSize, ct);
+            var claimedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
+            var expired = await _repository.ClaimExpiredBatchAsync(
+                cutoff,
+                batchSize,
+                _claimOwner,
+                claimedAtUtc,
+                claimedAtUtc.AddMinutes(_options.ClaimLeaseMinutes),
+                ct
+            );
             processed = expired.Count;
 
             foreach (var email in expired)
             {
                 email.IsDeadLettered = true;
+                email.ClaimedBy = null;
+                email.ClaimedAtUtc = null;
+                email.ClaimedUntilUtc = null;
                 await _repository.UpdateAsync(email, ct);
 
                 _logger.LogWarning(

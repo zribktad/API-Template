@@ -12,4 +12,7 @@ public sealed class FailedEmail
     public string? LastError { get; set; }
     public string? TemplateName { get; set; }
     public bool IsDeadLettered { get; set; }
+    public string? ClaimedBy { get; set; }
+    public DateTime? ClaimedAtUtc { get; set; }
+    public DateTime? ClaimedUntilUtc { get; set; }
 }

@@ -42,9 +42,10 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
         services.ShouldContain(x => x.ServiceType == typeof(TickerQSchedulerDbContext));
         services.ShouldContain(x => x.ServiceType == typeof(TickerQRecurringJobRegistrar));
         services.ShouldContain(x => x.ServiceType == typeof(IDistributedJobCoordinator));
+        services.ShouldContain(x => x.ServiceType == typeof(IExternalIntegrationSyncService));
         services
             .Count(x => x.ServiceType == typeof(IRecurringBackgroundJobRegistration))
-            .ShouldBe(3);
+            .ShouldBe(4);
         services.ShouldContain(x => x.ServiceType == typeof(IFailedEmailStore));
         services.ShouldContain(x => x.ServiceType == typeof(IEmailRetryService));
         services.ShouldContain(x => x.ServiceType == typeof(ICleanupService));
@@ -100,9 +101,11 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
                 ["BackgroundJobs:TickerQ:SchemaName"] = "tickerq",
                 ["BackgroundJobs:TickerQ:InstanceNamePrefix"] = "ApiTemplate",
                 ["BackgroundJobs:TickerQ:CoordinationConnection"] = "Dragonfly",
+                ["BackgroundJobs:ExternalSync:Cron"] = "0 */12 * * *",
                 ["BackgroundJobs:Cleanup:Cron"] = "5 * * * *",
                 ["BackgroundJobs:Reindex:Cron"] = "0 */4 * * *",
                 ["BackgroundJobs:EmailRetry:Cron"] = "*/5 * * * *",
+                ["BackgroundJobs:EmailRetry:ClaimLeaseMinutes"] = "9",
             }
         );
 
@@ -118,9 +121,11 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
         options.TickerQ.SchemaName.ShouldBe("tickerq");
         options.TickerQ.InstanceNamePrefix.ShouldBe("ApiTemplate");
         options.TickerQ.CoordinationConnection.ShouldBe("Dragonfly");
+        options.ExternalSync.Cron.ShouldBe("0 */12 * * *");
         options.Cleanup.Cron.ShouldBe("5 * * * *");
         options.Reindex.Cron.ShouldBe("0 */4 * * *");
         options.EmailRetry.Cron.ShouldBe("*/5 * * * *");
+        options.EmailRetry.ClaimLeaseMinutes.ShouldBe(9);
     }
 
     private static IConfiguration BuildConfiguration(Dictionary<string, string?> values) =>

@@ -25,6 +25,11 @@ public sealed class TickerQRecurringJobRegistrarTests
             new BackgroundJobsOptions
             {
                 TickerQ = new TickerQSchedulerOptions { SchemaName = "tickerq" },
+                ExternalSync = new ExternalSyncJobOptions
+                {
+                    Enabled = false,
+                    Cron = "0 */12 * * *",
+                },
                 Cleanup = new CleanupJobOptions { Enabled = true, Cron = "0 * * * *" },
                 Reindex = new ReindexJobOptions { Enabled = true, Cron = "0 */6 * * *" },
                 EmailRetry = new EmailRetryJobOptions { Enabled = false, Cron = "*/15 * * * *" },
@@ -48,7 +53,10 @@ public sealed class TickerQRecurringJobRegistrarTests
             .Set<CronTickerEntity>()
             .OrderBy(x => x.Function)
             .ToListAsync(ct);
-        seededTickers.Count.ShouldBe(3);
+        seededTickers.Count.ShouldBe(4);
+        seededTickers
+            .Single(x => x.Function == TickerQFunctionNames.ExternalSync)
+            .IsEnabled.ShouldBeFalse();
         seededTickers
             .Single(x => x.Function == TickerQFunctionNames.EmailRetry)
             .IsEnabled.ShouldBeFalse();
@@ -57,6 +65,7 @@ public sealed class TickerQRecurringJobRegistrarTests
             new BackgroundJobsOptions
             {
                 TickerQ = new TickerQSchedulerOptions { SchemaName = "tickerq" },
+                ExternalSync = new ExternalSyncJobOptions { Enabled = true, Cron = "0 */6 * * *" },
                 Cleanup = new CleanupJobOptions { Enabled = true, Cron = "5 * * * *" },
                 Reindex = new ReindexJobOptions { Enabled = true, Cron = "0 */6 * * *" },
                 EmailRetry = new EmailRetryJobOptions { Enabled = true, Cron = "*/5 * * * *" },
@@ -77,7 +86,11 @@ public sealed class TickerQRecurringJobRegistrarTests
             .Set<CronTickerEntity>()
             .OrderBy(x => x.Function)
             .ToListAsync(ct);
-        updatedTickers.Count.ShouldBe(3);
+        updatedTickers.Count.ShouldBe(4);
+        updatedTickers.Single(x => x.Id == TickerQJobIds.ExternalSync).IsEnabled.ShouldBeTrue();
+        updatedTickers
+            .Single(x => x.Id == TickerQJobIds.ExternalSync)
+            .Expression.ShouldBe("0 */6 * * *");
         updatedTickers.Single(x => x.Id == TickerQJobIds.Cleanup).Expression.ShouldBe("5 * * * *");
         updatedTickers.Single(x => x.Id == TickerQJobIds.EmailRetry).IsEnabled.ShouldBeTrue();
         updatedTickers
@@ -87,6 +100,7 @@ public sealed class TickerQRecurringJobRegistrarTests
 
     private static IReadOnlyCollection<IRecurringBackgroundJobRegistration> CreateRegistrations() =>
         [
+            new ExternalSyncRecurringJobRegistration(),
             new CleanupRecurringJobRegistration(),
             new ReindexRecurringJobRegistration(),
             new EmailRetryRecurringJobRegistration(),
