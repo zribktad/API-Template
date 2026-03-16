@@ -67,6 +67,29 @@ public sealed class DragonflyDistributedJobCoordinatorTests
         executed.ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task ExecuteIfLeaderAsync_WhenFailClosedIsDisabled_RunsActionWithoutCoordination()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var multiplexer = new Mock<IConnectionMultiplexer>();
+        multiplexer.SetupGet(x => x.IsConnected).Returns(false);
+
+        var sut = CreateSut(multiplexer.Object, failClosed: false);
+        var executed = false;
+
+        await sut.ExecuteIfLeaderAsync(
+            "cleanup",
+            _ =>
+            {
+                executed = true;
+                return Task.CompletedTask;
+            },
+            ct
+        );
+
+        executed.ShouldBeTrue();
+    }
+
     private static DragonflyDistributedJobCoordinator CreateSut(
         IConnectionMultiplexer multiplexer,
         bool failClosed
