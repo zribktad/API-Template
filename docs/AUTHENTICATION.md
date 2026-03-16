@@ -52,11 +52,11 @@ graph TB
 
 ## Authentication Methods
 
-| Method                 | Client                         | Token visible to JS?                       |
-| ---------------------- | ------------------------------ | ------------------------------------------ |
-| **Scalar OAuth2**      | Scalar UI (dev tool)           | Yes (in Scalar memory only)                |
-| **JWT Bearer**         | Mobile apps, Postman, curl     | Yes (client manages it)                    |
-| **Client Credentials** | Microservices, background jobs | N/A (machine-to-machine)                   |
+| Method                 | Client                         | Token visible to JS?                          |
+| ---------------------- | ------------------------------ | --------------------------------------------- |
+| **Scalar OAuth2**      | Scalar UI (dev tool)           | Yes (in Scalar memory only)                   |
+| **JWT Bearer**         | Mobile apps, Postman, curl     | Yes (client manages it)                       |
+| **Client Credentials** | Microservices, background jobs | N/A (machine-to-machine)                      |
 | **BFF Cookie**         | SPA frontend (browser)         | **No** — httpOnly cookie, tokens in DragonFly |
 
 ---
@@ -74,7 +74,7 @@ docker compose up -d
 | PostgreSQL | 5432  | Application database  |
 | MongoDB    | 27017 | Product data storage  |
 | Keycloak   | 8180  | Identity provider     |
-| DragonFly     | 6379  | Session store + cache |
+| DragonFly  | 6379  | Session store + cache |
 
 ### 2. Default Credentials
 
@@ -332,12 +332,12 @@ JWT tokens must contain these claims:
 
 All under `/api/v1/bff/`:
 
-| Endpoint          | Auth required | Description                                     |
-| ----------------- | ------------- | ----------------------------------------------- |
-| `GET /bff/login`  | No            | Initiates OIDC login, optional `?returnUrl=`    |
+| Endpoint          | Auth required | Description                                        |
+| ----------------- | ------------- | -------------------------------------------------- |
+| `GET /bff/login`  | No            | Initiates OIDC login, optional `?returnUrl=`       |
 | `GET /bff/logout` | Cookie        | Clears session in DragonFly, signs out of Keycloak |
-| `GET /bff/user`   | Cookie        | Returns current user claims as JSON             |
-| `GET /bff/csrf`   | No            | Returns CSRF header name/value contract         |
+| `GET /bff/user`   | Cookie        | Returns current user claims as JSON                |
+| `GET /bff/csrf`   | No            | Returns CSRF header name/value contract            |
 
 **`GET /bff/user` response:**
 ```json
@@ -458,13 +458,13 @@ When the API sets `options.Authority`, ASP.NET auto-discovers all endpoints via 
 
 ### Production Environment Variables
 
-| Variable                        | Description                    |
-| ------------------------------- | ------------------------------ |
-| `KC_HOSTNAME`                   | Keycloak external hostname     |
-| `Keycloak__realm`               | Keycloak realm name            |
-| `Keycloak__resource`            | Client ID                      |
-| `Keycloak__credentials__secret` | Client secret                  |
-| `Dragonfly__ConnectionString`      | DragonFly/Redis connection string |
+| Variable                        | Description                       |
+| ------------------------------- | --------------------------------- |
+| `KC_HOSTNAME`                   | Keycloak external hostname        |
+| `Keycloak__realm`               | Keycloak realm name               |
+| `Keycloak__resource`            | Client ID                         |
+| `Keycloak__credentials__secret` | Client secret                     |
+| `Dragonfly__ConnectionString`   | DragonFly/Redis connection string |
 
 ---
 
@@ -494,24 +494,24 @@ Test tokens are signed with RSA-256 using an in-memory test key pair and include
 
 ## Key Source Files
 
-| File                                                      | Description                                                  |
-| --------------------------------------------------------- | ------------------------------------------------------------ |
-| `Extensions/AuthenticationServiceCollectionExtensions.cs` | All auth registration: JWT Bearer + Cookie + OIDC + policies |
-| `Extensions/ApplicationBuilderExtensions.cs`              | Middleware pipeline order                                    |
-| `Api/Controllers/V1/BffController.cs`                     | BFF endpoints: login / logout / user / csrf                  |
-| `Api/Middleware/CsrfValidationMiddleware.cs`              | CSRF header enforcement for cookie-authenticated requests    |
-| `Api/OpenApi/BearerSecuritySchemeDocumentTransformer.cs`  | Registers OAuth2 flow in Scalar/OpenAPI spec                 |
-| `Application/Common/Options/BffOptions.cs`                | BFF configuration model                                      |
-| `Application/Common/Options/KeycloakOptions.cs`           | Keycloak configuration model                                 |
-| `Application/Common/Security/BffAuthenticationSchemes.cs` | Auth scheme name constants                                   |
-| `Application/Common/Security/AuthorizationPolicies.cs`    | Policy name constants                                        |
-| `Application/Common/Security/CustomClaimTypes.cs`         | Custom claim type constants (`tenant_id`)                    |
-| `Infrastructure/Security/DragonFlyTicketStore.cs`            | Server-side session store (DragonFly); cookie holds only GUID   |
-| `Infrastructure/Security/CookieSessionRefresher.cs`       | Silent token refresh on cookie validation                    |
-| `Infrastructure/Security/TenantClaimValidator.cs`         | Validates tenant_id claim; maps Keycloak claims              |
-| `Infrastructure/Security/KeycloakClaimMapper.cs`          | Maps preferred_username + realm roles to .NET claim types    |
-| `Infrastructure/Security/KeycloakUrlHelper.cs`            | Builds Keycloak authority URL                                |
-| `Infrastructure/Health/KeycloakHealthCheck.cs`            | Keycloak health check endpoint                               |
-| `infrastructure/keycloak/realms/api-template-realm.json`  | Keycloak realm auto-import                                   |
+| File                                                      | Description                                                   |
+| --------------------------------------------------------- | ------------------------------------------------------------- |
+| `Extensions/AuthenticationServiceCollectionExtensions.cs` | All auth registration: JWT Bearer + Cookie + OIDC + policies  |
+| `Extensions/ApplicationBuilderExtensions.cs`              | Middleware pipeline order                                     |
+| `Api/Controllers/V1/BffController.cs`                     | BFF endpoints: login / logout / user / csrf                   |
+| `Api/Middleware/CsrfValidationMiddleware.cs`              | CSRF header enforcement for cookie-authenticated requests     |
+| `Api/OpenApi/BearerSecuritySchemeDocumentTransformer.cs`  | Registers OAuth2 flow in Scalar/OpenAPI spec                  |
+| `Application/Common/Options/BffOptions.cs`                | BFF configuration model                                       |
+| `Application/Common/Options/KeycloakOptions.cs`           | Keycloak configuration model                                  |
+| `Application/Common/Security/BffAuthenticationSchemes.cs` | Auth scheme name constants                                    |
+| `Application/Common/Security/AuthorizationPolicies.cs`    | Policy name constants                                         |
+| `Application/Common/Security/CustomClaimTypes.cs`         | Custom claim type constants (`tenant_id`)                     |
+| `Infrastructure/Security/DragonFlyTicketStore.cs`         | Server-side session store (DragonFly); cookie holds only GUID |
+| `Infrastructure/Security/CookieSessionRefresher.cs`       | Silent token refresh on cookie validation                     |
+| `Infrastructure/Security/TenantClaimValidator.cs`         | Validates tenant_id claim; maps Keycloak claims               |
+| `Infrastructure/Security/KeycloakClaimMapper.cs`          | Maps preferred_username + realm roles to .NET claim types     |
+| `Infrastructure/Security/KeycloakUrlHelper.cs`            | Builds Keycloak authority URL                                 |
+| `Infrastructure/Health/KeycloakHealthCheck.cs`            | Keycloak health check endpoint                                |
+| `infrastructure/keycloak/realms/api-template-realm.json`  | Keycloak realm auto-import                                    |
 
 

@@ -95,10 +95,10 @@ This means a single misbehaving client cannot exhaust the limit for all other cl
 }
 ```
 
-| Setting | Default | Description |
-|---|---|---|
-| `PermitLimit` | `100` | Max requests per client per window |
-| `WindowMinutes` | `1` | Window duration in minutes |
+| Setting         | Default | Description                        |
+| --------------- | ------- | ---------------------------------- |
+| `PermitLimit`   | `100`   | Max requests per client per window |
+| `WindowMinutes` | `1`     | Window duration in minutes         |
 
 Requests exceeding the limit receive **HTTP 429 Too Many Requests**. The counter resets at the end of each window.
 
@@ -130,12 +130,12 @@ When the `Dragonfly:ConnectionString` setting is **missing or empty**, the appli
 
 Defined in `ApiServiceCollectionExtensions.cs`:
 
-| Policy | Expiration | Tag | Used By |
-|---|---|---|---|
-| *(base)* | No cache | — | All endpoints by default |
-| `Products` | 30 seconds | `Products` | `ProductsController` GET endpoints |
-| `Categories` | 60 seconds | `Categories` | `CategoriesController` GET endpoints |
-| `Reviews` | 30 seconds | `Reviews` | `ProductReviewsController` GET endpoints |
+| Policy       | Expiration | Tag          | Used By                                  |
+| ------------ | ---------- | ------------ | ---------------------------------------- |
+| *(base)*     | No cache   | —            | All endpoints by default                 |
+| `Products`   | 30 seconds | `Products`   | `ProductsController` GET endpoints       |
+| `Categories` | 60 seconds | `Categories` | `CategoriesController` GET endpoints     |
+| `Reviews`    | 30 seconds | `Reviews`    | `ProductReviewsController` GET endpoints |
 
 The base policy disables caching for all endpoints. Only endpoints explicitly decorated with `[OutputCache(PolicyName = "...")]` are cached.
 
@@ -175,12 +175,12 @@ This removes **all** cached responses tagged with the specified tag. For example
 
 #### Invalidation Map
 
-| Action | Tags Evicted |
-|---|---|
-| Create/Update/Delete Product | `Products` |
-| Delete Product | `Products`, `Reviews` |
-| Create/Update/Delete Category | `Categories` |
-| Create/Delete Review | `Reviews` |
+| Action                        | Tags Evicted          |
+| ----------------------------- | --------------------- |
+| Create/Update/Delete Product  | `Products`            |
+| Delete Product                | `Products`, `Reviews` |
+| Create/Update/Delete Category | `Categories`          |
+| Create/Delete Review          | `Reviews`             |
 
 Deleting a product also evicts reviews because product reviews become orphaned.
 

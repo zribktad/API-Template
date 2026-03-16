@@ -8,8 +8,8 @@ A scalable, clean, and modern template designed to jumpstart **.NET 10** Web API
 
 Step-by-step guides for the most common workflows in this project:
 
-| Guide                                               | Description                                                                 |
-| --------------------------------------------------- | --------------------------------------------------------------------------- |
+| Guide                                                | Description                                                                 |
+| ---------------------------------------------------- | --------------------------------------------------------------------------- |
 | [GraphQL Endpoint](docs/graphql-endpoint.md)         | Add a type, query, mutation, and optional DataLoader                        |
 | [REST Endpoint](docs/rest-endpoint.md)               | Full workflow: entity → DTO → validator → service → controller              |
 | [EF Core Migration](docs/ef-migration.md)            | Create and apply PostgreSQL schema migrations                               |
@@ -267,13 +267,13 @@ APITemplate.Domain  ←  APITemplate.Application  ←  APITemplate.Infrastructur
 
 ### Project responsibilities
 
-| Project | Role | Key rule |
-|---------|------|----------|
-| `APITemplate.Domain` | Core business model — entities, enums, domain exceptions, repository interfaces | No dependencies on any other project or NuGet package except .NET BCL |
-| `APITemplate.Application` | Use-case layer — MediatR commands/queries/handlers, DTOs, FluentValidation validators, pipeline behaviors, specifications | Depends only on Domain; never references EF Core, ASP.NET, or any infrastructure detail |
-| `APITemplate.Infrastructure` | Technical implementations — EF Core `AppDbContext`, MongoDB context, repository classes, Unit of Work, migrations, security services, observability | Depends on Domain (implements interfaces) and Application (reads options) |
-| `APITemplate.Api` | Presentation entry point — REST controllers, GraphQL types/queries/mutations/DataLoaders, middleware, DI composition root, `Program.cs` | Depends on all other projects; owns `ISender` dispatch and HTTP/GraphQL mapping |
-| `APITemplate.Tests` | Test suite — unit tests (Moq), in-memory integration tests (`WebApplicationFactory`), Testcontainers PostgreSQL tests (Respawn) | References all production projects; never ships to production |
+| Project                      | Role                                                                                                                                                | Key rule                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `APITemplate.Domain`         | Core business model — entities, enums, domain exceptions, repository interfaces                                                                     | No dependencies on any other project or NuGet package except .NET BCL                   |
+| `APITemplate.Application`    | Use-case layer — MediatR commands/queries/handlers, DTOs, FluentValidation validators, pipeline behaviors, specifications                           | Depends only on Domain; never references EF Core, ASP.NET, or any infrastructure detail |
+| `APITemplate.Infrastructure` | Technical implementations — EF Core `AppDbContext`, MongoDB context, repository classes, Unit of Work, migrations, security services, observability | Depends on Domain (implements interfaces) and Application (reads options)               |
+| `APITemplate.Api`            | Presentation entry point — REST controllers, GraphQL types/queries/mutations/DataLoaders, middleware, DI composition root, `Program.cs`             | Depends on all other projects; owns `ISender` dispatch and HTTP/GraphQL mapping         |
+| `APITemplate.Tests`          | Test suite — unit tests (Moq), in-memory integration tests (`WebApplicationFactory`), Testcontainers PostgreSQL tests (Respawn)                     | References all production projects; never ships to production                           |
 
 ### Folder layout
 
@@ -387,14 +387,14 @@ All versioned REST resource endpoints sit under the base path `api/v{version}`. 
 
 ### Users
 
-| Method  | Path                              | Auth Required | Description                                      |
-| ------- | --------------------------------- | :-----------: | ------------------------------------------------ |
-| `GET`   | `/api/v1/Users`                   |       ✅       | List all users (PlatformAdmin only)              |
-| `GET`   | `/api/v1/Users/{id}`              |       ✅       | Get a user by GUID                               |
-| `POST`  | `/api/v1/Users/register`          |       ❌       | Register a new user                              |
-| `PUT`   | `/api/v1/Users/{id}/activate`     |       ✅       | Activate a user (TenantAdmin / PlatformAdmin)    |
-| `PUT`   | `/api/v1/Users/{id}/deactivate`   |       ✅       | Deactivate a user (TenantAdmin / PlatformAdmin)  |
-| `PUT`   | `/api/v1/Users/{id}/role`         |       ✅       | Assign a role to a user (TenantAdmin / PlatformAdmin) |
+| Method | Path                            | Auth Required | Description                                           |
+| ------ | ------------------------------- | :-----------: | ----------------------------------------------------- |
+| `GET`  | `/api/v1/Users`                 |       ✅       | List all users (PlatformAdmin only)                   |
+| `GET`  | `/api/v1/Users/{id}`            |       ✅       | Get a user by GUID                                    |
+| `POST` | `/api/v1/Users/register`        |       ❌       | Register a new user                                   |
+| `PUT`  | `/api/v1/Users/{id}/activate`   |       ✅       | Activate a user (TenantAdmin / PlatformAdmin)         |
+| `PUT`  | `/api/v1/Users/{id}/deactivate` |       ✅       | Deactivate a user (TenantAdmin / PlatformAdmin)       |
+| `PUT`  | `/api/v1/Users/{id}/role`       |       ✅       | Assign a role to a user (TenantAdmin / PlatformAdmin) |
 
 ### Utility
 
@@ -421,75 +421,75 @@ Configuration sections are bound to strongly-typed `IOptions<T>` classes registe
 
 ### Databases
 
-| Key | Example Value | Description |
-| --- | ------------- | ----------- |
+| Key                                   | Example Value                                                                       | Description                                                                                                                                                           |
+| ------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ConnectionStrings:DefaultConnection` | `Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres` | Npgsql connection string for the primary PostgreSQL database. Used by EF Core `AppDbContext` for all relational data (tenants, users, products, categories, reviews). |
-| `MongoDB:ConnectionString` | `mongodb://localhost:27017` | MongoDB connection string. Used by `MongoDbContext` for the `product_data` collection (polymorphic media metadata). |
-| `MongoDB:DatabaseName` | `apitemplate` | Name of the MongoDB database. All MongoDB collections are created inside this database. |
+| `MongoDB:ConnectionString`            | `mongodb://localhost:27017`                                                         | MongoDB connection string. Used by `MongoDbContext` for the `product_data` collection (polymorphic media metadata).                                                   |
+| `MongoDB:DatabaseName`                | `apitemplate`                                                                       | Name of the MongoDB database. All MongoDB collections are created inside this database.                                                                               |
 
 ### Cache & Session
 
-| Key | Example Value | Description |
-| --- | ------------- | ----------- |
+| Key                          | Example Value    | Description                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Dragonfly:ConnectionString` | `localhost:6379` | StackExchange.Redis connection string pointing to a DragonFly instance. Used for three purposes: distributed output cache (GET responses), server-side BFF session store (`DragonflyTicketStore`), and shared DataProtection key ring. **Omit or leave empty** to fall back to in-memory cache — suitable for single-instance development only. |
 
 ### Authentication — Keycloak
 
-| Key | Example Value | Description |
-| --- | ------------- | ----------- |
-| `Keycloak:auth-server-url` | `http://localhost:8180/` | Base URL of the Keycloak server. Used for JWT token validation (OIDC discovery endpoint) and BFF OIDC login flow. |
-| `Keycloak:realm` | `api-template` | Name of the Keycloak realm that issues tokens for this application. |
-| `Keycloak:resource` | `api-template` | Keycloak client ID. Must match the client configured in the realm. Used as the JWT `aud` (audience) claim. |
-| `Keycloak:credentials:secret` | `dev-client-secret` | Keycloak client secret for the confidential client. Required for BFF OIDC code exchange and token refresh. **Never commit a real secret** — supply via environment variable or secret manager in production. |
-| `Keycloak:SkipReadinessCheck` | `false` | When `true`, the startup `WaitForKeycloakAsync()` probe is skipped. Useful in CI environments where Keycloak is not available. |
+| Key                           | Example Value            | Description                                                                                                                                                                                                  |
+| ----------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Keycloak:auth-server-url`    | `http://localhost:8180/` | Base URL of the Keycloak server. Used for JWT token validation (OIDC discovery endpoint) and BFF OIDC login flow.                                                                                            |
+| `Keycloak:realm`              | `api-template`           | Name of the Keycloak realm that issues tokens for this application.                                                                                                                                          |
+| `Keycloak:resource`           | `api-template`           | Keycloak client ID. Must match the client configured in the realm. Used as the JWT `aud` (audience) claim.                                                                                                   |
+| `Keycloak:credentials:secret` | `dev-client-secret`      | Keycloak client secret for the confidential client. Required for BFF OIDC code exchange and token refresh. **Never commit a real secret** — supply via environment variable or secret manager in production. |
+| `Keycloak:SkipReadinessCheck` | `false`                  | When `true`, the startup `WaitForKeycloakAsync()` probe is skipped. Useful in CI environments where Keycloak is not available.                                                                               |
 
 ### BFF Cookie Session
 
-| Key | Example Value | Description |
-| --- | ------------- | ----------- |
-| `Bff:CookieName` | `.APITemplate.Auth` | Name of the `httpOnly` session cookie issued after a successful BFF login. The cookie contains only a session key — the actual auth ticket is stored in DragonFly. |
-| `Bff:SessionTimeoutMinutes` | `60` | How long the BFF session cookie remains valid after the last activity. |
-| `Bff:PostLogoutRedirectUri` | `/` | URI the browser is redirected to after `GET /api/v1/bff/logout` completes the Keycloak back-channel logout. |
-| `Bff:Scopes` | `["openid","profile","email","offline_access"]` | OIDC scopes requested from Keycloak during the BFF login flow. `offline_access` is required for silent token refresh via refresh token. |
-| `Bff:TokenRefreshThresholdMinutes` | `2` | `CookieSessionRefresher` exchanges the refresh token with Keycloak when the access token will expire within this many minutes. Prevents mid-request token expiry without requiring a full re-login. |
+| Key                                | Example Value                                   | Description                                                                                                                                                                                         |
+| ---------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Bff:CookieName`                   | `.APITemplate.Auth`                             | Name of the `httpOnly` session cookie issued after a successful BFF login. The cookie contains only a session key — the actual auth ticket is stored in DragonFly.                                  |
+| `Bff:SessionTimeoutMinutes`        | `60`                                            | How long the BFF session cookie remains valid after the last activity.                                                                                                                              |
+| `Bff:PostLogoutRedirectUri`        | `/`                                             | URI the browser is redirected to after `GET /api/v1/bff/logout` completes the Keycloak back-channel logout.                                                                                         |
+| `Bff:Scopes`                       | `["openid","profile","email","offline_access"]` | OIDC scopes requested from Keycloak during the BFF login flow. `offline_access` is required for silent token refresh via refresh token.                                                             |
+| `Bff:TokenRefreshThresholdMinutes` | `2`                                             | `CookieSessionRefresher` exchanges the refresh token with Keycloak when the access token will expire within this many minutes. Prevents mid-request token expiry without requiring a full re-login. |
 
 ### Rate Limiting
 
-| Key | Example Value | Description |
-| --- | ------------- | ----------- |
-| `RateLimiting:Fixed:PermitLimit` | `100` | Maximum number of requests allowed per client within a single window. Partition key: JWT username → remote IP → `"anonymous"`. Exceeded requests receive HTTP 429. |
-| `RateLimiting:Fixed:WindowMinutes` | `1` | Duration of the fixed rate-limit window in minutes. The counter resets at the end of each window. |
+| Key                                | Example Value | Description                                                                                                                                                        |
+| ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RateLimiting:Fixed:PermitLimit`   | `100`         | Maximum number of requests allowed per client within a single window. Partition key: JWT username → remote IP → `"anonymous"`. Exceeded requests receive HTTP 429. |
+| `RateLimiting:Fixed:WindowMinutes` | `1`           | Duration of the fixed rate-limit window in minutes. The counter resets at the end of each window.                                                                  |
 
 ### Output Caching
 
-| Key | Example Value | Description |
-| --- | ------------- | ----------- |
-| `Caching:ProductsExpirationSeconds` | `30` | Cache TTL for the `Products` output-cache policy applied to `GET /api/v1/Products` and `GET /api/v1/Products/{id}`. Entries are also evicted immediately when any product mutation publishes `ProductsChangedNotification`. |
-| `Caching:CategoriesExpirationSeconds` | `60` | Cache TTL for the `Categories` output-cache policy. |
-| `Caching:ReviewsExpirationSeconds` | `30` | Cache TTL for the `Reviews` output-cache policy. |
+| Key                                   | Example Value | Description                                                                                                                                                                                                                 |
+| ------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Caching:ProductsExpirationSeconds`   | `30`          | Cache TTL for the `Products` output-cache policy applied to `GET /api/v1/Products` and `GET /api/v1/Products/{id}`. Entries are also evicted immediately when any product mutation publishes `ProductsChangedNotification`. |
+| `Caching:CategoriesExpirationSeconds` | `60`          | Cache TTL for the `Categories` output-cache policy.                                                                                                                                                                         |
+| `Caching:ReviewsExpirationSeconds`    | `30`          | Cache TTL for the `Reviews` output-cache policy.                                                                                                                                                                            |
 
 ### Persistence & Transactions
 
-| Key | Example Value | Description |
-| --- | ------------- | ----------- |
-| `Persistence:Transactions:IsolationLevel` | `ReadCommitted` | Default SQL isolation level for explicit `IUnitOfWork.ExecuteInTransactionAsync(...)` calls. Accepted values: `ReadUncommitted`, `ReadCommitted`, `RepeatableRead`, `Serializable`. Per-call overrides are possible via `TransactionOptions`. |
-| `Persistence:Transactions:TimeoutSeconds` | `30` | Command timeout applied to the database connection while an explicit transaction is active. Prevents long-running transactions from holding locks indefinitely. |
-| `Persistence:Transactions:RetryEnabled` | `true` | Enables the Npgsql EF Core execution strategy that automatically retries the entire transaction block on transient failures (e.g. connection drops, deadlocks). |
-| `Persistence:Transactions:RetryCount` | `3` | Maximum number of retry attempts before the execution strategy gives up and re-throws. |
-| `Persistence:Transactions:RetryDelaySeconds` | `5` | Maximum back-off delay (in seconds) between retry attempts. Actual delay is randomised up to this value. |
+| Key                                          | Example Value   | Description                                                                                                                                                                                                                                   |
+| -------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Persistence:Transactions:IsolationLevel`    | `ReadCommitted` | Default SQL isolation level for explicit `IUnitOfWork.ExecuteInTransactionAsync(...)` calls. Accepted values: `ReadUncommitted`, `ReadCommitted`, `RepeatableRead`, `Serializable`. Per-call overrides are possible via `TransactionOptions`. |
+| `Persistence:Transactions:TimeoutSeconds`    | `30`            | Command timeout applied to the database connection while an explicit transaction is active. Prevents long-running transactions from holding locks indefinitely.                                                                               |
+| `Persistence:Transactions:RetryEnabled`      | `true`          | Enables the Npgsql EF Core execution strategy that automatically retries the entire transaction block on transient failures (e.g. connection drops, deadlocks).                                                                               |
+| `Persistence:Transactions:RetryCount`        | `3`             | Maximum number of retry attempts before the execution strategy gives up and re-throws.                                                                                                                                                        |
+| `Persistence:Transactions:RetryDelaySeconds` | `5`             | Maximum back-off delay (in seconds) between retry attempts. Actual delay is randomised up to this value.                                                                                                                                      |
 
 ### Bootstrap & Identity
 
-| Key | Example Value | Description |
-| --- | ------------- | ----------- |
-| `Bootstrap:Tenant:Code` | `default` | Short code of the seed tenant created automatically on first startup if no tenants exist yet. Used as the default tenant for the seeded admin user. |
-| `Bootstrap:Tenant:Name` | `Default Tenant` | Human-readable display name of the seed tenant. |
-| `SystemIdentity:DefaultActorId` | `00000000-0000-0000-0000-000000000000` | Fallback `CreatedBy` / `UpdatedBy` GUID stamped in audit fields when no authenticated user is present (e.g. during startup seeding). |
+| Key                             | Example Value                          | Description                                                                                                                                         |
+| ------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Bootstrap:Tenant:Code`         | `default`                              | Short code of the seed tenant created automatically on first startup if no tenants exist yet. Used as the default tenant for the seeded admin user. |
+| `Bootstrap:Tenant:Name`         | `Default Tenant`                       | Human-readable display name of the seed tenant.                                                                                                     |
+| `SystemIdentity:DefaultActorId` | `00000000-0000-0000-0000-000000000000` | Fallback `CreatedBy` / `UpdatedBy` GUID stamped in audit fields when no authenticated user is present (e.g. during startup seeding).                |
 
 ### CORS
 
-| Key | Example Value | Description |
-| --- | ------------- | ----------- |
+| Key                   | Example Value                                       | Description                                                                                                                                                                                      |
+| --------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `Cors:AllowedOrigins` | `["http://localhost:3000","http://localhost:5173"]` | List of origins permitted by the default CORS policy. Add your SPA development server and production domain here. Requests from unlisted origins will be blocked by the browser preflight check. |
 
 > **Security note:** `Keycloak:credentials:secret` must be supplied via an environment variable or secret manager in production — never from a committed config file.
@@ -510,8 +510,8 @@ Authentication is handled by **Keycloak** using a hybrid approach that supports 
 | Feature                        | Detail                                                                                                                                                                                                                                      |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Secure cookie**              | `CookieSecurePolicy.Always` in production; `SameAsRequest` in development                                                                                                                                                                   |
-| **Server-side session store**  | `DragonflyTicketStore` serialises the auth ticket to DragonFly — the cookie contains only a GUID key, keeping cookie size small and preventing token leakage                                                                                  |
-| **Shared DataProtection keys** | Keys persisted to DragonFly under `DataProtection:Keys` so multiple instances can decrypt each other's cookies                                                                                                                             |
+| **Server-side session store**  | `DragonflyTicketStore` serialises the auth ticket to DragonFly — the cookie contains only a GUID key, keeping cookie size small and preventing token leakage                                                                                |
+| **Shared DataProtection keys** | Keys persisted to DragonFly under `DataProtection:Keys` so multiple instances can decrypt each other's cookies                                                                                                                              |
 | **Silent token refresh**       | `CookieSessionRefresher.OnValidatePrincipal` exchanges the refresh token with Keycloak when the access token is within `Bff:TokenRefreshThresholdMinutes` (default 2 min) of expiry                                                         |
 | **CSRF protection**            | `CsrfValidationMiddleware` requires the `X-CSRF: 1` header on all non-GET/HEAD/OPTIONS requests authenticated via the cookie scheme. JWT Bearer requests are exempt. Call `GET /api/v1/bff/csrf` to retrieve the expected header name/value |
 

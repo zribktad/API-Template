@@ -4,17 +4,17 @@
 
 Use these URLs when connecting the API or opening the observability services locally:
 
-| Service | URL |
-|---|---|
-| API (VS Code local launch) | `http://localhost:5174` |
-| API health (VS Code local launch) | `http://localhost:5174/health` |
-| Grafana | `http://localhost:3001` |
-| Prometheus | `http://localhost:9090` |
-| Loki | `http://localhost:3100` |
-| Tempo | `http://localhost:3200` |
-| Aspire Dashboard UI | `http://localhost:18888` when an Aspire profile is running |
-| OTLP gRPC endpoint | `http://localhost:4317` |
-| OTLP HTTP endpoint | `http://localhost:4318` |
+| Service                           | URL                                                        |
+| --------------------------------- | ---------------------------------------------------------- |
+| API (VS Code local launch)        | `http://localhost:5174`                                    |
+| API health (VS Code local launch) | `http://localhost:5174/health`                             |
+| Grafana                           | `http://localhost:3001`                                    |
+| Prometheus                        | `http://localhost:9090`                                    |
+| Loki                              | `http://localhost:3100`                                    |
+| Tempo                             | `http://localhost:3200`                                    |
+| Aspire Dashboard UI               | `http://localhost:18888` when an Aspire profile is running |
+| OTLP gRPC endpoint                | `http://localhost:4317`                                    |
+| OTLP HTTP endpoint                | `http://localhost:4318`                                    |
 
 For local API telemetry export:
 
@@ -289,14 +289,14 @@ Observability settings live in [appsettings.json](../src/APITemplate/appsettings
 
 Supported keys:
 
-| Key | What it does |
-|---|---|
-| `Observability:ServiceName` | Service name attached to telemetry resources |
-| `Observability:Otlp:Endpoint` | OTLP collector endpoint, usually Alloy |
-| `Observability:Aspire:Endpoint` | OTLP endpoint for Aspire Dashboard |
-| `Observability:Exporters:Aspire:Enabled` | Force Aspire on/off |
-| `Observability:Exporters:Otlp:Enabled` | Force OTLP exporter on/off |
-| `Observability:Exporters:Console:Enabled` | Enable OpenTelemetry console export |
+| Key                                       | What it does                                 |
+| ----------------------------------------- | -------------------------------------------- |
+| `Observability:ServiceName`               | Service name attached to telemetry resources |
+| `Observability:Otlp:Endpoint`             | OTLP collector endpoint, usually Alloy       |
+| `Observability:Aspire:Endpoint`           | OTLP endpoint for Aspire Dashboard           |
+| `Observability:Exporters:Aspire:Enabled`  | Force Aspire on/off                          |
+| `Observability:Exporters:Otlp:Enabled`    | Force OTLP exporter on/off                   |
+| `Observability:Exporters:Console:Enabled` | Enable OpenTelemetry console export          |
 
 ### Exporter behavior
 
@@ -473,13 +473,13 @@ See [docker-compose.production.yml](../docker-compose.production.yml).
 
 The default Compose file starts these observability services:
 
-| Service | Container purpose | Host port |
-|---|---|---|
-| `alloy` | OTLP receiver and telemetry router | `4317`, `4318`, `12345` |
-| `prometheus` | metrics backend | `9090` |
-| `loki` | logs backend | `3100` |
-| `tempo` | traces backend | `3200` |
-| `grafana` | dashboards and exploration | `3001` |
+| Service            | Container purpose                  | Host port                                                                      |
+| ------------------ | ---------------------------------- | ------------------------------------------------------------------------------ |
+| `alloy`            | OTLP receiver and telemetry router | `4317`, `4318`, `12345`                                                        |
+| `prometheus`       | metrics backend                    | `9090`                                                                         |
+| `loki`             | logs backend                       | `3100`                                                                         |
+| `tempo`            | traces backend                     | `3200`                                                                         |
+| `grafana`          | dashboards and exploration         | `3001`                                                                         |
 | `aspire-dashboard` | optional local telemetry dashboard | `18888`, host `4317`, host `4318` by default, or `18889`, `18890` in full mode |
 
 Important detail:
@@ -490,14 +490,14 @@ Important detail:
 
 ### Useful URLs
 
-| Tool | URL |
-|---|---|
-| API (VS Code local launch) | `http://localhost:5174` |
-| Grafana | `http://localhost:3001` |
-| Prometheus | `http://localhost:9090` |
-| Loki | `http://localhost:3100` |
-| Tempo | `http://localhost:3200` |
-| Aspire Dashboard | `http://localhost:18888` |
+| Tool                                   | URL                            |
+| -------------------------------------- | ------------------------------ |
+| API (VS Code local launch)             | `http://localhost:5174`        |
+| Grafana                                | `http://localhost:3001`        |
+| Prometheus                             | `http://localhost:9090`        |
+| Loki                                   | `http://localhost:3100`        |
+| Tempo                                  | `http://localhost:3200`        |
+| Aspire Dashboard                       | `http://localhost:18888`       |
 | Health endpoint (VS Code local launch) | `http://localhost:5174/health` |
 
 If the API runs as a container instead of a local VS Code process, use `http://localhost:8080` and `http://localhost:8080/health`.
