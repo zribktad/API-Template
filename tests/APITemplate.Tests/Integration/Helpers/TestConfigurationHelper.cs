@@ -17,6 +17,7 @@ internal static class TestConfigurationHelper
         {
             ["ConnectionStrings:DefaultConnection"] =
                 "Host=localhost;Database=apitemplate_tests;Username=postgres;Password=postgres",
+            ["BackgroundJobs:TickerQ:Enabled"] = "false",
             ["Keycloak:realm"] = "api-template",
             ["Keycloak:auth-server-url"] = "http://localhost:8180/",
             ["Keycloak:resource"] = "api-template",
