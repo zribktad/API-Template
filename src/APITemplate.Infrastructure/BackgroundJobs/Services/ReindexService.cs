@@ -79,21 +79,26 @@ public sealed partial class ReindexService : IReindexService
 
     private async Task<double> GetIndexBloatPercentAsync(string indexName, CancellationToken ct)
     {
-        // Compare actual index size to estimated "ideal" size based on live tuples.
-        // pg_relation_size = actual bytes on disk, pg_stat_user_indexes = live tuple count.
-        // A significant gap indicates bloat from dead tuples that autovacuum cannot reclaim.
+        // Estimates index bloat by comparing actual index size (pg_relation_size) to an ideal
+        // size derived from live table rows and average tuple width. The ideal size assumes
+        // ~90% fillfactor (0.9) and one pointer per tuple (6 bytes header + avg_width).
+        // This is a lightweight heuristic — for precise measurements use pgstattuple extension.
         var result = await _dbContext
             .Database.SqlQueryRaw<double>(
                 """
                 SELECT CASE
-                    WHEN pg_relation_size(i.indexrelid) = 0 THEN 0
+                    WHEN pg_relation_size(c.oid) = 0 THEN 0
                     ELSE GREATEST(0,
-                        100.0 * (1.0 - (s.idx_tup_read::float / NULLIF(pg_relation_size(i.indexrelid) / 8192.0, 0)))
+                        100.0 * (1.0 - (
+                            (s.n_live_tup::float * COALESCE(NULLIF(s.avg_width, 0), 32) / 0.9)
+                            / NULLIF(pg_relation_size(c.oid)::float, 0)
+                        ))
                     )
                 END AS "Value"
-                FROM pg_stat_user_indexes s
-                JOIN pg_index i ON s.indexrelid = i.indexrelid
-                WHERE s.indexrelname = {0}
+                FROM pg_class c
+                JOIN pg_stat_user_indexes si ON si.indexrelid = c.oid
+                JOIN pg_stat_user_tables s ON s.relid = si.relid
+                WHERE c.relname = {0}
                 """,
                 indexName
             )

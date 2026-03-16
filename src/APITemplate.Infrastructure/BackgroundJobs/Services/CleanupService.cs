@@ -103,6 +103,7 @@ public sealed class CleanupService : ICleanupService
         }
 
         var mongoCollection = _mongoDbContext.ProductData;
+        var cutoff = _timeProvider.GetUtcNow().UtcDateTime.AddDays(-retentionDays);
 
         var linkedIds = await _dbContext
             .ProductDataLinks.IgnoreQueryFilters()
@@ -112,10 +113,9 @@ public sealed class CleanupService : ICleanupService
 
         var linkedIdSet = new HashSet<Guid>(linkedIds);
 
-        var allDocs = await mongoCollection
-            .Find(FilterDefinition<ProductData>.Empty)
-            .Project(d => d.Id)
-            .ToListAsync(ct);
+        // Only consider documents older than retention cutoff — gives cascade rules time to complete
+        var filter = Builders<ProductData>.Filter.Lt(d => d.CreatedAt, cutoff);
+        var allDocs = await mongoCollection.Find(filter).Project(d => d.Id).ToListAsync(ct);
 
         var orphanedIds = allDocs.Where(id => !linkedIdSet.Contains(id)).ToList();
 

@@ -23,11 +23,15 @@ public sealed class FailedEmailConfiguration : IEntityTypeConfiguration<FailedEm
 
         builder.Property(e => e.LastAttemptAtUtc).HasColumnType("timestamp with time zone");
 
+        // Covers GetRetryableAsync: WHERE !IsDeadLettered AND RetryCount < N ORDER BY LastAttemptAtUtc
         builder.HasIndex(e => new
         {
             e.IsDeadLettered,
             e.RetryCount,
             e.LastAttemptAtUtc,
         });
+
+        // Covers GetExpiredAsync: WHERE !IsDeadLettered AND CreatedAtUtc < cutoff ORDER BY CreatedAtUtc
+        builder.HasIndex(e => new { e.IsDeadLettered, e.CreatedAtUtc });
     }
 }
