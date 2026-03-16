@@ -121,10 +121,10 @@ graph TD
 
     DB[(PostgreSQL)]
     MDB[(MongoDB)]
-    VK[(DragonFly)]
+    DF[(DragonFly)]
     EF ---> DB
     Mongo ---> MDB
-    REST -..-> VK
+    REST -..-> DF
 ```
 
 ---
@@ -1274,7 +1274,7 @@ Start the infrastructure services only, then run the API on the host:
 
 ```bash
 # Start only the databases and Keycloak
-docker compose up -d postgres mongodb keycloak dragonfly-master dragonfly-replica dragonfly-proxy
+docker compose up -d postgres mongodb keycloak dragonfly
 ```
 
 Apply your connection strings in `src/APITemplate.Api/appsettings.Development.json`, then run:

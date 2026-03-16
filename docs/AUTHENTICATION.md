@@ -464,7 +464,7 @@ When the API sets `options.Authority`, ASP.NET auto-discovers all endpoints via 
 | `Keycloak__realm`               | Keycloak realm name            |
 | `Keycloak__resource`            | Client ID                      |
 | `Keycloak__credentials__secret` | Client secret                  |
-| `DragonFly__ConnectionString`      | DragonFly/Redis connection string |
+| `Dragonfly__ConnectionString`      | DragonFly/Redis connection string |
 
 ---
 

@@ -14,6 +14,6 @@ spec:
       memory: 512Mi
   args:
     - "--maxmemory"
-    - "512mb"
+    - "500mb"
     - "--proactor_threads"
     - "2"

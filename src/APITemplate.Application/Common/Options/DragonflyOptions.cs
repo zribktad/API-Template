@@ -10,7 +10,9 @@ public sealed class DragonflyOptions
     [Required]
     public string ConnectionString { get; init; } = string.Empty;
 
+    [Range(1, int.MaxValue)]
     public int ConnectTimeoutMs { get; init; } = DefaultConnectTimeoutMs;
 
+    [Range(1, int.MaxValue)]
     public int SyncTimeoutMs { get; init; } = DefaultSyncTimeoutMs;
 }

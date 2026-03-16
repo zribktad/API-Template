@@ -211,7 +211,7 @@ dragonfly-proxy:
     - ./infrastructure/dragonfly/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
 ```
 
-The API connects to `dragonfly-proxy:6379`. Direct master access is available on port `6380` for debugging.
+The API connects to `dragonfly-proxy:6379`.
 
 ### Kubernetes
 

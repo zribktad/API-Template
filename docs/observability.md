@@ -402,7 +402,7 @@ Use this when you want both the LGTM stack and Aspire Dashboard running together
 Start the stack:
 
 ```bash
-ASPIRE_OTLP_GRPC_PORT=18889 ASPIRE_OTLP_HTTP_PORT=18890 docker compose --profile aspire up -d postgres mongodb keycloak-db keycloak dragonfly-master dragonfly-replica dragonfly-proxy alloy prometheus loki tempo grafana aspire-dashboard
+ASPIRE_OTLP_GRPC_PORT=18889 ASPIRE_OTLP_HTTP_PORT=18890 docker compose --profile aspire up -d postgres mongodb keycloak-db keycloak dragonfly alloy prometheus loki tempo grafana aspire-dashboard
 ```
 
 Then run the API locally and send telemetry to both backends:
