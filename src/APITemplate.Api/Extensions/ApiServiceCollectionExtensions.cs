@@ -139,7 +139,9 @@ public static class ApiServiceCollectionExtensions
         // Each policy defines an expiration time and a tag used for targeted invalidation
         // via IOutputCacheStore.EvictByTagAsync() in controllers after mutations (Create/Update/Delete).
         var dragonflySection = configuration.SectionFor<DragonflyOptions>();
-        var dragonflyConnectionString = dragonflySection.GetValue<string>("ConnectionString");
+        var dragonflyConnectionString = dragonflySection.GetValue<string>(
+            nameof(DragonflyOptions.ConnectionString)
+        );
 
         if (!string.IsNullOrEmpty(dragonflyConnectionString))
         {
@@ -149,12 +151,18 @@ public static class ApiServiceCollectionExtensions
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
 
-            var dragonflyOptions =
-                dragonflySection.Get<DragonflyOptions>() ?? new DragonflyOptions();
+            var connectTimeoutMs = dragonflySection.GetValue(
+                nameof(DragonflyOptions.ConnectTimeoutMs),
+                DragonflyOptions.DefaultConnectTimeoutMs
+            );
+            var syncTimeoutMs = dragonflySection.GetValue(
+                nameof(DragonflyOptions.SyncTimeoutMs),
+                DragonflyOptions.DefaultSyncTimeoutMs
+            );
 
             var configOptions = ConfigurationOptions.Parse(dragonflyConnectionString);
-            configOptions.ConnectTimeout = dragonflyOptions.ConnectTimeoutMs;
-            configOptions.SyncTimeout = dragonflyOptions.SyncTimeoutMs;
+            configOptions.ConnectTimeout = connectTimeoutMs;
+            configOptions.SyncTimeout = syncTimeoutMs;
             configOptions.AbortOnConnectFail = false;
 
             // Lazy singleton: the TCP connection is established on first use, not at registration time.
