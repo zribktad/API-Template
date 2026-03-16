@@ -5,14 +5,18 @@ namespace APITemplate.Tests.Integration.Helpers;
 
 internal static class TestConfigurationHelper
 {
-    internal static Dictionary<string, string?> GetBaseConfiguration(string hmacKeySeed = "APITemplate.Tests.RedactionKey")
+    internal static Dictionary<string, string?> GetBaseConfiguration(
+        string hmacKeySeed = "APITemplate.Tests.RedactionKey"
+    )
     {
         var testRedactionHmacKey = Convert.ToBase64String(
-            SHA256.HashData(Encoding.UTF8.GetBytes(hmacKeySeed)));
+            SHA256.HashData(Encoding.UTF8.GetBytes(hmacKeySeed))
+        );
 
         return new Dictionary<string, string?>
         {
-            ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=apitemplate_tests;Username=postgres;Password=postgres",
+            ["ConnectionStrings:DefaultConnection"] =
+                "Host=localhost;Database=apitemplate_tests;Username=postgres;Password=postgres",
             ["Keycloak:realm"] = "api-template",
             ["Keycloak:auth-server-url"] = "http://localhost:8180/",
             ["Keycloak:resource"] = "api-template",
@@ -34,7 +38,7 @@ internal static class TestConfigurationHelper
             ["Observability:Exporters:Aspire:Enabled"] = "false",
             ["Observability:Exporters:Otlp:Enabled"] = "false",
             ["Observability:Exporters:Console:Enabled"] = "false",
-            ["Valkey:ConnectionString"] = ""
+            ["Dragonfly:ConnectionString"] = "",
         };
     }
 }

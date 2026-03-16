@@ -23,7 +23,7 @@ Step-by-step guides for the most common workflows in this project:
 | [Scalar & GraphQL UI](docs/scalar-and-graphql-ui.md) | Use the Scalar REST explorer and Nitro GraphQL playground                   |
 | [Testing](docs/testing.md)                           | Write unit tests (services, validators, repositories) and integration tests |
 | [Observability](docs/observability.md)               | Run OpenTelemetry locally with Aspire Dashboard or Grafana LGTM             |
-| [Caching](docs/CACHING.md)                           | Configure output caching, rate limiting, and Valkey backing store           |
+| [Caching](docs/CACHING.md)                           | Configure output caching, rate limiting, and DragonFly backing store        |
 | [Result Pattern](docs/result-pattern.md)             | Guidelines for introducing selective `Result<T>` flow in phase 2            |
 | [Git Hooks](docs/GIT_HOOKS.md)                       | Auto-install Husky.Net hooks and format staged C# files with CSharpier      |
 
@@ -44,14 +44,14 @@ Step-by-step guides for the most common workflows in this project:
 *   **Audit Fields:** All entities carry `AuditInfo` (owned EF type) with `CreatedAtUtc`, `CreatedBy`, `UpdatedAtUtc`, `UpdatedBy`. Fields are stamped automatically in `SaveChangesAsync`.
 *   **Optimistic Concurrency:** PostgreSQL native `xmin` system column configured as a concurrency token. `DbUpdateConcurrencyException` is mapped to HTTP 409 by `ApiExceptionHandler`.
 *   **Rate Limiting:** Fixed-window per-client rate limiter (`100 req/min` default). Partition key priority: JWT username → remote IP → `"anonymous"`. Returns HTTP 429 on breach. Limits are configurable via `RateLimiting:Fixed`.
-*   **Output Caching:** Tenant-isolated ASP.NET Core output cache backed by **Valkey** (Redis-compatible). Policies: `Products` (30 s), `Categories` (60 s), `Reviews` (30 s). Mutations evict affected tags. Falls back to in-memory when `Valkey:ConnectionString` is absent.
+*   **Output Caching:** Tenant-isolated ASP.NET Core output cache backed by **DragonFly** (Redis-compatible). Policies: `Products` (30 s), `Categories` (60 s), `Reviews` (30 s). Mutations evict affected tags. Falls back to in-memory when `Dragonfly:ConnectionString` is absent.
 *   **Domain Filtering:** Seamless filtering, sorting, and paging powered by `Ardalis.Specification` to decouple query models from infrastructural EF abstractions.
 *   **Enterprise-Grade Utilities:**
     *   **Validation:** Pipelined model validation using `FluentValidation.AspNetCore`.
     *   **Cross-Cutting Concerns:** Unified configuration via `Serilog` (structured logging with `MachineName` and `ThreadId` enrichers) and centralized exception handling via `IExceptionHandler` + RFC 7807 `ProblemDetails`.
     *   **Data Redaction:** Sensitive log properties (PII, secrets) are classified with `Microsoft.Extensions.Compliance` (`[PersonalData]`, `[SensitiveData]`) and HMAC-redacted before writing.
-    *   **Authentication:** Pre-configured Keycloak JWT + BFF Cookie dual-auth with production hardening: secure-only cookies in production, server-side session store (`ValkeyTicketStore`) backed by Valkey, silent token refresh before expiry, and CSRF protection (`X-CSRF: 1` header required for cookie-authenticated mutations).
-    *   **Observability:** Health Checks (`/health`) natively tracking PostgreSQL, MongoDB, and Valkey state.
+    *   **Authentication:** Pre-configured Keycloak JWT + BFF Cookie dual-auth with production hardening: secure-only cookies in production, server-side session store (`DragonflyTicketStore`) backed by DragonFly, silent token refresh before expiry, and CSRF protection (`X-CSRF: 1` header required for cookie-authenticated mutations).
+    *   **Observability:** Health Checks (`/health`) natively tracking PostgreSQL, MongoDB, and DragonFly state.
 *   **Role-Based Access Control:** Three-tier role model (`PlatformAdmin`, `TenantAdmin`, `User`) enforced via Keycloak claims and ASP.NET Core policy-based authorization. `PermissionRequirement` handlers gate controller actions and GraphQL mutations by role.
 *   **Robust Testing Engine:** Provides isolated `Integration` tests using `UseInMemoryDatabase` combined with `WebApplicationFactory` for fast feedback, **Testcontainers PostgreSQL** for high-fidelity tenant isolation and transaction tests, plus a comprehensive `Unit` test suite (Moq, Shouldly, FluentValidation.TestHelper).
 
@@ -121,7 +121,7 @@ graph TD
 
     DB[(PostgreSQL)]
     MDB[(MongoDB)]
-    VK[(Valkey)]
+    VK[(DragonFly)]
     EF ---> DB
     Mongo ---> MDB
     REST -..-> VK
@@ -246,7 +246,7 @@ classDiagram
 *   **Runtime:** `.NET 10.0` Web SDK
 *   **Relational Database:** PostgreSQL 18 (`Npgsql`)
 *   **Document Database:** MongoDB 8 (`MongoDB.Driver`)
-*   **Cache / Rate Limit Backing Store:** Valkey 9 (Redis-compatible, `StackExchange.Redis`)
+*   **Cache / Rate Limit Backing Store:** DragonFly 1.27 (Redis-compatible, `StackExchange.Redis`)
 *   **ORM:** Entity Framework Core (`Microsoft.EntityFrameworkCore.Design`, `10.0`)
 *   **API Toolkit:** ASP.NET Core, Asp.Versioning, `Scalar.AspNetCore`
 *   **GraphQL Core:** HotChocolate `15.1`
@@ -315,8 +315,8 @@ src/APITemplate.Infrastructure/
 ├── Repositories/              # ProductRepository, CategoryRepository, ProductDataRepository, …
 ├── Migrations/                # EF Core migrations + Kot.MongoDB.Migrations
 ├── Database/                  # Embedded SQL stored-procedure scripts
-├── Security/                  # ValkeyTicketStore, CookieSessionRefresher, KeycloakClaimMapper, CsrfValidationMiddleware
-└── Observability/             # Health checks (PostgreSQL, MongoDB, Valkey, Keycloak)
+├── Security/                  # DragonflyTicketStore, CookieSessionRefresher, KeycloakClaimMapper, CsrfValidationMiddleware
+└── Observability/             # Health checks (PostgreSQL, MongoDB, DragonFly, Keycloak)
 
 tests/APITemplate.Tests/
 ├── Integration/               # CustomWebApplicationFactory (InMemory DB + mocked infra)
@@ -400,7 +400,7 @@ All versioned REST resource endpoints sit under the base path `api/v{version}`. 
 
 | Method | Path          | Auth Required | Description                                                                   |
 | ------ | ------------- | :-----------: | ----------------------------------------------------------------------------- |
-| `GET`  | `/health`     |       ❌       | JSON health status for PostgreSQL, MongoDB & Valkey                           |
+| `GET`  | `/health`     |       ❌       | JSON health status for PostgreSQL, MongoDB & DragonFly                        |
 | `GET`  | `/scalar`     |       ❌       | Interactive Scalar OpenAPI UI (**Development only** — disabled in Production) |
 | `GET`  | `/graphql/ui` |       ❌       | HotChocolate Nitro GraphQL IDE                                                |
 
@@ -431,7 +431,7 @@ Configuration sections are bound to strongly-typed `IOptions<T>` classes registe
 
 | Key | Example Value | Description |
 | --- | ------------- | ----------- |
-| `Valkey:ConnectionString` | `localhost:6379` | StackExchange.Redis connection string pointing to a Valkey instance. Used for three purposes: distributed output cache (GET responses), server-side BFF session store (`ValkeyTicketStore`), and shared DataProtection key ring. **Omit or leave empty** to fall back to in-memory cache — suitable for single-instance development only. |
+| `Dragonfly:ConnectionString` | `localhost:6379` | StackExchange.Redis connection string pointing to a DragonFly instance. Used for three purposes: distributed output cache (GET responses), server-side BFF session store (`DragonflyTicketStore`), and shared DataProtection key ring. **Omit or leave empty** to fall back to in-memory cache — suitable for single-instance development only. |
 
 ### Authentication — Keycloak
 
@@ -447,7 +447,7 @@ Configuration sections are bound to strongly-typed `IOptions<T>` classes registe
 
 | Key | Example Value | Description |
 | --- | ------------- | ----------- |
-| `Bff:CookieName` | `.APITemplate.Auth` | Name of the `httpOnly` session cookie issued after a successful BFF login. The cookie contains only a session key — the actual auth ticket is stored in Valkey. |
+| `Bff:CookieName` | `.APITemplate.Auth` | Name of the `httpOnly` session cookie issued after a successful BFF login. The cookie contains only a session key — the actual auth ticket is stored in DragonFly. |
 | `Bff:SessionTimeoutMinutes` | `60` | How long the BFF session cookie remains valid after the last activity. |
 | `Bff:PostLogoutRedirectUri` | `/` | URI the browser is redirected to after `GET /api/v1/bff/logout` completes the Keycloak back-channel logout. |
 | `Bff:Scopes` | `["openid","profile","email","offline_access"]` | OIDC scopes requested from Keycloak during the BFF login flow. `offline_access` is required for silent token refresh via refresh token. |
@@ -510,8 +510,8 @@ Authentication is handled by **Keycloak** using a hybrid approach that supports 
 | Feature                        | Detail                                                                                                                                                                                                                                      |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Secure cookie**              | `CookieSecurePolicy.Always` in production; `SameAsRequest` in development                                                                                                                                                                   |
-| **Server-side session store**  | `ValkeyTicketStore` serialises the auth ticket to Valkey — the cookie contains only a GUID key, keeping cookie size small and preventing token leakage                                                                                      |
-| **Shared DataProtection keys** | Keys persisted to Valkey under `DataProtection:Keys` so multiple instances can decrypt each other's cookies                                                                                                                                 |
+| **Server-side session store**  | `DragonflyTicketStore` serialises the auth ticket to DragonFly — the cookie contains only a GUID key, keeping cookie size small and preventing token leakage                                                                                  |
+| **Shared DataProtection keys** | Keys persisted to DragonFly under `DataProtection:Keys` so multiple instances can decrypt each other's cookies                                                                                                                             |
 | **Silent token refresh**       | `CookieSessionRefresher.OnValidatePrincipal` exchanges the refresh token with Keycloak when the access token is within `Bff:TokenRefreshThresholdMinutes` (default 2 min) of expiry                                                         |
 | **CSRF protection**            | `CsrfValidationMiddleware` requires the `X-CSRF: 1` header on all non-GET/HEAD/OPTIONS requests authenticated via the cookie scheme. JWT Bearer requests are exempt. Call `GET /api/v1/bff/csrf` to retrieve the expected header name/value |
 
@@ -794,14 +794,14 @@ Partition key priority:
 
 Limits are configured in `appsettings.json` under `RateLimiting:Fixed` and resolved via `IOptions<RateLimitingOptions>` so integration tests can override them without rebuilding the host.
 
-### 9 — Output Caching (Tenant-Isolated, Valkey-backed)
+### 9 — Output Caching (Tenant-Isolated, DragonFly-backed)
 
 GET endpoints on Products, Categories, and Reviews use `[OutputCache(PolicyName = ...)]` with the `TenantAwareOutputCachePolicy`. This policy:
 
 1. **Enables caching for authenticated requests** (ASP.NET Core's default skips Authorization-header requests).
 2. **Varies the cache key by tenant ID** so one tenant never receives another tenant's cached response.
 
-When `Valkey:ConnectionString` is configured, all cache entries are stored in **Valkey** so every application instance shares a single distributed cache. Without it, each instance maintains its own in-memory cache.
+When `Dragonfly:ConnectionString` is configured, all cache entries are stored in **DragonFly** so every application instance shares a single distributed cache. Without it, each instance maintains its own in-memory cache.
 
 Mutations (Create / Update / Delete) evict the relevant tag via `IOutputCacheStore.EvictByTagAsync()` so stale data is immediately invalidated.
 
@@ -1260,7 +1260,7 @@ dotnet test --filter "Category=Integration.Postgres"
 
 ### Quick Start (Using Docker Compose)
 
-The template consists of a ready-to-use Docker environment to spool up PostgreSQL, MongoDB, Keycloak, Valkey, and the built API container:
+The template consists of a ready-to-use Docker environment to spool up PostgreSQL, MongoDB, Keycloak, DragonFly, and the built API container:
 
 ```bash
 # Start up all services including the API container
@@ -1274,7 +1274,7 @@ Start the infrastructure services only, then run the API on the host:
 
 ```bash
 # Start only the databases and Keycloak
-docker compose up -d postgres mongodb keycloak valkey
+docker compose up -d postgres mongodb keycloak dragonfly-master dragonfly-replica dragonfly-proxy
 ```
 
 Apply your connection strings in `src/APITemplate.Api/appsettings.Development.json`, then run:

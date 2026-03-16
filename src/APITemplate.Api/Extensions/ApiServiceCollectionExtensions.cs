@@ -38,8 +38,8 @@ public static class ApiServiceCollectionExtensions
             .AddOpenApiDocumentation()
             // Configure per-client rate limiting to protect against abuse.
             .AddRateLimiting(configuration)
-            // Configure output cache storage + data protection (Valkey/Redis or in-memory fallback).
-            .AddValkeyAndDataProtection(configuration)
+            // Configure output cache storage + data protection (DragonFly/Redis or in-memory fallback).
+            .AddDragonflyAndDataProtection(configuration)
             // Configure output caching policies for controller endpoints.
             .AddOutputCaching(configuration);
 
@@ -128,32 +128,40 @@ public static class ApiServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddValkeyAndDataProtection(
+    private static IServiceCollection AddDragonflyAndDataProtection(
         this IServiceCollection services,
         IConfiguration configuration
     )
     {
-        // Output Cache with optional Valkey backing store.
-        // When Valkey:ConnectionString is configured, cached responses are stored in Valkey
+        // Output Cache with optional DragonFly backing store.
+        // When Dragonfly:ConnectionString is configured, cached responses are stored in DragonFly
         // so all application instances share the same cache. Without it, falls back to in-memory.
         // Each policy defines an expiration time and a tag used for targeted invalidation
         // via IOutputCacheStore.EvictByTagAsync() in controllers after mutations (Create/Update/Delete).
-        var valkeySection = configuration.SectionFor<ValkeyOptions>();
-        var valkeyConnectionString = valkeySection.GetValue<string>("ConnectionString");
+        var dragonflySection = configuration.SectionFor<DragonflyOptions>();
+        var dragonflyConnectionString = dragonflySection.GetValue<string>("ConnectionString");
 
-        if (!string.IsNullOrEmpty(valkeyConnectionString))
+        if (!string.IsNullOrEmpty(dragonflyConnectionString))
         {
             services
-                .AddOptions<ValkeyOptions>()
-                .Bind(valkeySection)
+                .AddOptions<DragonflyOptions>()
+                .Bind(dragonflySection)
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
+
+            var dragonflyOptions =
+                dragonflySection.Get<DragonflyOptions>() ?? new DragonflyOptions();
+
+            var configOptions = ConfigurationOptions.Parse(dragonflyConnectionString);
+            configOptions.ConnectTimeout = dragonflyOptions.ConnectTimeoutMs;
+            configOptions.SyncTimeout = dragonflyOptions.SyncTimeoutMs;
+            configOptions.AbortOnConnectFail = false;
 
             // Lazy singleton: the TCP connection is established on first use, not at registration time.
             // This keeps startup fast and allows tests to replace Redis services before the
             // connection is ever attempted.
             var lazyMultiplexer = new Lazy<IConnectionMultiplexer>(() =>
-                ConnectionMultiplexer.Connect(valkeyConnectionString)
+                ConnectionMultiplexer.Connect(configOptions)
             );
             services.AddSingleton<IConnectionMultiplexer>(_ => lazyMultiplexer.Value);
 
@@ -186,12 +194,12 @@ public static class ApiServiceCollectionExtensions
 
             services
                 .AddHealthChecks()
-                .AddRedis(valkeyConnectionString, name: "valkey", tags: ["cache"]);
+                .AddRedis(dragonflyConnectionString, name: "dragonfly", tags: ["cache"]);
         }
         else
         {
             Log.Warning(
-                "Valkey:ConnectionString is not configured — using in-memory output cache. "
+                "Dragonfly:ConnectionString is not configured — using in-memory output cache. "
                     + "This is not suitable for multi-instance deployments"
             );
             services.AddDistributedMemoryCache();

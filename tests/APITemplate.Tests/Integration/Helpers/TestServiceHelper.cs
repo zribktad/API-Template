@@ -70,7 +70,7 @@ internal static class TestServiceHelper
             {
                 var toRemove = options
                     .Registrations.Where(r =>
-                        r.Name is "mongodb" or "keycloak" or "postgresql" or "valkey"
+                        r.Name is "mongodb" or "keycloak" or "postgresql" or "dragonfly"
                     )
                     .ToList();
                 foreach (var r in toRemove)
@@ -81,30 +81,30 @@ internal static class TestServiceHelper
 
     internal static void ReplaceOutputCacheWithInMemory(IServiceCollection services)
     {
-        // Remove Valkey-backed cache services so tests use in-memory implementations
+        // Remove DragonFly-backed cache services so tests use in-memory implementations
         // and observability startup does not try to connect to a real Redis instance.
         services.RemoveAll<IOutputCacheStore>();
         services.RemoveAll<IConnectionMultiplexer>();
         services.AddOutputCache();
-        services.RemoveAll<IValidateOptions<ValkeyOptions>>();
-        services.RemoveAll<IOptionsChangeTokenSource<ValkeyOptions>>();
+        services.RemoveAll<IValidateOptions<DragonflyOptions>>();
+        services.RemoveAll<IOptionsChangeTokenSource<DragonflyOptions>>();
     }
 
     internal static void ReplaceDataProtectionWithInMemory(IServiceCollection services)
     {
-        // Replace Valkey-backed DataProtection with EphemeralDataProtectionProvider (no key persistence).
+        // Replace DragonFly-backed DataProtection with EphemeralDataProtectionProvider (no key persistence).
         services.RemoveAll<IDataProtectionProvider>();
         services.AddSingleton<IDataProtectionProvider, EphemeralDataProtectionProvider>();
     }
 
     internal static void ReplaceTicketStoreWithInMemory(IServiceCollection services)
     {
-        // Replace Redis-backed IDistributedCache with in-memory so ValkeyTicketStore
-        // works without a real Valkey instance in tests.
+        // Replace Redis-backed IDistributedCache with in-memory so DragonflyTicketStore
+        // works without a real DragonFly instance in tests.
         services.RemoveAll<IDistributedCache>();
         services.AddDistributedMemoryCache();
-        services.RemoveAll<ValkeyTicketStore>();
-        services.AddSingleton<ValkeyTicketStore>();
+        services.RemoveAll<DragonflyTicketStore>();
+        services.AddSingleton<DragonflyTicketStore>();
     }
 
     internal static void MockMongoServices(IServiceCollection services)

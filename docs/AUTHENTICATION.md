@@ -22,15 +22,15 @@ graph TB
     subgraph APP[ASP.NET Core API]
         BFF[BffController<br/>/api/v1/bff/login<br/>/api/v1/bff/logout<br/>/api/v1/bff/user<br/>/api/v1/bff/csrf]
         JWT_VAL[JwtBearer Middleware<br/>validates Bearer token]
-        COOKIE_VAL[Cookie Middleware<br/>looks up session in Valkey]
+        COOKIE_VAL[Cookie Middleware<br/>looks up session in DragonFly]
         CSRF[CsrfValidationMiddleware<br/>X-CSRF: 1 required]
         TENANT[TenantClaimValidator<br/>validates tenant_id claim]
         CLAIM[KeycloakClaimMapper<br/>maps Keycloak → .NET claims]
         AUTHZ[Authorization Middleware<br/>Fallback: Bearer OR Cookie]
     end
 
-    subgraph SESSION[Valkey / Redis]
-        STORE[ValkeyTicketStore<br/>bff:ticket:GUID → AuthenticationTicket]
+    subgraph SESSION[DragonFly / Redis]
+        STORE[DragonFlyTicketStore<br/>bff:ticket:GUID → AuthenticationTicket]
         DP[DataProtection Keys<br/>DataProtection:Keys]
     end
 
@@ -57,7 +57,7 @@ graph TB
 | **Scalar OAuth2**      | Scalar UI (dev tool)           | Yes (in Scalar memory only)                |
 | **JWT Bearer**         | Mobile apps, Postman, curl     | Yes (client manages it)                    |
 | **Client Credentials** | Microservices, background jobs | N/A (machine-to-machine)                   |
-| **BFF Cookie**         | SPA frontend (browser)         | **No** — httpOnly cookie, tokens in Valkey |
+| **BFF Cookie**         | SPA frontend (browser)         | **No** — httpOnly cookie, tokens in DragonFly |
 
 ---
 
@@ -74,7 +74,7 @@ docker compose up -d
 | PostgreSQL | 5432  | Application database  |
 | MongoDB    | 27017 | Product data storage  |
 | Keycloak   | 8180  | Identity provider     |
-| Valkey     | 6379  | Session store + cache |
+| DragonFly     | 6379  | Session store + cache |
 
 ### 2. Default Credentials
 
@@ -163,7 +163,7 @@ sequenceDiagram
     participant BFF as BffController
     participant OIDC as OIDC Middleware (BffOidc)
     participant KC as Keycloak
-    participant VK as Valkey
+    participant VK as DragonFly
 
     SPA->>BFF: GET /api/v1/bff/login?returnUrl=/dashboard
     BFF-->>SPA: 302 → Keycloak login page (Challenge BffOidc)
@@ -182,7 +182,7 @@ sequenceDiagram
 sequenceDiagram
     participant SPA as Browser / SPA
     participant CM as Cookie Middleware
-    participant VK as Valkey
+    participant VK as DragonFly
     participant CSR as CookieSessionRefresher
     participant KC as Keycloak
     participant CSRF as CsrfValidationMiddleware
@@ -213,7 +213,7 @@ sequenceDiagram
 sequenceDiagram
     participant SPA as Browser / SPA
     participant BFF as BffController
-    participant VK as Valkey
+    participant VK as DragonFly
     participant KC as Keycloak
 
     SPA->>BFF: GET /api/v1/bff/logout<br/>Cookie: .APITemplate.Auth=&lt;GUID&gt;
@@ -285,7 +285,7 @@ sequenceDiagram
 graph LR
     Browser["Browser<br/>cookie = GUID (HttpOnly)"] -->|lookup| Ticket
 
-    subgraph Valkey
+    subgraph DragonFly
         Ticket["bff:ticket:&lt;GUID&gt;<br/>├── access_token<br/>├── refresh_token<br/>├── id_token<br/>├── expires_at<br/>└── ClaimsPrincipal"]
         DP["DataProtection:Keys<br/>└── ASP.NET Data Protection key ring"]
     end
@@ -335,7 +335,7 @@ All under `/api/v1/bff/`:
 | Endpoint          | Auth required | Description                                     |
 | ----------------- | ------------- | ----------------------------------------------- |
 | `GET /bff/login`  | No            | Initiates OIDC login, optional `?returnUrl=`    |
-| `GET /bff/logout` | Cookie        | Clears session in Valkey, signs out of Keycloak |
+| `GET /bff/logout` | Cookie        | Clears session in DragonFly, signs out of Keycloak |
 | `GET /bff/user`   | Cookie        | Returns current user claims as JSON             |
 | `GET /bff/csrf`   | No            | Returns CSRF header name/value contract         |
 
@@ -363,7 +363,7 @@ Returns `401` (not redirect) when unauthenticated — SPA should redirect to `/a
 | Token refresh threshold    | 2 min                                  | `Bff:TokenRefreshThresholdMinutes` |
 | Scopes requested from OIDC | openid, profile, email, offline_access | `Bff:Scopes`                       |
 
-**Token refresh trigger:** On every cookie-authenticated request, `CookieSessionRefresher` checks if the access token expires within `TokenRefreshThresholdMinutes`. If so, it silently calls Keycloak `/token` with `grant_type=refresh_token` and updates the session in Valkey.
+**Token refresh trigger:** On every cookie-authenticated request, `CookieSessionRefresher` checks if the access token expires within `TokenRefreshThresholdMinutes`. If so, it silently calls Keycloak `/token` with `grant_type=refresh_token` and updates the session in DragonFly.
 
 ---
 
@@ -464,7 +464,7 @@ When the API sets `options.Authority`, ASP.NET auto-discovers all endpoints via 
 | `Keycloak__realm`               | Keycloak realm name            |
 | `Keycloak__resource`            | Client ID                      |
 | `Keycloak__credentials__secret` | Client secret                  |
-| `Valkey__ConnectionString`      | Valkey/Redis connection string |
+| `DragonFly__ConnectionString`      | DragonFly/Redis connection string |
 
 ---
 
@@ -506,7 +506,7 @@ Test tokens are signed with RSA-256 using an in-memory test key pair and include
 | `Application/Common/Security/BffAuthenticationSchemes.cs` | Auth scheme name constants                                   |
 | `Application/Common/Security/AuthorizationPolicies.cs`    | Policy name constants                                        |
 | `Application/Common/Security/CustomClaimTypes.cs`         | Custom claim type constants (`tenant_id`)                    |
-| `Infrastructure/Security/ValkeyTicketStore.cs`            | Server-side session store (Valkey); cookie holds only GUID   |
+| `Infrastructure/Security/DragonFlyTicketStore.cs`            | Server-side session store (DragonFly); cookie holds only GUID   |
 | `Infrastructure/Security/CookieSessionRefresher.cs`       | Silent token refresh on cookie validation                    |
 | `Infrastructure/Security/TenantClaimValidator.cs`         | Validates tenant_id claim; maps Keycloak claims              |
 | `Infrastructure/Security/KeycloakClaimMapper.cs`          | Maps preferred_username + realm roles to .NET claim types    |

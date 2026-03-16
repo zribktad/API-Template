@@ -2,12 +2,14 @@
 
 ## Overview
 
-The application uses **ASP.NET Core Output Cache** with an optional **Valkey** (Redis-compatible, BSD-3 licensed) backing store to cache HTTP GET responses.
+The application uses **ASP.NET Core Output Cache** with an optional **DragonFly** (Redis-compatible) backing store to cache HTTP GET responses. DragonFly supports a master/replica topology with HAProxy for high availability in Docker Compose and a Kubernetes operator for automated failover.
 
-- **With Valkey configured** — all application instances share the same cache, ensuring consistency behind a load balancer.
-- **Without Valkey** — falls back to in-memory cache with a warning log. Suitable for local development and single-instance deployments.
+- **With DragonFly configured** — all application instances share the same cache, ensuring consistency behind a load balancer.
+- **Without DragonFly** — falls back to in-memory cache with a warning log. Suitable for local development and single-instance deployments.
 
 ## Architecture
+
+### Single Instance (Development)
 
 ```
 Client Request
@@ -22,11 +24,46 @@ Client Request
   Rate Limiting
        │
        ▼
-  Output Cache Middleware ──── Valkey (shared store)
+  Output Cache Middleware ──── DragonFly (shared store)
        │                         ▲
        ▼                         │
   Controller ────────────────────┘
   (EvictByTagAsync on mutations)
+```
+
+### Multi-Instance (Docker Compose HA)
+
+```
+Client Request
+       │
+       ▼
+  ASP.NET Core API
+       │
+       ▼
+  HAProxy (dragonfly-proxy:6379)
+       │
+       ├── dragonfly-master:6379  (read/write)
+       │
+       └── dragonfly-replica:6379 (backup, read-only)
+```
+
+HAProxy routes all traffic to the master. If the master fails, HAProxy falls back to the replica (read-only — reads work, writes fail). For automatic master promotion, use the Kubernetes operator.
+
+### Kubernetes (Operator-managed HA)
+
+```
+Client Request
+       │
+       ▼
+  ASP.NET Core API
+       │
+       ▼
+  dragonfly.apitemplate.svc.cluster.local:6379
+       │
+       ▼
+  DragonFly Operator
+       ├── master pod  (auto-promoted on failure)
+       └── replica pod
 ```
 
 The Output Cache middleware runs **after** authentication and authorization, so unauthenticated or unauthorized requests are rejected before reaching the cache layer.
@@ -71,21 +108,23 @@ Options are registered as `IOptions<RateLimitingOptions>` and validated on start
 
 ## Configuration
 
-### Valkey Connection (Optional)
+### DragonFly Connection (Optional)
 
 Configured via `appsettings.json` or environment variables:
 
 ```json
 {
-  "Valkey": {
-    "ConnectionString": "localhost:6379"
+  "Dragonfly": {
+    "ConnectionString": "localhost:6379",
+    "ConnectTimeoutMs": 5000,
+    "SyncTimeoutMs": 3000
   }
 }
 ```
 
-Environment variable override: `Valkey__ConnectionString`
+Environment variable override: `Dragonfly__ConnectionString`
 
-When the `Valkey:ConnectionString` setting is **missing or empty**, the application logs a warning and uses the built-in in-memory output cache. No Valkey instance is required for development.
+When the `Dragonfly:ConnectionString` setting is **missing or empty**, the application logs a warning and uses the built-in in-memory output cache. No DragonFly instance is required for development.
 
 ### Cache Policies
 
@@ -113,16 +152,16 @@ This means adding a new cache policy **must** include `.AddPolicy<TenantAwareOut
 
 ### Instance Name
 
-All Valkey keys are prefixed with `ApiTemplate:OutputCache:` to avoid collisions with other applications sharing the same Valkey instance.
+All DragonFly keys are prefixed with `ApiTemplate:OutputCache:` to avoid collisions with other applications sharing the same DragonFly instance.
 
 ## How It Works
 
 ### Caching a Response
 
 1. A GET request arrives and passes through authentication, authorization, and rate limiting.
-2. The Output Cache middleware checks Valkey for a cached response matching the request.
+2. The Output Cache middleware checks DragonFly for a cached response matching the request.
 3. **Cache hit** — the cached response is returned immediately; the controller is not invoked.
-4. **Cache miss** — the request continues to the controller, the response is generated, stored in Valkey with the configured expiration and tag, and returned to the client.
+4. **Cache miss** — the request continues to the controller, the response is generated, stored in DragonFly with the configured expiration and tag, and returned to the client.
 
 ### Cache Invalidation
 
@@ -151,27 +190,36 @@ Each policy assigns a tag to its cached responses. Tags group related cache entr
 
 ## Infrastructure
 
-### Docker Compose
+### Docker Compose (HA Topology)
 
-Valkey is included in both `docker-compose.yml` (development) and `docker-compose.production.yml`:
+The Docker Compose setup provides a master/replica topology with HAProxy for high availability:
 
 ```yaml
-valkey:
-  image: valkey/valkey:8-alpine
+dragonfly-master:
+  image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.27.1
+  command: dragonfly --maxmemory 256mb --proactor_threads 2
+
+dragonfly-replica:
+  image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.27.1
+  command: dragonfly --maxmemory 256mb --proactor_threads 2 --replicaof dragonfly-master 6379
+
+dragonfly-proxy:
+  image: haproxy:3.1-alpine
   ports:
     - "6379:6379"
   volumes:
-    - valkeydata:/data
-  healthcheck:
-    test: ["CMD", "valkey-cli", "ping"]
-    interval: 10s
-    timeout: 5s
-    retries: 5
+    - ./infrastructure/dragonfly/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
 ```
+
+The API connects to `dragonfly-proxy:6379`. Direct master access is available on port `6380` for debugging.
+
+### Kubernetes
+
+See [`infrastructure/kubernetes/dragonfly/README.md`](../infrastructure/kubernetes/dragonfly/README.md) for deployment instructions using the DragonFly Kubernetes operator.
 
 ### Health Check
 
-Valkey health is monitored at `/health` alongside PostgreSQL, MongoDB, and Keycloak. The health check is tagged as `cache`.
+DragonFly health is monitored at `/health` alongside PostgreSQL, MongoDB, and Keycloak. The health check is tagged as `cache`.
 
 ## Adding a New Cache Policy
 
@@ -197,6 +245,11 @@ public async Task<ActionResult<...>> GetAll(CancellationToken ct) { ... }
 await _outputCacheStore.EvictByTagAsync("MyEntity", ct);
 ```
 
-## Valkey vs Redis
+## DragonFly vs Redis vs Valkey
 
-Valkey is a community-maintained fork of Redis under the **BSD-3** license (fully open source), maintained by the Linux Foundation. It is wire-compatible with Redis — the same protocol, commands, and client libraries (`StackExchange.Redis`) work with both. The `AddStackExchangeRedisOutputCache` method works identically with Valkey.
+DragonFly is a modern, multi-threaded in-memory datastore that is wire-compatible with Redis. It uses the same protocol, commands, and client libraries (`StackExchange.Redis`) as Redis and Valkey. The `AddStackExchangeRedisOutputCache` method works identically with DragonFly.
+
+Key advantages over Redis/Valkey:
+- **Multi-threaded architecture** — better utilization of modern multi-core hardware
+- **Lower memory overhead** — uses less memory for the same dataset
+- **Kubernetes operator** — native operator with automatic failover and replica promotion

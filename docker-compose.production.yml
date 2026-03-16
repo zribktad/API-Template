@@ -118,13 +118,45 @@ services:
       retries: 5
       start_period: 60s
 
-  valkey:
-    image: valkey/valkey:8-alpine
+  dragonfly-master:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.27.1
     restart: unless-stopped
     volumes:
-      - valkeydata:/data
+      - dragonfly-master-data:/data
+    command: dragonfly --maxmemory 512mb --proactor_threads 2 --requirepass ${DRAGONFLY_PASSWORD:-}
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${DRAGONFLY_PASSWORD:-}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dragonfly-replica:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.27.1
+    restart: unless-stopped
+    volumes:
+      - dragonfly-replica-data:/data
+    command: dragonfly --maxmemory 512mb --proactor_threads 2 --replicaof dragonfly-master 6379 --masterauth ${DRAGONFLY_PASSWORD:-} --requirepass ${DRAGONFLY_PASSWORD:-}
+    depends_on:
+      dragonfly-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${DRAGONFLY_PASSWORD:-}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dragonfly-proxy:
+    image: haproxy:3.1-alpine
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/dragonfly/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      dragonfly-master:
+        condition: service_healthy
+      dragonfly-replica:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "haproxy", "-c", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -145,7 +177,7 @@ services:
       Keycloak__auth-server-url: "https://keycloak:8443/"
       Keycloak__resource: "${KC_CLIENT_ID:-api-template}"
       Keycloak__credentials__secret: "${KC_CLIENT_SECRET}"
-      Valkey__ConnectionString: "valkey:6379"
+      Dragonfly__ConnectionString: "dragonfly-proxy:6379,password=${DRAGONFLY_PASSWORD:-}"
       APITEMPLATE_REDACTION_HMAC_KEY: "${REDACTION_HMAC_KEY}"
       Observability__Otlp__Endpoint: "http://alloy:4317"
       Observability__Exporters__Otlp__Enabled: "true"
@@ -159,7 +191,7 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
-      valkey:
+      dragonfly-proxy:
         condition: service_healthy
 
 volumes:
@@ -170,4 +202,5 @@ volumes:
   pgdata:
   mongodata:
   keycloak-pgdata:
-  valkeydata:
+  dragonfly-master-data:
+  dragonfly-replica-data:

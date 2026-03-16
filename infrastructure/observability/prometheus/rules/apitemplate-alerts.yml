@@ -29,7 +29,7 @@ groups:
           description: The API p95 latency has been above 750 ms for 10 minutes.
 
       - alert: APITemplateBackendHealthDegraded
-        expr: max_over_time(apitemplate_healthcheck_status{service=~"postgresql|mongodb|valkey"}[5m]) < 1
+        expr: max_over_time(apitemplate_healthcheck_status{service=~"postgresql|mongodb|dragonfly"}[5m]) < 1
         for: 5m
         labels:
           severity: critical

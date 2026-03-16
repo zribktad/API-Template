@@ -145,7 +145,7 @@ The API emits:
 - inbound HTTP traces and metrics
 - outbound `HttpClient` traces and metrics
 - PostgreSQL traces via `Npgsql`
-- Redis/Valkey traces via `StackExchangeRedis`
+- DragonFly/Redis traces via `StackExchangeRedis`
 - MongoDB traces via driver diagnostic sources
 - GraphQL traces via Hot Chocolate
 - runtime and process metrics
@@ -402,7 +402,7 @@ Use this when you want both the LGTM stack and Aspire Dashboard running together
 Start the stack:
 
 ```bash
-ASPIRE_OTLP_GRPC_PORT=18889 ASPIRE_OTLP_HTTP_PORT=18890 docker compose --profile aspire up -d postgres mongodb keycloak-db keycloak valkey alloy prometheus loki tempo grafana aspire-dashboard
+ASPIRE_OTLP_GRPC_PORT=18889 ASPIRE_OTLP_HTTP_PORT=18890 docker compose --profile aspire up -d postgres mongodb keycloak-db keycloak dragonfly-master dragonfly-replica dragonfly-proxy alloy prometheus loki tempo grafana aspire-dashboard
 ```
 
 Then run the API locally and send telemetry to both backends:
