@@ -76,6 +76,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
     public DbSet<ProductCategoryStats> ProductCategoryStats => Set<ProductCategoryStats>();
+    public DbSet<FailedEmail> FailedEmails => Set<FailedEmail>();
 
     /// <summary>
     /// Applies entity configurations and auto-registers global tenant/soft-delete query filters.

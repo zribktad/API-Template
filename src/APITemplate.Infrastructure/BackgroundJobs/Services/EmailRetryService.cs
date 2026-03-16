@@ -1,0 +1,120 @@
+using APITemplate.Application.Common.BackgroundJobs;
+using APITemplate.Application.Common.Email;
+using APITemplate.Application.Common.Resilience;
+using APITemplate.Domain.Interfaces;
+using Microsoft.Extensions.Logging;
+using Polly.Registry;
+
+namespace APITemplate.Infrastructure.BackgroundJobs.Services;
+
+public sealed class EmailRetryService : IEmailRetryService
+{
+    private readonly IFailedEmailRepository _repository;
+    private readonly IEmailSender _sender;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly TimeProvider _timeProvider;
+    private readonly ResiliencePipelineProvider<string> _resiliencePipelineProvider;
+    private readonly ILogger<EmailRetryService> _logger;
+
+    public EmailRetryService(
+        IFailedEmailRepository repository,
+        IEmailSender sender,
+        IUnitOfWork unitOfWork,
+        TimeProvider timeProvider,
+        ResiliencePipelineProvider<string> resiliencePipelineProvider,
+        ILogger<EmailRetryService> logger
+    )
+    {
+        _repository = repository;
+        _sender = sender;
+        _unitOfWork = unitOfWork;
+        _timeProvider = timeProvider;
+        _resiliencePipelineProvider = resiliencePipelineProvider;
+        _logger = logger;
+    }
+
+    public async Task RetryFailedEmailsAsync(
+        int maxRetryAttempts,
+        int batchSize,
+        CancellationToken ct = default
+    )
+    {
+        var pipeline = _resiliencePipelineProvider.GetPipeline(ResiliencePipelineKeys.SmtpSend);
+        var emails = await _repository.GetRetryableAsync(maxRetryAttempts, batchSize, ct);
+
+        foreach (var email in emails)
+        {
+            try
+            {
+                var message = new EmailMessage(
+                    email.To,
+                    email.Subject,
+                    email.HtmlBody,
+                    email.TemplateName
+                );
+                await pipeline.ExecuteAsync(
+                    async token => await _sender.SendAsync(message, token),
+                    ct
+                );
+
+                await _repository.DeleteAsync(email, ct);
+                _logger.LogInformation(
+                    "Successfully retried email to {Recipient} (attempt {Attempt}).",
+                    email.To,
+                    email.RetryCount + 1
+                );
+            }
+            catch (Exception ex)
+            {
+                email.RetryCount++;
+                email.LastAttemptAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
+                email.LastError = ex.Message;
+                await _repository.UpdateAsync(email, ct);
+
+                _logger.LogWarning(
+                    ex,
+                    "Retry attempt {Attempt} failed for email to {Recipient}.",
+                    email.RetryCount,
+                    email.To
+                );
+            }
+
+            // Commit after each email to ensure durable progress — avoids duplicate sends on crash
+            await _unitOfWork.CommitAsync(ct);
+        }
+    }
+
+    public async Task DeadLetterExpiredAsync(
+        int deadLetterAfterHours,
+        int batchSize,
+        CancellationToken ct = default
+    )
+    {
+        var cutoff = _timeProvider.GetUtcNow().UtcDateTime.AddHours(-deadLetterAfterHours);
+        int processed;
+
+        do
+        {
+            var expired = await _repository.GetExpiredAsync(cutoff, batchSize, ct);
+            processed = expired.Count;
+
+            foreach (var email in expired)
+            {
+                email.IsDeadLettered = true;
+                await _repository.UpdateAsync(email, ct);
+
+                _logger.LogWarning(
+                    "Dead-lettered email to {Recipient} with subject '{Subject}' after {Hours}h.",
+                    email.To,
+                    email.Subject,
+                    deadLetterAfterHours
+                );
+            }
+
+            if (processed > 0)
+            {
+                await _unitOfWork.CommitAsync(ct);
+            }
+        } while (processed == batchSize);
+    }
+}

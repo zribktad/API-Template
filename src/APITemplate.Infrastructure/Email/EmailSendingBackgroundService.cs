@@ -11,18 +11,21 @@ public sealed class EmailSendingBackgroundService : BackgroundService
     private readonly ChannelEmailQueue _queue;
     private readonly IEmailSender _sender;
     private readonly ResiliencePipelineProvider<string> _resiliencePipelineProvider;
+    private readonly IFailedEmailStore _failedEmailStore;
     private readonly ILogger<EmailSendingBackgroundService> _logger;
 
     public EmailSendingBackgroundService(
         ChannelEmailQueue queue,
         IEmailSender sender,
         ResiliencePipelineProvider<string> resiliencePipelineProvider,
+        IFailedEmailStore failedEmailStore,
         ILogger<EmailSendingBackgroundService> logger
     )
     {
         _queue = queue;
         _sender = sender;
         _resiliencePipelineProvider = resiliencePipelineProvider;
+        _failedEmailStore = failedEmailStore;
         _logger = logger;
     }
 
@@ -50,6 +53,8 @@ public sealed class EmailSendingBackgroundService : BackgroundService
                     message.To,
                     message.Subject
                 );
+
+                await _failedEmailStore.StoreFailedAsync(message, ex.Message, stoppingToken);
             }
         }
     }
