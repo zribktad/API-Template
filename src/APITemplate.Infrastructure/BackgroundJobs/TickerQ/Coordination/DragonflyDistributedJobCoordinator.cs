@@ -40,7 +40,7 @@ public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordina
             return;
         }
 
-        var lockKey = $"TickerQ:Leader:{jobName}";
+        var lockKey = $"TickerQ:Leader:{_options.TickerQ.InstanceNamePrefix}:{jobName}";
         var lockValue = $"{Environment.MachineName}:{Environment.ProcessId}:{Guid.NewGuid():N}";
 
         var acquired = await database.StringSetAsync(
@@ -59,16 +59,16 @@ public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordina
             return;
         }
 
-        using var renewalCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var renewalTask = RenewLeaseAsync(database, lockKey, lockValue, renewalCts.Token);
+        using var executionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var renewalTask = RenewLeaseAsync(database, lockKey, lockValue, jobName, executionCts);
 
         try
         {
-            await action(ct);
+            await action(executionCts.Token);
         }
         finally
         {
-            renewalCts.Cancel();
+            executionCts.Cancel();
             await AwaitRenewalAsync(renewalTask);
             await ReleaseAsync(database, lockKey, lockValue);
         }
@@ -150,25 +150,44 @@ public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordina
         IDatabase database,
         string key,
         string value,
-        CancellationToken ct
+        string jobName,
+        CancellationTokenSource executionCts
     )
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(LeaseSeconds / 3d));
-        while (await timer.WaitForNextTickAsync(ct))
+        while (await timer.WaitForNextTickAsync(executionCts.Token))
         {
-            await database.ScriptEvaluateAsync(
-                """
-                if redis.call('get', KEYS[1]) == ARGV[1] then
-                    return redis.call('expire', KEYS[1], ARGV[2])
-                end
-                return 0
-                """,
-                keys: [key],
-                values: [value, LeaseSeconds]
+            var renewed = (long)
+                await database.ScriptEvaluateAsync(
+                    """
+                    if redis.call('get', KEYS[1]) == ARGV[1] then
+                        return redis.call('expire', KEYS[1], ARGV[2])
+                    end
+                    return 0
+                    """,
+                    keys: [key],
+                    values: [value, LeaseSeconds]
+                );
+
+            if (renewed != 0)
+            {
+                continue;
+            }
+
+            _logger.LogWarning(
+                "Lost DragonFly coordination lease for background job {JobName}; cancelling the in-flight execution.",
+                jobName
             );
+            executionCts.Cancel();
+            throw new LeadershipLeaseLostException(jobName);
         }
     }
 
     private static Task ReleaseAsync(IDatabase database, string key, string value) =>
         database.ScriptEvaluateAsync(ReleaseLockScript, new { key, value });
+
+    private sealed class LeadershipLeaseLostException(string jobName)
+        : InvalidOperationException(
+            $"Background job '{jobName}' lost its DragonFly coordination lease while still running."
+        );
 }

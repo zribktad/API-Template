@@ -76,7 +76,7 @@ public static class ApplicationBuilderExtensions
         app.UseTickerQ(TickerQStartMode.Immediate);
         app.Logger.LogInformation(
             "TickerQ background jobs started with schema {SchemaName}.",
-            options.TickerQ.SchemaName
+            TickerQSchedulerOptions.DefaultSchemaName
         );
     }
 

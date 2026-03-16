@@ -8,9 +8,11 @@ using APITemplate.Infrastructure.BackgroundJobs.TickerQ;
 using APITemplate.Infrastructure.BackgroundJobs.TickerQ.Coordination;
 using APITemplate.Infrastructure.BackgroundJobs.TickerQ.Jobs;
 using APITemplate.Infrastructure.BackgroundJobs.TickerQ.RecurringJobRegistrations;
+using APITemplate.Infrastructure.BackgroundJobs.Validation;
 using APITemplate.Infrastructure.Email;
 using APITemplate.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 using TickerQ.DependencyInjection;
 using TickerQ.EntityFrameworkCore.Customizer;
@@ -22,14 +24,29 @@ namespace APITemplate.Extensions;
 
 public static class BackgroundJobsServiceCollectionExtensions
 {
+    private static readonly Type[] SoftDeleteCleanupOrder =
+    [
+        typeof(ProductDataLink),
+        typeof(ProductReview),
+        typeof(Product),
+        typeof(AppUser),
+        typeof(TenantInvitation),
+        typeof(Category),
+        typeof(Tenant),
+    ];
+
     public static IServiceCollection AddBackgroundJobs(
         this IServiceCollection services,
         IConfiguration configuration
     )
     {
         var section = configuration.SectionFor<BackgroundJobsOptions>();
+        services.AddSingleton<
+            IValidateOptions<BackgroundJobsOptions>,
+            BackgroundJobsOptionsValidator
+        >();
+        services.AddOptions<BackgroundJobsOptions>().Bind(section).ValidateOnStart();
         var options = section.Get<BackgroundJobsOptions>() ?? new BackgroundJobsOptions();
-        services.Configure<BackgroundJobsOptions>(section);
 
         RegisterTickerQInfrastructure(services, configuration, options);
 
@@ -100,7 +117,7 @@ public static class BackgroundJobsServiceCollectionExtensions
         var connectionString = configuration.GetConnectionString(
             ConfigurationSections.DefaultConnection
         )!;
-        var schemaName = options.TickerQ.SchemaName;
+        var schemaName = TickerQSchedulerOptions.DefaultSchemaName;
 
         services.AddDbContext<TickerQSchedulerDbContext>(dbOptions =>
             dbOptions.UseNpgsql(
@@ -138,12 +155,20 @@ public static class BackgroundJobsServiceCollectionExtensions
             .Where(t =>
                 t is { IsClass: true, IsAbstract: false }
                 && typeof(ISoftDeletable).IsAssignableFrom(t)
-            );
+            )
+            .OrderBy(GetSoftDeleteCleanupOrder)
+            .ThenBy(t => t.Name);
 
         foreach (var entityType in softDeletableTypes)
         {
             var strategyType = typeof(SoftDeleteCleanupStrategy<>).MakeGenericType(entityType);
             services.AddScoped(typeof(ISoftDeleteCleanupStrategy), strategyType);
         }
+    }
+
+    private static int GetSoftDeleteCleanupOrder(Type entityType)
+    {
+        var index = Array.IndexOf(SoftDeleteCleanupOrder, entityType);
+        return index >= 0 ? index : int.MaxValue;
     }
 }

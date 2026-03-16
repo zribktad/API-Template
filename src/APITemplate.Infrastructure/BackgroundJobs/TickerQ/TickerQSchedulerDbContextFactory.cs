@@ -20,29 +20,17 @@ public sealed class TickerQSchedulerDbContextFactory
             configuration.GetConnectionString("DefaultConnection")
             ?? "Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres";
 
-        var schemaName =
-            configuration["BackgroundJobs:TickerQ:SchemaName"]
-            ?? TickerQSchedulerOptions.DefaultSchemaName;
-
-        var backgroundJobsOptions = new BackgroundJobsOptions
-        {
-            TickerQ = new TickerQSchedulerOptions { SchemaName = schemaName },
-        };
-
         var options = new DbContextOptionsBuilder<TickerQSchedulerDbContext>()
             .UseNpgsql(
                 connectionString,
                 npgsql =>
                     npgsql.MigrationsHistoryTable(
                         "__EFMigrationsHistory",
-                        backgroundJobsOptions.TickerQ.SchemaName
+                        TickerQSchedulerOptions.DefaultSchemaName
                     )
             )
             .Options;
 
-        return new TickerQSchedulerDbContext(
-            options,
-            Microsoft.Extensions.Options.Options.Create(backgroundJobsOptions)
-        );
+        return new TickerQSchedulerDbContext(options);
     }
 }

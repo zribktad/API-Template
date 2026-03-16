@@ -24,7 +24,6 @@ public sealed class TickerQRecurringJobRegistrarTests
         var options = Options.Create(
             new BackgroundJobsOptions
             {
-                TickerQ = new TickerQSchedulerOptions { SchemaName = "tickerq" },
                 ExternalSync = new ExternalSyncJobOptions
                 {
                     Enabled = false,
@@ -36,7 +35,7 @@ public sealed class TickerQRecurringJobRegistrarTests
             }
         );
 
-        await using var dbContext = new TickerQSchedulerDbContext(dbOptions, options);
+        await using var dbContext = new TickerQSchedulerDbContext(dbOptions);
         var registrations = CreateRegistrations();
 
         var registrar = new TickerQRecurringJobRegistrar(
@@ -64,7 +63,6 @@ public sealed class TickerQRecurringJobRegistrarTests
         var updatedOptions = Options.Create(
             new BackgroundJobsOptions
             {
-                TickerQ = new TickerQSchedulerOptions { SchemaName = "tickerq" },
                 ExternalSync = new ExternalSyncJobOptions { Enabled = true, Cron = "0 */6 * * *" },
                 Cleanup = new CleanupJobOptions { Enabled = true, Cron = "5 * * * *" },
                 Reindex = new ReindexJobOptions { Enabled = true, Cron = "0 */6 * * *" },
