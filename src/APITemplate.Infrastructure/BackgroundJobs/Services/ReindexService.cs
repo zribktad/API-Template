@@ -74,9 +74,9 @@ public sealed partial class ReindexService : IReindexService
     private async Task<double> GetIndexBloatPercentAsync(string indexName, CancellationToken ct)
     {
         var procedure = new GetIndexBloatPercentProcedure(indexName);
-        var result = await _dbContext.Database.SqlQuery<double>(procedure.ToSql()).ToListAsync(ct);
-
-        return result.FirstOrDefault();
+        return await _dbContext
+            .Database.SqlQuery<double>(procedure.ToSql())
+            .FirstOrDefaultAsync(ct);
     }
 
     [GeneratedRegex(@"^[a-zA-Z_][a-zA-Z0-9_]*$")]
