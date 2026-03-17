@@ -3,6 +3,7 @@ using APITemplate.Application.Common.Email;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Infrastructure.Email;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Polly.Registry;
@@ -84,7 +85,7 @@ public sealed class EmailRetryService : IEmailRetryService
             {
                 email.RetryCount++;
                 email.LastAttemptAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
-                email.LastError = ex.Message;
+                email.LastError = FailedEmailErrorNormalizer.Normalize(ex.Message);
                 email.ClaimedBy = null;
                 email.ClaimedAtUtc = null;
                 email.ClaimedUntilUtc = null;

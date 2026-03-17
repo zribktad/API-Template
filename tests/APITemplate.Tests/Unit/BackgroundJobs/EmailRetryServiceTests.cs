@@ -53,7 +53,9 @@ public sealed class EmailRetryServiceTests
 
         sender
             .Setup(x => x.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("SMTP down"));
+            .ThrowsAsync(
+                new InvalidOperationException(new string('x', FailedEmail.LastErrorMaxLength + 25))
+            );
 
         var sut = new EmailRetryService(
             repository.Object,
@@ -75,6 +77,8 @@ public sealed class EmailRetryServiceTests
         repository.VerifyAll();
         repository.Verify(x => x.UpdateAsync(email, ct), Times.Once);
         email.RetryCount.ShouldBe(1);
+        email.LastError.ShouldNotBeNull();
+        email.LastError.Length.ShouldBe(FailedEmail.LastErrorMaxLength);
         email.ClaimedBy.ShouldBeNull();
         email.ClaimedAtUtc.ShouldBeNull();
         email.ClaimedUntilUtc.ShouldBeNull();

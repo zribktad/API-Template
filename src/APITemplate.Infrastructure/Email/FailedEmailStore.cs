@@ -51,7 +51,7 @@ public sealed class FailedEmailStore : IFailedEmailStore
                 HtmlBody = message.HtmlBody,
                 RetryCount = 0,
                 CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime,
-                LastError = error,
+                LastError = FailedEmailErrorNormalizer.Normalize(error),
                 TemplateName = message.TemplateName,
                 ClaimedBy = null,
                 ClaimedAtUtc = null,

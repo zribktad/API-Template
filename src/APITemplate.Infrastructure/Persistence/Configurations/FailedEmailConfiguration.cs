@@ -13,7 +13,7 @@ public sealed class FailedEmailConfiguration : IEntityTypeConfiguration<FailedEm
         builder.Property(e => e.To).IsRequired().HasMaxLength(320);
         builder.Property(e => e.Subject).IsRequired().HasMaxLength(500);
         builder.Property(e => e.HtmlBody).IsRequired();
-        builder.Property(e => e.LastError).HasMaxLength(2000);
+        builder.Property(e => e.LastError).HasMaxLength(FailedEmail.LastErrorMaxLength);
         builder.Property(e => e.TemplateName).HasMaxLength(100);
 
         builder

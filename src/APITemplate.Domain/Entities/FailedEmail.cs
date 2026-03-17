@@ -2,6 +2,8 @@ namespace APITemplate.Domain.Entities;
 
 public sealed class FailedEmail
 {
+    public const int LastErrorMaxLength = 2000;
+
     public Guid Id { get; set; }
     public required string To { get; set; }
     public required string Subject { get; set; }

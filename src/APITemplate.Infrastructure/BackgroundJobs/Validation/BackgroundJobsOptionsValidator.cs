@@ -51,6 +51,11 @@ public sealed class BackgroundJobsOptionsValidator : IValidateOptions<Background
 
     private static void ValidateCleanup(CleanupJobOptions options, List<string> failures)
     {
+        if (!options.Enabled)
+        {
+            return;
+        }
+
         ValidateCron("BackgroundJobs:Cleanup:Cron", options.Cron, failures);
         ValidatePositive("BackgroundJobs:Cleanup:BatchSize", options.BatchSize, failures);
         ValidateNonNegative(
@@ -70,16 +75,33 @@ public sealed class BackgroundJobsOptionsValidator : IValidateOptions<Background
         );
     }
 
-    private static void ValidateReindex(ReindexJobOptions options, List<string> failures) =>
-        ValidateCron("BackgroundJobs:Reindex:Cron", options.Cron, failures);
+    private static void ValidateReindex(ReindexJobOptions options, List<string> failures)
+    {
+        if (!options.Enabled)
+        {
+            return;
+        }
 
-    private static void ValidateExternalSync(
-        ExternalSyncJobOptions options,
-        List<string> failures
-    ) => ValidateCron("BackgroundJobs:ExternalSync:Cron", options.Cron, failures);
+        ValidateCron("BackgroundJobs:Reindex:Cron", options.Cron, failures);
+    }
+
+    private static void ValidateExternalSync(ExternalSyncJobOptions options, List<string> failures)
+    {
+        if (!options.Enabled)
+        {
+            return;
+        }
+
+        ValidateCron("BackgroundJobs:ExternalSync:Cron", options.Cron, failures);
+    }
 
     private static void ValidateEmailRetry(EmailRetryJobOptions options, List<string> failures)
     {
+        if (!options.Enabled)
+        {
+            return;
+        }
+
         ValidateCron("BackgroundJobs:EmailRetry:Cron", options.Cron, failures);
         ValidatePositive("BackgroundJobs:EmailRetry:BatchSize", options.BatchSize, failures);
         ValidatePositive(
