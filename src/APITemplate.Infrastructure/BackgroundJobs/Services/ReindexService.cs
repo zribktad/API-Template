@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Infrastructure.Persistence;
+using APITemplate.Infrastructure.StoredProcedures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -27,17 +28,9 @@ public sealed partial class ReindexService : IReindexService
     /// </summary>
     public async Task ReindexFullTextSearchAsync(CancellationToken ct = default)
     {
-        // pg_indexes is a PostgreSQL system catalog — no EF Core model exists for it.
-        // REINDEX INDEX CONCURRENTLY is DDL — no EF Core API exists for it.
+        var procedure = new GetFtsIndexNamesProcedure();
         var ftsIndexes = await _dbContext
-            .Database.SqlQueryRaw<string>(
-                """
-                SELECT indexname AS "Value"
-                FROM pg_indexes
-                WHERE schemaname = 'public'
-                  AND indexdef LIKE '%to_tsvector%'
-                """
-            )
+            .Database.SqlQuery<string>(procedure.ToSql())
             .ToListAsync(ct);
 
         foreach (var index in ftsIndexes)
@@ -68,6 +61,7 @@ public sealed partial class ReindexService : IReindexService
                 BloatThresholdPercent
             );
 
+            // REINDEX INDEX CONCURRENTLY is DDL — cannot be wrapped in a PostgreSQL function.
             await _dbContext.Database.ExecuteSqlRawAsync(
                 $"REINDEX INDEX CONCURRENTLY \"{index}\"",
                 ct
@@ -79,30 +73,8 @@ public sealed partial class ReindexService : IReindexService
 
     private async Task<double> GetIndexBloatPercentAsync(string indexName, CancellationToken ct)
     {
-        // Estimates index bloat by comparing actual index size (pg_relation_size) to an ideal
-        // size derived from live table rows and average tuple width. The ideal size assumes
-        // ~90% fillfactor (0.9) and one pointer per tuple (6 bytes header + avg_width).
-        // This is a lightweight heuristic — for precise measurements use pgstattuple extension.
-        var result = await _dbContext
-            .Database.SqlQueryRaw<double>(
-                """
-                SELECT CASE
-                    WHEN pg_relation_size(c.oid) = 0 THEN 0
-                    ELSE GREATEST(0,
-                        100.0 * (1.0 - (
-                            (s.n_live_tup::float * COALESCE(NULLIF(s.avg_width, 0), 32) / 0.9)
-                            / NULLIF(pg_relation_size(c.oid)::float, 0)
-                        ))
-                    )
-                END AS "Value"
-                FROM pg_class c
-                JOIN pg_stat_user_indexes si ON si.indexrelid = c.oid
-                JOIN pg_stat_user_tables s ON s.relid = si.relid
-                WHERE c.relname = {0}
-                """,
-                indexName
-            )
-            .ToListAsync(ct);
+        var procedure = new GetIndexBloatPercentProcedure(indexName);
+        var result = await _dbContext.Database.SqlQuery<double>(procedure.ToSql()).ToListAsync(ct);
 
         return result.FirstOrDefault();
     }

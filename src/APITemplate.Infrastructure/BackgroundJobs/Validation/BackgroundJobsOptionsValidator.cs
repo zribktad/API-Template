@@ -25,6 +25,11 @@ public sealed class BackgroundJobsOptionsValidator : IValidateOptions<Background
 
     private static void ValidateTickerQ(TickerQSchedulerOptions options, List<string> failures)
     {
+        if (!options.Enabled)
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(options.InstanceNamePrefix))
         {
             failures.Add("BackgroundJobs:TickerQ:InstanceNamePrefix is required.");

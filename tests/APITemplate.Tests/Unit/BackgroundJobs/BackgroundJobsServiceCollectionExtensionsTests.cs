@@ -48,7 +48,6 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
         services
             .Count(x => x.ServiceType == typeof(IRecurringBackgroundJobRegistration))
             .ShouldBe(4);
-        services.ShouldContain(x => x.ServiceType == typeof(IFailedEmailStore));
         services.ShouldContain(x => x.ServiceType == typeof(IEmailRetryService));
         services.ShouldContain(x => x.ServiceType == typeof(ICleanupService));
         services.ShouldContain(x => x.ServiceType == typeof(IReindexService));

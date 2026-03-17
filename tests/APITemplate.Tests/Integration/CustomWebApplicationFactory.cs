@@ -3,12 +3,12 @@ using APITemplate.Tests.Integration.Helpers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Xunit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Xunit;
 
 namespace APITemplate.Tests.Integration;
 
@@ -29,11 +29,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.ConfigureAppConfiguration((_, configBuilder) =>
-        {
-            var config = TestConfigurationHelper.GetBaseConfiguration();
-            configBuilder.AddInMemoryCollection(config);
-        });
+        builder.ConfigureAppConfiguration(
+            (_, configBuilder) =>
+            {
+                var config = TestConfigurationHelper.GetBaseConfiguration();
+                configBuilder.AddInMemoryCollection(config);
+            }
+        );
 
         builder.ConfigureTestServices(services =>
         {
@@ -42,17 +44,20 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
 
             var optionsConfigs = services
                 .Where(d =>
-                    d.ServiceType.IsGenericType &&
-                    d.ServiceType.GetGenericTypeDefinition().FullName?
-                        .Contains("IDbContextOptionsConfiguration") == true)
+                    d.ServiceType.IsGenericType
+                    && d.ServiceType.GetGenericTypeDefinition()
+                        .FullName?.Contains("IDbContextOptionsConfiguration") == true
+                )
                 .ToList();
 
             foreach (var d in optionsConfigs)
                 services.Remove(d);
 
             services.AddDbContext<AppDbContext>(options =>
-                options.UseInMemoryDatabase(_dbName)
-                    .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning)));
+                options
+                    .UseInMemoryDatabase(_dbName)
+                    .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            );
 
             TestServiceHelper.MockMongoServices(services);
             TestServiceHelper.RemoveExternalHealthChecks(services);
@@ -61,6 +66,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             TestServiceHelper.ReplaceDataProtectionWithInMemory(services);
             TestServiceHelper.ReplaceTicketStoreWithInMemory(services);
             TestServiceHelper.ConfigureTestAuthentication(services);
+            TestServiceHelper.ReplaceTickerQDependencies(services);
         });
 
         builder.UseEnvironment("Development");

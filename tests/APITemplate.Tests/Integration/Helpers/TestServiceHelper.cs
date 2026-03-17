@@ -121,4 +121,18 @@ internal static class TestServiceHelper
         services.RemoveAll(typeof(IProductRepository));
         services.AddScoped<IProductRepository, InMemoryProductRepository>();
     }
+
+    internal static void ReplaceTickerQDependencies(IServiceCollection services)
+    {
+        // DragonflyDistributedJobCoordinator requires IConnectionMultiplexer, which is only
+        // registered when Dragonfly:ConnectionString is configured. In tests we set it to empty,
+        // but RegisterTickerQInfrastructure already ran (appsettings.json has TickerQ:Enabled=true
+        // before test overrides are applied). Provide a mock so DI validation passes.
+        if (!services.Any(d => d.ServiceType == typeof(IConnectionMultiplexer)))
+        {
+            var mock = new Mock<IConnectionMultiplexer>();
+            mock.SetupGet(x => x.IsConnected).Returns(false);
+            services.AddSingleton(mock.Object);
+        }
+    }
 }

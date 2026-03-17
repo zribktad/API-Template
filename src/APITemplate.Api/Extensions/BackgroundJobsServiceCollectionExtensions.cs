@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.BackgroundJobs;
-using APITemplate.Application.Common.Email;
 using APITemplate.Application.Common.Options;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
@@ -9,7 +8,6 @@ using APITemplate.Infrastructure.BackgroundJobs.TickerQ.Coordination;
 using APITemplate.Infrastructure.BackgroundJobs.TickerQ.Jobs;
 using APITemplate.Infrastructure.BackgroundJobs.TickerQ.RecurringJobRegistrations;
 using APITemplate.Infrastructure.BackgroundJobs.Validation;
-using APITemplate.Infrastructure.Email;
 using APITemplate.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -51,7 +49,6 @@ public static class BackgroundJobsServiceCollectionExtensions
         RegisterTickerQInfrastructure(services, configuration, options);
 
         services.AddScoped<IFailedEmailRepository, FailedEmailRepository>();
-        services.AddSingleton<IFailedEmailStore, FailedEmailStore>();
 
         services.AddScoped<ICleanupService, CleanupService>();
         services.AddScoped<IReindexService, ReindexService>();

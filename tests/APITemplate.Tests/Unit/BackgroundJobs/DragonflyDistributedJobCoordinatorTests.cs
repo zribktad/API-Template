@@ -36,8 +36,7 @@ public sealed class DragonflyDistributedJobCoordinatorTests
                     It.IsAny<RedisKey>(),
                     It.IsAny<RedisValue>(),
                     It.IsAny<TimeSpan?>(),
-                    When.NotExists,
-                    It.IsAny<CommandFlags>()
+                    When.NotExists
                 )
             )
             .ReturnsAsync(false);
@@ -75,8 +74,7 @@ public sealed class DragonflyDistributedJobCoordinatorTests
                     It.IsAny<RedisKey>(),
                     It.IsAny<RedisValue>(),
                     It.IsAny<TimeSpan?>(),
-                    When.NotExists,
-                    It.IsAny<CommandFlags>()
+                    When.NotExists
                 )
             )
             .ReturnsAsync(true);
