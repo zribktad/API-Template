@@ -1,7 +1,6 @@
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Common.Email;
 using APITemplate.Application.Common.Options;
-using APITemplate.Application.Common.Startup;
 using APITemplate.Domain.Entities;
 using APITemplate.Extensions;
 using APITemplate.Infrastructure.BackgroundJobs.Services;
@@ -83,7 +82,6 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
         services.ShouldContain(x => x.ServiceType == typeof(ICleanupService));
         services.ShouldContain(x => x.ServiceType == typeof(IReindexService));
         services.ShouldContain(x => x.ServiceType == typeof(IEmailRetryService));
-        services.ShouldContain(x => x.ServiceType == typeof(IStartupTaskCoordinator));
     }
 
     [Fact]
@@ -163,6 +161,7 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
                     "Host=localhost;Database=test;Username=test;Password=test",
                 ["Dragonfly:ConnectionString"] = "localhost:6379",
                 ["BackgroundJobs:TickerQ:Enabled"] = "true",
+                ["BackgroundJobs:Cleanup:Enabled"] = "true",
                 ["BackgroundJobs:Cleanup:BatchSize"] = "0",
             }
         );
@@ -190,6 +189,7 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
                     "Host=localhost;Database=test;Username=test;Password=test",
                 ["Dragonfly:ConnectionString"] = "localhost:6379",
                 ["BackgroundJobs:TickerQ:Enabled"] = "true",
+                ["BackgroundJobs:EmailRetry:Enabled"] = "true",
                 ["BackgroundJobs:EmailRetry:Cron"] = "not-a-cron",
             }
         );
