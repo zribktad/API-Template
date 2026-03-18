@@ -11,7 +11,7 @@ namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
 [ApiController]
-[Route("api/v{version:apiVersion}/examples/files")]
+[Route("api/v{version:apiVersion}/files")]
 public sealed class FilesController : ControllerBase
 {
     private readonly ISender _sender;

@@ -50,7 +50,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             "application/json-patch+json"
         );
         var patchResponse = await _client.PatchAsync(
-            $"/api/v1/examples/patch/products/{created.Id}",
+            $"/api/v1/patch/products/{created.Id}",
             patchContent,
             ct
         );
@@ -96,7 +96,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             "application/json-patch+json"
         );
         var patchResponse = await _client.PatchAsync(
-            $"/api/v1/examples/patch/products/{created.Id}",
+            $"/api/v1/patch/products/{created.Id}",
             patchContent,
             ct
         );
@@ -140,7 +140,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             "application/json-patch+json"
         );
         var patchResponse = await _client.PatchAsync(
-            $"/api/v1/examples/patch/products/{created.Id}",
+            $"/api/v1/patch/products/{created.Id}",
             patchContent,
             ct
         );
@@ -161,7 +161,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             "application/json-patch+json"
         );
         var patchResponse = await _client.PatchAsync(
-            $"/api/v1/examples/patch/products/{Guid.NewGuid()}",
+            $"/api/v1/patch/products/{Guid.NewGuid()}",
             patchContent,
             ct
         );
@@ -198,7 +198,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             "application/json-patch+json"
         );
         var patchResponse = await _client.PatchAsync(
-            $"/api/v1/examples/patch/products/{created.Id}",
+            $"/api/v1/patch/products/{created.Id}",
             patchContent,
             ct
         );

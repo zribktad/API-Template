@@ -25,7 +25,7 @@ public class JobsControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         var response = await _client.PostAsJsonAsync(
-            "/api/v1/examples/jobs",
+            "/api/v1/jobs",
             new { JobType = "data-export" },
             ct
         );
@@ -42,7 +42,7 @@ public class JobsControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         var response = await _client.PostAsJsonAsync(
-            "/api/v1/examples/jobs",
+            "/api/v1/jobs",
             new { JobType = "report-generation" },
             ct
         );
@@ -66,7 +66,7 @@ public class JobsControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         var submitResponse = await _client.PostAsJsonAsync(
-            "/api/v1/examples/jobs",
+            "/api/v1/jobs",
             new { JobType = "async-task" },
             ct
         );
@@ -77,7 +77,7 @@ public class JobsControllerTests : IClassFixture<CustomWebApplicationFactory>
             TestJsonOptions.CaseInsensitive
         )!;
 
-        var getResponse = await _client.GetAsync($"/api/v1/examples/jobs/{submitted.Id}", ct);
+        var getResponse = await _client.GetAsync($"/api/v1/jobs/{submitted.Id}", ct);
         var getBody = await getResponse.Content.ReadAsStringAsync(ct);
         getResponse.StatusCode.ShouldBe(HttpStatusCode.OK, getBody);
 
@@ -96,7 +96,7 @@ public class JobsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var response = await _client.GetAsync($"/api/v1/examples/jobs/{Guid.NewGuid()}", ct);
+        var response = await _client.GetAsync($"/api/v1/jobs/{Guid.NewGuid()}", ct);
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
@@ -106,11 +106,7 @@ public class JobsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/examples/jobs",
-            new { JobType = "" },
-            ct
-        );
+        var response = await _client.PostAsJsonAsync("/api/v1/jobs", new { JobType = "" }, ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }

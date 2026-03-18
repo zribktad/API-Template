@@ -19,7 +19,7 @@ public class SseControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/examples/sse/stream?count=1");
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/sse/stream?count=1");
         var response = await _client.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -36,7 +36,7 @@ public class SseControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/examples/sse/stream?count=3");
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/sse/stream?count=3");
         var response = await _client.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -55,7 +55,7 @@ public class SseControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/examples/sse/stream?count=2");
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/sse/stream?count=2");
         var response = await _client.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -79,7 +79,7 @@ public class SseControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/examples/sse/stream");
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/sse/stream");
         var response = await _client.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,

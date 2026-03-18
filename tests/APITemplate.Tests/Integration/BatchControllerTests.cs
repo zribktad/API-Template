@@ -48,11 +48,7 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             },
         };
 
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/examples/batch/products",
-            request,
-            ct
-        );
+        var response = await _client.PostAsJsonAsync("/api/v1/batch/products", request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
 
@@ -100,11 +96,7 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             },
         };
 
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/examples/batch/products",
-            request,
-            ct
-        );
+        var response = await _client.PostAsJsonAsync("/api/v1/batch/products", request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
 
@@ -126,11 +118,7 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         var request = new { Items = Array.Empty<object>() };
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/examples/batch/products",
-            request,
-            ct
-        );
+        var response = await _client.PostAsJsonAsync("/api/v1/batch/products", request, ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }

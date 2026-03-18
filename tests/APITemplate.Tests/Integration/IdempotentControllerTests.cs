@@ -23,7 +23,7 @@ public class IdempotentControllerTests : IClassFixture<CustomWebApplicationFacto
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/examples/idempotent")
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/idempotent")
         {
             Content = JsonContent.Create(new { Name = "Idempotent Test", Description = "Desc" }),
         };
@@ -42,7 +42,7 @@ public class IdempotentControllerTests : IClassFixture<CustomWebApplicationFacto
         var key = Guid.NewGuid().ToString();
 
         // First request
-        var request1 = new HttpRequestMessage(HttpMethod.Post, "/api/v1/examples/idempotent")
+        var request1 = new HttpRequestMessage(HttpMethod.Post, "/api/v1/idempotent")
         {
             Content = JsonContent.Create(new { Name = "Idempotent Dup", Description = "First" }),
         };
@@ -56,7 +56,7 @@ public class IdempotentControllerTests : IClassFixture<CustomWebApplicationFacto
         )!;
 
         // Second request with same key
-        var request2 = new HttpRequestMessage(HttpMethod.Post, "/api/v1/examples/idempotent")
+        var request2 = new HttpRequestMessage(HttpMethod.Post, "/api/v1/idempotent")
         {
             Content = JsonContent.Create(new { Name = "Idempotent Dup", Description = "First" }),
         };
@@ -77,7 +77,7 @@ public class IdempotentControllerTests : IClassFixture<CustomWebApplicationFacto
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var request1 = new HttpRequestMessage(HttpMethod.Post, "/api/v1/examples/idempotent")
+        var request1 = new HttpRequestMessage(HttpMethod.Post, "/api/v1/idempotent")
         {
             Content = JsonContent.Create(new { Name = "Resource A", Description = (string?)null }),
         };
@@ -89,7 +89,7 @@ public class IdempotentControllerTests : IClassFixture<CustomWebApplicationFacto
             TestJsonOptions.CaseInsensitive
         )!;
 
-        var request2 = new HttpRequestMessage(HttpMethod.Post, "/api/v1/examples/idempotent")
+        var request2 = new HttpRequestMessage(HttpMethod.Post, "/api/v1/idempotent")
         {
             Content = JsonContent.Create(new { Name = "Resource B", Description = (string?)null }),
         };
@@ -111,7 +111,7 @@ public class IdempotentControllerTests : IClassFixture<CustomWebApplicationFacto
         IntegrationAuthHelper.Authenticate(_client);
 
         var response = await _client.PostAsJsonAsync(
-            "/api/v1/examples/idempotent",
+            "/api/v1/idempotent",
             new { Name = "No Key 1", Description = (string?)null },
             ct
         );

@@ -33,9 +33,11 @@ public static class ApiServiceCollectionExtensions
         services.AddControllers(options =>
         {
             options.Filters.AddService<IdempotencyActionFilter>();
+            options.Filters.AddService<WebhookSignatureResourceFilter>();
         });
 
         services.AddScoped<IdempotencyActionFilter>();
+        services.AddScoped<WebhookSignatureResourceFilter>();
         services.AddIdempotencyStore();
 
         services

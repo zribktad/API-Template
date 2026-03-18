@@ -10,7 +10,7 @@ namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
 [ApiController]
-[Route("api/v{version:apiVersion}/examples/sse")]
+[Route("api/v{version:apiVersion}/sse")]
 public sealed class SseController : ControllerBase
 {
     private const string EventStreamContentType = "text/event-stream";

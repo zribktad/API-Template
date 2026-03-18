@@ -10,7 +10,7 @@ namespace APITemplate.Application.Features.Examples.Handlers;
 
 public sealed record SubmitJobCommand(SubmitJobRequest Request) : IRequest<JobStatusResponse>;
 
-public sealed record GetJobStatusQuery(Guid Id) : IRequest<JobStatusResponse?>;
+public sealed record GetJobStatusQuery(GetJobStatusRequest Request) : IRequest<JobStatusResponse?>;
 
 public sealed class JobRequestHandlers
     : IRequestHandler<SubmitJobCommand, JobStatusResponse>,
@@ -60,7 +60,7 @@ public sealed class JobRequestHandlers
 
     public async Task<JobStatusResponse?> Handle(GetJobStatusQuery query, CancellationToken ct)
     {
-        var entity = await _repository.GetByIdAsync(query.Id, ct);
+        var entity = await _repository.GetByIdAsync(query.Request.Id, ct);
         return entity is null ? null : MapToResponse(entity);
     }
 

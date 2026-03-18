@@ -10,7 +10,7 @@ namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
 [ApiController]
-[Route("api/v{version:apiVersion}/examples/patch")]
+[Route("api/v{version:apiVersion}/patch")]
 public sealed class PatchController : ControllerBase
 {
     private readonly ISender _sender;

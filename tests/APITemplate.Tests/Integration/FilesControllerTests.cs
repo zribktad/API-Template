@@ -26,7 +26,7 @@ public class FilesControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         var content = CreateMultipartContent("test.txt", "text/plain", "Hello world");
-        var response = await _client.PostAsync("/api/v1/examples/files/upload", content, ct);
+        var response = await _client.PostAsync("/api/v1/files/upload", content, ct);
 
         var body = await response.Content.ReadAsStringAsync(ct);
         response.StatusCode.ShouldBe(HttpStatusCode.Created, body);
@@ -49,11 +49,7 @@ public class FilesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var fileContent = "Download test content";
         var uploadContent = CreateMultipartContent("download-test.txt", "text/plain", fileContent);
-        var uploadResponse = await _client.PostAsync(
-            "/api/v1/examples/files/upload",
-            uploadContent,
-            ct
-        );
+        var uploadResponse = await _client.PostAsync("/api/v1/files/upload", uploadContent, ct);
         var uploadBody = await uploadResponse.Content.ReadAsStringAsync(ct);
         uploadResponse.StatusCode.ShouldBe(HttpStatusCode.Created, uploadBody);
 
@@ -62,10 +58,7 @@ public class FilesControllerTests : IClassFixture<CustomWebApplicationFactory>
             TestJsonOptions.CaseInsensitive
         )!;
 
-        var downloadResponse = await _client.GetAsync(
-            $"/api/v1/examples/files/{uploaded.Id}/download",
-            ct
-        );
+        var downloadResponse = await _client.GetAsync($"/api/v1/files/{uploaded.Id}/download", ct);
         downloadResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var downloadedContent = await downloadResponse.Content.ReadAsStringAsync(ct);
@@ -83,7 +76,7 @@ public class FilesControllerTests : IClassFixture<CustomWebApplicationFactory>
             "application/octet-stream",
             "bad stuff"
         );
-        var response = await _client.PostAsync("/api/v1/examples/files/upload", content, ct);
+        var response = await _client.PostAsync("/api/v1/files/upload", content, ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
@@ -94,10 +87,7 @@ public class FilesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var response = await _client.GetAsync(
-            $"/api/v1/examples/files/{Guid.NewGuid()}/download",
-            ct
-        );
+        var response = await _client.GetAsync($"/api/v1/files/{Guid.NewGuid()}/download", ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }

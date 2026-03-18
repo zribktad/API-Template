@@ -10,7 +10,7 @@ namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
 [ApiController]
-[Route("api/v{version:apiVersion}/examples/jobs")]
+[Route("api/v{version:apiVersion}/jobs")]
 public sealed class JobsController : ControllerBase
 {
     private readonly ISender _sender;
@@ -27,9 +27,12 @@ public sealed class JobsController : ControllerBase
 
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Examples.Read)]
-    public async Task<ActionResult<JobStatusResponse>> GetStatus(Guid id, CancellationToken ct)
+    public async Task<ActionResult<JobStatusResponse>> GetStatus(
+        [FromRoute] GetJobStatusRequest request,
+        CancellationToken ct
+    )
     {
-        var result = await _sender.Send(new GetJobStatusQuery(id), ct);
+        var result = await _sender.Send(new GetJobStatusQuery(request), ct);
         return result is null ? NotFound() : Ok(result);
     }
 }

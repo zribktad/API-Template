@@ -28,7 +28,7 @@ public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory
             TestConfigurationHelper.TestWebhookSecret
         );
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/examples/webhooks")
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/webhooks")
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
@@ -40,13 +40,13 @@ public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task Receive_InvalidSignature_Returns403()
+    public async Task Receive_InvalidSignature_Returns401()
     {
         var ct = TestContext.Current.CancellationToken;
         var body = """{"eventType":"order.created","eventId":"evt-2","data":{}}""";
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/examples/webhooks")
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/webhooks")
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
@@ -54,11 +54,11 @@ public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory
         request.Headers.Add(WebhookConstants.TimestampHeader, timestamp);
 
         var response = await _client.SendAsync(request, ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task Receive_ExpiredTimestamp_Returns403()
+    public async Task Receive_ExpiredTimestamp_Returns401()
     {
         var ct = TestContext.Current.CancellationToken;
         var body = """{"eventType":"order.created","eventId":"evt-3","data":{}}""";
@@ -69,7 +69,7 @@ public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory
             TestConfigurationHelper.TestWebhookSecret
         );
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/examples/webhooks")
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/webhooks")
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
@@ -77,7 +77,7 @@ public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory
         request.Headers.Add(WebhookConstants.TimestampHeader, expiredTimestamp);
 
         var response = await _client.SendAsync(request, ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory
         var ct = TestContext.Current.CancellationToken;
         var body = """{"eventType":"order.created","eventId":"evt-4","data":{}}""";
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/examples/webhooks")
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/webhooks")
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };

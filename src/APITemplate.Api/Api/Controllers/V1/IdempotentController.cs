@@ -11,7 +11,7 @@ namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
 [ApiController]
-[Route("api/v{version:apiVersion}/examples/idempotent")]
+[Route("api/v{version:apiVersion}/idempotent")]
 public sealed class IdempotentController : ControllerBase
 {
     private readonly ISender _sender;
