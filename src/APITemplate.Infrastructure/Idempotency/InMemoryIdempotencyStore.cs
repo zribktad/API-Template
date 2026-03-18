@@ -8,6 +8,7 @@ public sealed class InMemoryIdempotencyStore : IIdempotencyStore
 {
     private readonly ConcurrentDictionary<string, (string Value, DateTimeOffset Expiry)> _store =
         new();
+    private readonly ConcurrentDictionary<string, string> _lockOwners = new();
     private readonly TimeProvider _timeProvider;
 
     public InMemoryIdempotencyStore(TimeProvider timeProvider)
@@ -32,8 +33,13 @@ public sealed class InMemoryIdempotencyStore : IIdempotencyStore
         EvictExpired();
 
         var lockKey = key + IdempotencyStoreConstants.LockSuffix;
+        var lockValue = Guid.NewGuid().ToString("N");
         var expiry = _timeProvider.GetUtcNow().Add(ttl);
-        var acquired = _store.TryAdd(lockKey, (IdempotencyStoreConstants.LockValue, expiry));
+        var acquired = _store.TryAdd(lockKey, (lockValue, expiry));
+
+        if (acquired)
+            _lockOwners[key] = lockValue;
+
         return Task.FromResult(acquired);
     }
 
@@ -52,8 +58,16 @@ public sealed class InMemoryIdempotencyStore : IIdempotencyStore
 
     public Task ReleaseAsync(string key, CancellationToken ct = default)
     {
+        if (!_lockOwners.TryRemove(key, out var lockValue))
+            return Task.CompletedTask;
+
         var lockKey = key + IdempotencyStoreConstants.LockSuffix;
-        _store.TryRemove(lockKey, out _);
+        _store.TryRemove(
+            new KeyValuePair<string, (string Value, DateTimeOffset Expiry)>(
+                lockKey,
+                _store.GetValueOrDefault(lockKey)
+            )
+        );
         return Task.CompletedTask;
     }
 

@@ -49,7 +49,11 @@ public sealed class TenantsController : ControllerBase
     )
     {
         var tenant = await _sender.Send(new CreateTenantCommand(request), ct);
-        return CreatedAtAction(nameof(GetById), new { id = tenant.Id, version = "1.0" }, tenant);
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = tenant.Id, version = this.GetApiVersion() },
+            tenant
+        );
     }
 
     [HttpDelete("{id:guid}")]

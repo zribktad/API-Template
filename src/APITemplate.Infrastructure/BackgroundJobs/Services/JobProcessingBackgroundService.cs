@@ -66,24 +66,31 @@ public sealed class JobProcessingBackgroundService : QueueConsumerBackgroundServ
     protected override async Task HandleErrorAsync(Guid jobId, Exception ex, CancellationToken ct)
     {
         _logger.LogError(ex, "Job {JobId} failed", jobId);
-        await TryMarkFailedAsync(jobId, ex.Message);
+        await TryMarkFailedAsync(jobId, ex.Message, ct);
     }
 
-    private async Task TryMarkFailedAsync(Guid jobId, string errorMessage)
+    private async Task TryMarkFailedAsync(Guid jobId, string errorMessage, CancellationToken ct)
     {
         try
         {
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                ct,
+                timeoutCts.Token
+            );
+            var token = linkedCts.Token;
+
             await using var scope = _scopeFactory.CreateAsyncScope();
             var repo = scope.ServiceProvider.GetRequiredService<IJobExecutionRepository>();
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-            var job = await repo.GetByIdAsync(jobId, CancellationToken.None);
+            var job = await repo.GetByIdAsync(jobId, token);
             if (job is not null)
             {
                 job.MarkFailed(errorMessage, _timeProvider);
-                await uow.CommitAsync(CancellationToken.None);
+                await uow.CommitAsync(token);
 
-                await EnqueueCallbackAsync(job, CancellationToken.None);
+                await EnqueueCallbackAsync(job, token);
             }
         }
         catch (Exception ex)

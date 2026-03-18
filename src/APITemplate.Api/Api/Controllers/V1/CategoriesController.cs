@@ -23,7 +23,10 @@ public sealed class CategoriesController : ControllerBase
     [HttpGet]
     [RequirePermission(Permission.Categories.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Categories)]
-    public async Task<ActionResult<PagedResponse<CategoryResponse>>> GetAll([FromQuery] CategoryFilter filter, CancellationToken ct)
+    public async Task<ActionResult<PagedResponse<CategoryResponse>>> GetAll(
+        [FromQuery] CategoryFilter filter,
+        CancellationToken ct
+    )
     {
         var categories = await _sender.Send(new GetCategoriesQuery(filter), ct);
         return Ok(categories);
@@ -40,15 +43,26 @@ public sealed class CategoriesController : ControllerBase
 
     [HttpPost]
     [RequirePermission(Permission.Categories.Create)]
-    public async Task<ActionResult<CategoryResponse>> Create(CreateCategoryRequest request, CancellationToken ct)
+    public async Task<ActionResult<CategoryResponse>> Create(
+        CreateCategoryRequest request,
+        CancellationToken ct
+    )
     {
         var category = await _sender.Send(new CreateCategoryCommand(request), ct);
-        return CreatedAtAction(nameof(GetById), new { id = category.Id, version = "1.0" }, category);
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = category.Id, version = this.GetApiVersion() },
+            category
+        );
     }
 
     [HttpPut("{id:guid}")]
     [RequirePermission(Permission.Categories.Update)]
-    public async Task<IActionResult> Update(Guid id, UpdateCategoryRequest request, CancellationToken ct)
+    public async Task<IActionResult> Update(
+        Guid id,
+        UpdateCategoryRequest request,
+        CancellationToken ct
+    )
     {
         await _sender.Send(new UpdateCategoryCommand(id, request), ct);
         return NoContent();
@@ -69,7 +83,10 @@ public sealed class CategoriesController : ControllerBase
     [HttpGet("{id:guid}/stats")]
     [RequirePermission(Permission.Categories.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Categories)]
-    public async Task<ActionResult<ProductCategoryStatsResponse>> GetStats(Guid id, CancellationToken ct)
+    public async Task<ActionResult<ProductCategoryStatsResponse>> GetStats(
+        Guid id,
+        CancellationToken ct
+    )
     {
         var stats = await _sender.Send(new GetCategoryStatsQuery(id), ct);
         return stats is null ? NotFound() : Ok(stats);

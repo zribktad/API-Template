@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using APITemplate.Application.Common.Contracts;
 using StackExchange.Redis;
@@ -13,6 +14,7 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
     );
 
     private readonly IDatabase _database;
+    private readonly ConcurrentDictionary<string, string> _lockOwners = new();
 
     public DistributedCacheIdempotencyStore(IConnectionMultiplexer connectionMultiplexer)
     {
@@ -37,12 +39,19 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
     )
     {
         var lockKey = KeyPrefix + key + IdempotencyStoreConstants.LockSuffix;
-        return await _database.StringSetAsync(
+        var lockValue = Guid.NewGuid().ToString("N");
+
+        var acquired = await _database.StringSetAsync(
             lockKey,
-            IdempotencyStoreConstants.LockValue,
+            lockValue,
             ttl,
             when: When.NotExists
         );
+
+        if (acquired)
+            _lockOwners[key] = lockValue;
+
+        return acquired;
     }
 
     public async Task SetAsync(
@@ -58,10 +67,13 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
 
     public async Task ReleaseAsync(string key, CancellationToken ct = default)
     {
+        if (!_lockOwners.TryRemove(key, out var lockValue))
+            return;
+
         var lockKey = KeyPrefix + key + IdempotencyStoreConstants.LockSuffix;
         await _database.ScriptEvaluateAsync(
             ReleaseLockScript,
-            new { key = (RedisKey)lockKey, value = (RedisValue)IdempotencyStoreConstants.LockValue }
+            new { key = (RedisKey)lockKey, value = (RedisValue)lockValue }
         );
     }
 }

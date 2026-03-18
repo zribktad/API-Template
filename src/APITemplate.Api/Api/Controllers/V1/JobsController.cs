@@ -22,7 +22,11 @@ public sealed class JobsController : ControllerBase
     public async Task<IActionResult> Submit(SubmitJobRequest request, CancellationToken ct)
     {
         var result = await _sender.Send(new SubmitJobCommand(request), ct);
-        return AcceptedAtAction(nameof(GetStatus), new { id = result.Id, version = "1.0" }, result);
+        return AcceptedAtAction(
+            nameof(GetStatus),
+            new { id = result.Id, version = this.GetApiVersion() },
+            result
+        );
     }
 
     [HttpGet("{id:guid}")]

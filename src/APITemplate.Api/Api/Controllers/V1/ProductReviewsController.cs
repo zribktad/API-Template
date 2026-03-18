@@ -23,7 +23,10 @@ public sealed class ProductReviewsController : ControllerBase
     [HttpGet]
     [RequirePermission(Permission.ProductReviews.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Reviews)]
-    public async Task<ActionResult<PagedResponse<ProductReviewResponse>>> GetAll([FromQuery] ProductReviewFilter filter, CancellationToken ct)
+    public async Task<ActionResult<PagedResponse<ProductReviewResponse>>> GetAll(
+        [FromQuery] ProductReviewFilter filter,
+        CancellationToken ct
+    )
     {
         var reviews = await _sender.Send(new GetProductReviewsQuery(filter), ct);
         return Ok(reviews);
@@ -41,7 +44,10 @@ public sealed class ProductReviewsController : ControllerBase
     [HttpGet("by-product/{productId:guid}")]
     [RequirePermission(Permission.ProductReviews.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Reviews)]
-    public async Task<ActionResult<IEnumerable<ProductReviewResponse>>> GetByProductId(Guid productId, CancellationToken ct)
+    public async Task<ActionResult<IEnumerable<ProductReviewResponse>>> GetByProductId(
+        Guid productId,
+        CancellationToken ct
+    )
     {
         var reviews = await _sender.Send(new GetProductReviewsByProductIdQuery(productId), ct);
         return Ok(reviews);
@@ -49,10 +55,17 @@ public sealed class ProductReviewsController : ControllerBase
 
     [HttpPost]
     [RequirePermission(Permission.ProductReviews.Create)]
-    public async Task<ActionResult<ProductReviewResponse>> Create(CreateProductReviewRequest request, CancellationToken ct)
+    public async Task<ActionResult<ProductReviewResponse>> Create(
+        CreateProductReviewRequest request,
+        CancellationToken ct
+    )
     {
         var review = await _sender.Send(new CreateProductReviewCommand(request), ct);
-        return CreatedAtAction(nameof(GetById), new { id = review.Id, version = "1.0" }, review);
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = review.Id, version = this.GetApiVersion() },
+            review
+        );
     }
 
     [HttpDelete("{id:guid}")]

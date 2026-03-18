@@ -39,7 +39,11 @@ public sealed class FilesController : ControllerBase
             ),
             ct
         );
-        return CreatedAtAction(nameof(Download), new { id = result.Id, version = "1.0" }, result);
+        return CreatedAtAction(
+            nameof(Download),
+            new { id = result.Id, version = this.GetApiVersion() },
+            result
+        );
     }
 
     [HttpGet("{id:guid}/download")]

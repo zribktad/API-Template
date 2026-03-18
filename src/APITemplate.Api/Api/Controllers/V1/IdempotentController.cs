@@ -27,6 +27,6 @@ public sealed class IdempotentController : ControllerBase
     )
     {
         var result = await _sender.Send(new IdempotentCreateCommand(request), ct);
-        return CreatedAtAction(null, result);
+        return Created(string.Empty, result);
     }
 }

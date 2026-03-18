@@ -49,7 +49,11 @@ public sealed class ProductDataController : ControllerBase
     )
     {
         var created = await _sender.Send(new CreateImageProductDataCommand(request), ct);
-        return CreatedAtAction(nameof(GetById), new { id = created.Id, version = "1.0" }, created);
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = created.Id, version = this.GetApiVersion() },
+            created
+        );
     }
 
     [HttpPost("video")]
@@ -60,7 +64,11 @@ public sealed class ProductDataController : ControllerBase
     )
     {
         var created = await _sender.Send(new CreateVideoProductDataCommand(request), ct);
-        return CreatedAtAction(nameof(GetById), new { id = created.Id, version = "1.0" }, created);
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = created.Id, version = this.GetApiVersion() },
+            created
+        );
     }
 
     [HttpDelete("{id:guid}")]
