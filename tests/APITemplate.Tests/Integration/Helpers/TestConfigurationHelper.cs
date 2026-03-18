@@ -5,6 +5,8 @@ namespace APITemplate.Tests.Integration.Helpers;
 
 internal static class TestConfigurationHelper
 {
+    internal const string TestWebhookSecret = "test-webhook-secret-at-least-16-chars";
+
     internal static Dictionary<string, string?> GetBaseConfiguration(
         string hmacKeySeed = "APITemplate.Tests.RedactionKey"
     )
@@ -40,6 +42,7 @@ internal static class TestConfigurationHelper
             ["Observability:Exporters:Otlp:Enabled"] = "false",
             ["Observability:Exporters:Console:Enabled"] = "false",
             ["Dragonfly:ConnectionString"] = "",
+            ["Webhook:Secret"] = TestWebhookSecret,
         };
     }
 }

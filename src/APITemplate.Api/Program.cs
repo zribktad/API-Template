@@ -28,6 +28,9 @@ try
     builder.Services.AddKeycloakAdminService(); // Register Keycloak Admin API client for user management.
     builder.Services.AddApiVersioningConfiguration(); // Register API versioning and explorer metadata.
     builder.Services.AddGraphQLConfiguration(); // Register GraphQL schema and server services.
+    builder.Services.AddFileStorageServices(builder.Configuration); // Register file storage (local FS) for example upload/download.
+    builder.Services.AddJobServices(); // Register long-running job queue and background processor.
+    builder.Services.AddWebhookServices(builder.Configuration); // Register webhook HMAC validation, queue, and background processor.
 
     var app = builder.Build(); // Materialize the web app from configured services.
     app.Logger.LogInformation("Starting APITemplate"); // Startup banner for diagnostics after logging pipeline is ready.
