@@ -25,6 +25,8 @@ public static class EmailServiceCollectionExtensions
         services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
         services.AddTransient<IEmailSender, MailKitEmailSender>();
 
+        services.AddSingleton<IFailedEmailStore, FailedEmailStore>();
+
         services.AddResiliencePipeline(
             ResiliencePipelineKeys.SmtpSend,
             builder =>

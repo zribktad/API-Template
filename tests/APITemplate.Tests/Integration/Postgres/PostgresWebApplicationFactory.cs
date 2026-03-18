@@ -1,7 +1,7 @@
 using APITemplate.Application.Common.Options;
+using APITemplate.Extensions;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Tests.Integration.Helpers;
-using APITemplate.Extensions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -26,7 +26,10 @@ public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Progra
     }
 
     public string ConnectionString =>
-        new NpgsqlConnectionStringBuilder(_serverConnectionString) { Database = _databaseName }.ConnectionString;
+        new NpgsqlConnectionStringBuilder(_serverConnectionString)
+        {
+            Database = _databaseName,
+        }.ConnectionString;
 
     public async ValueTask InitializeAsync()
     {
@@ -65,12 +68,16 @@ public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Progra
     {
         var connectionString = ConnectionString;
 
-        builder.ConfigureAppConfiguration((_, configBuilder) =>
-        {
-            var config = TestConfigurationHelper.GetBaseConfiguration("APITemplate.Tests.RedactionKey.Postgres");
-            config["ConnectionStrings:DefaultConnection"] = connectionString;
-            configBuilder.AddInMemoryCollection(config);
-        });
+        builder.ConfigureAppConfiguration(
+            (_, configBuilder) =>
+            {
+                var config = TestConfigurationHelper.GetBaseConfiguration(
+                    "APITemplate.Tests.RedactionKey.Postgres"
+                );
+                config["ConnectionStrings:DefaultConnection"] = connectionString;
+                configBuilder.AddInMemoryCollection(config);
+            }
+        );
 
         builder.ConfigureTestServices(services =>
         {
@@ -79,27 +86,38 @@ public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Progra
 
             var optionsConfigs = services
                 .Where(d =>
-                    d.ServiceType.IsGenericType &&
-                    d.ServiceType.GetGenericTypeDefinition().FullName?
-                        .Contains("IDbContextOptionsConfiguration") == true)
+                    d.ServiceType.IsGenericType
+                    && d.ServiceType.GetGenericTypeDefinition()
+                        .FullName?.Contains("IDbContextOptionsConfiguration") == true
+                )
                 .ToList();
 
             foreach (var d in optionsConfigs)
                 services.Remove(d);
 
             using var bootstrapProvider = services.BuildServiceProvider();
-            var transactionDefaults = bootstrapProvider.GetRequiredService<IOptions<TransactionDefaultsOptions>>().Value;
+            var transactionDefaults = bootstrapProvider
+                .GetRequiredService<IOptions<TransactionDefaultsOptions>>()
+                .Value;
             services.AddDbContext<AppDbContext>(options =>
-                PersistenceServiceCollectionExtensions.ConfigurePostgresDbContext(options, connectionString, transactionDefaults));
+                PersistenceServiceCollectionExtensions.ConfigurePostgresDbContext(
+                    options,
+                    connectionString,
+                    transactionDefaults
+                )
+            );
 
             TestServiceHelper.RemoveExternalHealthChecks(services);
 
-            services.AddHealthChecks()
+            services
+                .AddHealthChecks()
                 .AddNpgSql(connectionString, name: "postgresql", tags: ["database"]);
 
             TestServiceHelper.MockMongoServices(services);
             TestServiceHelper.ReplaceOutputCacheWithInMemory(services);
             TestServiceHelper.ConfigureTestAuthentication(services);
+            TestServiceHelper.RemoveTickerQRuntimeServices(services);
+            TestServiceHelper.ReplaceStartupCoordinationWithNoOp(services);
         });
 
         builder.UseEnvironment("Development");

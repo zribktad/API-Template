@@ -3,6 +3,8 @@ using APITemplate.Api.Middleware;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;
+using APITemplate.Application.Common.Startup;
+using APITemplate.Infrastructure.BackgroundJobs.TickerQ;
 using APITemplate.Infrastructure.Observability;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Security;
@@ -16,30 +18,130 @@ using Polly.Registry;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
+using TickerQ.DependencyInjection;
+using TickerQ.Utilities.Enums;
 
 namespace APITemplate.Extensions;
 
 public static class ApplicationBuilderExtensions
 {
-    public static async Task UseDatabaseAsync(this WebApplication app)
+    public static async Task UseDatabaseAsync(
+        this WebApplication app,
+        CancellationToken ct = default
+    )
     {
         await using var scope = app.Services.CreateAsyncScope(); // Resolve scoped infra services needed only during startup migration.
+        var coordinator = scope.ServiceProvider.GetRequiredService<IStartupTaskCoordinator>();
+
+        await using var startupLease = await coordinator.AcquireAsync(
+            StartupTaskName.AppBootstrap,
+            ct
+        );
 
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>(); // Resolve EF Core context for relational migrations.
         if (dbContext.Database.IsRelational())
-            await StartupTelemetry.RunRelationalMigrationAsync(() =>
-                dbContext.Database.MigrateAsync()
-            );
+        {
+            using var telemetry = StartupTelemetry.StartRelationalMigration();
+            try
+            {
+                await dbContext.Database.MigrateAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                telemetry.Fail(ex);
+                throw;
+            }
+        }
 
         var seeder = scope.ServiceProvider.GetRequiredService<AuthBootstrapSeeder>();
-        await StartupTelemetry.RunAuthBootstrapSeedAsync(() => seeder.SeedAsync());
+        using (var telemetry = StartupTelemetry.StartAuthBootstrapSeed())
+        {
+            try
+            {
+                await seeder.SeedAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                telemetry.Fail(ex);
+                throw;
+            }
+        }
 
         var mongoContext = scope.ServiceProvider.GetService<MongoDbContext>(); // Mongo context can be missing in tests.
         if (mongoContext is not null)
         {
             var migrator = scope.ServiceProvider.GetRequiredService<IMigrator>(); // Resolve Mongo migrator from DI.
-            await StartupTelemetry.RunMongoMigrationAsync(() => migrator.MigrateAsync());
+            using var telemetry = StartupTelemetry.StartMongoMigration();
+            try
+            {
+                await migrator.MigrateAsync();
+            }
+            catch (Exception ex)
+            {
+                telemetry.Fail(ex);
+                throw;
+            }
         }
+    }
+
+    public static async Task UseBackgroundJobsAsync(
+        this WebApplication app,
+        CancellationToken ct = default
+    )
+    {
+        var options = app.Services.GetRequiredService<IOptions<BackgroundJobsOptions>>().Value;
+        if (!options.TickerQ.Enabled)
+        {
+            app.Logger.LogInformation("TickerQ background jobs are disabled.");
+            return;
+        }
+
+        await using var scope = app.Services.CreateAsyncScope();
+        var registrar = scope.ServiceProvider.GetService<TickerQRecurringJobRegistrar>();
+        if (registrar is null)
+        {
+            app.Logger.LogInformation(
+                "TickerQ background jobs runtime is unavailable in this host; skipping scheduler bootstrap."
+            );
+            return;
+        }
+
+        var schedulerDbContext = scope.ServiceProvider.GetService<TickerQSchedulerDbContext>();
+        if (schedulerDbContext is null)
+        {
+            app.Logger.LogInformation(
+                "TickerQ scheduler store is unavailable in this host; skipping scheduler bootstrap."
+            );
+            return;
+        }
+
+        var coordinator = scope.ServiceProvider.GetRequiredService<IStartupTaskCoordinator>();
+        await using var startupLease = await coordinator.AcquireAsync(
+            StartupTaskName.BackgroundJobsBootstrap,
+            ct
+        );
+
+        if (schedulerDbContext.Database.IsRelational())
+        {
+            using var telemetry = StartupTelemetry.StartRelationalMigration();
+            try
+            {
+                await schedulerDbContext.Database.MigrateAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                telemetry.Fail(ex);
+                throw;
+            }
+        }
+
+        await registrar.SyncAsync(ct);
+
+        app.UseTickerQ(TickerQStartMode.Immediate);
+        app.Logger.LogInformation(
+            "TickerQ background jobs started with schema {SchemaName}.",
+            TickerQSchedulerOptions.DefaultSchemaName
+        );
     }
 
     /// <summary>
@@ -129,7 +231,8 @@ public static class ApplicationBuilderExtensions
 
         try
         {
-            await StartupTelemetry.WaitForKeycloakReadinessAsync(async () =>
+            using var telemetry = StartupTelemetry.StartKeycloakReadinessCheck();
+            try
             {
                 await pipeline.ExecuteAsync(
                     async token =>
@@ -144,7 +247,12 @@ public static class ApplicationBuilderExtensions
                     },
                     cancellationToken
                 );
-            });
+            }
+            catch (Exception ex)
+            {
+                telemetry.Fail(ex);
+                throw;
+            }
 
             app.Logger.KeycloakReady(keycloak.AuthServerUrl);
         }

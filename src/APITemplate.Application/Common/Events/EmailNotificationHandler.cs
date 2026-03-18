@@ -39,7 +39,12 @@ public sealed class EmailNotificationHandler
         );
 
         await _emailQueue.EnqueueAsync(
-            new EmailMessage(notification.Email, "Welcome to the platform!", html),
+            new EmailMessage(
+                notification.Email,
+                "Welcome to the platform!",
+                html,
+                EmailTemplateNames.UserRegistration
+            ),
             ct
         );
     }
@@ -62,7 +67,9 @@ public sealed class EmailNotificationHandler
             new EmailMessage(
                 notification.Email,
                 $"You've been invited to {notification.TenantName}",
-                html
+                html,
+                EmailTemplateNames.TenantInvitation,
+                Retryable: true
             ),
             ct
         );
@@ -82,7 +89,12 @@ public sealed class EmailNotificationHandler
         );
 
         await _emailQueue.EnqueueAsync(
-            new EmailMessage(notification.Email, "Your role has been updated", html),
+            new EmailMessage(
+                notification.Email,
+                "Your role has been updated",
+                html,
+                EmailTemplateNames.UserRoleChanged
+            ),
             ct
         );
     }
