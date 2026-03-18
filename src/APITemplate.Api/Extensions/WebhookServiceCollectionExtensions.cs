@@ -23,6 +23,10 @@ public static class WebhookServiceCollectionExtensions
         services.AddSingleton<IWebhookProcessingQueue>(sp =>
             sp.GetRequiredService<ChannelWebhookQueue>()
         );
+        services.AddSingleton<IWebhookQueueReader>(sp =>
+            sp.GetRequiredService<ChannelWebhookQueue>()
+        );
+        services.AddScoped<IWebhookEventHandler, LoggingWebhookEventHandler>();
         services.AddHostedService<WebhookProcessingBackgroundService>();
         return services;
     }

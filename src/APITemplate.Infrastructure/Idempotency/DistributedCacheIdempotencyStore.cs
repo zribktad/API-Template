@@ -1,18 +1,24 @@
 using System.Text.Json;
 using APITemplate.Application.Common.Contracts;
-using Microsoft.Extensions.Caching.Distributed;
+using StackExchange.Redis;
 
 namespace APITemplate.Infrastructure.Idempotency;
 
 public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
 {
-    private readonly IDistributedCache _cache;
     private const string KeyPrefix = "idempotency:";
     private const string LockSuffix = ":lock";
+    private const string LockValue = "processing";
 
-    public DistributedCacheIdempotencyStore(IDistributedCache cache)
+    private static readonly LuaScript ReleaseLockScript = LuaScript.Prepare(
+        "if redis.call('get', @key) == @value then return redis.call('del', @key) else return 0 end"
+    );
+
+    private readonly IDatabase _database;
+
+    public DistributedCacheIdempotencyStore(IConnectionMultiplexer connectionMultiplexer)
     {
-        _cache = cache;
+        _database = connectionMultiplexer.GetDatabase();
     }
 
     public async Task<IdempotencyCacheEntry?> TryGetAsync(
@@ -20,8 +26,10 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
         CancellationToken ct = default
     )
     {
-        var json = await _cache.GetStringAsync(KeyPrefix + key, ct);
-        return json is null ? null : JsonSerializer.Deserialize<IdempotencyCacheEntry>(json);
+        var json = await _database.StringGetAsync(KeyPrefix + key);
+        return json.IsNullOrEmpty
+            ? null
+            : JsonSerializer.Deserialize<IdempotencyCacheEntry>(json.ToString());
     }
 
     public async Task<bool> TryAcquireAsync(
@@ -31,17 +39,7 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
     )
     {
         var lockKey = KeyPrefix + key + LockSuffix;
-        var existing = await _cache.GetStringAsync(lockKey, ct);
-        if (existing is not null)
-            return false;
-
-        await _cache.SetStringAsync(
-            lockKey,
-            "processing",
-            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl },
-            ct
-        );
-        return true;
+        return await _database.StringSetAsync(lockKey, LockValue, ttl, when: When.NotExists);
     }
 
     public async Task SetAsync(
@@ -52,11 +50,15 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
     )
     {
         var json = JsonSerializer.Serialize(entry);
-        await _cache.SetStringAsync(
-            KeyPrefix + key,
-            json,
-            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl },
-            ct
+        await _database.StringSetAsync(KeyPrefix + key, json, ttl);
+    }
+
+    public async Task ReleaseAsync(string key, CancellationToken ct = default)
+    {
+        var lockKey = KeyPrefix + key + LockSuffix;
+        await _database.ScriptEvaluateAsync(
+            ReleaseLockScript,
+            new { key = (RedisKey)lockKey, value = (RedisValue)LockValue }
         );
     }
 }

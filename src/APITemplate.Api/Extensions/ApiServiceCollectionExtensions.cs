@@ -3,9 +3,7 @@ using APITemplate.Api.Cache;
 using APITemplate.Api.ExceptionHandling;
 using APITemplate.Api.Filters;
 using APITemplate.Api.OpenApi;
-using APITemplate.Application.Common.Contracts;
 using APITemplate.Application.Common.Options;
-using APITemplate.Infrastructure.Idempotency;
 using APITemplate.Infrastructure.Observability;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
@@ -38,7 +36,7 @@ public static class ApiServiceCollectionExtensions
         });
 
         services.AddScoped<IdempotencyActionFilter>();
-        services.AddScoped<IIdempotencyStore, DistributedCacheIdempotencyStore>();
+        services.AddIdempotencyStore();
 
         services
             // Register the exception / ProblemDetails handling infrastructure (RFC 7807 error payloads).

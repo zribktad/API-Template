@@ -1,9 +1,7 @@
-using System.Net.Mime;
-using System.Text.Json;
-using APITemplate.Application.Common.BackgroundJobs;
-using APITemplate.Application.Common.Contracts;
 using APITemplate.Application.Features.Examples.DTOs;
+using APITemplate.Application.Features.Examples.Handlers;
 using Asp.Versioning;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,21 +12,16 @@ namespace APITemplate.Api.Controllers.V1;
 [Route("api/v{version:apiVersion}/examples/webhooks")]
 public sealed class WebhooksController : ControllerBase
 {
-    private readonly IWebhookPayloadValidator _validator;
-    private readonly IWebhookProcessingQueue _queue;
+    private readonly ISender _sender;
 
-    public WebhooksController(IWebhookPayloadValidator validator, IWebhookProcessingQueue queue)
-    {
-        _validator = validator;
-        _queue = queue;
-    }
+    public WebhooksController(ISender sender) => _sender = sender;
 
     [HttpPost]
     [AllowAnonymous]
     [RequestSizeLimit(1024 * 1024)] // 1 MB max for webhook payloads
     public async Task<IActionResult> Receive(CancellationToken ct)
     {
-        using var reader = new StreamReader(Request.Body);
+        using var reader = new StreamReader(Request.Body, leaveOpen: true);
         var body = await reader.ReadToEndAsync(ct);
 
         if (
@@ -39,23 +32,13 @@ public sealed class WebhooksController : ControllerBase
             return Unauthorized();
         }
 
-        if (!_validator.IsValid(body, signature.ToString(), timestamp.ToString()))
-            return Unauthorized();
+        await _sender.Send(
+            new ReceiveWebhookCommand(
+                new ReceiveWebhookRequest(body, signature.ToString(), timestamp.ToString())
+            ),
+            ct
+        );
 
-        WebhookPayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<WebhookPayload>(body, JsonSerializerOptions.Web);
-        }
-        catch (JsonException)
-        {
-            return BadRequest();
-        }
-
-        if (payload is null)
-            return BadRequest();
-
-        await _queue.EnqueueAsync(payload, ct);
         return Ok();
     }
 }

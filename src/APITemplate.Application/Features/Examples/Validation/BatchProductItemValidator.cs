@@ -9,9 +9,6 @@ public sealed class BatchProductItemValidator : DataAnnotationsValidator<BatchPr
 {
     public BatchProductItemValidator()
     {
-        RuleFor(x => x.Description)
-            .NotEmpty()
-            .WithMessage(ProductValidationRules.DescriptionRequiredMessage)
-            .When(x => x.Price > ProductValidationRules.DescriptionRequiredPriceThreshold);
+        RuleFor(x => x.Description).RequiredAbovePriceThreshold(x => x.Price);
     }
 }

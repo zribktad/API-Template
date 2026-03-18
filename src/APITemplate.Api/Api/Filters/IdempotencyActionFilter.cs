@@ -1,5 +1,4 @@
 using System.Net.Mime;
-using System.Text;
 using System.Text.Json;
 using APITemplate.Application.Common.Contracts;
 using Microsoft.AspNetCore.Mvc;
@@ -38,7 +37,9 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
             ) || string.IsNullOrWhiteSpace(keyValues)
         )
         {
-            await next();
+            context.Result = new BadRequestObjectResult(
+                "Idempotency-Key header is required for this endpoint."
+            );
             return;
         }
 
@@ -57,25 +58,33 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
         var existing = await _store.TryGetAsync(key, ct);
         if (existing is not null)
         {
-            context.HttpContext.Response.StatusCode = existing.StatusCode;
-            if (existing.ResponseContentType is not null)
-                context.HttpContext.Response.ContentType = existing.ResponseContentType;
-            if (existing.ResponseBody is not null)
-                await context.HttpContext.Response.WriteAsync(
-                    existing.ResponseBody,
-                    Encoding.UTF8,
-                    ct
-                );
+            context.Result = new ContentResult
+            {
+                StatusCode = existing.StatusCode,
+                Content = existing.ResponseBody,
+                ContentType = existing.ResponseContentType,
+            };
             return;
         }
 
         if (!await _store.TryAcquireAsync(key, ttl, ct))
         {
-            context.HttpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+            context.Result = new ConflictObjectResult(
+                "A request with this idempotency key is already being processed."
+            );
             return;
         }
 
-        var executedContext = await next();
+        ActionExecutedContext executedContext;
+        try
+        {
+            executedContext = await next();
+        }
+        catch
+        {
+            await _store.ReleaseAsync(key, ct);
+            throw;
+        }
 
         if (
             executedContext.Result is ObjectResult objectResult
@@ -93,6 +102,10 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
             );
 
             await _store.SetAsync(key, entry, ttl, ct);
+        }
+        else
+        {
+            await _store.ReleaseAsync(key, ct);
         }
     }
 }

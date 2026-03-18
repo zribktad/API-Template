@@ -21,7 +21,8 @@ public class BoundedChannelQueue<T>
         );
     }
 
-    public ChannelReader<T> Reader => _channel.Reader;
+    public IAsyncEnumerable<T> ReadAllAsync(CancellationToken ct = default) =>
+        _channel.Reader.ReadAllAsync(ct);
 
     public ValueTask EnqueueAsync(T item, CancellationToken ct = default) =>
         _channel.Writer.WriteAsync(item, ct);

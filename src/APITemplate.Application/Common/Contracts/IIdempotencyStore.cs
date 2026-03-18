@@ -16,6 +16,12 @@ public interface IIdempotencyStore
         TimeSpan ttl,
         CancellationToken ct = default
     );
+
+    /// <summary>
+    /// Releases the lock for the given key so a retry with the same key can proceed.
+    /// Only releases if the lock is still owned (not yet replaced by a cached result).
+    /// </summary>
+    Task ReleaseAsync(string key, CancellationToken ct = default);
 }
 
 public sealed record IdempotencyCacheEntry(

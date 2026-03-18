@@ -105,35 +105,17 @@ public class IdempotentControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task Post_WithoutIdempotencyKey_StillWorks_NoCache()
+    public async Task Post_WithoutIdempotencyKey_Returns400()
     {
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var response1 = await _client.PostAsJsonAsync(
+        var response = await _client.PostAsJsonAsync(
             "/api/v1/examples/idempotent",
             new { Name = "No Key 1", Description = (string?)null },
             ct
         );
-        var body1 = await response1.Content.ReadAsStringAsync(ct);
-        response1.StatusCode.ShouldBe(HttpStatusCode.Created, body1);
-        var result1 = JsonSerializer.Deserialize<IdempotentCreateResponse>(
-            body1,
-            TestJsonOptions.CaseInsensitive
-        )!;
 
-        var response2 = await _client.PostAsJsonAsync(
-            "/api/v1/examples/idempotent",
-            new { Name = "No Key 2", Description = (string?)null },
-            ct
-        );
-        var body2 = await response2.Content.ReadAsStringAsync(ct);
-        response2.StatusCode.ShouldBe(HttpStatusCode.Created, body2);
-        var result2 = JsonSerializer.Deserialize<IdempotentCreateResponse>(
-            body2,
-            TestJsonOptions.CaseInsensitive
-        )!;
-
-        result1.Id.ShouldNotBe(result2.Id);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 }

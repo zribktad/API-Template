@@ -6,7 +6,8 @@ namespace APITemplate.Infrastructure.Webhooks;
 
 public sealed class ChannelWebhookQueue
     : BoundedChannelQueue<WebhookPayload>,
-        IWebhookProcessingQueue
+        IWebhookProcessingQueue,
+        IWebhookQueueReader
 {
     private const int DefaultCapacity = 500;
 

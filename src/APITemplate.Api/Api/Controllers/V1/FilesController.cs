@@ -1,4 +1,5 @@
 using APITemplate.Api.Authorization;
+using APITemplate.Api.Requests;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Application.Features.Examples.Handlers;
@@ -21,19 +22,20 @@ public sealed class FilesController : ControllerBase
     [RequirePermission(Permission.Examples.Upload)]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<ActionResult<FileUploadResponse>> Upload(
-        IFormFile file,
-        [FromForm] string? description,
+        [FromForm] FileUploadRequest request,
         CancellationToken ct
     )
     {
-        await using var stream = file.OpenReadStream();
+        await using var stream = request.File.OpenReadStream();
         var result = await _sender.Send(
             new UploadFileCommand(
-                stream,
-                file.FileName,
-                file.ContentType,
-                file.Length,
-                description
+                new UploadFileRequest(
+                    stream,
+                    request.File.FileName,
+                    request.File.ContentType,
+                    request.File.Length,
+                    request.Description
+                )
             ),
             ct
         );
@@ -42,11 +44,22 @@ public sealed class FilesController : ControllerBase
 
     [HttpGet("{id:guid}/download")]
     [RequirePermission(Permission.Examples.Download)]
-    public async Task<IActionResult> Download(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Download(
+        [FromRoute] DownloadFileRequest request,
+        CancellationToken ct
+    )
     {
-        var result = await _sender.Send(new DownloadFileQuery(id), ct);
+        var result = await _sender.Send(new DownloadFileQuery(request), ct);
         if (result is null)
             return NotFound();
-        return File(result.FileStream, result.ContentType, result.FileName);
+        try
+        {
+            return File(result.FileStream, result.ContentType, result.FileName);
+        }
+        catch
+        {
+            await result.FileStream.DisposeAsync();
+            throw;
+        }
     }
 }

@@ -3,7 +3,10 @@ using APITemplate.Infrastructure.BackgroundJobs.Services;
 
 namespace APITemplate.Infrastructure.Email;
 
-public sealed class ChannelEmailQueue : BoundedChannelQueue<EmailMessage>, IEmailQueue
+public sealed class ChannelEmailQueue
+    : BoundedChannelQueue<EmailMessage>,
+        IEmailQueue,
+        IEmailQueueReader
 {
     private const int DefaultCapacity = 1000;
 

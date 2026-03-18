@@ -9,6 +9,7 @@ public static class JobsServiceCollectionExtensions
     {
         services.AddSingleton<ChannelJobQueue>();
         services.AddSingleton<IJobQueue>(sp => sp.GetRequiredService<ChannelJobQueue>());
+        services.AddSingleton<IJobQueueReader>(sp => sp.GetRequiredService<ChannelJobQueue>());
         services.AddHostedService<JobProcessingBackgroundService>();
         return services;
     }

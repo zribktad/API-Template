@@ -52,6 +52,7 @@ public sealed class JobRequestHandlers
             ct
         );
 
+        // Enqueue after commit so the background processor can always find the persisted entity.
         await _jobQueue.EnqueueAsync(entity.Id, ct);
 
         return MapToResponse(entity);

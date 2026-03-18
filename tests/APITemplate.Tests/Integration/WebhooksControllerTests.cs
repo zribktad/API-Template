@@ -40,7 +40,7 @@ public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task Receive_InvalidSignature_Returns401()
+    public async Task Receive_InvalidSignature_Returns403()
     {
         var ct = TestContext.Current.CancellationToken;
         var body = """{"eventType":"order.created","eventId":"evt-2","data":{}}""";
@@ -54,11 +54,11 @@ public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory
         request.Headers.Add(WebhookConstants.TimestampHeader, timestamp);
 
         var response = await _client.SendAsync(request, ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     [Fact]
-    public async Task Receive_ExpiredTimestamp_Returns401()
+    public async Task Receive_ExpiredTimestamp_Returns403()
     {
         var ct = TestContext.Current.CancellationToken;
         var body = """{"eventType":"order.created","eventId":"evt-3","data":{}}""";
@@ -77,7 +77,7 @@ public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory
         request.Headers.Add(WebhookConstants.TimestampHeader, expiredTimestamp);
 
         var response = await _client.SendAsync(request, ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     [Fact]

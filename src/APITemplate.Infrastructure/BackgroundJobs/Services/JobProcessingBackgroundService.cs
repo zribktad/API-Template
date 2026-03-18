@@ -1,4 +1,5 @@
 using System.Text.Json;
+using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -8,13 +9,18 @@ namespace APITemplate.Infrastructure.BackgroundJobs.Services;
 
 public sealed class JobProcessingBackgroundService : BackgroundService
 {
-    private readonly ChannelJobQueue _queue;
+    private const int SimulatedStepCount = 5;
+    private const int SimulatedStepDelayMs = 200;
+    private const int ProgressPerStep = 20;
+    private const string CompletedResultSummary = "Job completed successfully";
+
+    private readonly IJobQueueReader _queue;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<JobProcessingBackgroundService> _logger;
     private readonly TimeProvider _timeProvider;
 
     public JobProcessingBackgroundService(
-        ChannelJobQueue queue,
+        IJobQueueReader queue,
         IServiceScopeFactory scopeFactory,
         ILogger<JobProcessingBackgroundService> logger,
         TimeProvider timeProvider
@@ -28,7 +34,7 @@ public sealed class JobProcessingBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var jobId in _queue.Reader.ReadAllAsync(stoppingToken))
+        await foreach (var jobId in _queue.ReadAllAsync(stoppingToken))
         {
             try
             {
@@ -56,15 +62,15 @@ public sealed class JobProcessingBackgroundService : BackgroundService
         await uow.CommitAsync(ct);
 
         // Example: simulated multi-step job processing
-        for (var step = 1; step <= 5; step++)
+        for (var step = 1; step <= SimulatedStepCount; step++)
         {
-            await Task.Delay(200, ct);
-            job.UpdateProgress(step * 20);
+            await Task.Delay(SimulatedStepDelayMs, ct);
+            job.UpdateProgress(step * ProgressPerStep);
             await uow.CommitAsync(ct);
         }
 
         job.MarkCompleted(
-            JsonSerializer.Serialize(new { summary = "Job completed successfully" }),
+            JsonSerializer.Serialize(new { summary = CompletedResultSummary }),
             _timeProvider
         );
         await uow.CommitAsync(ct);

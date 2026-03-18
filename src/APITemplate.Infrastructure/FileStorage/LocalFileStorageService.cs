@@ -35,7 +35,16 @@ public sealed class LocalFileStorageService : IFileStorageService
         ValidatePathWithinBasePath(storagePath);
 
         long sizeBytes;
-        await using (var output = File.Create(storagePath))
+        await using (
+            var output = new FileStream(
+                storagePath,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                4096,
+                FileOptions.Asynchronous
+            )
+        )
         {
             await fileStream.CopyToAsync(output, ct);
             sizeBytes = output.Length;
@@ -51,7 +60,16 @@ public sealed class LocalFileStorageService : IFileStorageService
         if (!File.Exists(storagePath))
             return Task.FromResult<Stream?>(null);
 
-        return Task.FromResult<Stream?>(File.OpenRead(storagePath));
+        return Task.FromResult<Stream?>(
+            new FileStream(
+                storagePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                4096,
+                FileOptions.Asynchronous
+            )
+        );
     }
 
     public Task DeleteAsync(string storagePath, CancellationToken ct = default)

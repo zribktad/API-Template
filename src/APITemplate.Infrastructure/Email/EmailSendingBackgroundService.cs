@@ -8,14 +8,14 @@ namespace APITemplate.Infrastructure.Email;
 
 public sealed class EmailSendingBackgroundService : BackgroundService
 {
-    private readonly ChannelEmailQueue _queue;
+    private readonly IEmailQueueReader _queue;
     private readonly IEmailSender _sender;
     private readonly ResiliencePipelineProvider<string> _resiliencePipelineProvider;
     private readonly IFailedEmailStore _failedEmailStore;
     private readonly ILogger<EmailSendingBackgroundService> _logger;
 
     public EmailSendingBackgroundService(
-        ChannelEmailQueue queue,
+        IEmailQueueReader queue,
         IEmailSender sender,
         ResiliencePipelineProvider<string> resiliencePipelineProvider,
         IFailedEmailStore failedEmailStore,
@@ -33,7 +33,7 @@ public sealed class EmailSendingBackgroundService : BackgroundService
     {
         var pipeline = _resiliencePipelineProvider.GetPipeline(ResiliencePipelineKeys.SmtpSend);
 
-        await foreach (var message in _queue.Reader.ReadAllAsync(stoppingToken))
+        await foreach (var message in _queue.ReadAllAsync(stoppingToken))
         {
             try
             {

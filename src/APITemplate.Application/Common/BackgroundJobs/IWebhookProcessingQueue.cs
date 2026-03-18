@@ -6,3 +6,5 @@ public interface IWebhookProcessingQueue
 {
     ValueTask EnqueueAsync(WebhookPayload payload, CancellationToken ct = default);
 }
+
+public interface IWebhookQueueReader : IQueueReader<WebhookPayload>;

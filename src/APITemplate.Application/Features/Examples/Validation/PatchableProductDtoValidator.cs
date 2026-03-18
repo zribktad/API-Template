@@ -9,9 +9,6 @@ public sealed class PatchableProductDtoValidator : DataAnnotationsValidator<Patc
 {
     public PatchableProductDtoValidator()
     {
-        RuleFor(x => x.Description)
-            .NotEmpty()
-            .WithMessage(ProductValidationRules.DescriptionRequiredMessage)
-            .When(x => x.Price > ProductValidationRules.DescriptionRequiredPriceThreshold);
+        RuleFor(x => x.Description).RequiredAbovePriceThreshold(x => x.Price);
     }
 }

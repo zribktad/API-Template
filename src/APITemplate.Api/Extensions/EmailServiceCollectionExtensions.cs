@@ -21,6 +21,7 @@ public static class EmailServiceCollectionExtensions
         var queue = new ChannelEmailQueue();
         services.AddSingleton(queue);
         services.AddSingleton<IEmailQueue>(queue);
+        services.AddSingleton<IEmailQueueReader>(queue);
         services.AddSingleton<IEmailTemplateRenderer, FluidEmailTemplateRenderer>();
         services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
         services.AddTransient<IEmailSender, MailKitEmailSender>();

@@ -10,28 +10,16 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Application.Features.Examples.Handlers;
 
-public sealed record UploadFileCommand(
-    Stream FileStream,
-    string FileName,
-    string ContentType,
-    long SizeBytes,
-    string? Description
-) : IRequest<FileUploadResponse>;
+public sealed record UploadFileCommand(UploadFileRequest Request) : IRequest<FileUploadResponse>;
 
-public sealed record DownloadFileQuery(Guid Id) : IRequest<FileDownloadResult?>;
-
-public sealed record FileDownloadResult(Stream FileStream, string ContentType, string FileName);
-
-public sealed class FileRequestHandlers
-    : IRequestHandler<UploadFileCommand, FileUploadResponse>,
-        IRequestHandler<DownloadFileQuery, FileDownloadResult?>
+public sealed class UploadFileHandler : IRequestHandler<UploadFileCommand, FileUploadResponse>
 {
     private readonly IStoredFileRepository _repository;
     private readonly IFileStorageService _storage;
     private readonly IUnitOfWork _unitOfWork;
     private readonly FileStorageOptions _options;
 
-    public FileRequestHandlers(
+    public UploadFileHandler(
         IStoredFileRepository repository,
         IFileStorageService storage,
         IUnitOfWork unitOfWork,
@@ -46,31 +34,32 @@ public sealed class FileRequestHandlers
 
     public async Task<FileUploadResponse> Handle(UploadFileCommand command, CancellationToken ct)
     {
-        var extension = Path.GetExtension(command.FileName)?.ToLowerInvariant();
+        var req = command.Request;
+        var extension = Path.GetExtension(req.FileName)?.ToLowerInvariant();
         if (string.IsNullOrEmpty(extension) || !_options.AllowedExtensions.Contains(extension))
             throw new ValidationException(
                 $"File type '{extension}' is not allowed.",
                 ErrorCatalog.Examples.InvalidFileType
             );
 
-        if (command.SizeBytes > _options.MaxFileSizeBytes)
+        if (req.SizeBytes > _options.MaxFileSizeBytes)
             throw new ValidationException(
                 $"File size exceeds the maximum allowed size of {_options.MaxFileSizeBytes} bytes.",
                 ErrorCatalog.Examples.FileTooLarge
             );
 
-        var storageResult = await _storage.SaveAsync(command.FileStream, command.FileName, ct);
+        var storageResult = await _storage.SaveAsync(req.FileStream, req.FileName, ct);
 
         try
         {
             var entity = new StoredFile
             {
                 Id = Guid.NewGuid(),
-                OriginalFileName = command.FileName,
+                OriginalFileName = req.FileName,
                 StoragePath = storageResult.StoragePath,
-                ContentType = command.ContentType,
+                ContentType = req.ContentType,
                 SizeBytes = storageResult.SizeBytes,
-                Description = command.Description,
+                Description = req.Description,
             };
 
             await _unitOfWork.ExecuteInTransactionAsync(
@@ -95,26 +84,5 @@ public sealed class FileRequestHandlers
             await _storage.DeleteAsync(storageResult.StoragePath, CancellationToken.None);
             throw;
         }
-    }
-
-    public async Task<FileDownloadResult?> Handle(DownloadFileQuery query, CancellationToken ct)
-    {
-        var entity =
-            await _repository.GetByIdAsync(query.Id, ct)
-            ?? throw new NotFoundException(
-                nameof(StoredFile),
-                query.Id,
-                ErrorCatalog.Examples.FileNotFound
-            );
-
-        var stream =
-            await _storage.OpenReadAsync(entity.StoragePath, ct)
-            ?? throw new NotFoundException(
-                nameof(StoredFile),
-                query.Id,
-                ErrorCatalog.Examples.FileNotFound
-            );
-
-        return new FileDownloadResult(stream, entity.ContentType, entity.OriginalFileName);
     }
 }
