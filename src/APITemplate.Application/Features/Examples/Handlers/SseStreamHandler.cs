@@ -4,7 +4,7 @@ using MediatR;
 
 namespace APITemplate.Application.Features.Examples.Handlers;
 
-public sealed record GetNotificationStreamQuery(int Count = 5)
+public sealed record GetNotificationStreamQuery(SseStreamRequest Request)
     : IRequest<IAsyncEnumerable<SseNotificationItem>>;
 
 public sealed class SseStreamHandler
@@ -22,7 +22,7 @@ public sealed class SseStreamHandler
         CancellationToken ct
     )
     {
-        return Task.FromResult(StreamNotifications(request.Count, ct));
+        return Task.FromResult(StreamNotifications(request.Request.Count, ct));
     }
 
     private async IAsyncEnumerable<SseNotificationItem> StreamNotifications(

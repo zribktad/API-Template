@@ -4,5 +4,6 @@ public static class IdempotencyConstants
 {
     public const string HeaderName = "Idempotency-Key";
     public const int DefaultTtlHours = 24;
+    public const int LockTimeoutSeconds = 30;
     public const int MaxKeyLength = 100;
 }

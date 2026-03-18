@@ -52,7 +52,8 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
             return;
         }
 
-        var ttl = TimeSpan.FromHours(IdempotencyConstants.DefaultTtlHours);
+        var resultTtl = TimeSpan.FromHours(IdempotencyConstants.DefaultTtlHours);
+        var lockTimeout = TimeSpan.FromSeconds(IdempotencyConstants.LockTimeoutSeconds);
         var ct = context.HttpContext.RequestAborted;
 
         var existing = await _store.TryGetAsync(key, ct);
@@ -67,7 +68,7 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
             return;
         }
 
-        if (!await _store.TryAcquireAsync(key, ttl, ct))
+        if (!await _store.TryAcquireAsync(key, lockTimeout, ct))
         {
             context.Result = new ConflictObjectResult(
                 "A request with this idempotency key is already being processed."
@@ -101,11 +102,9 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
                 MediaTypeNames.Application.Json
             );
 
-            await _store.SetAsync(key, entry, ttl, ct);
+            await _store.SetAsync(key, entry, resultTtl, ct);
         }
-        else
-        {
-            await _store.ReleaseAsync(key, ct);
-        }
+
+        await _store.ReleaseAsync(key, ct);
     }
 }
