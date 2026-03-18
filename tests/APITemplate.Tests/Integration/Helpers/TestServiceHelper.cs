@@ -1,7 +1,12 @@
 using APITemplate.Application.Common.Security;
+using APITemplate.Application.Common.Startup;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Infrastructure.BackgroundJobs.TickerQ;
+using APITemplate.Infrastructure.BackgroundJobs.TickerQ.Coordination;
 using APITemplate.Infrastructure.Persistence;
+using APITemplate.Infrastructure.Persistence.Startup;
 using APITemplate.Infrastructure.Security;
+using APITemplate.Tests.Helpers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
@@ -122,17 +127,77 @@ internal static class TestServiceHelper
         services.AddScoped<IProductRepository, InMemoryProductRepository>();
     }
 
-    internal static void ReplaceTickerQDependencies(IServiceCollection services)
+    internal static void RemoveTickerQRuntimeServices(IServiceCollection services)
     {
-        // DragonflyDistributedJobCoordinator requires IConnectionMultiplexer, which is only
-        // registered when Dragonfly:ConnectionString is configured. In tests we set it to empty,
-        // but RegisterTickerQInfrastructure already ran (appsettings.json has TickerQ:Enabled=true
-        // before test overrides are applied). Provide a mock so DI validation passes.
-        if (!services.Any(d => d.ServiceType == typeof(IConnectionMultiplexer)))
+        var runtimeDescriptors = services.Where(IsTickerQRuntimeDescriptor).ToList();
+        foreach (var descriptor in runtimeDescriptors)
         {
-            var mock = new Mock<IConnectionMultiplexer>();
-            mock.SetupGet(x => x.IsConnected).Returns(false);
-            services.AddSingleton(mock.Object);
+            services.Remove(descriptor);
         }
     }
+
+    internal static void ReplaceStartupCoordinationWithNoOp(IServiceCollection services)
+    {
+        services.RemoveAll<IStartupTaskCoordinator>();
+        services.RemoveAll<TestNoOpStartupTaskCoordinator>();
+        services.AddScoped<TestNoOpStartupTaskCoordinator>();
+        services.AddScoped<IStartupTaskCoordinator, TestNoOpStartupTaskCoordinator>();
+    }
+
+    private static bool IsTickerQRuntimeDescriptor(ServiceDescriptor descriptor) =>
+        IsTickerQRuntimeType(descriptor.ServiceType)
+        || IsTickerQRuntimeType(descriptor.ImplementationType)
+        || IsTickerQRuntimeInstance(descriptor.ImplementationInstance)
+        || IsTickerQRuntimeFactory(descriptor.ImplementationFactory)
+        || descriptor.ServiceType == typeof(TickerQSchedulerDbContext)
+        || descriptor.ServiceType == typeof(TickerQRecurringJobRegistrar)
+        || descriptor.ServiceType == typeof(IDistributedJobCoordinator)
+        || (
+            descriptor.ServiceType
+                == typeof(APITemplate.Application.Common.BackgroundJobs.IRecurringBackgroundJobRegistration)
+            && IsTickerQRuntimeType(descriptor.ImplementationType)
+        );
+
+    private static bool IsTickerQRuntimeFactory(
+        Func<IServiceProvider, object>? implementationFactory
+    ) =>
+        implementationFactory?.Method.DeclaringType is { } declaringType
+        && IsTickerQRuntimeType(declaringType);
+
+    private static bool IsTickerQRuntimeInstance(object? implementationInstance) =>
+        implementationInstance is not null
+        && IsTickerQRuntimeType(implementationInstance.GetType());
+
+    private static bool IsTickerQRuntimeType(Type? type)
+    {
+        if (type is null)
+        {
+            return false;
+        }
+
+        if (
+            IsTickerQRuntimeNamespace(type.Namespace)
+            || IsTickerQRuntimeAssembly(type.Assembly.GetName().Name)
+        )
+        {
+            return true;
+        }
+
+        if (!type.IsGenericType)
+        {
+            return false;
+        }
+
+        return type.GetGenericArguments().Any(IsTickerQRuntimeType);
+    }
+
+    private static bool IsTickerQRuntimeNamespace(string? typeNamespace) =>
+        typeNamespace is not null
+        && (
+            typeNamespace.StartsWith("TickerQ", StringComparison.Ordinal)
+            || typeNamespace.Contains(".BackgroundJobs.TickerQ", StringComparison.Ordinal)
+        );
+
+    private static bool IsTickerQRuntimeAssembly(string? assemblyName) =>
+        assemblyName is not null && assemblyName.StartsWith("TickerQ", StringComparison.Ordinal);
 }

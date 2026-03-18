@@ -116,7 +116,8 @@ public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Progra
             TestServiceHelper.MockMongoServices(services);
             TestServiceHelper.ReplaceOutputCacheWithInMemory(services);
             TestServiceHelper.ConfigureTestAuthentication(services);
-            TestServiceHelper.ReplaceTickerQDependencies(services);
+            TestServiceHelper.RemoveTickerQRuntimeServices(services);
+            TestServiceHelper.ReplaceStartupCoordinationWithNoOp(services);
         });
 
         builder.UseEnvironment("Development");

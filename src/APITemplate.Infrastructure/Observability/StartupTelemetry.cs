@@ -8,64 +8,36 @@ public static class StartupTelemetry
         ObservabilityConventions.ActivitySourceName
     );
 
-    public static Task RunRelationalMigrationAsync(Func<Task> action) =>
-        RunStepAsync(
+    public static Scope StartRelationalMigration() =>
+        StartStep(
             TelemetryStartupSteps.Migrate,
             TelemetryStartupComponents.PostgreSql,
-            action,
             TelemetryDatabaseSystems.PostgreSql
         );
 
-    public static Task RunMongoMigrationAsync(Func<Task> action) =>
-        RunStepAsync(
+    public static Scope StartMongoMigration() =>
+        StartStep(
             TelemetryStartupSteps.Migrate,
             TelemetryStartupComponents.MongoDb,
-            action,
             TelemetryDatabaseSystems.MongoDb
         );
 
-    public static Task RunAuthBootstrapSeedAsync(Func<Task> action) =>
-        RunStepAsync(
+    public static Scope StartAuthBootstrapSeed() =>
+        StartStep(
             TelemetryStartupSteps.SeedAuthBootstrap,
-            TelemetryStartupComponents.AuthBootstrap,
-            action
+            TelemetryStartupComponents.AuthBootstrap
         );
 
-    public static Task WaitForKeycloakReadinessAsync(Func<Task> action) =>
-        RunStepAsync(
-            TelemetryStartupSteps.WaitKeycloakReady,
-            TelemetryStartupComponents.Keycloak,
-            action
-        );
+    public static Scope StartKeycloakReadinessCheck() =>
+        StartStep(TelemetryStartupSteps.WaitKeycloakReady, TelemetryStartupComponents.Keycloak);
 
-    private static Task RunStepAsync(
-        string step,
-        string component,
-        Func<Task> action,
-        string? dbSystem = null
-    ) => RunStepCoreAsync(step, component, action, dbSystem);
-
-    private static async Task RunStepCoreAsync(
-        string step,
-        string component,
-        Func<Task> action,
-        string? dbSystem
-    )
+    private static Scope StartStep(string step, string component, string? dbSystem = null)
     {
-        using var activity = StartActivity(step, component);
+        var activity = StartActivity(step, component);
         if (!string.IsNullOrWhiteSpace(dbSystem))
             activity?.SetTag(TelemetryTagKeys.DbSystem, dbSystem);
 
-        try
-        {
-            await action();
-            activity?.SetTag(TelemetryTagKeys.StartupSuccess, true);
-        }
-        catch (Exception ex)
-        {
-            MarkFailure(activity, ex);
-            throw;
-        }
+        return new Scope(activity);
     }
 
     private static Activity? StartActivity(string step, string component)
@@ -79,13 +51,20 @@ public static class StartupTelemetry
         return activity;
     }
 
-    private static void MarkFailure(Activity? activity, Exception exception)
+    public sealed class Scope(Activity? activity) : IDisposable
     {
-        if (activity is null)
-            return;
+        private readonly Activity? _activity = activity;
 
-        activity.SetStatus(ActivityStatusCode.Error, exception.Message);
-        activity.SetTag(TelemetryTagKeys.StartupSuccess, false);
-        activity.SetTag(TelemetryTagKeys.ExceptionType, exception.GetType().Name);
+        public void Fail(Exception exception)
+        {
+            if (_activity is not null)
+            {
+                _activity.SetStatus(ActivityStatusCode.Error, exception.Message);
+                _activity.SetTag(TelemetryTagKeys.StartupSuccess, false);
+                _activity.SetTag(TelemetryTagKeys.ExceptionType, exception.GetType().Name);
+            }
+        }
+
+        public void Dispose() => _activity?.Dispose();
     }
 }

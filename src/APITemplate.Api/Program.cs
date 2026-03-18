@@ -32,9 +32,9 @@ try
     var app = builder.Build(); // Materialize the web app from configured services.
     app.Logger.LogInformation("Starting APITemplate"); // Startup banner for diagnostics after logging pipeline is ready.
 
-    await app.UseDatabaseAsync(); // Apply SQL/Mongo migrations before serving traffic.
-    await app.WaitForKeycloakAsync(); // Wait for Keycloak to be reachable before serving traffic.
-    await app.UseBackgroundJobsAsync(); // Sync and start recurring TickerQ jobs after dependencies are ready.
+    await app.UseDatabaseAsync(app.Lifetime.ApplicationStopping); // Apply SQL/Mongo migrations before serving traffic.
+    await app.WaitForKeycloakAsync(app.Lifetime.ApplicationStopping); // Wait for Keycloak to be reachable before serving traffic.
+    await app.UseBackgroundJobsAsync(app.Lifetime.ApplicationStopping); // Sync and start recurring TickerQ jobs after dependencies are ready.
 
     app.UseApiPipeline(); // Configure middleware order for request processing.
     app.MapApplicationEndpoints(); // Map REST/GraphQL/health endpoints.

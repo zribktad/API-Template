@@ -62,10 +62,14 @@ public sealed partial class ReindexService : IReindexService
             );
 
             // REINDEX INDEX CONCURRENTLY is DDL — cannot be wrapped in a PostgreSQL function.
+            // Identifier names cannot be parameterized here; regex validation above constrains
+            // the value to PostgreSQL-safe identifier characters before interpolation.
+#pragma warning disable EF1002
             await _dbContext.Database.ExecuteSqlRawAsync(
                 $"REINDEX INDEX CONCURRENTLY \"{index}\"",
                 ct
             );
+#pragma warning restore EF1002
 
             _logger.LogInformation("Reindexed FTS index {IndexName}.", index);
         }

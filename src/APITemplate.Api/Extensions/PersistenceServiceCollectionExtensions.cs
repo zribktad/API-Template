@@ -1,6 +1,7 @@
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;
+using APITemplate.Application.Common.Startup;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Health;
@@ -8,6 +9,7 @@ using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Persistence.Auditing;
 using APITemplate.Infrastructure.Persistence.EntityNormalization;
 using APITemplate.Infrastructure.Persistence.SoftDelete;
+using APITemplate.Infrastructure.Persistence.Startup;
 using APITemplate.Infrastructure.Repositories;
 using APITemplate.Infrastructure.Security;
 using APITemplate.Infrastructure.StoredProcedures;
@@ -54,6 +56,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
         services.AddScoped<IDbTransactionProvider, EfCoreTransactionProvider>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IStartupTaskCoordinator, PostgresAdvisoryLockStartupTaskCoordinator>();
 
         // Auditing / normalization / soft delete behavior
         services.AddSingleton<IEntityNormalizationService, AppUserEntityNormalizationService>();

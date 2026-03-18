@@ -66,7 +66,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             TestServiceHelper.ReplaceDataProtectionWithInMemory(services);
             TestServiceHelper.ReplaceTicketStoreWithInMemory(services);
             TestServiceHelper.ConfigureTestAuthentication(services);
-            TestServiceHelper.ReplaceTickerQDependencies(services);
+            TestServiceHelper.RemoveTickerQRuntimeServices(services);
+            TestServiceHelper.ReplaceStartupCoordinationWithNoOp(services);
         });
 
         builder.UseEnvironment("Development");

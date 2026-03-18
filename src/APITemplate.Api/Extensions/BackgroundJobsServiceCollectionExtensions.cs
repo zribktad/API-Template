@@ -46,8 +46,6 @@ public static class BackgroundJobsServiceCollectionExtensions
         services.AddOptions<BackgroundJobsOptions>().Bind(section).ValidateOnStart();
         var options = section.Get<BackgroundJobsOptions>() ?? new BackgroundJobsOptions();
 
-        RegisterTickerQInfrastructure(services, configuration, options);
-
         services.AddScoped<IFailedEmailRepository, FailedEmailRepository>();
 
         services.AddScoped<ICleanupService, CleanupService>();
@@ -58,23 +56,13 @@ public static class BackgroundJobsServiceCollectionExtensions
             ExternalIntegrationSyncServicePreview
         >();
 
-        services.AddScoped<
-            IRecurringBackgroundJobRegistration,
-            ExternalSyncRecurringJobRegistration
-        >();
-        services.AddScoped<IRecurringBackgroundJobRegistration, CleanupRecurringJobRegistration>();
-        services.AddScoped<IRecurringBackgroundJobRegistration, ReindexRecurringJobRegistration>();
-        services.AddScoped<
-            IRecurringBackgroundJobRegistration,
-            EmailRetryRecurringJobRegistration
-        >();
-
         RegisterSoftDeleteCleanupStrategies(services);
+        RegisterTickerQRuntime(services, configuration, options);
 
         return services;
     }
 
-    private static void RegisterTickerQInfrastructure(
+    private static void RegisterTickerQRuntime(
         IServiceCollection services,
         IConfiguration configuration,
         BackgroundJobsOptions options
@@ -122,6 +110,16 @@ public static class BackgroundJobsServiceCollectionExtensions
         );
         services.AddScoped<TickerQRecurringJobRegistrar>();
         services.AddSingleton<IDistributedJobCoordinator, DragonflyDistributedJobCoordinator>();
+        services.AddScoped<
+            IRecurringBackgroundJobRegistration,
+            ExternalSyncRecurringJobRegistration
+        >();
+        services.AddScoped<IRecurringBackgroundJobRegistration, CleanupRecurringJobRegistration>();
+        services.AddScoped<IRecurringBackgroundJobRegistration, ReindexRecurringJobRegistration>();
+        services.AddScoped<
+            IRecurringBackgroundJobRegistration,
+            EmailRetryRecurringJobRegistration
+        >();
 
         services.AddTickerQ(tickerOptions =>
         {

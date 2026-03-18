@@ -1,6 +1,7 @@
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Common.Email;
 using APITemplate.Application.Common.Options;
+using APITemplate.Application.Common.Startup;
 using APITemplate.Domain.Entities;
 using APITemplate.Extensions;
 using APITemplate.Infrastructure.BackgroundJobs.Services;
@@ -78,6 +79,11 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
         services.ShouldNotContain(x => x.ServiceType == typeof(TickerQSchedulerDbContext));
         services.ShouldNotContain(x => x.ServiceType == typeof(TickerQRecurringJobRegistrar));
         services.ShouldNotContain(x => x.ServiceType == typeof(IDistributedJobCoordinator));
+        services.ShouldContain(x => x.ServiceType == typeof(IFailedEmailRepository));
+        services.ShouldContain(x => x.ServiceType == typeof(ICleanupService));
+        services.ShouldContain(x => x.ServiceType == typeof(IReindexService));
+        services.ShouldContain(x => x.ServiceType == typeof(IEmailRetryService));
+        services.ShouldContain(x => x.ServiceType == typeof(IStartupTaskCoordinator));
     }
 
     [Fact]
