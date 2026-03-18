@@ -41,6 +41,7 @@ public sealed class JobRequestHandlers
             Id = Guid.NewGuid(),
             JobType = command.Request.JobType,
             Parameters = command.Request.Parameters,
+            CallbackUrl = command.Request.CallbackUrl,
             SubmittedAtUtc = _timeProvider.GetUtcNow().UtcDateTime,
         };
 
@@ -75,6 +76,7 @@ public sealed class JobRequestHandlers
             entity.ErrorMessage,
             entity.SubmittedAtUtc,
             entity.StartedAtUtc,
-            entity.CompletedAtUtc
+            entity.CompletedAtUtc,
+            entity.CallbackUrl
         );
 }

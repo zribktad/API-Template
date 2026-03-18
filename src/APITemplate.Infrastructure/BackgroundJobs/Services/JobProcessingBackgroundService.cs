@@ -1,5 +1,7 @@
 using System.Text.Json;
 using APITemplate.Application.Common.BackgroundJobs;
+using APITemplate.Application.Features.Examples.DTOs;
+using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,18 +18,21 @@ public sealed class JobProcessingBackgroundService : BackgroundService
 
     private readonly IJobQueueReader _queue;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IOutgoingWebhookQueue _outgoingWebhookQueue;
     private readonly ILogger<JobProcessingBackgroundService> _logger;
     private readonly TimeProvider _timeProvider;
 
     public JobProcessingBackgroundService(
         IJobQueueReader queue,
         IServiceScopeFactory scopeFactory,
+        IOutgoingWebhookQueue outgoingWebhookQueue,
         ILogger<JobProcessingBackgroundService> logger,
         TimeProvider timeProvider
     )
     {
         _queue = queue;
         _scopeFactory = scopeFactory;
+        _outgoingWebhookQueue = outgoingWebhookQueue;
         _logger = logger;
         _timeProvider = timeProvider;
     }
@@ -74,6 +79,8 @@ public sealed class JobProcessingBackgroundService : BackgroundService
             _timeProvider
         );
         await uow.CommitAsync(ct);
+
+        await EnqueueCallbackAsync(job, ct);
     }
 
     private async Task TryMarkFailedAsync(Guid jobId, string errorMessage)
@@ -89,11 +96,33 @@ public sealed class JobProcessingBackgroundService : BackgroundService
             {
                 job.MarkFailed(errorMessage, _timeProvider);
                 await uow.CommitAsync(CancellationToken.None);
+
+                await EnqueueCallbackAsync(job, CancellationToken.None);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to mark job {JobId} as failed", jobId);
         }
+    }
+
+    private async Task EnqueueCallbackAsync(JobExecution job, CancellationToken ct)
+    {
+        if (job.CallbackUrl is null)
+            return;
+
+        var payload = new OutgoingJobWebhookPayload(
+            job.Id,
+            job.JobType,
+            job.Status.ToString(),
+            job.ResultPayload,
+            job.ErrorMessage,
+            job.CompletedAtUtc ?? _timeProvider.GetUtcNow().UtcDateTime
+        );
+
+        var serialized = JsonSerializer.Serialize(payload, JsonSerializerOptions.Web);
+        var item = new OutgoingWebhookItem(job.CallbackUrl, serialized);
+
+        await _outgoingWebhookQueue.EnqueueAsync(item, ct);
     }
 }

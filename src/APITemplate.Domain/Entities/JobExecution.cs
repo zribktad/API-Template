@@ -9,6 +9,7 @@ public sealed class JobExecution : IAuditableTenantEntity
     public JobStatus Status { get; private set; } = JobStatus.Pending;
     public int ProgressPercent { get; private set; }
     public string? Parameters { get; init; }
+    public string? CallbackUrl { get; init; }
     public string? ResultPayload { get; private set; }
     public string? ErrorMessage { get; private set; }
     public DateTime SubmittedAtUtc { get; init; }

@@ -12,5 +12,6 @@ public sealed record JobStatusResponse(
     string? ErrorMessage,
     DateTime SubmittedAtUtc,
     DateTime? StartedAtUtc,
-    DateTime? CompletedAtUtc
+    DateTime? CompletedAtUtc,
+    string? CallbackUrl
 );

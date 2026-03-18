@@ -19,6 +19,8 @@ public sealed class JobExecutionConfiguration : IEntityTypeConfiguration<JobExec
 
         builder.Property(j => j.Parameters).HasColumnType("text");
 
+        builder.Property(j => j.CallbackUrl).HasMaxLength(2048);
+
         builder.Property(j => j.ResultPayload).HasColumnType("text");
 
         builder.Property(j => j.ErrorMessage).HasColumnType("text");
