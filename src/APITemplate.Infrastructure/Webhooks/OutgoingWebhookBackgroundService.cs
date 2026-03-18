@@ -3,14 +3,14 @@ using System.Text;
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Common.Contracts;
 using APITemplate.Application.Features.Examples.DTOs;
-using Microsoft.Extensions.Hosting;
+using APITemplate.Infrastructure.BackgroundJobs.Services;
 using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Infrastructure.Webhooks;
 
-public sealed class OutgoingWebhookBackgroundService : BackgroundService
+public sealed class OutgoingWebhookBackgroundService
+    : QueueConsumerBackgroundService<OutgoingWebhookItem>
 {
-    private readonly IOutgoingWebhookQueueReader _queue;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IWebhookPayloadSigner _signer;
     private readonly ILogger<OutgoingWebhookBackgroundService> _logger;
@@ -21,33 +21,14 @@ public sealed class OutgoingWebhookBackgroundService : BackgroundService
         IWebhookPayloadSigner signer,
         ILogger<OutgoingWebhookBackgroundService> logger
     )
+        : base(queue)
     {
-        _queue = queue;
         _httpClientFactory = httpClientFactory;
         _signer = signer;
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        await foreach (var item in _queue.ReadAllAsync(stoppingToken))
-        {
-            try
-            {
-                await SendWebhookAsync(item, stoppingToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(
-                    ex,
-                    "Failed to deliver outgoing webhook to {Url}",
-                    item.CallbackUrl
-                );
-            }
-        }
-    }
-
-    private async Task SendWebhookAsync(OutgoingWebhookItem item, CancellationToken ct)
+    protected override async Task ProcessItemAsync(OutgoingWebhookItem item, CancellationToken ct)
     {
         var signatureResult = _signer.Sign(item.SerializedPayload);
 
@@ -68,5 +49,15 @@ public sealed class OutgoingWebhookBackgroundService : BackgroundService
         response.EnsureSuccessStatusCode();
 
         _logger.LogInformation("Outgoing webhook delivered to {Url}", item.CallbackUrl);
+    }
+
+    protected override Task HandleErrorAsync(
+        OutgoingWebhookItem item,
+        Exception ex,
+        CancellationToken ct
+    )
+    {
+        _logger.LogError(ex, "Failed to deliver outgoing webhook to {Url}", item.CallbackUrl);
+        return Task.CompletedTask;
     }
 }

@@ -29,9 +29,7 @@ public sealed class HmacWebhookPayloadValidator : IWebhookPayloadValidator
         if (delta > _toleranceSeconds)
             return false;
 
-        var signedContent = $"{timestamp}.{payload}";
-        var contentBytes = Encoding.UTF8.GetBytes(signedContent);
-        var hashBytes = HMACSHA256.HashData(_keyBytes, contentBytes);
+        var hashBytes = HmacHelper.ComputeHash(_keyBytes, timestamp, payload);
 
         byte[] signatureBytes;
         try

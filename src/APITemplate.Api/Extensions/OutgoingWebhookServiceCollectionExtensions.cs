@@ -14,13 +14,12 @@ public static class OutgoingWebhookServiceCollectionExtensions
     {
         services.AddSingleton<IWebhookPayloadSigner, HmacWebhookPayloadSigner>();
 
-        services.AddSingleton<ChannelOutgoingWebhookQueue>();
-        services.AddSingleton<IOutgoingWebhookQueue>(sp =>
-            sp.GetRequiredService<ChannelOutgoingWebhookQueue>()
-        );
-        services.AddSingleton<IOutgoingWebhookQueueReader>(sp =>
-            sp.GetRequiredService<ChannelOutgoingWebhookQueue>()
-        );
+        services.AddQueueWithConsumer<
+            ChannelOutgoingWebhookQueue,
+            IOutgoingWebhookQueue,
+            IOutgoingWebhookQueueReader,
+            OutgoingWebhookBackgroundService
+        >();
 
         services
             .AddHttpClient(WebhookConstants.OutgoingHttpClientName)
@@ -39,8 +38,6 @@ public static class OutgoingWebhookServiceCollectionExtensions
                     );
                 }
             );
-
-        services.AddHostedService<OutgoingWebhookBackgroundService>();
 
         return services;
     }

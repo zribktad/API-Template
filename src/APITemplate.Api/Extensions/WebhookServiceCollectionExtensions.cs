@@ -19,15 +19,13 @@ public static class WebhookServiceCollectionExtensions
             .ValidateOnStart();
 
         services.AddSingleton<IWebhookPayloadValidator, HmacWebhookPayloadValidator>();
-        services.AddSingleton<ChannelWebhookQueue>();
-        services.AddSingleton<IWebhookProcessingQueue>(sp =>
-            sp.GetRequiredService<ChannelWebhookQueue>()
-        );
-        services.AddSingleton<IWebhookQueueReader>(sp =>
-            sp.GetRequiredService<ChannelWebhookQueue>()
-        );
+        services.AddQueueWithConsumer<
+            ChannelWebhookQueue,
+            IWebhookProcessingQueue,
+            IWebhookQueueReader,
+            WebhookProcessingBackgroundService
+        >();
         services.AddScoped<IWebhookEventHandler, LoggingWebhookEventHandler>();
-        services.AddHostedService<WebhookProcessingBackgroundService>();
         return services;
     }
 }

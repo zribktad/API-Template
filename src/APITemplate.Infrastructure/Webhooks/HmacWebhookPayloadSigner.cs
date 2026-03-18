@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text;
 using APITemplate.Application.Common.Contracts;
 using APITemplate.Application.Common.Options;
@@ -20,9 +19,7 @@ public sealed class HmacWebhookPayloadSigner : IWebhookPayloadSigner
     public WebhookSignatureResult Sign(string payload)
     {
         var timestamp = _timeProvider.GetUtcNow().ToUnixTimeSeconds().ToString();
-        var signedContent = $"{timestamp}.{payload}";
-        var contentBytes = Encoding.UTF8.GetBytes(signedContent);
-        var hashBytes = HMACSHA256.HashData(_keyBytes, contentBytes);
+        var hashBytes = HmacHelper.ComputeHash(_keyBytes, timestamp, payload);
         var signature = Convert.ToHexStringLower(hashBytes);
 
         return new WebhookSignatureResult(signature, timestamp);

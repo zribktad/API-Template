@@ -6,9 +6,6 @@ namespace APITemplate.Infrastructure.Idempotency;
 
 public sealed class InMemoryIdempotencyStore : IIdempotencyStore
 {
-    private const string LockSuffix = ":lock";
-    private const string LockValue = "processing";
-
     private readonly ConcurrentDictionary<string, (string Value, DateTimeOffset Expiry)> _store =
         new();
     private readonly TimeProvider _timeProvider;
@@ -34,9 +31,9 @@ public sealed class InMemoryIdempotencyStore : IIdempotencyStore
     {
         EvictExpired();
 
-        var lockKey = key + LockSuffix;
+        var lockKey = key + IdempotencyStoreConstants.LockSuffix;
         var expiry = _timeProvider.GetUtcNow().Add(ttl);
-        var acquired = _store.TryAdd(lockKey, (LockValue, expiry));
+        var acquired = _store.TryAdd(lockKey, (IdempotencyStoreConstants.LockValue, expiry));
         return Task.FromResult(acquired);
     }
 
@@ -55,7 +52,7 @@ public sealed class InMemoryIdempotencyStore : IIdempotencyStore
 
     public Task ReleaseAsync(string key, CancellationToken ct = default)
     {
-        var lockKey = key + LockSuffix;
+        var lockKey = key + IdempotencyStoreConstants.LockSuffix;
         _store.TryRemove(lockKey, out _);
         return Task.CompletedTask;
     }

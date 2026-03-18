@@ -2,21 +2,18 @@ using System.Text.Json;
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Entities;
-using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.Services;
 
-public sealed class JobProcessingBackgroundService : BackgroundService
+public sealed class JobProcessingBackgroundService : QueueConsumerBackgroundService<Guid>
 {
     private const int SimulatedStepCount = 5;
     private const int SimulatedStepDelayMs = 200;
     private const int ProgressPerStep = 20;
     private const string CompletedResultSummary = "Job completed successfully";
 
-    private readonly IJobQueueReader _queue;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOutgoingWebhookQueue _outgoingWebhookQueue;
     private readonly ILogger<JobProcessingBackgroundService> _logger;
@@ -29,31 +26,15 @@ public sealed class JobProcessingBackgroundService : BackgroundService
         ILogger<JobProcessingBackgroundService> logger,
         TimeProvider timeProvider
     )
+        : base(queue)
     {
-        _queue = queue;
         _scopeFactory = scopeFactory;
         _outgoingWebhookQueue = outgoingWebhookQueue;
         _logger = logger;
         _timeProvider = timeProvider;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        await foreach (var jobId in _queue.ReadAllAsync(stoppingToken))
-        {
-            try
-            {
-                await ProcessJobAsync(jobId, stoppingToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "Job {JobId} failed", jobId);
-                await TryMarkFailedAsync(jobId, ex.Message);
-            }
-        }
-    }
-
-    private async Task ProcessJobAsync(Guid jobId, CancellationToken ct)
+    protected override async Task ProcessItemAsync(Guid jobId, CancellationToken ct)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repo = scope.ServiceProvider.GetRequiredService<IJobExecutionRepository>();
@@ -66,7 +47,6 @@ public sealed class JobProcessingBackgroundService : BackgroundService
         job.MarkProcessing(_timeProvider);
         await uow.CommitAsync(ct);
 
-        // Example: simulated multi-step job processing
         for (var step = 1; step <= SimulatedStepCount; step++)
         {
             await Task.Delay(SimulatedStepDelayMs, ct);
@@ -81,6 +61,12 @@ public sealed class JobProcessingBackgroundService : BackgroundService
         await uow.CommitAsync(ct);
 
         await EnqueueCallbackAsync(job, ct);
+    }
+
+    protected override async Task HandleErrorAsync(Guid jobId, Exception ex, CancellationToken ct)
+    {
+        _logger.LogError(ex, "Job {JobId} failed", jobId);
+        await TryMarkFailedAsync(jobId, ex.Message);
     }
 
     private async Task TryMarkFailedAsync(Guid jobId, string errorMessage)
