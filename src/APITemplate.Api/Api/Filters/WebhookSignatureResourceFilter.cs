@@ -1,6 +1,7 @@
 using APITemplate.Application.Common.Contracts;
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Features.Examples.DTOs;
-using Microsoft.AspNetCore.Mvc;
+using APITemplate.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace APITemplate.Api.Filters;
@@ -36,8 +37,10 @@ public sealed class WebhookSignatureResourceFilter : IAsyncResourceFilter
             || !request.Headers.TryGetValue(WebhookConstants.TimestampHeader, out var timestamp)
         )
         {
-            context.Result = new UnauthorizedResult();
-            return;
+            throw new UnauthorizedException(
+                "Missing required webhook signature headers.",
+                ErrorCatalog.Examples.WebhookMissingHeaders
+            );
         }
 
         request.EnableBuffering();
@@ -47,8 +50,10 @@ public sealed class WebhookSignatureResourceFilter : IAsyncResourceFilter
 
         if (!_validator.IsValid(body, signature.ToString(), timestamp.ToString()))
         {
-            context.Result = new UnauthorizedResult();
-            return;
+            throw new UnauthorizedException(
+                "Invalid webhook signature.",
+                ErrorCatalog.Examples.WebhookInvalidSignature
+            );
         }
 
         await next();

@@ -27,5 +27,6 @@ public interface IIdempotencyStore
 public sealed record IdempotencyCacheEntry(
     int StatusCode,
     string? ResponseBody,
-    string? ResponseContentType
+    string? ResponseContentType,
+    string? LocationHeader = null
 );

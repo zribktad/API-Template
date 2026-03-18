@@ -25,7 +25,8 @@ public sealed class HmacWebhookPayloadValidator : IWebhookPayloadValidator
             return false;
 
         var now = _timeProvider.GetUtcNow().ToUnixTimeSeconds();
-        if (Math.Abs(now - unixSeconds) > _toleranceSeconds)
+        var delta = now > unixSeconds ? now - unixSeconds : unixSeconds - now;
+        if (delta > _toleranceSeconds)
             return false;
 
         var signedContent = $"{timestamp}.{payload}";

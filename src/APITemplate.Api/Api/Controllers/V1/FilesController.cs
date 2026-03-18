@@ -50,8 +50,6 @@ public sealed class FilesController : ControllerBase
     )
     {
         var result = await _sender.Send(new DownloadFileQuery(request), ct);
-        if (result is null)
-            return NotFound();
         try
         {
             return File(result.FileStream, result.ContentType, result.FileName);

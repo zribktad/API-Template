@@ -8,7 +8,7 @@ public sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredFil
 {
     public void Configure(EntityTypeBuilder<StoredFile> builder)
     {
-        // Keep table name to match existing migration
+        // Table named 'ExampleFiles' as part of the examples/showcase feature
         builder.ToTable("ExampleFiles");
 
         builder.HasKey(e => e.Id);

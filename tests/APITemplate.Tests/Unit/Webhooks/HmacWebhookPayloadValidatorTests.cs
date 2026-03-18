@@ -25,9 +25,10 @@ public class HmacWebhookPayloadValidatorTests
     [Fact]
     public void IsValid_CorrectHmac_ReturnsTrue()
     {
-        var validator = CreateValidator(TimeProvider.System);
+        var now = DateTimeOffset.UtcNow;
+        var validator = CreateValidator(new FakeTimeProvider(now));
         var payload = """{"event":"test"}""";
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var timestamp = now.ToUnixTimeSeconds().ToString();
         var signature = WebhookTestHelper.ComputeHmacSignature(payload, timestamp, TestSecret);
 
         validator.IsValid(payload, signature, timestamp).ShouldBeTrue();
@@ -36,9 +37,10 @@ public class HmacWebhookPayloadValidatorTests
     [Fact]
     public void IsValid_WrongHmac_ReturnsFalse()
     {
-        var validator = CreateValidator(TimeProvider.System);
+        var now = DateTimeOffset.UtcNow;
+        var validator = CreateValidator(new FakeTimeProvider(now));
         var payload = """{"event":"test"}""";
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var timestamp = now.ToUnixTimeSeconds().ToString();
 
         validator.IsValid(payload, "wrong-signature", timestamp).ShouldBeFalse();
     }
@@ -46,9 +48,10 @@ public class HmacWebhookPayloadValidatorTests
     [Fact]
     public void IsValid_TimestampWithinTolerance_ReturnsTrue()
     {
-        var validator = CreateValidator(TimeProvider.System, toleranceSeconds: 300);
+        var now = DateTimeOffset.UtcNow;
+        var validator = CreateValidator(new FakeTimeProvider(now), toleranceSeconds: 300);
         var payload = """{"event":"test"}""";
-        var pastTimestamp = (DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 200).ToString();
+        var pastTimestamp = (now.ToUnixTimeSeconds() - 200).ToString();
         var signature = WebhookTestHelper.ComputeHmacSignature(payload, pastTimestamp, TestSecret);
 
         validator.IsValid(payload, signature, pastTimestamp).ShouldBeTrue();
@@ -57,9 +60,10 @@ public class HmacWebhookPayloadValidatorTests
     [Fact]
     public void IsValid_TimestampOutsideTolerance_ReturnsFalse()
     {
-        var validator = CreateValidator(TimeProvider.System, toleranceSeconds: 300);
+        var now = DateTimeOffset.UtcNow;
+        var validator = CreateValidator(new FakeTimeProvider(now), toleranceSeconds: 300);
         var payload = """{"event":"test"}""";
-        var oldTimestamp = (DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 600).ToString();
+        var oldTimestamp = (now.ToUnixTimeSeconds() - 600).ToString();
         var signature = WebhookTestHelper.ComputeHmacSignature(payload, oldTimestamp, TestSecret);
 
         validator.IsValid(payload, signature, oldTimestamp).ShouldBeFalse();
@@ -68,9 +72,10 @@ public class HmacWebhookPayloadValidatorTests
     [Fact]
     public void IsValid_ExactBoundary_ReturnsTrue()
     {
-        var validator = CreateValidator(TimeProvider.System, toleranceSeconds: 300);
+        var now = DateTimeOffset.UtcNow;
+        var validator = CreateValidator(new FakeTimeProvider(now), toleranceSeconds: 300);
         var payload = """{"event":"boundary"}""";
-        var boundaryTimestamp = (DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 300).ToString();
+        var boundaryTimestamp = (now.ToUnixTimeSeconds() - 300).ToString();
         var signature = WebhookTestHelper.ComputeHmacSignature(
             payload,
             boundaryTimestamp,
@@ -78,5 +83,10 @@ public class HmacWebhookPayloadValidatorTests
         );
 
         validator.IsValid(payload, signature, boundaryTimestamp).ShouldBeTrue();
+    }
+
+    private sealed class FakeTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }

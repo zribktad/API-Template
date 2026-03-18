@@ -8,11 +8,11 @@ using MediatR;
 
 namespace APITemplate.Application.Features.Examples.Handlers;
 
-public sealed record DownloadFileQuery(DownloadFileRequest Request) : IRequest<FileDownloadResult?>;
+public sealed record DownloadFileQuery(DownloadFileRequest Request) : IRequest<FileDownloadResult>;
 
 public sealed record FileDownloadResult(Stream FileStream, string ContentType, string FileName);
 
-public sealed class DownloadFileHandler : IRequestHandler<DownloadFileQuery, FileDownloadResult?>
+public sealed class DownloadFileHandler : IRequestHandler<DownloadFileQuery, FileDownloadResult>
 {
     private readonly IStoredFileRepository _repository;
     private readonly IFileStorageService _storage;
@@ -23,7 +23,7 @@ public sealed class DownloadFileHandler : IRequestHandler<DownloadFileQuery, Fil
         _storage = storage;
     }
 
-    public async Task<FileDownloadResult?> Handle(DownloadFileQuery query, CancellationToken ct)
+    public async Task<FileDownloadResult> Handle(DownloadFileQuery query, CancellationToken ct)
     {
         var entity =
             await _repository.GetByIdAsync(query.Request.Id, ct)

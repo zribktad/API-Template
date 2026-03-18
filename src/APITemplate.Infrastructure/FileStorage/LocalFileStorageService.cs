@@ -85,7 +85,9 @@ public sealed class LocalFileStorageService : IFileStorageService
     private void ValidatePathWithinBasePath(string path)
     {
         var fullPath = Path.GetFullPath(path);
-        var fullBasePath = Path.GetFullPath(_options.BasePath);
+        var fullBasePath =
+            Path.GetFullPath(_options.BasePath).TrimEnd(Path.DirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
 
         if (!fullPath.StartsWith(fullBasePath, StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedAccessException("Path traversal detected: access denied.");

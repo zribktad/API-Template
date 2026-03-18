@@ -2,7 +2,7 @@
 
 This template includes 7 advanced endpoint patterns beyond standard CRUD. Each demonstrates a real-world pattern you can study, adapt, and reuse.
 
-> All showcase endpoints require a Bearer JWT token. See [AUTHENTICATION.md](AUTHENTICATION.md) for obtaining tokens.
+> All showcase endpoints require a Bearer JWT token, except the Webhook Receiver which uses HMAC signature authentication. See [AUTHENTICATION.md](AUTHENTICATION.md) for obtaining tokens.
 
 ---
 
@@ -499,7 +499,7 @@ curl -X POST -H "Authorization: Bearer <token>" \
 | Api | `Filters/IdempotentAttribute.cs` | Marker attribute (`[AttributeUsage(Method)]`) |
 | Api | `Filters/IdempotencyActionFilter.cs` | `IAsyncActionFilter` — checks key, replays or caches response |
 | Application | `Common/Contracts/IIdempotencyStore.cs` | Interface for key-value cache |
-| Infrastructure | `Idempotency/DistributedCacheIdempotencyStore.cs` | Implementation backed by `IDistributedCache` (DragonFly in prod, in-memory in tests) |
+| Infrastructure | `Idempotency/DistributedCacheIdempotencyStore.cs` | Implementation backed by `IConnectionMultiplexer`/Redis (DragonFly in prod, in-memory fallback) |
 
 ### How to apply to your own endpoints
 
@@ -516,7 +516,7 @@ public async Task<ActionResult<OrderResponse>> CreateOrder(CreateOrderRequest re
 
 ### Key implementation details
 - Cross-cutting concern implemented as a global `IAsyncActionFilter` — works on any endpoint marked with `[Idempotent]`
-- Storage uses `IDistributedCache` (DragonFly/Redis in production, in-memory in tests) — no DB table needed
+- Storage uses `IConnectionMultiplexer`/Redis (DragonFly in production, in-memory fallback) — no DB table needed
 - Only 2xx responses are cached — error responses can be retried
 - Concurrent requests with the same key are serialized via distributed locking
 - Cache key format: `idempotency:{key}`
@@ -659,9 +659,9 @@ Max payload: 1 MB
 | Scenario | HTTP Status | Description |
 |----------|-------------|-------------|
 | Valid signature | 200 OK | Payload enqueued for processing |
-| Invalid/missing signature | 401 Unauthorized | `EXA-0401-WEBHOOK` |
-| Missing headers | 401 Unauthorized | `EXA-0401-WEBHOOK-HDR` |
-| Expired timestamp | 401 Unauthorized | Timestamp older than tolerance (default 5 minutes) |
+| Invalid/missing signature | 401 Unauthorized | ProblemDetails with `EXA-0401-WEBHOOK` error code |
+| Missing headers | 401 Unauthorized | ProblemDetails with `EXA-0401-WEBHOOK-HDR` error code |
+| Expired timestamp | 401 Unauthorized | ProblemDetails with `EXA-0401-WEBHOOK` (timestamp older than tolerance, default 5 minutes) |
 
 ### Signature Verification
 
@@ -698,7 +698,7 @@ curl -X POST \
 |-------|------|------|
 | Api | `Controllers/V1/WebhooksController.cs` | `[AllowAnonymous]` + `[ValidateWebhookSignature]`, enqueues to background queue |
 | Api | `Filters/ValidateWebhookSignatureAttribute.cs` | Marker attribute |
-| Api | `Filters/WebhookSignatureActionFilter.cs` | `IAsyncActionFilter` — reads raw body, validates HMAC |
+| Api | `Filters/WebhookSignatureResourceFilter.cs` | `IAsyncResourceFilter` — reads raw body, validates HMAC |
 | Application | `Common/Contracts/IWebhookPayloadValidator.cs` | Signature validation interface |
 | Application | `Common/Options/WebhookOptions.cs` | Secret + timestamp tolerance |
 | Application | `Common/BackgroundJobs/IWebhookProcessingQueue.cs` | Queue interface |
@@ -719,7 +719,7 @@ curl -X POST \
 
 ### Key implementation details
 - `[AllowAnonymous]` — webhooks authenticate via HMAC, not JWT
-- Signature validation happens in an action filter before the controller runs
+- Signature validation happens in a resource filter before the controller runs
 - Constant-time comparison prevents timing attacks
 - Timestamp tolerance (default 5 min) prevents replay attacks
 - Payloads are processed asynchronously via `Channel<WebhookPayload>` — the controller returns 200 immediately
@@ -731,7 +731,7 @@ curl -X POST \
 
 These showcase endpoints add two tables:
 
-### `StoredFiles`
+### `ExampleFiles`
 
 Stores file upload metadata. The actual file bytes are on the local filesystem.
 

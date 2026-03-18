@@ -20,11 +20,11 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
         ActionExecutionDelegate next
     )
     {
-        var hasAttribute = context.ActionDescriptor.EndpointMetadata.Any(m =>
-            m is IdempotentAttribute
-        );
+        var attribute = context
+            .ActionDescriptor.EndpointMetadata.OfType<IdempotentAttribute>()
+            .FirstOrDefault();
 
-        if (!hasAttribute)
+        if (attribute is null)
         {
             await next();
             return;
@@ -52,13 +52,16 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
             return;
         }
 
-        var resultTtl = TimeSpan.FromHours(IdempotencyConstants.DefaultTtlHours);
-        var lockTimeout = TimeSpan.FromSeconds(IdempotencyConstants.LockTimeoutSeconds);
+        var resultTtl = TimeSpan.FromHours(attribute.TtlHours);
+        var lockTimeout = TimeSpan.FromSeconds(attribute.LockTimeoutSeconds);
         var ct = context.HttpContext.RequestAborted;
 
         var existing = await _store.TryGetAsync(key, ct);
         if (existing is not null)
         {
+            if (existing.LocationHeader is not null)
+                context.HttpContext.Response.Headers.Location = existing.LocationHeader;
+
             context.Result = new ContentResult
             {
                 StatusCode = existing.StatusCode,
@@ -93,13 +96,20 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
         )
         {
             var responseBody = objectResult.Value is not null
-                ? JsonSerializer.Serialize(objectResult.Value)
+                ? JsonSerializer.Serialize(objectResult.Value, JsonSerializerOptions.Web)
                 : null;
+
+            string? locationHeader = executedContext.Result switch
+            {
+                CreatedResult cr => cr.Location,
+                _ => null,
+            };
 
             var entry = new IdempotencyCacheEntry(
                 objectResult.StatusCode ?? 200,
                 responseBody,
-                MediaTypeNames.Application.Json
+                MediaTypeNames.Application.Json,
+                locationHeader
             );
 
             await _store.SetAsync(key, entry, resultTtl, ct);
