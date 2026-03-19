@@ -12,7 +12,7 @@ namespace APITemplate.Api.Controllers.V1;
 [Route("api/v{version:apiVersion}/webhooks")]
 /// <summary>
 /// Presentation-layer controller that receives inbound webhook payloads, validates the
-/// HMAC signature via <see cref="ValidateWebhookSignature"/>, and enqueues them for
+/// HMAC signature via <see cref="ValidateWebhookSignatureAttribute"/>, and enqueues them for
 /// asynchronous processing (max 1 MB).
 /// </summary>
 public sealed class WebhooksController : ControllerBase
