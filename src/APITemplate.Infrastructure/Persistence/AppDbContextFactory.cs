@@ -15,6 +15,10 @@ namespace APITemplate.Infrastructure.Persistence;
 /// </summary>
 public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
+    /// <summary>
+    /// Creates an <see cref="AppDbContext"/> with null-object collaborators so EF Core tooling
+    /// can scaffold and apply migrations without a running application host.
+    /// </summary>
     public AppDbContext CreateDbContext(string[] args)
     {
         var configuration = DesignTimeConfigurationHelper.BuildConfiguration();

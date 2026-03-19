@@ -10,6 +10,10 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
+/// <summary>
+/// Presentation-layer controller that exposes CRUD endpoints for product categories,
+/// including a stored-procedure-backed statistics query.
+/// </summary>
 public sealed class CategoriesController : ApiControllerBase
 {
     private readonly ISender _sender;
@@ -19,6 +23,9 @@ public sealed class CategoriesController : ApiControllerBase
         _sender = sender;
     }
 
+    /// <summary>
+    /// Returns a paginated, filterable list of categories from the output cache.
+    /// </summary>
     [HttpGet]
     [RequirePermission(Permission.Categories.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Categories)]
@@ -31,6 +38,7 @@ public sealed class CategoriesController : ApiControllerBase
         return Ok(categories);
     }
 
+    /// <summary>Returns a single category by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Categories.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Categories)]
@@ -40,6 +48,7 @@ public sealed class CategoriesController : ApiControllerBase
         return OkOrNotFound(category);
     }
 
+    /// <summary>Creates a new category and returns it with a 201 Location header.</summary>
     [HttpPost]
     [RequirePermission(Permission.Categories.Create)]
     public async Task<ActionResult<CategoryResponse>> Create(
@@ -51,6 +60,7 @@ public sealed class CategoriesController : ApiControllerBase
         return CreatedAtGetById(category, category.Id);
     }
 
+    /// <summary>Replaces all mutable fields of an existing category.</summary>
     [HttpPut("{id:guid}")]
     [RequirePermission(Permission.Categories.Update)]
     public async Task<IActionResult> Update(
@@ -63,6 +73,7 @@ public sealed class CategoriesController : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>Soft-deletes a category by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.Categories.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)

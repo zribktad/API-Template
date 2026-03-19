@@ -6,6 +6,11 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Infrastructure.Webhooks;
 
+/// <summary>
+/// Validates incoming webhook payloads by recomputing the HMAC-SHA256 signature and
+/// verifying it against the received signature using constant-time comparison, with a
+/// configurable timestamp tolerance window to prevent replay attacks.
+/// </summary>
 public sealed class HmacWebhookPayloadValidator : IWebhookPayloadValidator
 {
     private readonly byte[] _keyBytes;
@@ -19,6 +24,10 @@ public sealed class HmacWebhookPayloadValidator : IWebhookPayloadValidator
         _timeProvider = timeProvider;
     }
 
+    /// <summary>
+    /// Returns <c>true</c> when the <paramref name="timestamp"/> is within the configured tolerance,
+    /// the <paramref name="signature"/> is valid hex, and the recomputed HMAC matches via constant-time comparison.
+    /// </summary>
     public bool IsValid(string payload, string signature, string timestamp)
     {
         if (!long.TryParse(timestamp, out var unixSeconds))

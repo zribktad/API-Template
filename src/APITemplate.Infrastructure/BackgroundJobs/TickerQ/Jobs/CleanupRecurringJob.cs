@@ -7,6 +7,11 @@ using TickerQ.Utilities.Base;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.TickerQ.Jobs;
 
+/// <summary>
+/// TickerQ recurring job that orchestrates all data-hygiene cleanup tasks (expired invitations,
+/// soft-deleted records, orphaned MongoDB documents) through <see cref="ICleanupService"/>.
+/// Execution is gated by <see cref="IDistributedJobCoordinator"/> to prevent multi-node duplication.
+/// </summary>
 public sealed class CleanupRecurringJob
 {
     private readonly ICleanupService _cleanupService;
@@ -27,6 +32,10 @@ public sealed class CleanupRecurringJob
         _logger = logger;
     }
 
+    /// <summary>
+    /// TickerQ entry-point that acquires the distributed leader lease and sequentially runs
+    /// all three cleanup operations defined in <see cref="CleanupJobOptions"/>.
+    /// </summary>
     [TickerFunction(TickerQFunctionNames.Cleanup)]
     public Task ExecuteAsync(TickerFunctionContext context, CancellationToken ct) =>
         _coordinator.ExecuteIfLeaderAsync(

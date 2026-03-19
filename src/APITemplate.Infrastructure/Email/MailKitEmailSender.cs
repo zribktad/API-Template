@@ -7,6 +7,10 @@ using MimeKit;
 
 namespace APITemplate.Infrastructure.Email;
 
+/// <summary>
+/// Infrastructure implementation of <see cref="IEmailSender"/> that delivers email over SMTP
+/// using MailKit, with optional authentication and TLS controlled by <see cref="EmailOptions"/>.
+/// </summary>
 public sealed class MailKitEmailSender : IEmailSender
 {
     private readonly EmailOptions _options;
@@ -18,6 +22,10 @@ public sealed class MailKitEmailSender : IEmailSender
         _logger = logger;
     }
 
+    /// <summary>
+    /// Builds a MIME message, connects and optionally authenticates against the configured SMTP server,
+    /// sends the message, and disconnects cleanly before returning.
+    /// </summary>
     public async Task SendAsync(EmailMessage message, CancellationToken ct = default)
     {
         var mimeMessage = new MimeMessage();

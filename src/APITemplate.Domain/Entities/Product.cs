@@ -4,8 +4,7 @@ namespace APITemplate.Domain.Entities;
 /// Core domain entity representing a product in the catalog.
 /// This is the aggregate root - all business rules around products start here.
 /// </summary>
-public sealed class Product
-    : IAuditableTenantEntity
+public sealed class Product : IAuditableTenantEntity
 {
     /// <summary>Unique identifier generated when the product is created.</summary>
     public Guid Id { get; set; }
@@ -14,9 +13,10 @@ public sealed class Product
     public required string Name
     {
         get => field;
-        set => field = string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException("Product name cannot be empty.", nameof(Name))
-            : value.Trim();
+        set =>
+            field = string.IsNullOrWhiteSpace(value)
+                ? throw new ArgumentException("Product name cannot be empty.", nameof(Name))
+                : value.Trim();
     }
 
     /// <summary>Optional longer description of the product.</summary>
@@ -26,9 +26,14 @@ public sealed class Product
     public decimal Price
     {
         get => field;
-        set => field = value >= 0
-            ? value
-            : throw new ArgumentOutOfRangeException(nameof(Price), "Price must be greater than or equal to zero.");
+        set =>
+            field =
+                value >= 0
+                    ? value
+                    : throw new ArgumentOutOfRangeException(
+                        nameof(Price),
+                        "Price must be greater than or equal to zero."
+                    );
     }
 
     public Guid? CategoryId { get; set; }
@@ -45,6 +50,9 @@ public sealed class Product
     public DateTime? DeletedAtUtc { get; set; }
     public Guid? DeletedBy { get; set; }
 
+    /// <summary>
+    /// Atomically replaces all mutable product fields in a single call, enforcing property-level invariants.
+    /// </summary>
     public void UpdateDetails(string name, string? description, decimal price, Guid? categoryId)
     {
         Name = name;
@@ -53,12 +61,23 @@ public sealed class Product
         CategoryId = categoryId;
     }
 
-    public void SyncProductDataLinks(IReadOnlyCollection<Guid> productDataIds, IReadOnlyCollection<ProductDataLink> allLinks)
+    /// <summary>
+    /// Reconciles the product's <see cref="ProductDataLinks"/> collection against the desired set of <paramref name="productDataIds"/>.
+    /// Removes links not in the target set, restores soft-deleted links that reappear, and creates new links as needed.
+    /// </summary>
+    public void SyncProductDataLinks(
+        IReadOnlyCollection<Guid> productDataIds,
+        IReadOnlyCollection<ProductDataLink> allLinks
+    )
     {
         var targetIds = productDataIds.ToHashSet();
         var existingById = allLinks.ToDictionary(link => link.ProductDataId);
 
-        foreach (var link in ProductDataLinks.Where(link => !targetIds.Contains(link.ProductDataId)).ToArray())
+        foreach (
+            var link in ProductDataLinks
+                .Where(link => !targetIds.Contains(link.ProductDataId))
+                .ToArray()
+        )
             ProductDataLinks.Remove(link);
 
         foreach (var productDataId in productDataIds)
@@ -77,6 +96,9 @@ public sealed class Product
         }
     }
 
+    /// <summary>
+    /// Removes all current product data links from the in-memory collection, preparing them for soft-delete by the persistence layer.
+    /// </summary>
     public void SoftDeleteProductDataLinks()
     {
         foreach (var link in ProductDataLinks.ToArray())

@@ -4,6 +4,9 @@ using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product.Specifications;
 
+/// <summary>
+/// Ardalis specification that applies the full product filter, sorting, pagination, and projection to produce the paged <see cref="ProductResponse"/> list.
+/// </summary>
 public sealed class ProductSpecification : Specification<ProductEntity, ProductResponse>
 {
     public ProductSpecification(ProductFilter filter)

@@ -5,6 +5,11 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Infrastructure.FileStorage;
 
+/// <summary>
+/// Infrastructure implementation of <see cref="IFileStorageService"/> that persists files to the
+/// local file system under a tenant-scoped subdirectory within the configured base path.
+/// All path operations include path-traversal validation to prevent directory escape attacks.
+/// </summary>
 public sealed class LocalFileStorageService : IFileStorageService
 {
     private readonly FileStorageOptions _options;
@@ -19,6 +24,10 @@ public sealed class LocalFileStorageService : IFileStorageService
         _tenantProvider = tenantProvider;
     }
 
+    /// <summary>
+    /// Saves <paramref name="fileStream"/> to the tenant directory using a UUID-based file name
+    /// that retains the original extension, validates the resolved path, and returns the storage path and size.
+    /// </summary>
     public async Task<FileStorageResult> SaveAsync(
         Stream fileStream,
         string fileName,
@@ -53,6 +62,7 @@ public sealed class LocalFileStorageService : IFileStorageService
         return new FileStorageResult(storagePath, sizeBytes);
     }
 
+    /// <summary>Opens the file at <paramref name="storagePath"/> for reading after path validation; returns <see langword="null"/> if the file does not exist.</summary>
     public Task<Stream?> OpenReadAsync(string storagePath, CancellationToken ct = default)
     {
         ValidatePathWithinBasePath(storagePath);
@@ -72,6 +82,7 @@ public sealed class LocalFileStorageService : IFileStorageService
         );
     }
 
+    /// <summary>Deletes the file at <paramref name="storagePath"/> after path validation; silently succeeds if the file does not exist.</summary>
     public Task DeleteAsync(string storagePath, CancellationToken ct = default)
     {
         ValidatePathWithinBasePath(storagePath);
@@ -82,6 +93,10 @@ public sealed class LocalFileStorageService : IFileStorageService
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Throws <see cref="UnauthorizedAccessException"/> if the fully resolved <paramref name="path"/>
+    /// does not reside within the configured base path, preventing path-traversal attacks.
+    /// </summary>
     private void ValidatePathWithinBasePath(string path)
     {
         var fullPath = Path.GetFullPath(path);

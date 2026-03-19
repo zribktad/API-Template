@@ -4,8 +4,12 @@ using CategoryEntity = APITemplate.Domain.Entities.Category;
 
 namespace APITemplate.Application.Features.Category.Specifications;
 
+/// <summary>
+/// Ardalis specification for querying a paginated, filtered, and sorted list of categories projected to <see cref="CategoryResponse"/>.
+/// </summary>
 public sealed class CategorySpecification : Specification<CategoryEntity, CategoryResponse>
 {
+    /// <summary>Initialises the specification by applying filter, sort, projection, and pagination from <paramref name="filter"/>.</summary>
     public CategorySpecification(CategoryFilter filter)
     {
         Query.ApplyFilter(filter);

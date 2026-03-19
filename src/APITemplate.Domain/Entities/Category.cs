@@ -1,5 +1,9 @@
 namespace APITemplate.Domain.Entities;
 
+/// <summary>
+/// Domain entity representing a product category within a tenant.
+/// Acts as an aggregate root that groups related <see cref="Product"/> entities.
+/// </summary>
 public sealed class Category : IAuditableTenantEntity
 {
     public Guid Id { get; set; }
@@ -7,9 +11,10 @@ public sealed class Category : IAuditableTenantEntity
     public required string Name
     {
         get => field;
-        set => field = string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException("Category name cannot be empty.", nameof(Name))
-            : value.Trim();
+        set =>
+            field = string.IsNullOrWhiteSpace(value)
+                ? throw new ArgumentException("Category name cannot be empty.", nameof(Name))
+                : value.Trim();
     }
 
     public string? Description { get; set; }

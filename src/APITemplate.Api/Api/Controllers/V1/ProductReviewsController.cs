@@ -10,6 +10,10 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
+/// <summary>
+/// Presentation-layer controller that exposes CRUD endpoints for product reviews,
+/// with output-cache support and a dedicated by-product lookup endpoint.
+/// </summary>
 public sealed class ProductReviewsController : ApiControllerBase
 {
     private readonly ISender _sender;
@@ -19,6 +23,7 @@ public sealed class ProductReviewsController : ApiControllerBase
         _sender = sender;
     }
 
+    /// <summary>Returns a paginated, filterable list of product reviews.</summary>
     [HttpGet]
     [RequirePermission(Permission.ProductReviews.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Reviews)]
@@ -31,6 +36,7 @@ public sealed class ProductReviewsController : ApiControllerBase
         return Ok(reviews);
     }
 
+    /// <summary>Returns a single product review by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.ProductReviews.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Reviews)]
@@ -40,6 +46,7 @@ public sealed class ProductReviewsController : ApiControllerBase
         return OkOrNotFound(review);
     }
 
+    /// <summary>Returns all reviews for the specified product.</summary>
     [HttpGet("by-product/{productId:guid}")]
     [RequirePermission(Permission.ProductReviews.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Reviews)]
@@ -52,6 +59,7 @@ public sealed class ProductReviewsController : ApiControllerBase
         return Ok(reviews);
     }
 
+    /// <summary>Creates a new product review and returns it with a 201 Location header.</summary>
     [HttpPost]
     [RequirePermission(Permission.ProductReviews.Create)]
     public async Task<ActionResult<ProductReviewResponse>> Create(
@@ -63,6 +71,7 @@ public sealed class ProductReviewsController : ApiControllerBase
         return CreatedAtGetById(review, review.Id);
     }
 
+    /// <summary>Deletes a product review by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.ProductReviews.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)

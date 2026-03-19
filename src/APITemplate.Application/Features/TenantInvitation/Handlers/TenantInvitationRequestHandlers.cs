@@ -17,18 +17,37 @@ using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
 
 namespace APITemplate.Application.Features.TenantInvitation;
 
+/// <summary>
+/// MediatR command that creates a new tenant invitation for the specified email address.
+/// </summary>
 public sealed record CreateTenantInvitationCommand(CreateTenantInvitationRequest Request)
     : IRequest<TenantInvitationResponse>;
 
+/// <summary>
+/// MediatR command that accepts a pending invitation using the raw secure token from the invitation email.
+/// </summary>
 public sealed record AcceptTenantInvitationCommand(string Token) : IRequest;
 
+/// <summary>
+/// MediatR command that revokes a pending invitation, preventing it from being accepted.
+/// </summary>
 public sealed record RevokeTenantInvitationCommand(Guid InvitationId) : IRequest;
 
+/// <summary>
+/// MediatR command that re-sends the invitation email for an existing pending, non-expired invitation, rotating its token.
+/// </summary>
 public sealed record ResendTenantInvitationCommand(Guid InvitationId) : IRequest;
 
+/// <summary>
+/// MediatR query that retrieves a paginated, filtered list of tenant invitations.
+/// </summary>
 public sealed record GetTenantInvitationsQuery(TenantInvitationFilter Filter)
     : IRequest<PagedResponse<TenantInvitationResponse>>;
 
+/// <summary>
+/// Application-layer handler that processes all tenant-invitation MediatR requests and commands.
+/// Coordinates repository access, token generation, unit-of-work commits, and domain-event publication.
+/// </summary>
 public sealed class TenantInvitationRequestHandlers
     : IRequestHandler<CreateTenantInvitationCommand, TenantInvitationResponse>,
         IRequestHandler<AcceptTenantInvitationCommand>,
@@ -69,6 +88,9 @@ public sealed class TenantInvitationRequestHandlers
         _logger = logger;
     }
 
+    /// <summary>
+    /// Returns a paginated list of tenant invitations that match the filter criteria.
+    /// </summary>
     public async Task<PagedResponse<TenantInvitationResponse>> Handle(
         GetTenantInvitationsQuery request,
         CancellationToken ct
@@ -83,6 +105,11 @@ public sealed class TenantInvitationRequestHandlers
         );
     }
 
+    /// <summary>
+    /// Creates and persists a new invitation, then publishes a notification email event.
+    /// Throws <see cref="Domain.Exceptions.ConflictException"/> if a pending invitation already exists for the email.
+    /// Notification failures are swallowed and logged so the invitation record is still returned.
+    /// </summary>
     public async Task<TenantInvitationResponse> Handle(
         CreateTenantInvitationCommand command,
         CancellationToken ct
@@ -144,6 +171,9 @@ public sealed class TenantInvitationRequestHandlers
         return invitation.ToResponse();
     }
 
+    /// <summary>
+    /// Validates the token, checks expiry and current status, then marks the invitation as accepted.
+    /// </summary>
     public async Task Handle(AcceptTenantInvitationCommand command, CancellationToken ct)
     {
         var tokenHash = _tokenGenerator.HashToken(command.Token);
@@ -175,6 +205,9 @@ public sealed class TenantInvitationRequestHandlers
         await _publisher.Publish(new TenantInvitationsChangedNotification(), ct);
     }
 
+    /// <summary>
+    /// Sets the invitation status to <c>Revoked</c> and persists the change.
+    /// </summary>
     public async Task Handle(RevokeTenantInvitationCommand command, CancellationToken ct)
     {
         var invitation = await _invitationRepository.GetByIdOrThrowAsync(
@@ -190,6 +223,9 @@ public sealed class TenantInvitationRequestHandlers
         await _publisher.Publish(new TenantInvitationsChangedNotification(), ct);
     }
 
+    /// <summary>
+    /// Rotates the invitation token and re-publishes the invitation email notification for a pending, non-expired invitation.
+    /// </summary>
     public async Task Handle(ResendTenantInvitationCommand command, CancellationToken ct)
     {
         var invitation = await _invitationRepository.GetByIdOrThrowAsync(

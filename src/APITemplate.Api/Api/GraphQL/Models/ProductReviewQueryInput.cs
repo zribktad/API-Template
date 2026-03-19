@@ -1,5 +1,9 @@
 namespace APITemplate.Api.GraphQL.Models;
 
+/// <summary>
+/// GraphQL input type for querying product reviews, supporting filters by product,
+/// user, rating range, date range, sorting, and pagination.
+/// </summary>
 public sealed class ProductReviewQueryInput
 {
     public Guid? ProductId { get; init; }

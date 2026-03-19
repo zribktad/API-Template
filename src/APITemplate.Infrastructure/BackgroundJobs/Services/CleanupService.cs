@@ -8,6 +8,10 @@ using MongoDB.Driver;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.Services;
 
+/// <summary>
+/// Infrastructure implementation of <see cref="ICleanupService"/> that performs
+/// scheduled data-hygiene tasks: expired invitations, soft-deleted records, and orphaned MongoDB documents.
+/// </summary>
 public sealed class CleanupService : ICleanupService
 {
     private readonly AppDbContext _dbContext;
@@ -31,6 +35,10 @@ public sealed class CleanupService : ICleanupService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Permanently deletes pending tenant invitations whose expiry timestamp is older than
+    /// <paramref name="retentionHours"/> hours, processed in batches of <paramref name="batchSize"/>.
+    /// </summary>
     public async Task CleanupExpiredInvitationsAsync(
         int retentionHours,
         int batchSize,
@@ -59,6 +67,10 @@ public sealed class CleanupService : ICleanupService
         }
     }
 
+    /// <summary>
+    /// Delegates to every registered <see cref="ISoftDeleteCleanupStrategy"/> to hard-delete
+    /// soft-deleted records older than <paramref name="retentionDays"/> days.
+    /// </summary>
     public async Task CleanupSoftDeletedRecordsAsync(
         int retentionDays,
         int batchSize,

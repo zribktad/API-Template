@@ -16,6 +16,10 @@ namespace APITemplate.Api.Cache;
 /// </remarks>
 public sealed class TenantAwareOutputCachePolicy : IOutputCachePolicy
 {
+    /// <summary>
+    /// Enables output caching for GET/HEAD requests and segments the cache key by tenant ID.
+    /// Non-GET/HEAD requests are skipped without side-effects.
+    /// </summary>
     public ValueTask CacheRequestAsync(
         OutputCacheContext context,
         CancellationToken cancellationToken
@@ -41,6 +45,7 @@ public sealed class TenantAwareOutputCachePolicy : IOutputCachePolicy
         return ValueTask.CompletedTask;
     }
 
+    /// <summary>Records a cache-hit telemetry event when a cached response is served.</summary>
     public ValueTask ServeFromCacheAsync(
         OutputCacheContext context,
         CancellationToken cancellationToken
@@ -50,6 +55,7 @@ public sealed class TenantAwareOutputCachePolicy : IOutputCachePolicy
         return ValueTask.CompletedTask;
     }
 
+    /// <summary>Records the response outcome telemetry when a fresh response is written to the cache.</summary>
     public ValueTask ServeResponseAsync(
         OutputCacheContext context,
         CancellationToken cancellationToken

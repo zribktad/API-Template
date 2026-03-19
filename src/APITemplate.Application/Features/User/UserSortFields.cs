@@ -3,6 +3,9 @@ using APITemplate.Domain.Entities;
 
 namespace APITemplate.Application.Features.User;
 
+/// <summary>
+/// Defines the sortable fields available for user queries and maps them to entity property expressions.
+/// </summary>
 public static class UserSortFields
 {
     public static readonly SortField Username = new("username");

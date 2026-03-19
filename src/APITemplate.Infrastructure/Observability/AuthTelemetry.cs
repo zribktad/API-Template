@@ -5,6 +5,10 @@ using Microsoft.AspNetCore.Http;
 
 namespace APITemplate.Infrastructure.Observability;
 
+/// <summary>
+/// Static facade for authentication-related telemetry, recording metric counters and
+/// diagnostic activities for common auth failure scenarios in both JWT Bearer and BFF cookie flows.
+/// </summary>
 public static class AuthTelemetry
 {
     private static readonly ActivitySource ActivitySource = new(
@@ -17,6 +21,7 @@ public static class AuthTelemetry
         description: "Authentication and BFF session failures grouped by scheme and reason."
     );
 
+    /// <summary>Records a failure caused by a missing tenant claim in the validated token.</summary>
     public static void RecordMissingTenantClaim(HttpContext httpContext, string scheme) =>
         RecordFailure(
             TelemetryActivityNames.TokenValidated,
@@ -25,6 +30,7 @@ public static class AuthTelemetry
             ResolveSurface(httpContext.Request.Path)
         );
 
+    /// <summary>Records a failure during the BFF cookie session refresh flow.</summary>
     public static void RecordCookieRefreshFailed(Exception? exception = null) =>
         RecordFailure(
             TelemetryActivityNames.CookieSessionRefresh,
@@ -34,6 +40,7 @@ public static class AuthTelemetry
             exception
         );
 
+    /// <summary>Records a failure because no refresh token was present in the cookie properties.</summary>
     public static void RecordMissingRefreshToken() =>
         RecordFailure(
             TelemetryActivityNames.CookieSessionRefresh,
@@ -42,6 +49,7 @@ public static class AuthTelemetry
             TelemetrySurfaces.Bff
         );
 
+    /// <summary>Records a failure because the Keycloak token endpoint returned a non-success response.</summary>
     public static void RecordTokenEndpointRejected() =>
         RecordFailure(
             TelemetryActivityNames.CookieSessionRefresh,
@@ -50,6 +58,7 @@ public static class AuthTelemetry
             TelemetrySurfaces.Bff
         );
 
+    /// <summary>Records a failure caused by an unhandled exception during token refresh.</summary>
     public static void RecordTokenRefreshException(Exception exception) =>
         RecordFailure(
             TelemetryActivityNames.CookieSessionRefresh,
@@ -59,6 +68,7 @@ public static class AuthTelemetry
             exception
         );
 
+    /// <summary>Records an unauthorized redirect-to-login event in the BFF cookie scheme.</summary>
     public static void RecordUnauthorizedRedirect() =>
         RecordFailure(
             TelemetryActivityNames.RedirectToLogin,

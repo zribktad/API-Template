@@ -11,7 +11,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/sse")]
+/// <summary>
+/// Presentation-layer controller that demonstrates Server-Sent Events (SSE) by streaming
+/// notifications as newline-delimited JSON over a persistent HTTP connection.
+/// </summary>
 public sealed class SseController : ApiControllerBase
 {
     private const string EventStreamContentType = "text/event-stream";
@@ -23,6 +26,10 @@ public sealed class SseController : ApiControllerBase
 
     public SseController(ISender sender) => _sender = sender;
 
+    /// <summary>
+    /// Sets SSE response headers and then iterates an async notification stream, writing each
+    /// item as a <c>data: &lt;json&gt;\n\n</c> frame and flushing immediately for low latency.
+    /// </summary>
     [HttpGet("stream")]
     [RequirePermission(Permission.Examples.Read)]
     public async Task Stream([FromQuery] SseStreamRequest request, CancellationToken ct = default)

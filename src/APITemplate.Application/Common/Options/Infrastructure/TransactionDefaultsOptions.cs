@@ -3,6 +3,10 @@ using APITemplate.Domain.Options;
 
 namespace APITemplate.Application.Common.Options.Infrastructure;
 
+/// <summary>
+/// Application-level defaults for database transaction settings that can be overridden per call site.
+/// Consumed by infrastructure components to build consistent <see cref="APITemplate.Domain.Options.TransactionOptions"/> instances.
+/// </summary>
 public sealed class TransactionDefaultsOptions
 {
     public IsolationLevel IsolationLevel { get; set; } = IsolationLevel.ReadCommitted;
@@ -35,16 +39,23 @@ public sealed class TransactionDefaultsOptions
             TimeoutSeconds = overrides?.TimeoutSeconds ?? TimeoutSeconds,
             RetryEnabled = overrides?.RetryEnabled ?? RetryEnabled,
             RetryCount = overrides?.RetryCount ?? RetryCount,
-            RetryDelaySeconds = overrides?.RetryDelaySeconds ?? RetryDelaySeconds
+            RetryDelaySeconds = overrides?.RetryDelaySeconds ?? RetryDelaySeconds,
         };
 
         ValidateNonNegative(resolved.TimeoutSeconds, nameof(TransactionOptions.TimeoutSeconds));
         ValidateNonNegative(resolved.RetryCount, nameof(TransactionOptions.RetryCount));
-        ValidateNonNegative(resolved.RetryDelaySeconds, nameof(TransactionOptions.RetryDelaySeconds));
+        ValidateNonNegative(
+            resolved.RetryDelaySeconds,
+            nameof(TransactionOptions.RetryDelaySeconds)
+        );
 
         return resolved;
     }
 
+    /// <summary>
+    /// Throws <see cref="ArgumentOutOfRangeException"/> when the given integer value is negative,
+    /// enforcing that transaction numeric settings are always non-negative.
+    /// </summary>
     private static void ValidateNonNegative(int? value, string parameterName)
     {
         if (value < 0)
@@ -52,7 +63,8 @@ public sealed class TransactionDefaultsOptions
             throw new ArgumentOutOfRangeException(
                 parameterName,
                 value,
-                $"{parameterName} cannot be negative.");
+                $"{parameterName} cannot be negative."
+            );
         }
     }
 }

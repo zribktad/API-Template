@@ -1,5 +1,9 @@
 namespace APITemplate.Application.Common.Options.Infrastructure;
 
+/// <summary>
+/// Configuration for the outbound SMTP email service, including connection settings, sender identity,
+/// and retry behaviour.
+/// </summary>
 public sealed class EmailOptions
 {
     public string SmtpHost { get; set; } = "localhost";

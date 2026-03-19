@@ -21,8 +21,16 @@ using Polly;
 
 namespace APITemplate.Api.Extensions;
 
+/// <summary>
+/// Presentation-layer extension class that registers EF Core (PostgreSQL), MongoDB, and all
+/// related repository, auditing, soft-delete, and startup seeding services.
+/// </summary>
 public static class PersistenceServiceCollectionExtensions
 {
+    /// <summary>
+    /// Configures <see cref="AppDbContext"/>, registers all repository and infrastructure
+    /// services, and adds a PostgreSQL health check.
+    /// </summary>
     public static IServiceCollection AddPersistence(
         this IServiceCollection services,
         IConfiguration configuration
@@ -78,6 +86,10 @@ public static class PersistenceServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Applies the Npgsql provider to the given <see cref="DbContextOptionsBuilder"/>; exposed
+    /// internally so integration tests can reuse the same configuration logic.
+    /// </summary>
     internal static void ConfigurePostgresDbContext(
         DbContextOptionsBuilder options,
         string connectionString
@@ -86,6 +98,10 @@ public static class PersistenceServiceCollectionExtensions
         options.UseNpgsql(connectionString);
     }
 
+    /// <summary>
+    /// Registers the MongoDB context, product-data repository, a Polly retry pipeline for
+    /// delete operations, the Kot.MongoDB.Migrations migrator, and a MongoDB health check.
+    /// </summary>
     public static IServiceCollection AddMongoDB(
         this IServiceCollection services,
         IConfiguration configuration

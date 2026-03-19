@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace APITemplate.Infrastructure.Persistence.Configurations;
 
+/// <summary>EF Core configuration for the <see cref="TenantInvitation"/> entity, including token hash and normalized email indexes.</summary>
 public sealed class TenantInvitationConfiguration : IEntityTypeConfiguration<TenantInvitation>
 {
     public void Configure(EntityTypeBuilder<TenantInvitation> builder)

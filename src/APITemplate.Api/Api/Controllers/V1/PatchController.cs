@@ -10,13 +10,20 @@ using SystemTextJsonPatch;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/patch")]
+/// <summary>
+/// Presentation-layer controller that demonstrates JSON Patch (RFC 6902) support
+/// for partial product updates using <c>SystemTextJsonPatch</c>.
+/// </summary>
 public sealed class PatchController : ApiControllerBase
 {
     private readonly ISender _sender;
 
     public PatchController(ISender sender) => _sender = sender;
 
+    /// <summary>
+    /// Applies a JSON Patch document to the specified product by passing an apply-delegate
+    /// to the application layer, which mutates the DTO before persisting.
+    /// </summary>
     [HttpPatch("products/{id:guid}")]
     [RequirePermission(Permission.Examples.Update)]
     public async Task<ActionResult<ProductResponse>> PatchProduct(

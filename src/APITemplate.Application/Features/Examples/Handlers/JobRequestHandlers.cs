@@ -8,10 +8,15 @@ using MediatR;
 
 namespace APITemplate.Application.Features.Examples.Handlers;
 
+/// <summary>Enqueues a new background job described by the inner <see cref="SubmitJobRequest"/>.</summary>
 public sealed record SubmitJobCommand(SubmitJobRequest Request) : IRequest<JobStatusResponse>;
 
+/// <summary>Retrieves the current execution status for the job identified inside <see cref="GetJobStatusRequest"/>.</summary>
 public sealed record GetJobStatusQuery(GetJobStatusRequest Request) : IRequest<JobStatusResponse?>;
 
+/// <summary>
+/// Application-layer handler that creates and persists a <c>JobExecution</c> entity, enqueues it for background processing after the transaction commits, and serves status-poll queries.
+/// </summary>
 public sealed class JobRequestHandlers
     : IRequestHandler<SubmitJobCommand, JobStatusResponse>,
         IRequestHandler<GetJobStatusQuery, JobStatusResponse?>
@@ -34,6 +39,7 @@ public sealed class JobRequestHandlers
         _timeProvider = timeProvider;
     }
 
+    /// <summary>Persists the job entity in a transaction and enqueues it after commit so the processor can always find the record.</summary>
     public async Task<JobStatusResponse> Handle(SubmitJobCommand command, CancellationToken ct)
     {
         var entity = new JobExecution
@@ -59,12 +65,14 @@ public sealed class JobRequestHandlers
         return MapToResponse(entity);
     }
 
+    /// <summary>Returns the current job status, or <see langword="null"/> if no job with the given ID exists.</summary>
     public async Task<JobStatusResponse?> Handle(GetJobStatusQuery query, CancellationToken ct)
     {
         var entity = await _repository.GetByIdAsync(query.Request.Id, ct);
         return entity is null ? null : MapToResponse(entity);
     }
 
+    /// <summary>Projects a <c>JobExecution</c> entity to its response DTO.</summary>
     private static JobStatusResponse MapToResponse(JobExecution entity) =>
         new(
             entity.Id,

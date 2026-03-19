@@ -2,8 +2,13 @@ using System.Reflection;
 
 namespace APITemplate.Application.Common.Security;
 
+/// <summary>
+/// Centralised registry of all fine-grained permission string constants used throughout the application.
+/// Nested classes group permissions by domain resource; <see cref="All"/> enumerates every declared permission via reflection.
+/// </summary>
 public static class Permission
 {
+    /// <summary>Permissions governing product resource access.</summary>
     public static class Products
     {
         public const string Read = "Products.Read";
@@ -12,6 +17,7 @@ public static class Permission
         public const string Delete = "Products.Delete";
     }
 
+    /// <summary>Permissions governing category resource access.</summary>
     public static class Categories
     {
         public const string Read = "Categories.Read";
@@ -20,6 +26,7 @@ public static class Permission
         public const string Delete = "Categories.Delete";
     }
 
+    /// <summary>Permissions governing product review resource access.</summary>
     public static class ProductReviews
     {
         public const string Read = "ProductReviews.Read";
@@ -27,6 +34,7 @@ public static class Permission
         public const string Delete = "ProductReviews.Delete";
     }
 
+    /// <summary>Permissions governing supplementary product data resource access.</summary>
     public static class ProductData
     {
         public const string Read = "ProductData.Read";
@@ -34,6 +42,7 @@ public static class Permission
         public const string Delete = "ProductData.Delete";
     }
 
+    /// <summary>Permissions governing user account resource access.</summary>
     public static class Users
     {
         public const string Read = "Users.Read";
@@ -42,6 +51,7 @@ public static class Permission
         public const string Delete = "Users.Delete";
     }
 
+    /// <summary>Permissions governing tenant resource access.</summary>
     public static class Tenants
     {
         public const string Read = "Tenants.Read";
@@ -49,6 +59,7 @@ public static class Permission
         public const string Delete = "Tenants.Delete";
     }
 
+    /// <summary>Permissions governing tenant invitation resource access.</summary>
     public static class Invitations
     {
         public const string Read = "Invitations.Read";
@@ -56,6 +67,7 @@ public static class Permission
         public const string Revoke = "Invitations.Revoke";
     }
 
+    /// <summary>Permissions governing example/showcase endpoint access.</summary>
     public static class Examples
     {
         public const string Read = "Examples.Read";
@@ -94,5 +106,9 @@ public static class Permission
         return permissions;
     });
 
+    /// <summary>
+    /// Returns a lazily-initialised, read-only set containing every permission constant declared
+    /// across all nested resource classes, discovered via reflection.
+    /// </summary>
     public static IReadOnlySet<string> All => LazyAll.Value;
 }

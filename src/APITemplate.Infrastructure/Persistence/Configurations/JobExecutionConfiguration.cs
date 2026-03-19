@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace APITemplate.Infrastructure.Persistence.Configurations;
 
+/// <summary>EF Core configuration for the <see cref="JobExecution"/> entity, including a progress check constraint and status index.</summary>
 public sealed class JobExecutionConfiguration : IEntityTypeConfiguration<JobExecution>
 {
     public void Configure(EntityTypeBuilder<JobExecution> builder)

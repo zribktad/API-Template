@@ -6,6 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace APITemplate.Infrastructure.Repositories;
 
+/// <summary>
+/// EF Core repository for <see cref="FailedEmail"/> that coordinates direct context access
+/// with stored-procedure-based batch claiming for concurrent retry processing.
+/// </summary>
 public sealed class FailedEmailRepository : IFailedEmailRepository
 {
     private readonly AppDbContext _dbContext;
@@ -17,12 +21,14 @@ public sealed class FailedEmailRepository : IFailedEmailRepository
         _executor = executor;
     }
 
+    /// <summary>Stages the failed email for insertion without flushing to the database.</summary>
     public Task AddAsync(FailedEmail failedEmail, CancellationToken ct = default)
     {
         _dbContext.FailedEmails.Add(failedEmail);
         return Task.CompletedTask;
     }
 
+    /// <summary>Atomically claims a batch of retryable failed emails via the <see cref="ClaimRetryableFailedEmailsProcedure"/> stored procedure.</summary>
     public async Task<List<FailedEmail>> ClaimRetryableBatchAsync(
         int maxRetryAttempts,
         int batchSize,
@@ -43,6 +49,7 @@ public sealed class FailedEmailRepository : IFailedEmailRepository
         return result.ToList();
     }
 
+    /// <summary>Atomically claims a batch of expired (dead-letter candidate) failed emails via the <see cref="ClaimExpiredFailedEmailsProcedure"/> stored procedure.</summary>
     public async Task<List<FailedEmail>> ClaimExpiredBatchAsync(
         DateTime cutoff,
         int batchSize,
@@ -63,12 +70,14 @@ public sealed class FailedEmailRepository : IFailedEmailRepository
         return result.ToList();
     }
 
+    /// <summary>Stages an update for the failed email without flushing to the database.</summary>
     public Task UpdateAsync(FailedEmail failedEmail, CancellationToken ct = default)
     {
         _dbContext.FailedEmails.Update(failedEmail);
         return Task.CompletedTask;
     }
 
+    /// <summary>Stages a hard delete (physical removal) for the failed email without flushing to the database.</summary>
     public Task DeleteAsync(FailedEmail failedEmail, CancellationToken ct = default)
     {
         _dbContext.FailedEmails.Remove(failedEmail);

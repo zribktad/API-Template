@@ -11,13 +11,20 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/idempotent")]
+/// <summary>
+/// Presentation-layer controller that demonstrates idempotent POST semantics using the
+/// <see cref="Idempotent"/> action filter to detect and short-circuit duplicate requests.
+/// </summary>
 public sealed class IdempotentController : ApiControllerBase
 {
     private readonly ISender _sender;
 
     public IdempotentController(ISender sender) => _sender = sender;
 
+    /// <summary>
+    /// Creates a resource idempotently; repeated requests with the same idempotency key
+    /// return the original response without re-executing the command.
+    /// </summary>
     [HttpPost]
     [Idempotent]
     [RequirePermission(Permission.Examples.Create)]

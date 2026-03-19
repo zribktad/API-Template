@@ -5,6 +5,11 @@ using TickerQ.Utilities.Base;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.TickerQ.Jobs;
 
+/// <summary>
+/// TickerQ recurring job that triggers synchronization with configured external integrations
+/// through <see cref="IExternalIntegrationSyncService"/>.
+/// Execution is gated by <see cref="IDistributedJobCoordinator"/> to prevent multi-node duplication.
+/// </summary>
 public sealed class ExternalSyncRecurringJob
 {
     private readonly IExternalIntegrationSyncService _syncService;
@@ -22,6 +27,7 @@ public sealed class ExternalSyncRecurringJob
         _logger = logger;
     }
 
+    /// <summary>TickerQ entry-point that acquires the distributed leader lease and invokes the sync service.</summary>
     [TickerFunction(TickerQFunctionNames.ExternalSync)]
     public Task ExecuteAsync(TickerFunctionContext context, CancellationToken ct) =>
         _coordinator.ExecuteIfLeaderAsync(

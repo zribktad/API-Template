@@ -1,5 +1,8 @@
 namespace APITemplate.Api.Cache;
 
+/// <summary>
+/// Centralizes the named output-cache and rate-limit policy identifiers used across the API layer.
+/// </summary>
 public static class CachePolicyNames
 {
     public const string Products = "Products";

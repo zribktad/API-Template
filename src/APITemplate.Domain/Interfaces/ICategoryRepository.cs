@@ -2,6 +2,9 @@ using APITemplate.Domain.Entities;
 
 namespace APITemplate.Domain.Interfaces;
 
+/// <summary>
+/// Repository contract for <see cref="Category"/> entities, extending the generic repository with category-specific queries.
+/// </summary>
 public interface ICategoryRepository : IRepository<Category>
 {
     /// <summary>

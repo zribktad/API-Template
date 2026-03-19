@@ -7,6 +7,11 @@ using TickerQ.Utilities.Base;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.TickerQ.Jobs;
 
+/// <summary>
+/// TickerQ recurring job that retries previously failed emails and dead-letters those that have
+/// exceeded the configured retry window, delegating to <see cref="IEmailRetryService"/>.
+/// Execution is gated by <see cref="IDistributedJobCoordinator"/> to prevent multi-node duplication.
+/// </summary>
 public sealed class EmailRetryRecurringJob
 {
     private readonly IEmailRetryService _emailRetryService;
@@ -27,6 +32,10 @@ public sealed class EmailRetryRecurringJob
         _logger = logger;
     }
 
+    /// <summary>
+    /// TickerQ entry-point that acquires the distributed leader lease and runs retry and
+    /// dead-letter operations using settings from <see cref="EmailRetryJobOptions"/>.
+    /// </summary>
     [TickerFunction(TickerQFunctionNames.EmailRetry)]
     public Task ExecuteAsync(TickerFunctionContext context, CancellationToken ct) =>
         _coordinator.ExecuteIfLeaderAsync(

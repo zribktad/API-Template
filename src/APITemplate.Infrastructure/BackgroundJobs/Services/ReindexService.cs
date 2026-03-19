@@ -7,6 +7,11 @@ using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.Services;
 
+/// <summary>
+/// Infrastructure implementation of <see cref="IReindexService"/> that rebuilds bloated
+/// PostgreSQL full-text search indexes using <c>REINDEX INDEX CONCURRENTLY</c>.
+/// Only indexes exceeding the configured bloat threshold are reindexed to minimise disruption.
+/// </summary>
 public sealed partial class ReindexService : IReindexService
 {
     private const double BloatThresholdPercent = 30.0;
@@ -75,6 +80,7 @@ public sealed partial class ReindexService : IReindexService
         }
     }
 
+    /// <summary>Queries the stored procedure for the bloat percentage of the named index.</summary>
     private async Task<double> GetIndexBloatPercentAsync(string indexName, CancellationToken ct)
     {
         var procedure = new GetIndexBloatPercentProcedure(indexName);

@@ -1,5 +1,6 @@
 namespace APITemplate.Infrastructure.Observability;
 
+/// <summary>Shared names for the application's OpenTelemetry activity source and meters.</summary>
 public static class ObservabilityConventions
 {
     public const string ActivitySourceName = "APITemplate";
@@ -7,6 +8,7 @@ public static class ObservabilityConventions
     public const string HealthMeterName = "APITemplate.Health";
 }
 
+/// <summary>Canonical metric instrument names emitted by the application meter.</summary>
 public static class TelemetryMetricNames
 {
     public const string RateLimitRejections = "apitemplate_rate_limit_rejections";
@@ -31,6 +33,7 @@ public static class TelemetryMetricNames
     public const string DomainConflicts = "apitemplate_domain_conflicts";
 }
 
+/// <summary>Canonical tag/attribute key names applied to metrics and traces.</summary>
 public static class TelemetryTagKeys
 {
     public const string ApiSurface = "apitemplate.api.surface";
@@ -63,6 +66,7 @@ public static class TelemetryTagKeys
     public const string ValidationProperty = "validation.property";
 }
 
+/// <summary>Canonical activity/span names recorded in the application activity source.</summary>
 public static class TelemetryActivityNames
 {
     public const string OutputCacheInvalidate = "output_cache.invalidate";
@@ -75,6 +79,7 @@ public static class TelemetryActivityNames
     public static string StoredProcedure(string operation) => $"stored_procedure.{operation}";
 }
 
+/// <summary>Well-known tag values representing cache outcome states.</summary>
 public static class TelemetryOutcomeValues
 {
     public const string Hit = "hit";
@@ -82,6 +87,7 @@ public static class TelemetryOutcomeValues
     public const string Bypass = "bypass";
 }
 
+/// <summary>Well-known tag values identifying the reason for an authentication failure.</summary>
 public static class TelemetryFailureReasons
 {
     public const string MissingRefreshToken = "missing_refresh_token";
@@ -92,6 +98,7 @@ public static class TelemetryFailureReasons
     public const string UnauthorizedRedirect = "unauthorized_redirect";
 }
 
+/// <summary>Well-known tag values that identify the API surface a request was served from.</summary>
 public static class TelemetrySurfaces
 {
     public const string Bff = "bff";
@@ -101,6 +108,7 @@ public static class TelemetrySurfaces
     public const string Rest = "rest";
 }
 
+/// <summary>Default fallback values used when a tag or setting cannot be resolved.</summary>
 public static class TelemetryDefaults
 {
     public const string AspireOtlpEndpoint = "http://localhost:4317";
@@ -109,11 +117,13 @@ public static class TelemetryDefaults
     public const string Unknown = "unknown";
 }
 
+/// <summary>Keys used to store transient telemetry values in <see cref="Microsoft.AspNetCore.Http.HttpContext.Items"/>.</summary>
 public static class TelemetryContextKeys
 {
     public const string OutputCachePolicyName = "OutputCachePolicyName";
 }
 
+/// <summary>URL path prefixes used to classify requests into API surface areas.</summary>
 public static class TelemetryPathPrefixes
 {
     public const string GraphQl = "/graphql";
@@ -122,6 +132,7 @@ public static class TelemetryPathPrefixes
     public const string Scalar = "/scalar";
 }
 
+/// <summary>Well-known tag values specific to GraphQL telemetry (phases and cost kinds).</summary>
 public static class TelemetryGraphQlValues
 {
     public const string FieldCostKind = "field";
@@ -132,6 +143,7 @@ public static class TelemetryGraphQlValues
     public const string ValidationPhase = "validation";
 }
 
+/// <summary>Well-known step names used to identify individual startup task activities.</summary>
 public static class TelemetryStartupSteps
 {
     public const string Migrate = "migrate";
@@ -139,6 +151,7 @@ public static class TelemetryStartupSteps
     public const string WaitKeycloakReady = "wait-keycloak-ready";
 }
 
+/// <summary>Well-known component names tagged on startup activity spans.</summary>
 public static class TelemetryStartupComponents
 {
     public const string AuthBootstrap = "auth-bootstrap";
@@ -147,12 +160,14 @@ public static class TelemetryStartupComponents
     public const string PostgreSql = "postgresql";
 }
 
+/// <summary>Well-known database system tag values used on database-related spans and metrics.</summary>
 public static class TelemetryDatabaseSystems
 {
     public const string MongoDb = "mongodb";
     public const string PostgreSql = "postgresql";
 }
 
+/// <summary>Well-known operation names used to tag stored procedure activity spans.</summary>
 public static class TelemetryStoredProcedureOperations
 {
     public const string Execute = "execute";
@@ -160,6 +175,7 @@ public static class TelemetryStoredProcedureOperations
     public const string QueryMany = "query-many";
 }
 
+/// <summary>Meter names from ASP.NET Core and other Microsoft libraries used to subscribe to built-in metrics.</summary>
 public static class TelemetryMeterNames
 {
     public const string AspNetCoreAuthentication = "Microsoft.AspNetCore.Authentication";
@@ -172,12 +188,14 @@ public static class TelemetryMeterNames
     public const string AspNetCoreServerKestrel = "Microsoft.AspNetCore.Server.Kestrel";
 }
 
+/// <summary>Semantic-convention instrument names for HTTP client and server request durations.</summary>
 public static class TelemetryInstrumentNames
 {
     public const string HttpClientRequestDuration = "http.client.request.duration";
     public const string HttpServerRequestDuration = "http.server.request.duration";
 }
 
+/// <summary>OpenTelemetry resource attribute key names used when configuring service identity and environment metadata.</summary>
 public static class TelemetryResourceAttributeKeys
 {
     public const string AssemblyName = "assembly.name";
@@ -194,6 +212,7 @@ public static class TelemetryResourceAttributeKeys
     public const string ServiceVersion = "service.version";
 }
 
+/// <summary>Pre-defined histogram bucket boundaries for common metric instruments.</summary>
 public static class TelemetryHistogramBoundaries
 {
     public static readonly double[] HttpRequestDurationSeconds =
@@ -242,6 +261,7 @@ public static class TelemetryHistogramBoundaries
     ];
 }
 
+/// <summary>Activity source names from third-party libraries that should be included in traces.</summary>
 public static class TelemetryActivitySources
 {
     public const string MongoDbDriverDiagnosticSources =

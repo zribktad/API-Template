@@ -7,8 +7,17 @@ using Polly;
 
 namespace APITemplate.Api.Extensions;
 
+/// <summary>
+/// Presentation-layer extension class that registers email infrastructure: SMTP sender,
+/// Fluid template renderer, channel-based queue with background consumer, and a Polly
+/// exponential-backoff resilience pipeline for delivery retries.
+/// </summary>
 public static class EmailServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers email services including the MailKit SMTP sender, Fluid template renderer,
+    /// failed-email store, and a Polly retry pipeline keyed to <see cref="ResiliencePipelineKeys.SmtpSend"/>.
+    /// </summary>
     public static IServiceCollection AddEmailServices(
         this IServiceCollection services,
         IConfiguration configuration

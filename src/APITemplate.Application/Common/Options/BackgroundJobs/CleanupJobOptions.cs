@@ -1,5 +1,9 @@
 namespace APITemplate.Application.Common.Options.BackgroundJobs;
 
+/// <summary>
+/// Configuration for the periodic cleanup job that purges expired invitations, soft-deleted records,
+/// and orphaned product data according to the configured retention windows.
+/// </summary>
 public sealed class CleanupJobOptions
 {
     public bool Enabled { get; set; }

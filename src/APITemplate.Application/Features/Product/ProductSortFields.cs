@@ -2,6 +2,10 @@ using APITemplate.Application.Common.Sorting;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product;
+
+/// <summary>
+/// Defines the allowed sort fields for product queries and provides the <see cref="SortFieldMap{T}"/> used by specifications to apply ordering.
+/// </summary>
 public static class ProductSortFields
 {
     public static readonly SortField Name = new("name");

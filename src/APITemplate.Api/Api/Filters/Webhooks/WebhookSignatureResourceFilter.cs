@@ -6,6 +6,12 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace APITemplate.Api.Filters.Webhooks;
 
+/// <summary>
+/// Resource filter that validates the HMAC signature of incoming webhook requests for
+/// actions decorated with <see cref="ValidateWebhookSignatureAttribute"/>.
+/// Reads the raw request body (with buffering enabled) and delegates to <see cref="IWebhookPayloadValidator"/>.
+/// Throws <see cref="UnauthorizedException"/> if required headers are absent or the signature is invalid.
+/// </summary>
 public sealed class WebhookSignatureResourceFilter : IAsyncResourceFilter
 {
     private readonly IWebhookPayloadValidator _validator;
@@ -15,6 +21,10 @@ public sealed class WebhookSignatureResourceFilter : IAsyncResourceFilter
         _validator = validator;
     }
 
+    /// <summary>
+    /// Validates the webhook signature before the action executes; passes through unchanged
+    /// if the endpoint does not carry <see cref="ValidateWebhookSignatureAttribute"/>.
+    /// </summary>
     public async Task OnResourceExecutionAsync(
         ResourceExecutingContext context,
         ResourceExecutionDelegate next

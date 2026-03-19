@@ -1,5 +1,9 @@
 namespace APITemplate.Domain.Entities;
 
+/// <summary>
+/// Domain entity representing metadata for a file uploaded to blob storage.
+/// The actual binary content is stored externally; this entity tracks the reference and descriptive metadata.
+/// </summary>
 public sealed class StoredFile : IAuditableTenantEntity
 {
     public Guid Id { get; set; }

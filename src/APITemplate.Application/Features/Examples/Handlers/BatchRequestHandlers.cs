@@ -7,9 +7,14 @@ using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Examples.Handlers;
 
+/// <summary>Initiates a batch product creation operation from the supplied request.</summary>
 public sealed record BatchCreateProductsCommand(BatchCreateProductsRequest Request)
     : IRequest<BatchCreateProductsResponse>;
 
+/// <summary>
+/// Application-layer handler that validates each batch item individually and, when all items pass, persists all products in a single transaction.
+/// Items that fail validation are reported in the response without aborting the entire batch unless any item is invalid.
+/// </summary>
 public sealed class BatchRequestHandlers
     : IRequestHandler<BatchCreateProductsCommand, BatchCreateProductsResponse>
 {
@@ -28,6 +33,7 @@ public sealed class BatchRequestHandlers
         _itemValidator = itemValidator;
     }
 
+    /// <summary>Validates every item, then either returns early with validation failures or persists all entities in one transaction and returns their IDs.</summary>
     public async Task<BatchCreateProductsResponse> Handle(
         BatchCreateProductsCommand command,
         CancellationToken ct

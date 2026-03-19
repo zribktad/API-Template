@@ -5,6 +5,9 @@ using FluentValidation;
 
 namespace APITemplate.Application.Features.Examples.Validation;
 
+/// <summary>
+/// FluentValidation validator for the post-patch <see cref="PatchableProductDto"/> state; applies data-annotation constraints and the shared description-required-above-price-threshold rule.
+/// </summary>
 public sealed class PatchableProductDtoValidator : DataAnnotationsValidator<PatchableProductDto>
 {
     public PatchableProductDtoValidator()

@@ -20,6 +20,9 @@ namespace APITemplate.Application.Features.Examples.Handlers;
 public sealed record PatchProductCommand(Guid Id, Action<PatchableProductDto> ApplyPatch)
     : IRequest<ProductResponse>;
 
+/// <summary>
+/// Application-layer handler for JSON Patch product updates; applies the caller-supplied patch delegate to a <see cref="PatchableProductDto"/>, validates the result, updates the domain entity in a transaction, and publishes a change notification.
+/// </summary>
 public sealed class PatchRequestHandlers : IRequestHandler<PatchProductCommand, ProductResponse>
 {
     private readonly IProductRepository _repository;
@@ -40,6 +43,7 @@ public sealed class PatchRequestHandlers : IRequestHandler<PatchProductCommand, 
         _publisher = publisher;
     }
 
+    /// <summary>Loads the product, applies patch operations via the command delegate, validates the mutated DTO, persists the changes, and returns the updated response.</summary>
     public async Task<ProductResponse> Handle(PatchProductCommand command, CancellationToken ct)
     {
         var product =

@@ -10,8 +10,18 @@ using Polly;
 
 namespace APITemplate.Api.Extensions;
 
+/// <summary>
+/// Presentation-layer extension class that registers the Keycloak Admin HTTP client with
+/// machine-to-machine token injection, exponential-backoff resilience, and the
+/// <see cref="IKeycloakAdminService"/> scoped service.
+/// </summary>
 public static class KeycloakAdminServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers <see cref="KeycloakAdminClientOptions"/> populated from <see cref="KeycloakOptions"/>,
+    /// adds the SDK's named HTTP client with a token-handler delegate and a Polly retry pipeline,
+    /// and registers <see cref="IKeycloakAdminService"/> as a scoped service.
+    /// </summary>
     public static IServiceCollection AddKeycloakAdminService(this IServiceCollection services)
     {
         // Populate KeycloakAdminClientOptions from IOptions<KeycloakOptions> at runtime,

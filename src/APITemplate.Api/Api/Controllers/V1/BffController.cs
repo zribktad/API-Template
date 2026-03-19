@@ -12,8 +12,11 @@ using Microsoft.Extensions.Options;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/bff")]
 [Authorize(AuthenticationSchemes = AuthConstants.BffSchemes.Cookie)]
+/// <summary>
+/// Presentation-layer controller that exposes Backend-for-Frontend (BFF) endpoints for
+/// cookie-based browser clients, including login, logout, CSRF token retrieval, and current-user info.
+/// </summary>
 public sealed class BffController : ApiControllerBase
 {
     private readonly BffOptions _bffOptions;
@@ -23,6 +26,10 @@ public sealed class BffController : ApiControllerBase
         _bffOptions = bffOptions.Value;
     }
 
+    /// <summary>
+    /// Initiates an OIDC authorization-code challenge, redirecting the browser to Keycloak.
+    /// Falls back to the root path when <paramref name="returnUrl"/> is not a local URL.
+    /// </summary>
     [HttpGet("login")]
     [AllowAnonymous]
     public IActionResult Login([FromQuery] string? returnUrl = null)
@@ -34,6 +41,10 @@ public sealed class BffController : ApiControllerBase
         );
     }
 
+    /// <summary>
+    /// Signs the user out of both the cookie session and the OIDC provider, then redirects
+    /// to the configured post-logout URI.
+    /// </summary>
     [HttpGet("logout")]
     public IActionResult Logout()
     {
@@ -44,6 +55,10 @@ public sealed class BffController : ApiControllerBase
         );
     }
 
+    /// <summary>
+    /// Returns the CSRF header name and a static token value that browser clients must include
+    /// on every state-changing request made with the cookie authentication scheme.
+    /// </summary>
     [HttpGet("csrf")]
     [AllowAnonymous]
     public IActionResult GetCsrf() =>
@@ -55,6 +70,10 @@ public sealed class BffController : ApiControllerBase
             }
         );
 
+    /// <summary>
+    /// Returns the authenticated user's identity claims (id, username, email, tenant, roles)
+    /// extracted from the current cookie session.
+    /// </summary>
     [HttpGet("user")]
     public IActionResult GetUser()
     {

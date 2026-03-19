@@ -50,4 +50,8 @@ catch (Exception ex) when (ex is not HostAbortedException)
     throw;
 }
 
+/// <summary>
+/// Application entry-point marker class; declared as a partial so integration tests can
+/// reference the assembly via <c>WebApplicationFactory&lt;Program&gt;</c>.
+/// </summary>
 public partial class Program; // Used by integration tests via WebApplicationFactory.

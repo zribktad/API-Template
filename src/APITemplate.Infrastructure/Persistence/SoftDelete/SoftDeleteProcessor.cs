@@ -4,6 +4,10 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace APITemplate.Infrastructure.Persistence.SoftDelete;
 
+/// <summary>
+/// Default implementation of <see cref="ISoftDeleteProcessor"/> that recursively soft-deletes
+/// an entity and all dependents surfaced by cascade rules, guarding against cycles via a visited set.
+/// </summary>
 public sealed class SoftDeleteProcessor : ISoftDeleteProcessor
 {
     private readonly IAuditableEntityStateManager _stateManager;
@@ -13,6 +17,7 @@ public sealed class SoftDeleteProcessor : ISoftDeleteProcessor
         _stateManager = stateManager;
     }
 
+    /// <inheritdoc />
     public Task ProcessAsync(
         AppDbContext dbContext,
         EntityEntry entry,
@@ -20,7 +25,8 @@ public sealed class SoftDeleteProcessor : ISoftDeleteProcessor
         DateTime now,
         Guid actor,
         IReadOnlyCollection<ISoftDeleteCascadeRule> softDeleteCascadeRules,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var visited = new HashSet<IAuditableTenantEntity>(ReferenceEqualityComparer.Instance);
         return SoftDeleteWithRulesAsync(
@@ -31,7 +37,8 @@ public sealed class SoftDeleteProcessor : ISoftDeleteProcessor
             actor,
             softDeleteCascadeRules,
             visited,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     private async Task SoftDeleteWithRulesAsync(
@@ -42,7 +49,8 @@ public sealed class SoftDeleteProcessor : ISoftDeleteProcessor
         Guid actor,
         IReadOnlyCollection<ISoftDeleteCascadeRule> softDeleteCascadeRules,
         HashSet<IAuditableTenantEntity> visited,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (!visited.Add(entity))
             return;
@@ -66,7 +74,8 @@ public sealed class SoftDeleteProcessor : ISoftDeleteProcessor
                     actor,
                     softDeleteCascadeRules,
                     visited,
-                    cancellationToken);
+                    cancellationToken
+                );
             }
         }
     }

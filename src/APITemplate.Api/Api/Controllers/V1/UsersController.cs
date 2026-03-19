@@ -15,6 +15,10 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
+/// <summary>
+/// Presentation-layer controller that exposes user management endpoints including
+/// CRUD operations, activation/deactivation, role changes, and self-service password reset.
+/// </summary>
 public sealed class UsersController : ApiControllerBase
 {
     private readonly ISender _sender;
@@ -24,6 +28,7 @@ public sealed class UsersController : ApiControllerBase
         _sender = sender;
     }
 
+    /// <summary>Returns a paginated, filterable list of users.</summary>
     [HttpGet]
     [RequirePermission(Permission.Users.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Users)]
@@ -36,6 +41,7 @@ public sealed class UsersController : ApiControllerBase
         return Ok(result);
     }
 
+    /// <summary>Returns a single user by their identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Users.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Users)]
@@ -45,6 +51,10 @@ public sealed class UsersController : ApiControllerBase
         return OkOrNotFound(user);
     }
 
+    /// <summary>
+    /// Returns the currently authenticated user's profile by resolving their id from the
+    /// JWT/cookie claims (<c>NameIdentifier</c>, <c>sub</c>, or a custom subject claim).
+    /// </summary>
     [HttpGet("me")]
     public async Task<ActionResult<UserResponse>> GetMe(CancellationToken ct)
     {
@@ -60,6 +70,7 @@ public sealed class UsersController : ApiControllerBase
         return OkOrNotFound(user);
     }
 
+    /// <summary>Creates a new user account and returns it with a 201 Location header.</summary>
     [HttpPost]
     [RequirePermission(Permission.Users.Create)]
     public async Task<ActionResult<UserResponse>> Create(
@@ -71,6 +82,7 @@ public sealed class UsersController : ApiControllerBase
         return CreatedAtGetById(user, user.Id);
     }
 
+    /// <summary>Replaces all mutable fields of an existing user.</summary>
     [HttpPut("{id:guid}")]
     [RequirePermission(Permission.Users.Update)]
     public async Task<IActionResult> Update(
@@ -83,6 +95,7 @@ public sealed class UsersController : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>Activates a previously deactivated user account.</summary>
     [HttpPatch("{id:guid}/activate")]
     [RequirePermission(Permission.Users.Update)]
     public async Task<IActionResult> Activate(Guid id, CancellationToken ct)
@@ -91,6 +104,7 @@ public sealed class UsersController : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>Deactivates an active user account, preventing further logins.</summary>
     [HttpPatch("{id:guid}/deactivate")]
     [RequirePermission(Permission.Users.Update)]
     public async Task<IActionResult> Deactivate(Guid id, CancellationToken ct)
@@ -99,6 +113,7 @@ public sealed class UsersController : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>Changes the role of an existing user within the current tenant.</summary>
     [HttpPatch("{id:guid}/role")]
     [RequirePermission(Permission.Users.Update)]
     public async Task<IActionResult> ChangeRole(
@@ -111,6 +126,7 @@ public sealed class UsersController : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>Soft-deletes a user account by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.Users.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
@@ -119,6 +135,10 @@ public sealed class UsersController : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Triggers a Keycloak-initiated password-reset email for the given address; allows
+    /// anonymous callers so unauthenticated users can recover access.
+    /// </summary>
     [HttpPost("password-reset")]
     [AllowAnonymous]
     public async Task<IActionResult> RequestPasswordReset(

@@ -11,22 +11,35 @@ using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
 namespace APITemplate.Application.Features.ProductReview;
 
+/// <summary>Returns a paginated, filtered, and sorted list of product reviews.</summary>
 public sealed record GetProductReviewsQuery(ProductReviewFilter Filter)
     : IRequest<PagedResponse<ProductReviewResponse>>;
 
+/// <summary>Returns a single product review by its unique identifier, or <see langword="null"/> if not found.</summary>
 public sealed record GetProductReviewByIdQuery(Guid Id) : IRequest<ProductReviewResponse?>;
 
+/// <summary>Returns all reviews for a specific product, ordered by creation date descending.</summary>
 public sealed record GetProductReviewsByProductIdQuery(Guid ProductId)
     : IRequest<IReadOnlyList<ProductReviewResponse>>;
 
+/// <summary>
+/// Returns reviews grouped by product id for a batch of product identifiers.
+/// Products with no reviews are included in the result with an empty array.
+/// </summary>
 public sealed record GetProductReviewsByProductIdsQuery(IReadOnlyCollection<Guid> ProductIds)
     : IRequest<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>;
 
+/// <summary>Creates a new product review for the authenticated user and returns the persisted representation.</summary>
 public sealed record CreateProductReviewCommand(CreateProductReviewRequest Request)
     : IRequest<ProductReviewResponse>;
 
+/// <summary>Deletes the product review with the given identifier; only the review's author may delete it.</summary>
 public sealed record DeleteProductReviewCommand(Guid Id) : IRequest;
 
+/// <summary>
+/// MediatR handler that processes all product review queries and commands in the Application layer.
+/// Publishes a <see cref="ProductReviewsChangedNotification"/> after every write operation.
+/// </summary>
 public sealed class ProductReviewRequestHandlers
     : IRequestHandler<GetProductReviewsQuery, PagedResponse<ProductReviewResponse>>,
         IRequestHandler<GetProductReviewByIdQuery, ProductReviewResponse?>,
@@ -59,6 +72,7 @@ public sealed class ProductReviewRequestHandlers
         _publisher = publisher;
     }
 
+    /// <summary>Fetches a filtered, sorted, and paginated page of product reviews.</summary>
     public async Task<PagedResponse<ProductReviewResponse>> Handle(
         GetProductReviewsQuery request,
         CancellationToken ct
@@ -73,6 +87,7 @@ public sealed class ProductReviewRequestHandlers
         );
     }
 
+    /// <summary>Fetches a single review by id and maps the domain entity to a response DTO.</summary>
     public async Task<ProductReviewResponse?> Handle(
         GetProductReviewByIdQuery request,
         CancellationToken ct
@@ -82,6 +97,7 @@ public sealed class ProductReviewRequestHandlers
         return item?.ToResponse();
     }
 
+    /// <summary>Fetches all reviews for a single product, ordered newest-first, using a dedicated specification.</summary>
     public async Task<IReadOnlyList<ProductReviewResponse>> Handle(
         GetProductReviewsByProductIdQuery request,
         CancellationToken ct
@@ -91,6 +107,10 @@ public sealed class ProductReviewRequestHandlers
             ct
         );
 
+    /// <summary>
+    /// Fetches reviews for a batch of product ids in a single query and groups them into a lookup dictionary.
+    /// Returns an empty dictionary when <see cref="GetProductReviewsByProductIdsQuery.ProductIds"/> is empty.
+    /// </summary>
     public async Task<IReadOnlyDictionary<Guid, ProductReviewResponse[]>> Handle(
         GetProductReviewsByProductIdsQuery request,
         CancellationToken ct
@@ -108,6 +128,10 @@ public sealed class ProductReviewRequestHandlers
         return request.ProductIds.Distinct().ToDictionary(id => id, id => lookup[id].ToArray());
     }
 
+    /// <summary>
+    /// Creates a new review inside a transaction after verifying the target product exists.
+    /// Throws <see cref="NotFoundException"/> when the referenced product does not exist.
+    /// </summary>
     public async Task<ProductReviewResponse> Handle(
         CreateProductReviewCommand command,
         CancellationToken ct
@@ -142,6 +166,10 @@ public sealed class ProductReviewRequestHandlers
         return review.ToResponse();
     }
 
+    /// <summary>
+    /// Deletes a review after confirming ownership by the authenticated actor.
+    /// Throws <see cref="NotFoundException"/> if the review does not exist and <see cref="ForbiddenException"/> if the actor is not the author.
+    /// </summary>
     public async Task Handle(DeleteProductReviewCommand command, CancellationToken ct)
     {
         var userId = _actorProvider.ActorId;

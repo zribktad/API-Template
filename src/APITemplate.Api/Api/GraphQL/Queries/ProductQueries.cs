@@ -4,13 +4,22 @@ using MediatR;
 
 namespace APITemplate.Api.GraphQL.Queries;
 
+/// <summary>
+/// Hot Chocolate root query type that exposes product list and single-product lookups,
+/// serving as the extension base for <see cref="CategoryQueries"/> and <see cref="ProductReviewQueries"/>.
+/// </summary>
 [Authorize]
 public class ProductQueries
 {
+    /// <summary>
+    /// Returns a paginated product list with search facets, mapping the GraphQL input to the
+    /// application-layer filter before dispatching via MediatR.
+    /// </summary>
     public async Task<ProductPageResult> GetProducts(
         ProductQueryInput? input,
         [Service] ISender sender,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
         var filter = new ProductFilter(
             input?.Name,
@@ -24,17 +33,17 @@ public class ProductQueries
             input?.PageNumber ?? 1,
             input?.PageSize ?? PaginationFilter.DefaultPageSize,
             input?.Query,
-            input?.CategoryIds);
+            input?.CategoryIds
+        );
 
         var page = await sender.Send(new GetProductsQuery(filter), ct);
-        return new ProductPageResult(
-            page.Page,
-            page.Facets);
+        return new ProductPageResult(page.Page, page.Facets);
     }
 
+    /// <summary>Returns a single product by ID, or <see langword="null"/> if not found.</summary>
     public async Task<ProductResponse?> GetProductById(
         Guid id,
         [Service] ISender sender,
-        CancellationToken ct)
-        => await sender.Send(new GetProductByIdQuery(id), ct);
+        CancellationToken ct
+    ) => await sender.Send(new GetProductByIdQuery(id), ct);
 }

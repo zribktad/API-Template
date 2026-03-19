@@ -11,6 +11,10 @@ namespace APITemplate.Api.OpenApi;
 /// </summary>
 public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransformer
 {
+    /// <summary>
+    /// Registers the shared <c>ApiProblemDetails</c> schema component and attaches standardized
+    /// error responses (400, 401, 403, 404, 409, 500) to every operation in the document.
+    /// </summary>
     public Task TransformAsync(
         OpenApiDocument document,
         OpenApiDocumentTransformerContext context,
@@ -52,6 +56,10 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Builds the reusable OpenAPI schema for the RFC 7807 ProblemDetails response payload,
+    /// including the custom <c>traceId</c>, <c>errorCode</c>, and <c>metadata</c> extensions.
+    /// </summary>
     private static IOpenApiSchema BuildProblemDetailsSchema()
     {
         return new OpenApiSchema

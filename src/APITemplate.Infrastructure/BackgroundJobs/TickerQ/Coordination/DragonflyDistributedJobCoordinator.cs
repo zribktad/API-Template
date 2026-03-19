@@ -5,6 +5,11 @@ using StackExchange.Redis;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.TickerQ.Coordination;
 
+/// <summary>
+/// Dragonfly/Redis-backed implementation of <see cref="IDistributedJobCoordinator"/> that uses
+/// a SET NX distributed lock with periodic lease renewal to guarantee single-leader job execution.
+/// When <c>FailClosed</c> is enabled, any Redis unavailability throws rather than running without coordination.
+/// </summary>
 public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordinator
 {
     private const int LeaseSeconds = 300;
@@ -36,6 +41,11 @@ public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordina
         _logger = logger;
     }
 
+    /// <summary>
+    /// Attempts to acquire a SET NX lock in Dragonfly for <paramref name="jobName"/>, then
+    /// runs <paramref name="action"/> while a background timer renews the lease every third of the
+    /// lease window; releases the lock unconditionally on completion or failure.
+    /// </summary>
     public async Task ExecuteIfLeaderAsync(
         string jobName,
         Func<CancellationToken, Task> action,
@@ -83,6 +93,11 @@ public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordina
         }
     }
 
+    /// <summary>
+    /// Returns the active Redis <see cref="IDatabase"/>, or <see langword="null"/> when
+    /// coordination is unavailable and <c>FailClosed</c> is disabled (fail-open mode).
+    /// Throws <see cref="InvalidOperationException"/> when <c>FailClosed</c> is enabled.
+    /// </summary>
     private IDatabase? RequireCoordination(string jobName)
     {
         if (!_connectionMultiplexer.IsConnected)
@@ -151,6 +166,11 @@ public sealed class DragonflyDistributedJobCoordinator : IDistributedJobCoordina
         }
     }
 
+    /// <summary>
+    /// Runs a periodic loop that extends the lock TTL using an atomic Lua compare-and-expire script.
+    /// Cancels <paramref name="executionCts"/> and throws <see cref="LeadershipLeaseLostException"/>
+    /// if the renewal fails, indicating another node has taken ownership.
+    /// </summary>
     private async Task RenewLeaseAsync(
         IDatabase database,
         string key,

@@ -3,6 +3,9 @@ using APITemplate.Application.Common.Validation;
 
 namespace APITemplate.Application.Features.Examples.DTOs;
 
+/// <summary>
+/// Mutable DTO used as the patch target for JSON Patch operations on a product; declared as a class rather than a record because JSON Patch mutates the object in-place.
+/// </summary>
 // Mutable class (not record) — required because JsonPatch mutates in-place
 public sealed class PatchableProductDto
 {

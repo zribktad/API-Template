@@ -2,6 +2,10 @@ using System.Diagnostics.Metrics;
 
 namespace APITemplate.Infrastructure.Observability;
 
+/// <summary>
+/// Static facade for conflict-related metrics, distinguishing optimistic-concurrency
+/// EF Core exceptions from domain-layer conflict exceptions.
+/// </summary>
 public static class ConflictTelemetry
 {
     private static readonly Meter Meter = new(ObservabilityConventions.MeterName);
@@ -16,6 +20,11 @@ public static class ConflictTelemetry
         description: "Number of domain conflict responses."
     );
 
+    /// <summary>
+    /// Increments the appropriate conflict counter based on the exception type.
+    /// EF Core concurrency exceptions increment the concurrency counter; domain
+    /// <see cref="Domain.Exceptions.ConflictException"/> increments the domain-conflicts counter tagged with <paramref name="errorCode"/>.
+    /// </summary>
     public static void Record(Exception exception, string errorCode)
     {
         if (exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)

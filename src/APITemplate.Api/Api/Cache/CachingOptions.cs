@@ -2,6 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace APITemplate.Api.Cache;
 
+/// <summary>
+/// Strongly-typed options model for configuring per-resource output cache expiration durations.
+/// Bound from the <c>Caching</c> configuration section and validated on startup.
+/// </summary>
 public sealed class CachingOptions
 {
     [Range(1, int.MaxValue)]

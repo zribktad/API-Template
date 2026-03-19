@@ -5,6 +5,10 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Infrastructure.Webhooks;
 
+/// <summary>
+/// Signs outgoing webhook payloads using HMAC-SHA256 with a shared secret, producing
+/// a signature and UTC Unix timestamp for inclusion in request headers.
+/// </summary>
 public sealed class HmacWebhookPayloadSigner : IWebhookPayloadSigner
 {
     private readonly byte[] _keyBytes;
@@ -16,6 +20,7 @@ public sealed class HmacWebhookPayloadSigner : IWebhookPayloadSigner
         _timeProvider = timeProvider;
     }
 
+    /// <summary>Computes the HMAC-SHA256 signature over the current timestamp and payload, returning both values as a <see cref="WebhookSignatureResult"/>.</summary>
     public WebhookSignatureResult Sign(string payload)
     {
         var timestamp = _timeProvider.GetUtcNow().ToUnixTimeSeconds().ToString();

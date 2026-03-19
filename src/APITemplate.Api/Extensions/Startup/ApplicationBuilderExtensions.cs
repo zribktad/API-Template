@@ -23,8 +23,17 @@ using TickerQ.Utilities.Enums;
 
 namespace APITemplate.Api.Extensions.Startup;
 
+/// <summary>
+/// Presentation-layer extension class that provides <see cref="WebApplication"/> extension
+/// methods for startup orchestration (database migrations, Keycloak readiness, background jobs)
+/// and HTTP pipeline configuration.
+/// </summary>
 public static class ApplicationBuilderExtensions
 {
+    /// <summary>
+    /// Runs relational and MongoDB migrations and seeds the auth bootstrap data under a
+    /// distributed advisory lock to prevent concurrent runs in multi-instance deployments.
+    /// </summary>
     public static async Task UseDatabaseAsync(
         this WebApplication app,
         CancellationToken ct = default
@@ -84,6 +93,10 @@ public static class ApplicationBuilderExtensions
         }
     }
 
+    /// <summary>
+    /// Migrates the TickerQ scheduler store and syncs recurring job registrations when TickerQ
+    /// is enabled; exits early with an informational log when disabled or unavailable.
+    /// </summary>
     public static async Task UseBackgroundJobsAsync(
         this WebApplication app,
         CancellationToken ct = default
@@ -199,6 +212,10 @@ public static class ApplicationBuilderExtensions
         return app;
     }
 
+    /// <summary>
+    /// Polls the Keycloak OIDC discovery endpoint using a Polly retry pipeline, blocking
+    /// startup until Keycloak is reachable or the retry budget is exhausted.
+    /// </summary>
     public static async Task WaitForKeycloakAsync(
         this WebApplication app,
         CancellationToken cancellationToken = default
@@ -295,6 +312,7 @@ public static class ApplicationBuilderExtensions
         return app;
     }
 
+    /// <summary>Maps REST controllers, the GraphQL endpoint, Nitro UI, and health checks.</summary>
     public static WebApplication MapApplicationEndpoints(this WebApplication app)
     {
         app.MapControllers().RequireRateLimiting(CachePolicyNames.RateLimitPolicy);
@@ -305,6 +323,10 @@ public static class ApplicationBuilderExtensions
         return app;
     }
 
+    /// <summary>
+    /// Mounts the OpenAPI JSON endpoint and the Scalar interactive API reference in Development
+    /// only, pre-configured with Keycloak PKCE OAuth2 authorization-code flow.
+    /// </summary>
     public static WebApplication UseApiDocumentation(this WebApplication app)
     {
         if (!app.Environment.IsDevelopment())
@@ -348,6 +370,7 @@ public static class ApplicationBuilderExtensions
     private static string BuildScalarRedirectUri(HttpRequest request) =>
         $"{request.Scheme}://{request.Host}{request.PathBase}{request.Path}";
 
+    /// <summary>Maps the <c>/health</c> endpoint with a JSON health-check UI response writer, available anonymously.</summary>
     public static WebApplication UseHealthChecks(this WebApplication app)
     {
         app.MapHealthChecks(

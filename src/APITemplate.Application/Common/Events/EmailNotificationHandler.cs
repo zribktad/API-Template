@@ -5,6 +5,12 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Application.Common.Events;
 
+/// <summary>
+/// MediatR notification handler that reacts to user lifecycle events by rendering email templates
+/// and placing the resulting <see cref="EmailMessage"/> instances onto the <see cref="IEmailQueue"/>.
+/// Handles <see cref="UserRegisteredNotification"/>, <see cref="TenantInvitationCreatedNotification"/>,
+/// and <see cref="UserRoleChangedNotification"/>.
+/// </summary>
 public sealed class EmailNotificationHandler
     : INotificationHandler<UserRegisteredNotification>,
         INotificationHandler<TenantInvitationCreatedNotification>,
@@ -25,6 +31,7 @@ public sealed class EmailNotificationHandler
         _options = options.Value;
     }
 
+    /// <summary>Renders the welcome email template and enqueues it for delivery to the newly registered user.</summary>
     public async Task Handle(UserRegisteredNotification notification, CancellationToken ct)
     {
         var html = await _templateRenderer.RenderAsync(
@@ -49,6 +56,7 @@ public sealed class EmailNotificationHandler
         );
     }
 
+    /// <summary>Renders the tenant invitation email template and enqueues it as a retryable message for the invitee.</summary>
     public async Task Handle(TenantInvitationCreatedNotification notification, CancellationToken ct)
     {
         var html = await _templateRenderer.RenderAsync(
@@ -75,6 +83,7 @@ public sealed class EmailNotificationHandler
         );
     }
 
+    /// <summary>Renders the role-change notification email template and enqueues it for the affected user.</summary>
     public async Task Handle(UserRoleChangedNotification notification, CancellationToken ct)
     {
         var html = await _templateRenderer.RenderAsync(

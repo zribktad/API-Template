@@ -3,24 +3,50 @@ using System.Reflection;
 using FluentValidation;
 
 namespace APITemplate.Application.Common.Validation;
-public abstract class DataAnnotationsValidator<T> : AbstractValidator<T> where T : class
+
+/// <summary>
+/// Base FluentValidation validator that bridges Data Annotations attributes into the FluentValidation
+/// pipeline. Validates both property-level and constructor-parameter-level attributes, making it suitable
+/// for records whose validation attributes are declared on primary constructor parameters.
+/// </summary>
+public abstract class DataAnnotationsValidator<T> : AbstractValidator<T>
+    where T : class
 {
     protected DataAnnotationsValidator()
     {
-        RuleFor(x => x).Custom(static (model, context) =>
-        {
-            var results = new List<ValidationResult>();
-            Validator.TryValidateObject(model, new ValidationContext(model), results, validateAllProperties: true);
+        RuleFor(x => x)
+            .Custom(
+                static (model, context) =>
+                {
+                    var results = new List<ValidationResult>();
+                    Validator.TryValidateObject(
+                        model,
+                        new ValidationContext(model),
+                        results,
+                        validateAllProperties: true
+                    );
 
-            // For records, also validate constructor parameter attributes that may not be on properties.
-            ValidateConstructorParameterAttributes(model, results);
+                    // For records, also validate constructor parameter attributes that may not be on properties.
+                    ValidateConstructorParameterAttributes(model, results);
 
-            foreach (var result in results)
-                context.AddFailure(result.MemberNames.FirstOrDefault() ?? string.Empty, result.ErrorMessage!);
-        });
+                    foreach (var result in results)
+                        context.AddFailure(
+                            result.MemberNames.FirstOrDefault() ?? string.Empty,
+                            result.ErrorMessage!
+                        );
+                }
+            );
     }
 
-    private static void ValidateConstructorParameterAttributes(T model, List<ValidationResult> results)
+    /// <summary>
+    /// Inspects the first public constructor of <paramref name="model"/> and runs any
+    /// <see cref="ValidationAttribute"/> instances found on its parameters, appending
+    /// failures to <paramref name="results"/>. Skips parameters whose member names already have failures.
+    /// </summary>
+    private static void ValidateConstructorParameterAttributes(
+        T model,
+        List<ValidationResult> results
+    )
     {
         var type = model.GetType();
         var constructor = type.GetConstructors().FirstOrDefault();
@@ -35,7 +61,10 @@ public abstract class DataAnnotationsValidator<T> : AbstractValidator<T> where T
                 continue;
 
             var validationAttributes = parameter.GetCustomAttributes<ValidationAttribute>();
-            var property = type.GetProperty(parameter.Name!, BindingFlags.Public | BindingFlags.Instance);
+            var property = type.GetProperty(
+                parameter.Name!,
+                BindingFlags.Public | BindingFlags.Instance
+            );
             if (property is null)
                 continue;
 

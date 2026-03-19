@@ -10,6 +10,10 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
+/// <summary>
+/// Presentation-layer controller that exposes full CRUD endpoints for the product catalog,
+/// with permission-based authorization and tenant-aware output caching.
+/// </summary>
 public sealed class ProductsController : ApiControllerBase
 {
     private readonly ISender _sender;
@@ -19,6 +23,7 @@ public sealed class ProductsController : ApiControllerBase
         _sender = sender;
     }
 
+    /// <summary>Returns a filtered, paginated product list including search facets.</summary>
     [HttpGet]
     [RequirePermission(Permission.Products.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Products)]
@@ -31,6 +36,7 @@ public sealed class ProductsController : ApiControllerBase
         return Ok(products);
     }
 
+    /// <summary>Returns a single product by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Products.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Products)]
@@ -40,6 +46,7 @@ public sealed class ProductsController : ApiControllerBase
         return OkOrNotFound(product);
     }
 
+    /// <summary>Creates a new product and returns it with a 201 Location header.</summary>
     [HttpPost]
     [RequirePermission(Permission.Products.Create)]
     public async Task<ActionResult<ProductResponse>> Create(
@@ -51,6 +58,7 @@ public sealed class ProductsController : ApiControllerBase
         return CreatedAtGetById(product, product.Id);
     }
 
+    /// <summary>Replaces all mutable fields of an existing product.</summary>
     [HttpPut("{id:guid}")]
     [RequirePermission(Permission.Products.Update)]
     public async Task<IActionResult> Update(
@@ -63,6 +71,7 @@ public sealed class ProductsController : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>Soft-deletes a product by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.Products.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)

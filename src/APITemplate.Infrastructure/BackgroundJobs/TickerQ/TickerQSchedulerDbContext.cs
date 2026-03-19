@@ -5,6 +5,11 @@ using TickerQ.Utilities.Entities;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.TickerQ;
 
+/// <summary>
+/// EF Core <see cref="DbContext"/> that hosts the TickerQ scheduler tables
+/// (<c>TimeTickers</c> and <c>CronTickers</c>) in the dedicated TickerQ schema.
+/// Used exclusively by TickerQ internals and the job registrar.
+/// </summary>
 public sealed class TickerQSchedulerDbContext : TickerQDbContext<TimeTickerEntity, CronTickerEntity>
 {
     public TickerQSchedulerDbContext(DbContextOptions<TickerQSchedulerDbContext> options)

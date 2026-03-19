@@ -2,12 +2,17 @@ using System.Diagnostics;
 
 namespace APITemplate.Infrastructure.Observability;
 
+/// <summary>
+/// Static facade for startup-phase telemetry, creating diagnostic activities for each
+/// startup task (migration, seeding, readiness checks) so they appear as spans in traces.
+/// </summary>
 public static class StartupTelemetry
 {
     private static readonly ActivitySource ActivitySource = new(
         ObservabilityConventions.ActivitySourceName
     );
 
+    /// <summary>Starts a traced startup scope for the relational (PostgreSQL) migration step.</summary>
     public static Scope StartRelationalMigration() =>
         StartStep(
             TelemetryStartupSteps.Migrate,
@@ -15,6 +20,7 @@ public static class StartupTelemetry
             TelemetryDatabaseSystems.PostgreSql
         );
 
+    /// <summary>Starts a traced startup scope for the MongoDB migration step.</summary>
     public static Scope StartMongoMigration() =>
         StartStep(
             TelemetryStartupSteps.Migrate,
@@ -22,12 +28,14 @@ public static class StartupTelemetry
             TelemetryDatabaseSystems.MongoDb
         );
 
+    /// <summary>Starts a traced startup scope for the auth-bootstrap seeding step.</summary>
     public static Scope StartAuthBootstrapSeed() =>
         StartStep(
             TelemetryStartupSteps.SeedAuthBootstrap,
             TelemetryStartupComponents.AuthBootstrap
         );
 
+    /// <summary>Starts a traced startup scope for the Keycloak readiness-check step.</summary>
     public static Scope StartKeycloakReadinessCheck() =>
         StartStep(TelemetryStartupSteps.WaitKeycloakReady, TelemetryStartupComponents.Keycloak);
 
@@ -51,10 +59,15 @@ public static class StartupTelemetry
         return activity;
     }
 
+    /// <summary>
+    /// Represents an active startup telemetry scope. Call <see cref="Fail"/> to mark the
+    /// underlying activity as failed, then dispose to end the activity.
+    /// </summary>
     public sealed class Scope(Activity? activity) : IDisposable
     {
         private readonly Activity? _activity = activity;
 
+        /// <summary>Marks the underlying activity as failed and records the exception type.</summary>
         public void Fail(Exception exception)
         {
             if (_activity is not null)

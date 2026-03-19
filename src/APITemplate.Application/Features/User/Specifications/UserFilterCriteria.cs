@@ -4,8 +4,14 @@ using Ardalis.Specification;
 
 namespace APITemplate.Application.Features.User.Specifications;
 
+/// <summary>
+/// Internal extension that applies shared <see cref="UserFilter"/> criteria to an Ardalis specification builder.
+/// </summary>
 internal static class UserFilterCriteria
 {
+    /// <summary>
+    /// Adds optional normalised-username contains, email exact-match, active-status, and role predicates to the query.
+    /// </summary>
     internal static void ApplyFilter(this ISpecificationBuilder<AppUser> query, UserFilter filter)
     {
         if (!string.IsNullOrWhiteSpace(filter.Username))

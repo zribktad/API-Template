@@ -4,6 +4,10 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace APITemplate.Api.Authorization;
 
+/// <summary>
+/// ASP.NET Core authorization handler that evaluates a <see cref="PermissionRequirement"/>
+/// by checking the current user's role claims against the application's role-permission map.
+/// </summary>
 public sealed class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
 {
     private readonly IRolePermissionMap _rolePermissionMap;
@@ -13,9 +17,13 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
         _rolePermissionMap = rolePermissionMap;
     }
 
+    /// <summary>
+    /// Succeeds the requirement when at least one of the user's role claims grants the required permission.
+    /// </summary>
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
-        PermissionRequirement requirement)
+        PermissionRequirement requirement
+    )
     {
         var roleClaims = context.User.FindAll(ClaimTypes.Role);
 

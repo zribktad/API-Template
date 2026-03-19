@@ -2,6 +2,11 @@ using APITemplate.Domain.Enums;
 
 namespace APITemplate.Application.Common.Security;
 
+/// <summary>
+/// Compile-time implementation of <see cref="IRolePermissionMap"/> that maps each
+/// <see cref="APITemplate.Domain.Enums.UserRole"/> to a fixed set of permission strings.
+/// The mapping is built once and cached for the lifetime of the application.
+/// </summary>
 public sealed class StaticRolePermissionMap : IRolePermissionMap
 {
     private static readonly IReadOnlySet<string> Empty = new HashSet<string>(
@@ -16,6 +21,9 @@ public sealed class StaticRolePermissionMap : IRolePermissionMap
     public bool HasPermission(string role, string permission) =>
         GetPermissions(role).Contains(permission);
 
+    /// <summary>
+    /// Constructs the static role-to-permissions dictionary used for all permission lookups.
+    /// </summary>
     private static Dictionary<string, IReadOnlySet<string>> BuildMap()
     {
         var tenantAdminPermissions = new HashSet<string>(StringComparer.Ordinal)

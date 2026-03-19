@@ -6,6 +6,11 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace APITemplate.Api.Filters.Idempotency;
 
+/// <summary>
+/// Action filter that enforces idempotency for endpoints decorated with <see cref="IdempotentAttribute"/>.
+/// On the first call the response is stored in <see cref="IIdempotencyStore"/>; subsequent calls with
+/// the same <c>Idempotency-Key</c> header replay the cached response without re-executing the action.
+/// </summary>
 public sealed class IdempotencyActionFilter : IAsyncActionFilter
 {
     private readonly IIdempotencyStore _store;
@@ -15,6 +20,10 @@ public sealed class IdempotencyActionFilter : IAsyncActionFilter
         _store = store;
     }
 
+    /// <summary>
+    /// Intercepts the action execution to check for a cached idempotent result or to store
+    /// a new one, ensuring at-most-once semantics for the decorated endpoint.
+    /// </summary>
     public async Task OnActionExecutionAsync(
         ActionExecutingContext context,
         ActionExecutionDelegate next

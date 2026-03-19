@@ -11,18 +11,28 @@ using Polly.Registry;
 
 namespace APITemplate.Application.Features.ProductData;
 
+/// <summary>Returns a single product data document by its identifier, scoped to the current tenant.</summary>
 public sealed record GetProductDataByIdQuery(Guid Id) : IRequest<ProductDataResponse?>;
 
+/// <summary>Returns all product data documents for the current tenant, optionally filtered by media type.</summary>
 public sealed record GetProductDataQuery(string? Type) : IRequest<List<ProductDataResponse>>;
 
+/// <summary>Creates a new image product data document and returns the persisted representation.</summary>
 public sealed record CreateImageProductDataCommand(CreateImageProductDataRequest Request)
     : IRequest<ProductDataResponse>;
 
+/// <summary>Creates a new video product data document and returns the persisted representation.</summary>
 public sealed record CreateVideoProductDataCommand(CreateVideoProductDataRequest Request)
     : IRequest<ProductDataResponse>;
 
+/// <summary>Soft-deletes a product data document and its active links for the current tenant.</summary>
 public sealed record DeleteProductDataCommand(Guid Id) : IRequest;
 
+/// <summary>
+/// MediatR handler that processes all product data queries and commands in the Application layer.
+/// Coordinates writes across PostgreSQL (via <see cref="IUnitOfWork"/>) and MongoDB (via <see cref="IProductDataRepository"/>)
+/// using a Polly resilience pipeline for the MongoDB operations, and publishes a <see cref="ProductDataChangedNotification"/> after writes.
+/// </summary>
 public sealed class ProductDataRequestHandlers
     : IRequestHandler<GetProductDataByIdQuery, ProductDataResponse?>,
         IRequestHandler<GetProductDataQuery, List<ProductDataResponse>>,
@@ -63,6 +73,10 @@ public sealed class ProductDataRequestHandlers
         _logger = logger;
     }
 
+    /// <summary>
+    /// Fetches a product data document by id, returning <see langword="null"/> when the document does not exist
+    /// or belongs to a different tenant.
+    /// </summary>
     public async Task<ProductDataResponse?> Handle(
         GetProductDataByIdQuery request,
         CancellationToken ct
@@ -77,6 +91,7 @@ public sealed class ProductDataRequestHandlers
         return data.ToResponse();
     }
 
+    /// <summary>Fetches all product data documents for the current tenant, optionally filtered by media type.</summary>
     public async Task<List<ProductDataResponse>> Handle(
         GetProductDataQuery request,
         CancellationToken ct
@@ -86,6 +101,7 @@ public sealed class ProductDataRequestHandlers
         return items.Select(item => item.ToResponse()).ToList();
     }
 
+    /// <summary>Persists a new image product data document to MongoDB and publishes a change notification.</summary>
     public async Task<ProductDataResponse> Handle(
         CreateImageProductDataCommand command,
         CancellationToken ct
@@ -108,6 +124,7 @@ public sealed class ProductDataRequestHandlers
         return created.ToResponse();
     }
 
+    /// <summary>Persists a new video product data document to MongoDB and publishes a change notification.</summary>
     public async Task<ProductDataResponse> Handle(
         CreateVideoProductDataCommand command,
         CancellationToken ct
@@ -130,6 +147,12 @@ public sealed class ProductDataRequestHandlers
         return created.ToResponse();
     }
 
+    /// <summary>
+    /// Soft-deletes a product data document and its PostgreSQL links.
+    /// The PostgreSQL link soft-delete runs inside a transaction; the MongoDB soft-delete executes via a resilience pipeline.
+    /// Throws <see cref="NotFoundException"/> if the document does not exist or belongs to a different tenant.
+    /// Errors from the MongoDB step are logged and re-thrown so callers are aware of partial failure.
+    /// </summary>
     public async Task Handle(DeleteProductDataCommand command, CancellationToken ct)
     {
         var tenantId = _tenantProvider.TenantId;
