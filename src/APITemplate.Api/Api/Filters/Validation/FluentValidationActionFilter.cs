@@ -3,7 +3,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace APITemplate.Api.Filters;
+namespace APITemplate.Api.Filters.Validation;
 
 /// <summary>
 /// Global action filter that automatically validates all action arguments using FluentValidation.

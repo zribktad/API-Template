@@ -1,4 +1,4 @@
-namespace APITemplate.Api.Filters;
+namespace APITemplate.Api.Filters.Idempotency;
 
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class IdempotentAttribute : Attribute

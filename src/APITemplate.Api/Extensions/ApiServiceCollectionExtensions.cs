@@ -1,7 +1,8 @@
 using System.Threading.RateLimiting;
 using APITemplate.Api.Cache;
 using APITemplate.Api.ExceptionHandling;
-using APITemplate.Api.Filters;
+using APITemplate.Api.Filters.Idempotency;
+using APITemplate.Api.Filters.Webhooks;
 using APITemplate.Api.OpenApi;
 using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Health;
@@ -87,11 +88,7 @@ public static class ApiServiceCollectionExtensions
         IConfiguration configuration
     )
     {
-        services
-            .AddOptions<RateLimitingOptions>()
-            .Bind(configuration.SectionFor<RateLimitingOptions>())
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<RateLimitingOptions>(configuration);
 
         // Per-client fixed window rate limiter. Partition key priority:
         //   1. JWT username (authenticated users)
@@ -155,11 +152,7 @@ public static class ApiServiceCollectionExtensions
 
         if (!string.IsNullOrEmpty(dragonflyConnectionString))
         {
-            services
-                .AddOptions<DragonflyOptions>()
-                .Bind(dragonflySection)
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
+            services.AddValidatedOptions<DragonflyOptions>(configuration);
 
             var connectTimeoutMs = dragonflySection.GetValue(
                 nameof(DragonflyOptions.ConnectTimeoutMs),
@@ -242,11 +235,7 @@ public static class ApiServiceCollectionExtensions
         services.AddScoped<IOutputCacheInvalidationService, OutputCacheInvalidationService>();
 
         // Bind expiration settings from "Caching" section with startup validation.
-        services
-            .AddOptions<CachingOptions>()
-            .Bind(configuration.SectionFor<CachingOptions>())
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<CachingOptions>(configuration);
 
         services.AddOutputCache();
 

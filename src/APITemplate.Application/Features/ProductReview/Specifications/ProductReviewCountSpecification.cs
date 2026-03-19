@@ -8,5 +8,6 @@ public sealed class ProductReviewCountSpecification : Specification<ProductRevie
     public ProductReviewCountSpecification(ProductReviewFilter filter)
     {
         Query.ApplyFilter(filter);
+        Query.AsNoTracking();
     }
 }

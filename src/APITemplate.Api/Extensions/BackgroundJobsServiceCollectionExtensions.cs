@@ -38,13 +38,17 @@ public static class BackgroundJobsServiceCollectionExtensions
         IConfiguration configuration
     )
     {
-        var section = configuration.SectionFor<BackgroundJobsOptions>();
         services.AddSingleton<
             IValidateOptions<BackgroundJobsOptions>,
             BackgroundJobsOptionsValidator
         >();
-        services.AddOptions<BackgroundJobsOptions>().Bind(section).ValidateOnStart();
-        var options = section.Get<BackgroundJobsOptions>() ?? new BackgroundJobsOptions();
+        services.AddValidatedOptions<BackgroundJobsOptions>(
+            configuration,
+            validateDataAnnotations: false
+        );
+        var options =
+            configuration.SectionFor<BackgroundJobsOptions>().Get<BackgroundJobsOptions>()
+            ?? new BackgroundJobsOptions();
 
         services.AddScoped<IFailedEmailRepository, FailedEmailRepository>();
 

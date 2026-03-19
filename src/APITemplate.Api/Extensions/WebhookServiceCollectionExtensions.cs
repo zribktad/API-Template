@@ -17,11 +17,7 @@ public static class WebhookServiceCollectionExtensions
         IConfiguration configuration
     )
     {
-        services
-            .AddOptions<WebhookOptions>()
-            .Bind(configuration.SectionFor<WebhookOptions>())
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<WebhookOptions>(configuration);
 
         services.AddSingleton<IWebhookPayloadValidator, HmacWebhookPayloadValidator>();
         services.AddQueueWithConsumer<

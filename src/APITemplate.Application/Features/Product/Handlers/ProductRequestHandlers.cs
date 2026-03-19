@@ -1,7 +1,8 @@
+using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Product.Mappings;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.Product.Specifications;
-using APITemplate.Application.Common.Events;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
@@ -20,12 +21,12 @@ public sealed record UpdateProductCommand(Guid Id, UpdateProductRequest Request)
 
 public sealed record DeleteProductCommand(Guid Id) : IRequest;
 
-public sealed class ProductRequestHandlers :
-    IRequestHandler<GetProductByIdQuery, ProductResponse?>,
-    IRequestHandler<GetProductsQuery, ProductsResponse>,
-    IRequestHandler<CreateProductCommand, ProductResponse>,
-    IRequestHandler<UpdateProductCommand>,
-    IRequestHandler<DeleteProductCommand>
+public sealed class ProductRequestHandlers
+    : IRequestHandler<GetProductByIdQuery, ProductResponse?>,
+        IRequestHandler<GetProductsQuery, ProductsResponse>,
+        IRequestHandler<CreateProductCommand, ProductResponse>,
+        IRequestHandler<UpdateProductCommand>,
+        IRequestHandler<DeleteProductCommand>
 {
     private readonly IProductRepository _repository;
     private readonly ICategoryRepository _categoryRepository;
@@ -40,7 +41,8 @@ public sealed class ProductRequestHandlers :
         IProductDataRepository productDataRepository,
         IProductDataLinkRepository productDataLinkRepository,
         IUnitOfWork unitOfWork,
-        IPublisher publisher)
+        IPublisher publisher
+    )
     {
         _repository = repository;
         _categoryRepository = categoryRepository;
@@ -50,8 +52,8 @@ public sealed class ProductRequestHandlers :
         _publisher = publisher;
     }
 
-    public async Task<ProductResponse?> Handle(GetProductByIdQuery request, CancellationToken ct)
-        => await _repository.FirstOrDefaultAsync(new ProductByIdSpecification(request.Id), ct);
+    public async Task<ProductResponse?> Handle(GetProductByIdQuery request, CancellationToken ct) =>
+        await _repository.FirstOrDefaultAsync(new ProductByIdSpecification(request.Id), ct);
 
     public async Task<ProductsResponse> Handle(GetProductsQuery request, CancellationToken ct)
     {
@@ -65,33 +67,41 @@ public sealed class ProductRequestHandlers :
                 items,
                 totalCount,
                 request.Filter.PageNumber,
-                request.Filter.PageSize),
-            new ProductSearchFacetsResponse(categoryFacets, priceFacets));
+                request.Filter.PageSize
+            ),
+            new ProductSearchFacetsResponse(categoryFacets, priceFacets)
+        );
     }
 
     public async Task<ProductResponse> Handle(CreateProductCommand command, CancellationToken ct)
     {
         await ValidateCategoryExistsAsync(command.Request.CategoryId, ct);
-        var productDataIds = await ValidateAndNormalizeProductDataIdsAsync(command.Request.ProductDataIds ?? [], ct);
+        var productDataIds = await ValidateAndNormalizeProductDataIdsAsync(
+            command.Request.ProductDataIds ?? [],
+            ct
+        );
 
-        var product = await _unitOfWork.ExecuteInTransactionAsync(async () =>
-        {
-            var productId = Guid.NewGuid();
-            var entity = new ProductEntity
+        var product = await _unitOfWork.ExecuteInTransactionAsync(
+            async () =>
             {
-                Id = productId,
-                Name = command.Request.Name,
-                Description = command.Request.Description,
-                Price = command.Request.Price,
-                CategoryId = command.Request.CategoryId,
-                ProductDataLinks = productDataIds
-                    .Select(productDataId => ProductDataLink.Create(productId, productDataId))
-                    .ToList()
-            };
+                var productId = Guid.NewGuid();
+                var entity = new ProductEntity
+                {
+                    Id = productId,
+                    Name = command.Request.Name,
+                    Description = command.Request.Description,
+                    Price = command.Request.Price,
+                    CategoryId = command.Request.CategoryId,
+                    ProductDataLinks = productDataIds
+                        .Select(productDataId => ProductDataLink.Create(productId, productDataId))
+                        .ToList(),
+                };
 
-            await _repository.AddAsync(entity, ct);
-            return entity;
-        }, ct);
+                await _repository.AddAsync(entity, ct);
+                return entity;
+            },
+            ct
+        );
 
         await _publisher.Publish(new ProductsChangedNotification(), ct);
         return product.ToResponse();
@@ -99,48 +109,72 @@ public sealed class ProductRequestHandlers :
 
     public async Task Handle(UpdateProductCommand command, CancellationToken ct)
     {
-        var product = await _repository.FirstOrDefaultAsync(new ProductByIdWithLinksSpecification(command.Id), ct)
+        var product =
+            await _repository.FirstOrDefaultAsync(
+                new ProductByIdWithLinksSpecification(command.Id),
+                ct
+            )
             ?? throw new NotFoundException(
                 nameof(ProductEntity),
                 command.Id,
-                ErrorCatalog.Products.NotFound);
+                ErrorCatalog.Products.NotFound
+            );
 
         await ValidateCategoryExistsAsync(command.Request.CategoryId, ct);
 
-        await _unitOfWork.ExecuteInTransactionAsync(async () =>
-        {
-            product.UpdateDetails(
-                command.Request.Name,
-                command.Request.Description,
-                command.Request.Price,
-                command.Request.CategoryId);
-
-            if (command.Request.ProductDataIds is not null)
+        await _unitOfWork.ExecuteInTransactionAsync(
+            async () =>
             {
-                var productDataIds = await ValidateAndNormalizeProductDataIdsAsync(command.Request.ProductDataIds, ct);
-                var allLinks = await _productDataLinkRepository.ListByProductIdAsync(command.Id, includeDeleted: true, ct);
-                product.SyncProductDataLinks(productDataIds, allLinks);
-            }
+                product.UpdateDetails(
+                    command.Request.Name,
+                    command.Request.Description,
+                    command.Request.Price,
+                    command.Request.CategoryId
+                );
 
-            await _repository.UpdateAsync(product, ct);
-        }, ct);
+                if (command.Request.ProductDataIds is not null)
+                {
+                    var productDataIds = await ValidateAndNormalizeProductDataIdsAsync(
+                        command.Request.ProductDataIds,
+                        ct
+                    );
+                    var allLinks = await _productDataLinkRepository.ListByProductIdAsync(
+                        command.Id,
+                        includeDeleted: true,
+                        ct
+                    );
+                    product.SyncProductDataLinks(productDataIds, allLinks);
+                }
+
+                await _repository.UpdateAsync(product, ct);
+            },
+            ct
+        );
 
         await _publisher.Publish(new ProductsChangedNotification(), ct);
     }
 
     public async Task Handle(DeleteProductCommand command, CancellationToken ct)
     {
-        var product = await _repository.FirstOrDefaultAsync(new ProductByIdWithLinksSpecification(command.Id), ct)
+        var product =
+            await _repository.FirstOrDefaultAsync(
+                new ProductByIdWithLinksSpecification(command.Id),
+                ct
+            )
             ?? throw new NotFoundException(
                 nameof(ProductEntity),
                 command.Id,
-                ErrorCatalog.Products.NotFound);
+                ErrorCatalog.Products.NotFound
+            );
 
-        await _unitOfWork.ExecuteInTransactionAsync(async () =>
-        {
-            product.SoftDeleteProductDataLinks();
-            await _repository.DeleteAsync(product, ct);
-        }, ct);
+        await _unitOfWork.ExecuteInTransactionAsync(
+            async () =>
+            {
+                product.SoftDeleteProductDataLinks();
+                await _repository.DeleteAsync(product, ct);
+            },
+            ct
+        );
 
         await _publisher.Publish(new ProductsChangedNotification(), ct);
         await _publisher.Publish(new ProductReviewsChangedNotification(), ct);
@@ -151,20 +185,19 @@ public sealed class ProductRequestHandlers :
         if (!categoryId.HasValue)
             return;
 
-        _ = await _categoryRepository.GetByIdAsync(categoryId.Value, ct)
-            ?? throw new NotFoundException(
-                nameof(Category),
-                categoryId.Value,
-                ErrorCatalog.Categories.NotFound);
+        await _categoryRepository.GetByIdOrThrowAsync(
+            categoryId.Value,
+            ErrorCatalog.Categories.NotFound,
+            ct
+        );
     }
 
     private async Task<IReadOnlyCollection<Guid>> ValidateAndNormalizeProductDataIdsAsync(
         IReadOnlyCollection<Guid> productDataIds,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
-        var normalizedIds = productDataIds
-            .Distinct()
-            .ToArray();
+        var normalizedIds = productDataIds.Distinct().ToArray();
 
         if (normalizedIds.Length == 0)
             return normalizedIds;
@@ -173,16 +206,15 @@ public sealed class ProductRequestHandlers :
             .Select(productData => productData.Id)
             .ToHashSet();
 
-        var missingIds = normalizedIds
-            .Where(id => !existingIds.Contains(id))
-            .ToArray();
+        var missingIds = normalizedIds.Where(id => !existingIds.Contains(id)).ToArray();
 
         if (missingIds.Length > 0)
         {
             throw new NotFoundException(
                 nameof(ProductData),
                 string.Join(", ", missingIds),
-                ErrorCatalog.Products.ProductDataNotFound);
+                ErrorCatalog.Products.ProductDataNotFound
+            );
         }
 
         return normalizedIds;

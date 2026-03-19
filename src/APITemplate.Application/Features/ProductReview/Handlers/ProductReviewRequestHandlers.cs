@@ -1,5 +1,6 @@
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.ProductReview.Mappings;
 using APITemplate.Application.Features.ProductReview.Specifications;
@@ -10,26 +11,32 @@ using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
 namespace APITemplate.Application.Features.ProductReview;
 
-public sealed record GetProductReviewsQuery(ProductReviewFilter Filter) : IRequest<PagedResponse<ProductReviewResponse>>;
+public sealed record GetProductReviewsQuery(ProductReviewFilter Filter)
+    : IRequest<PagedResponse<ProductReviewResponse>>;
 
 public sealed record GetProductReviewByIdQuery(Guid Id) : IRequest<ProductReviewResponse?>;
 
-public sealed record GetProductReviewsByProductIdQuery(Guid ProductId) : IRequest<IReadOnlyList<ProductReviewResponse>>;
+public sealed record GetProductReviewsByProductIdQuery(Guid ProductId)
+    : IRequest<IReadOnlyList<ProductReviewResponse>>;
 
 public sealed record GetProductReviewsByProductIdsQuery(IReadOnlyCollection<Guid> ProductIds)
     : IRequest<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>;
 
-public sealed record CreateProductReviewCommand(CreateProductReviewRequest Request) : IRequest<ProductReviewResponse>;
+public sealed record CreateProductReviewCommand(CreateProductReviewRequest Request)
+    : IRequest<ProductReviewResponse>;
 
 public sealed record DeleteProductReviewCommand(Guid Id) : IRequest;
 
-public sealed class ProductReviewRequestHandlers :
-    IRequestHandler<GetProductReviewsQuery, PagedResponse<ProductReviewResponse>>,
-    IRequestHandler<GetProductReviewByIdQuery, ProductReviewResponse?>,
-    IRequestHandler<GetProductReviewsByProductIdQuery, IReadOnlyList<ProductReviewResponse>>,
-    IRequestHandler<GetProductReviewsByProductIdsQuery, IReadOnlyDictionary<Guid, ProductReviewResponse[]>>,
-    IRequestHandler<CreateProductReviewCommand, ProductReviewResponse>,
-    IRequestHandler<DeleteProductReviewCommand>
+public sealed class ProductReviewRequestHandlers
+    : IRequestHandler<GetProductReviewsQuery, PagedResponse<ProductReviewResponse>>,
+        IRequestHandler<GetProductReviewByIdQuery, ProductReviewResponse?>,
+        IRequestHandler<GetProductReviewsByProductIdQuery, IReadOnlyList<ProductReviewResponse>>,
+        IRequestHandler<
+            GetProductReviewsByProductIdsQuery,
+            IReadOnlyDictionary<Guid, ProductReviewResponse[]>
+        >,
+        IRequestHandler<CreateProductReviewCommand, ProductReviewResponse>,
+        IRequestHandler<DeleteProductReviewCommand>
 {
     private readonly IProductReviewRepository _reviewRepository;
     private readonly IProductRepository _productRepository;
@@ -42,7 +49,8 @@ public sealed class ProductReviewRequestHandlers :
         IProductRepository productRepository,
         IUnitOfWork unitOfWork,
         IActorProvider actorProvider,
-        IPublisher publisher)
+        IPublisher publisher
+    )
     {
         _reviewRepository = reviewRepository;
         _productRepository = productRepository;
@@ -51,14 +59,24 @@ public sealed class ProductReviewRequestHandlers :
         _publisher = publisher;
     }
 
-    public async Task<PagedResponse<ProductReviewResponse>> Handle(GetProductReviewsQuery request, CancellationToken ct)
+    public async Task<PagedResponse<ProductReviewResponse>> Handle(
+        GetProductReviewsQuery request,
+        CancellationToken ct
+    )
     {
-        var items = await _reviewRepository.ListAsync(new ProductReviewSpecification(request.Filter), ct);
-        var totalCount = await _reviewRepository.CountAsync(new ProductReviewCountSpecification(request.Filter), ct);
-        return new PagedResponse<ProductReviewResponse>(items, totalCount, request.Filter.PageNumber, request.Filter.PageSize);
+        return await _reviewRepository.GetPagedAsync(
+            new ProductReviewSpecification(request.Filter),
+            new ProductReviewCountSpecification(request.Filter),
+            request.Filter.PageNumber,
+            request.Filter.PageSize,
+            ct
+        );
     }
 
-    public async Task<ProductReviewResponse?> Handle(GetProductReviewByIdQuery request, CancellationToken ct)
+    public async Task<ProductReviewResponse?> Handle(
+        GetProductReviewByIdQuery request,
+        CancellationToken ct
+    )
     {
         var item = await _reviewRepository.GetByIdAsync(request.Id, ct);
         return item?.ToResponse();
@@ -66,51 +84,59 @@ public sealed class ProductReviewRequestHandlers :
 
     public async Task<IReadOnlyList<ProductReviewResponse>> Handle(
         GetProductReviewsByProductIdQuery request,
-        CancellationToken ct)
-        => await _reviewRepository.ListAsync(new ProductReviewByProductIdSpecification(request.ProductId), ct);
+        CancellationToken ct
+    ) =>
+        await _reviewRepository.ListAsync(
+            new ProductReviewByProductIdSpecification(request.ProductId),
+            ct
+        );
 
     public async Task<IReadOnlyDictionary<Guid, ProductReviewResponse[]>> Handle(
         GetProductReviewsByProductIdsQuery request,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
         if (request.ProductIds.Count == 0)
             return new Dictionary<Guid, ProductReviewResponse[]>();
 
-        var reviews = await _reviewRepository.ListAsync(new ProductReviewByProductIdsSpecification(request.ProductIds), ct);
+        var reviews = await _reviewRepository.ListAsync(
+            new ProductReviewByProductIdsSpecification(request.ProductIds),
+            ct
+        );
         var lookup = reviews.ToLookup(review => review.ProductId);
 
-        return request.ProductIds
-            .Distinct()
-            .ToDictionary(id => id, id => lookup[id].ToArray());
+        return request.ProductIds.Distinct().ToDictionary(id => id, id => lookup[id].ToArray());
     }
 
-    public async Task<ProductReviewResponse> Handle(CreateProductReviewCommand command, CancellationToken ct)
+    public async Task<ProductReviewResponse> Handle(
+        CreateProductReviewCommand command,
+        CancellationToken ct
+    )
     {
         var userId = _actorProvider.ActorId;
-        var productExists = await _productRepository.GetByIdAsync(command.Request.ProductId, ct) is not null;
+        await _productRepository.GetByIdOrThrowAsync(
+            command.Request.ProductId,
+            ErrorCatalog.Reviews.ProductNotFoundForReview,
+            ct
+        );
 
-        if (!productExists)
-        {
-            throw new NotFoundException(
-                "Product",
-                command.Request.ProductId,
-                ErrorCatalog.Reviews.ProductNotFoundForReview);
-        }
-
-        var review = await _unitOfWork.ExecuteInTransactionAsync(async () =>
-        {
-            var entity = new ProductReviewEntity
+        var review = await _unitOfWork.ExecuteInTransactionAsync(
+            async () =>
             {
-                Id = Guid.NewGuid(),
-                ProductId = command.Request.ProductId,
-                UserId = userId,
-                Comment = command.Request.Comment,
-                Rating = command.Request.Rating
-            };
+                var entity = new ProductReviewEntity
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = command.Request.ProductId,
+                    UserId = userId,
+                    Comment = command.Request.Comment,
+                    Rating = command.Request.Rating,
+                };
 
-            await _reviewRepository.AddAsync(entity, ct);
-            return entity;
-        }, ct);
+                await _reviewRepository.AddAsync(entity, ct);
+                return entity;
+            },
+            ct
+        );
 
         await _publisher.Publish(new ProductReviewsChangedNotification(), ct);
         return review.ToResponse();
@@ -119,20 +145,31 @@ public sealed class ProductReviewRequestHandlers :
     public async Task Handle(DeleteProductReviewCommand command, CancellationToken ct)
     {
         var userId = _actorProvider.ActorId;
-        var review = await _reviewRepository.GetByIdAsync(command.Id, ct)
-            ?? throw new NotFoundException("ProductReview", command.Id, ErrorCatalog.Reviews.ReviewNotFound);
+        var review = await _reviewRepository.GetByIdOrThrowAsync(
+            command.Id,
+            ErrorCatalog.Reviews.ReviewNotFound,
+            ct
+        );
 
         if (review.UserId != userId)
         {
             throw new ForbiddenException(
                 "You can only delete your own reviews.",
-                ErrorCatalog.Auth.Forbidden);
+                ErrorCatalog.Auth.Forbidden
+            );
         }
 
-        await _unitOfWork.ExecuteInTransactionAsync(async () =>
-        {
-            await _reviewRepository.DeleteAsync(command.Id, ct, ErrorCatalog.Reviews.ReviewNotFound);
-        }, ct);
+        await _unitOfWork.ExecuteInTransactionAsync(
+            async () =>
+            {
+                await _reviewRepository.DeleteAsync(
+                    command.Id,
+                    ct,
+                    ErrorCatalog.Reviews.ReviewNotFound
+                );
+            },
+            ct
+        );
 
         await _publisher.Publish(new ProductReviewsChangedNotification(), ct);
     }
