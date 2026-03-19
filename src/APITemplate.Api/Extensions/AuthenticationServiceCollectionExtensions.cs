@@ -226,7 +226,7 @@ public static class AuthenticationServiceCollectionExtensions
         services.AddSingleton<IRolePermissionMap, StaticRolePermissionMap>();
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
-        var authBuilder = services
+        services
             .AddKeycloakAuthorization(configuration)
             .AddAuthorizationBuilder()
             .SetFallbackPolicy(
@@ -264,20 +264,7 @@ public static class AuthenticationServiceCollectionExtensions
                         )
             );
 
-        foreach (var permission in Permission.All)
-        {
-            authBuilder.AddPolicy(
-                permission,
-                policy =>
-                    policy
-                        .AddAuthenticationSchemes(
-                            JwtBearerDefaults.AuthenticationScheme,
-                            AuthConstants.BffSchemes.Cookie
-                        )
-                        .RequireAuthenticatedUser()
-                        .AddRequirements(new PermissionRequirement(permission))
-            );
-        }
+        services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
     }
 
     private static void ConfigureKeycloakInfrastructure(
