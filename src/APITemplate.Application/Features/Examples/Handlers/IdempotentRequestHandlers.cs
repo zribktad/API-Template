@@ -6,9 +6,13 @@ using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Examples.Handlers;
 
+/// <summary>Creates a new resource using the data supplied in the inner <see cref="IdempotentCreateRequest"/>; intended to demonstrate idempotent command handling at the API layer.</summary>
 public sealed record IdempotentCreateCommand(IdempotentCreateRequest Request)
     : IRequest<IdempotentCreateResponse>;
 
+/// <summary>
+/// Application-layer handler that creates a product-like entity inside a transaction, demonstrating idempotency key patterns at the presentation layer.
+/// </summary>
 public sealed class IdempotentRequestHandlers
     : IRequestHandler<IdempotentCreateCommand, IdempotentCreateResponse>
 {
@@ -21,6 +25,7 @@ public sealed class IdempotentRequestHandlers
         _unitOfWork = unitOfWork;
     }
 
+    /// <summary>Persists the new entity in a transaction and maps it to an <see cref="IdempotentCreateResponse"/>.</summary>
     public async Task<IdempotentCreateResponse> Handle(
         IdempotentCreateCommand command,
         CancellationToken ct

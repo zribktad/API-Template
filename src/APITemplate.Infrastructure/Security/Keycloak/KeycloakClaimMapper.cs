@@ -4,8 +4,14 @@ using APITemplate.Application.Common.Security;
 
 namespace APITemplate.Infrastructure.Security.Keycloak;
 
+/// <summary>
+/// Maps Keycloak-specific JWT claims into standard .NET claim types expected by
+/// ASP.NET Core authorization policies (preferred_username → <see cref="ClaimTypes.Name"/>,
+/// realm_access.roles → <see cref="ClaimTypes.Role"/>).
+/// </summary>
 public static class KeycloakClaimMapper
 {
+    /// <summary>Maps both the preferred username and realm roles from the Keycloak token into standard .NET claims.</summary>
     public static void MapKeycloakClaims(ClaimsIdentity identity)
     {
         MapUsername(identity);

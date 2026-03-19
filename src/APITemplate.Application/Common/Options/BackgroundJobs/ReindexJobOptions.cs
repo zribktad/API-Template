@@ -1,5 +1,8 @@
 namespace APITemplate.Application.Common.Options.BackgroundJobs;
 
+/// <summary>
+/// Configuration for the scheduled job that rebuilds search indexes on a periodic basis.
+/// </summary>
 public sealed class ReindexJobOptions
 {
     public bool Enabled { get; set; }

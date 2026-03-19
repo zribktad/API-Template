@@ -12,12 +12,20 @@ namespace APITemplate.Api.Controllers.V1;
 [ApiVersion(1.0)]
 [ApiController]
 [Route("api/v{version:apiVersion}/files")]
+/// <summary>
+/// Presentation-layer controller that demonstrates multipart file upload and streamed download
+/// using local file storage, limited to 10 MB per upload request.
+/// </summary>
 public sealed class FilesController : ControllerBase
 {
     private readonly ISender _sender;
 
     public FilesController(ISender sender) => _sender = sender;
 
+    /// <summary>
+    /// Accepts a multipart form upload, streams the file to local storage via the application
+    /// layer, and returns a 201 with a Location header pointing to the download endpoint.
+    /// </summary>
     [HttpPost("upload")]
     [RequirePermission(Permission.Examples.Upload)]
     [RequestSizeLimit(10 * 1024 * 1024)]
@@ -46,6 +54,10 @@ public sealed class FilesController : ControllerBase
         );
     }
 
+    /// <summary>
+    /// Streams the stored file back to the caller, disposing the underlying stream on error to
+    /// prevent resource leaks.
+    /// </summary>
     [HttpGet("{id:guid}/download")]
     [RequirePermission(Permission.Examples.Download)]
     public async Task<IActionResult> Download(

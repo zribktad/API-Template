@@ -5,6 +5,11 @@ using StackExchange.Redis;
 
 namespace APITemplate.Infrastructure.Idempotency;
 
+/// <summary>
+/// Redis/Dragonfly-backed implementation of <see cref="IIdempotencyStore"/> that stores
+/// idempotency cache entries and distributed locks using atomic Lua scripts.
+/// Suitable for multi-instance deployments where in-process state would cause duplicate processing.
+/// </summary>
 public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
 {
     private const string KeyPrefix = "idempotency:";
@@ -21,6 +26,7 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
         _database = connectionMultiplexer.GetDatabase();
     }
 
+    /// <summary>Returns the cached entry for <paramref name="key"/> if it exists in Redis, or <see langword="null"/> if absent or expired.</summary>
     public async Task<IdempotencyCacheEntry?> TryGetAsync(
         string key,
         CancellationToken ct = default
@@ -32,6 +38,10 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
             : JsonSerializer.Deserialize<IdempotencyCacheEntry>(json.ToString());
     }
 
+    /// <summary>
+    /// Attempts to set a lock key in Redis using SET NX with the given <paramref name="ttl"/>.
+    /// Returns <see langword="true"/> if the lock was acquired; the lock value is stored locally for later release.
+    /// </summary>
     public async Task<bool> TryAcquireAsync(
         string key,
         TimeSpan ttl,
@@ -54,6 +64,7 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
         return acquired;
     }
 
+    /// <summary>Serialises <paramref name="entry"/> and stores it under <paramref name="key"/> in Redis with the specified <paramref name="ttl"/>.</summary>
     public async Task SetAsync(
         string key,
         IdempotencyCacheEntry entry,
@@ -65,6 +76,7 @@ public sealed class DistributedCacheIdempotencyStore : IIdempotencyStore
         await _database.StringSetAsync(KeyPrefix + key, json, ttl);
     }
 
+    /// <summary>Releases the lock for <paramref name="key"/> using an atomic Lua compare-and-delete script to prevent releasing a lock owned by another instance.</summary>
     public async Task ReleaseAsync(string key, CancellationToken ct = default)
     {
         if (!_lockOwners.TryRemove(key, out var lockValue))

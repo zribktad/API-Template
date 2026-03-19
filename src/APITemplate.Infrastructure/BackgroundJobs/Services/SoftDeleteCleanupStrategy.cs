@@ -4,6 +4,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.Services;
 
+/// <summary>
+/// Generic implementation of <see cref="ISoftDeleteCleanupStrategy"/> that hard-deletes
+/// soft-deleted <typeparamref name="TEntity"/> rows in batches using EF Core bulk-delete.
+/// </summary>
 public sealed class SoftDeleteCleanupStrategy<TEntity> : ISoftDeleteCleanupStrategy
     where TEntity : class, ISoftDeletable
 {
@@ -14,8 +18,13 @@ public sealed class SoftDeleteCleanupStrategy<TEntity> : ISoftDeleteCleanupStrat
         _dbContext = dbContext;
     }
 
+    /// <inheritdoc />
     public string EntityName => typeof(TEntity).Name;
 
+    /// <summary>
+    /// Iterates in batches, deleting records where <c>IsDeleted</c> is true and
+    /// <c>DeletedAtUtc</c> precedes <paramref name="cutoff"/>, until no full batch remains.
+    /// </summary>
     public async Task<int> CleanupAsync(
         DateTime cutoff,
         int batchSize,

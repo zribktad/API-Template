@@ -2,6 +2,10 @@ using APITemplate.Domain.Enums;
 
 namespace APITemplate.Domain.Entities;
 
+/// <summary>
+/// Domain entity representing an email invitation for a user to join a tenant.
+/// Holds a hashed token used for secure acceptance and tracks the invitation lifecycle via <see cref="InvitationStatus"/>.
+/// </summary>
 public sealed class TenantInvitation : IAuditableTenantEntity
 {
     public Guid Id { get; set; }

@@ -11,7 +11,15 @@ namespace APITemplate.Api.OpenApi;
 /// </summary>
 public sealed class AuthorizationResponsesOperationTransformer : IOpenApiOperationTransformer
 {
-    public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
+    /// <summary>
+    /// Inspects the endpoint metadata and appends 401/403 response entries when the operation
+    /// requires authorization and does not allow anonymous access.
+    /// </summary>
+    public Task TransformAsync(
+        OpenApiOperation operation,
+        OpenApiOperationTransformerContext context,
+        CancellationToken cancellationToken
+    )
     {
         var endpointMetadata = context.Description.ActionDescriptor.EndpointMetadata;
         var hasAllowAnonymous = endpointMetadata.OfType<IAllowAnonymous>().Any();
@@ -19,7 +27,10 @@ public sealed class AuthorizationResponsesOperationTransformer : IOpenApiOperati
 
         if (hasAuthorize && !hasAllowAnonymous)
         {
-            OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status401Unauthorized);
+            OpenApiErrorResponseHelper.AddErrorResponse(
+                operation,
+                StatusCodes.Status401Unauthorized
+            );
             OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status403Forbidden);
         }
 

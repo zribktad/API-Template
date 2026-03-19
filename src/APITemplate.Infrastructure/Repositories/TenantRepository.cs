@@ -6,6 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace APITemplate.Infrastructure.Repositories;
 
+/// <summary>
+/// EF Core repository for <see cref="Tenant"/> that bypasses the tenant global query filter
+/// so tenants can be looked up by ID or code without an active tenant context.
+/// </summary>
 public sealed class TenantRepository : RepositoryBase<Tenant>, ITenantRepository
 {
     public TenantRepository(AppDbContext dbContext)
@@ -13,6 +17,7 @@ public sealed class TenantRepository : RepositoryBase<Tenant>, ITenantRepository
 
     private IQueryable<Tenant> UnfilteredTenants => AppDb.Tenants.IgnoreQueryFilters(["Tenant"]);
 
+    /// <summary>Applies the specification to the tenant-filter-bypassed queryable so specifications work across all tenants.</summary>
     protected override IQueryable<Tenant> ApplySpecification(
         ISpecification<Tenant> specification,
         bool evaluateCriteriaOnly = false
@@ -47,6 +52,10 @@ public sealed class TenantRepository : RepositoryBase<Tenant>, ITenantRepository
         return await UnfilteredTenants.FirstOrDefaultAsync(t => t.Id == guid, cancellationToken);
     }
 
+    /// <summary>
+    /// Checks whether a tenant with the given code exists, bypassing both tenant and soft-delete
+    /// filters to prevent reuse of codes from deleted tenants.
+    /// </summary>
     public Task<bool> CodeExistsAsync(string code, CancellationToken ct = default)
     {
         return AppDb

@@ -7,6 +7,11 @@ using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Infrastructure.Webhooks;
 
+/// <summary>
+/// Background service that drains the incoming webhook processing queue, dispatching each
+/// payload to all registered <see cref="IWebhookEventHandler"/> implementations that match
+/// the event type or are registered as catch-all ("*") handlers.
+/// </summary>
 public sealed class WebhookProcessingBackgroundService
     : QueueConsumerBackgroundService<WebhookPayload>
 {
@@ -24,6 +29,10 @@ public sealed class WebhookProcessingBackgroundService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Resolves all registered handlers in a fresh DI scope and invokes those whose event type
+    /// matches the payload or is the wildcard "*". Logs a warning when no handler is matched.
+    /// </summary>
     protected override async Task ProcessItemAsync(WebhookPayload payload, CancellationToken ct)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
@@ -51,6 +60,7 @@ public sealed class WebhookProcessingBackgroundService
         }
     }
 
+    /// <summary>Logs processing failures at error level and returns a completed task to allow the queue to continue.</summary>
     protected override Task HandleErrorAsync(
         WebhookPayload payload,
         Exception ex,

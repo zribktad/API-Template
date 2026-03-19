@@ -11,6 +11,10 @@ namespace APITemplate.Api.Controllers.V1;
 [ApiVersion(1.0)]
 [ApiController]
 [Route("api/v{version:apiVersion}/product-data")]
+/// <summary>
+/// Presentation-layer controller that manages product supplementary data (images and videos)
+/// stored in MongoDB, with output-cache integration for read endpoints.
+/// </summary>
 public sealed class ProductDataController : ControllerBase
 {
     private readonly ISender _sender;
@@ -20,6 +24,7 @@ public sealed class ProductDataController : ControllerBase
         _sender = sender;
     }
 
+    /// <summary>Returns all product data documents, optionally filtered by type.</summary>
     [HttpGet]
     [RequirePermission(Permission.ProductData.Read)]
     [OutputCache(PolicyName = CachePolicyNames.ProductData)]
@@ -32,6 +37,7 @@ public sealed class ProductDataController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>Returns a single product data document by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.ProductData.Read)]
     [OutputCache(PolicyName = CachePolicyNames.ProductData)]
@@ -41,6 +47,7 @@ public sealed class ProductDataController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    /// <summary>Creates a new image product-data document and returns it with a 201 Location header.</summary>
     [HttpPost("image")]
     [RequirePermission(Permission.ProductData.Create)]
     public async Task<ActionResult<ProductDataResponse>> CreateImage(
@@ -56,6 +63,7 @@ public sealed class ProductDataController : ControllerBase
         );
     }
 
+    /// <summary>Creates a new video product-data document and returns it with a 201 Location header.</summary>
     [HttpPost("video")]
     [RequirePermission(Permission.ProductData.Create)]
     public async Task<ActionResult<ProductDataResponse>> CreateVideo(
@@ -71,6 +79,7 @@ public sealed class ProductDataController : ControllerBase
         );
     }
 
+    /// <summary>Deletes a product data document by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.ProductData.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)

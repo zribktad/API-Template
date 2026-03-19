@@ -7,6 +7,11 @@ using TickerQ.Utilities.Entities;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.TickerQ;
 
+/// <summary>
+/// Upserts all registered recurring job definitions into the TickerQ scheduler database at
+/// application startup, keeping cron expressions, enablement flags, and metadata in sync
+/// with the current configuration without requiring manual database edits.
+/// </summary>
 public sealed class TickerQRecurringJobRegistrar
 {
     private const string SeedIdentifier = "APITemplate:TickerQ:Recurring";
@@ -35,6 +40,11 @@ public sealed class TickerQRecurringJobRegistrar
         _logger = logger;
     }
 
+    /// <summary>
+    /// Loads all <see cref="CronTickerEntity"/> rows from the database, inserts new ones and updates
+    /// existing ones to match the current <see cref="IRecurringBackgroundJobRegistration"/> definitions,
+    /// then saves changes in a single call.
+    /// </summary>
     public async Task SyncAsync(CancellationToken ct = default)
     {
         var now = _timeProvider.GetUtcNow().UtcDateTime;
@@ -80,6 +90,7 @@ public sealed class TickerQRecurringJobRegistrar
         );
     }
 
+    /// <summary>Sets <c>InitIdentifier</c>, <c>CreatedAt</c>, and <c>UpdatedAt</c> shadow properties for a new entity.</summary>
     private static void StampMetadata(
         Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<CronTickerEntity> entry,
         DateTime now
@@ -90,6 +101,7 @@ public sealed class TickerQRecurringJobRegistrar
         entry.Property(UpdatedAtProperty).CurrentValue = now;
     }
 
+    /// <summary>Refreshes <c>UpdatedAt</c> and initialises <c>InitIdentifier</c> if not already set on an existing entity.</summary>
     private static void StampUpdatedMetadata(
         Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<CronTickerEntity> entry,
         DateTime now

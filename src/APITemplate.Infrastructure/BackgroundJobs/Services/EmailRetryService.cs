@@ -10,6 +10,11 @@ using Polly.Registry;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.Services;
 
+/// <summary>
+/// Infrastructure implementation of <see cref="IEmailRetryService"/> that claims and retries
+/// failed emails from the store and moves permanently undeliverable ones to the dead-letter state.
+/// Uses optimistic per-record claiming to avoid duplicate processing in multi-instance deployments.
+/// </summary>
 public sealed class EmailRetryService : IEmailRetryService
 {
     private readonly string _claimOwner;
@@ -41,6 +46,11 @@ public sealed class EmailRetryService : IEmailRetryService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Claims up to <paramref name="batchSize"/> retryable failed emails, attempts delivery via
+    /// the resilience pipeline, and commits progress per-email to prevent duplicate sends on crash.
+    /// Failures increment <c>RetryCount</c> and release the claim for future attempts.
+    /// </summary>
     public async Task RetryFailedEmailsAsync(
         int maxRetryAttempts,
         int batchSize,
@@ -104,6 +114,10 @@ public sealed class EmailRetryService : IEmailRetryService
         }
     }
 
+    /// <summary>
+    /// Claims and marks as dead-lettered any failed emails that have been retrying for longer than
+    /// <paramref name="deadLetterAfterHours"/> hours, processing in batches until none remain.
+    /// </summary>
     public async Task DeadLetterExpiredAsync(
         int deadLetterAfterHours,
         int batchSize,

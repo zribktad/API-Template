@@ -1,5 +1,8 @@
 namespace APITemplate.Application.Common.Options.BackgroundJobs;
 
+/// <summary>
+/// Configuration for the TickerQ scheduler, including distributed coordination and fail-safe behaviour.
+/// </summary>
 public sealed class TickerQSchedulerOptions
 {
     public const string DefaultSchemaName = "tickerq";

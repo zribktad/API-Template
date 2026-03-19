@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace APITemplate.Infrastructure.Persistence.Configurations;
 
+/// <summary>EF Core configuration for the <see cref="StoredFile"/> entity, mapped to the <c>ExampleFiles</c> table.</summary>
 public sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredFile>
 {
     public void Configure(EntityTypeBuilder<StoredFile> builder)

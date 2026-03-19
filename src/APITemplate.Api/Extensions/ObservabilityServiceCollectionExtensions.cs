@@ -12,8 +12,17 @@ using OpenTelemetry.Trace;
 
 namespace APITemplate.Api.Extensions;
 
+/// <summary>
+/// Presentation-layer extension class that configures OpenTelemetry tracing, metrics, and
+/// OTLP/console exporters, as well as health-check metrics publishing.
+/// </summary>
 public static class ObservabilityServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers OpenTelemetry with ASP.NET Core, HttpClient, runtime, GraphQL, Redis, and
+    /// Npgsql instrumentation; configures custom histogram boundaries and environment-aware
+    /// OTLP exporters (Aspire in dev, container OTLP otherwise).
+    /// </summary>
     public static IServiceCollection AddObservability(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -157,6 +166,10 @@ public static class ObservabilityServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Returns the distinct set of OTLP endpoint URLs that are enabled for the current environment,
+    /// combining Aspire (dev default) and explicit OTLP (container default) endpoints.
+    /// </summary>
     internal static IReadOnlyList<string> GetEnabledOtlpEndpoints(
         ObservabilityOptions options,
         IHostEnvironment environment
@@ -183,6 +196,10 @@ public static class ObservabilityServiceCollectionExtensions
         return endpoints.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
+    /// <summary>
+    /// Returns whether the Aspire OTLP exporter is active: uses the explicit configuration value
+    /// when set, otherwise defaults to <see langword="true"/> in Development outside a container.
+    /// </summary>
     internal static bool IsAspireExporterEnabled(
         ObservabilityOptions options,
         IHostEnvironment environment
@@ -190,11 +207,16 @@ public static class ObservabilityServiceCollectionExtensions
         options.Exporters.Aspire.Enabled
         ?? (environment.IsDevelopment() && !IsRunningInContainer());
 
+    /// <summary>
+    /// Returns whether the generic OTLP exporter is active: uses the explicit configuration value
+    /// when set, otherwise defaults to <see langword="true"/> when running in a container.
+    /// </summary>
     internal static bool IsOtlpExporterEnabled(
         ObservabilityOptions options,
         IHostEnvironment environment
     ) => options.Exporters.Otlp.Enabled ?? IsRunningInContainer();
 
+    /// <summary>Returns whether the console/stdout exporter is enabled; defaults to <see langword="false"/>.</summary>
     internal static bool IsConsoleExporterEnabled(ObservabilityOptions options) =>
         options.Exporters.Console.Enabled ?? false;
 
@@ -205,12 +227,18 @@ public static class ObservabilityServiceCollectionExtensions
             StringComparison.OrdinalIgnoreCase
         );
 
+    /// <summary>Reads and binds <see cref="ObservabilityOptions"/> from configuration, returning defaults when absent.</summary>
     internal static ObservabilityOptions GetObservabilityOptions(IConfiguration configuration) =>
         configuration.SectionFor<ObservabilityOptions>().Get<ObservabilityOptions>() ?? new();
 
+    /// <summary>Reads and binds <see cref="AppOptions"/> from configuration, returning defaults when absent.</summary>
     internal static AppOptions GetAppOptions(IConfiguration configuration) =>
         configuration.SectionFor<AppOptions>().Get<AppOptions>() ?? new();
 
+    /// <summary>
+    /// Builds the OpenTelemetry resource attribute dictionary including service name, version,
+    /// instance ID, host, architecture, OS, and runtime metadata.
+    /// </summary>
     internal static Dictionary<string, object> BuildResourceAttributes(
         AppOptions appOptions,
         IHostEnvironment environment

@@ -5,6 +5,10 @@ using TickerQ.Utilities.Base;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.TickerQ.Jobs;
 
+/// <summary>
+/// TickerQ recurring job that triggers a full-text search index rebuild through <see cref="IReindexService"/>.
+/// Execution is gated by <see cref="IDistributedJobCoordinator"/> to prevent multi-node duplication.
+/// </summary>
 public sealed class ReindexRecurringJob
 {
     private readonly IReindexService _reindexService;
@@ -22,6 +26,7 @@ public sealed class ReindexRecurringJob
         _logger = logger;
     }
 
+    /// <summary>TickerQ entry-point that acquires the distributed leader lease and invokes the reindex service.</summary>
     [TickerFunction(TickerQFunctionNames.Reindex)]
     public Task ExecuteAsync(TickerFunctionContext context, CancellationToken ct) =>
         _coordinator.ExecuteIfLeaderAsync(

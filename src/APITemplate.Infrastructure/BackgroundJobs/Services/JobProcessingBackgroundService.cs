@@ -7,6 +7,11 @@ using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.Services;
 
+/// <summary>
+/// Hosted background service that dequeues job IDs from <see cref="IJobQueueReader"/>, simulates
+/// multi-step processing with progress updates, and dispatches webhook callbacks on completion or failure.
+/// Each job is processed in its own DI scope to ensure repository and unit-of-work isolation.
+/// </summary>
 public sealed class JobProcessingBackgroundService : QueueConsumerBackgroundService<Guid>
 {
     private const int SimulatedStepCount = 5;
@@ -34,6 +39,10 @@ public sealed class JobProcessingBackgroundService : QueueConsumerBackgroundServ
         _timeProvider = timeProvider;
     }
 
+    /// <summary>
+    /// Marks the job as processing, simulates five incremental progress steps, marks it
+    /// completed with a result payload, and enqueues a webhook callback if a callback URL is configured.
+    /// </summary>
     protected override async Task ProcessItemAsync(Guid jobId, CancellationToken ct)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
@@ -63,6 +72,7 @@ public sealed class JobProcessingBackgroundService : QueueConsumerBackgroundServ
         await EnqueueCallbackAsync(job, ct);
     }
 
+    /// <summary>Logs the error and attempts to persist the failed state and enqueue a failure callback within a 30-second timeout.</summary>
     protected override async Task HandleErrorAsync(Guid jobId, Exception ex, CancellationToken ct)
     {
         _logger.LogError(ex, "Job {JobId} failed", jobId);
@@ -99,6 +109,7 @@ public sealed class JobProcessingBackgroundService : QueueConsumerBackgroundServ
         }
     }
 
+    /// <summary>Serialises the job outcome into an <see cref="OutgoingWebhookItem"/> and pushes it to the outgoing webhook queue when a callback URL is present.</summary>
     private async Task EnqueueCallbackAsync(JobExecution job, CancellationToken ct)
     {
         if (job.CallbackUrl is null)

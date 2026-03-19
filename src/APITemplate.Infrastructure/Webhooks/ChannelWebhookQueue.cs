@@ -4,6 +4,10 @@ using APITemplate.Infrastructure.BackgroundJobs.Services;
 
 namespace APITemplate.Infrastructure.Webhooks;
 
+/// <summary>
+/// Bounded <see cref="System.Threading.Channels.Channel{T}"/> implementation for incoming webhook processing,
+/// exposing both producer (<see cref="IWebhookProcessingQueue"/>) and consumer (<see cref="IWebhookQueueReader"/>) interfaces.
+/// </summary>
 public sealed class ChannelWebhookQueue
     : BoundedChannelQueue<WebhookPayload>,
         IWebhookProcessingQueue,

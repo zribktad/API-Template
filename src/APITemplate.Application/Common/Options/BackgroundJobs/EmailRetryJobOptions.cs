@@ -1,5 +1,9 @@
 namespace APITemplate.Application.Common.Options.BackgroundJobs;
 
+/// <summary>
+/// Configuration for the background job that retries failed outbound email deliveries
+/// and moves messages to the dead-letter queue after the maximum retry threshold is exceeded.
+/// </summary>
 public sealed class EmailRetryJobOptions
 {
     public bool Enabled { get; set; }

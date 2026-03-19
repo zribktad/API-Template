@@ -1,7 +1,12 @@
 namespace APITemplate.Application.Common.Errors;
 
+/// <summary>
+/// Central catalog of structured error codes used throughout the Application and Presentation layers.
+/// Organising codes here prevents duplication and makes it easy to cross-reference codes in API documentation.
+/// </summary>
 public static class ErrorCatalog
 {
+    /// <summary>Cross-cutting error codes not tied to a specific domain concept.</summary>
     public static class General
     {
         public const string Unknown = "GEN-0001";
@@ -11,34 +16,40 @@ public static class ErrorCatalog
         public const string ConcurrencyConflict = "GEN-0409-CONCURRENCY";
     }
 
+    /// <summary>Error codes for authentication and authorisation failures.</summary>
     public static class Auth
     {
         public const string Forbidden = "AUTH-0403";
     }
 
+    /// <summary>Error codes specific to the Products domain.</summary>
     public static class Products
     {
         public const string NotFound = "PRD-0404";
         public const string ProductDataNotFound = "PRD-2404";
     }
 
+    /// <summary>Error codes specific to the ProductData domain.</summary>
     public static class ProductData
     {
         public const string NotFound = "PDT-0404";
         public const string InUse = "PDT-0409";
     }
 
+    /// <summary>Error codes specific to the Categories domain.</summary>
     public static class Categories
     {
         public const string NotFound = "CAT-0404";
     }
 
+    /// <summary>Error codes specific to the Reviews domain.</summary>
     public static class Reviews
     {
         public const string ProductNotFoundForReview = "REV-2101";
         public const string ReviewNotFound = "REV-0404";
     }
 
+    /// <summary>Error codes specific to the Users domain.</summary>
     public static class Users
     {
         public const string NotFound = "USR-0404";
@@ -46,12 +57,14 @@ public static class ErrorCatalog
         public const string UsernameAlreadyExists = "USR-0409-USERNAME";
     }
 
+    /// <summary>Error codes specific to the Tenants domain.</summary>
     public static class Tenants
     {
         public const string NotFound = "TNT-0404";
         public const string CodeAlreadyExists = "TNT-0409-CODE";
     }
 
+    /// <summary>Error codes specific to the Invitations domain.</summary>
     public static class Invitations
     {
         public const string NotFound = "INV-0404";
@@ -61,6 +74,7 @@ public static class ErrorCatalog
         public const string NotPending = "INV-0409-NOT-PENDING";
     }
 
+    /// <summary>Error codes used by the example/showcase feature endpoints.</summary>
     public static class Examples
     {
         public const string FileNotFound = "EXA-0404-FILE";

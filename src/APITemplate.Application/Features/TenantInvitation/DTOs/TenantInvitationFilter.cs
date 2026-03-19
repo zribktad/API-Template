@@ -3,6 +3,9 @@ using APITemplate.Domain.Enums;
 
 namespace APITemplate.Application.Features.TenantInvitation.DTOs;
 
+/// <summary>
+/// Pagination and filtering parameters for querying tenant invitations, supporting optional email and status filters.
+/// </summary>
 public sealed record TenantInvitationFilter(
     string? Email = null,
     InvitationStatus? Status = null,

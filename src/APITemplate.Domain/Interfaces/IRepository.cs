@@ -2,7 +2,12 @@ using Ardalis.Specification;
 
 namespace APITemplate.Domain.Interfaces;
 
-public interface IRepository<T> : IRepositoryBase<T> where T : class
+/// <summary>
+/// Generic repository abstraction that extends Ardalis <see cref="IRepositoryBase{T}"/> with an additional
+/// delete-by-ID overload, providing a consistent data-access contract for all relational domain entities.
+/// </summary>
+public interface IRepository<T> : IRepositoryBase<T>
+    where T : class
 {
     // Inherited from IRepositoryBase<T> (Ardalis):
     //   GetByIdAsync<TId>(TId id, ct)
@@ -12,5 +17,8 @@ public interface IRepository<T> : IRepositoryBase<T> where T : class
     //   AddAsync(T entity, ct), UpdateAsync(T entity, ct), DeleteAsync(T entity, ct)
 
     // Ardalis only has DeleteAsync(T entity), we also need DeleteAsync(Guid id)
+    /// <summary>
+    /// Deletes the entity with the given <paramref name="id"/>; throws <see cref="Exceptions.NotFoundException"/> when no entity is found.
+    /// </summary>
     Task DeleteAsync(Guid id, CancellationToken ct = default, string? errorCode = null);
 }

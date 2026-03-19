@@ -1,5 +1,9 @@
 namespace APITemplate.Api.Filters;
 
+/// <summary>
+/// Marks an action method as idempotent, enabling the <see cref="IdempotencyActionFilter"/>
+/// to store and replay responses using the <c>Idempotency-Key</c> request header.
+/// </summary>
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class IdempotentAttribute : Attribute
 {

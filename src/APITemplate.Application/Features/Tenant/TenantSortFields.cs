@@ -3,6 +3,9 @@ using TenantEntity = APITemplate.Domain.Entities.Tenant;
 
 namespace APITemplate.Application.Features.Tenant;
 
+/// <summary>
+/// Defines the sortable fields available for tenant queries and maps them to entity property expressions.
+/// </summary>
 public static class TenantSortFields
 {
     public static readonly SortField Code = new("code");

@@ -1,5 +1,8 @@
 namespace APITemplate.Api.Filters;
 
+/// <summary>
+/// Shared constants for the idempotency feature: header name, key constraints, and default timeouts.
+/// </summary>
 public static class IdempotencyConstants
 {
     public const string HeaderName = "Idempotency-Key";

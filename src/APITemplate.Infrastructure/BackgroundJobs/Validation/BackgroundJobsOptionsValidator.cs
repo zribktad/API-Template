@@ -4,8 +4,16 @@ using NCrontab;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.Validation;
 
+/// <summary>
+/// Validates <see cref="BackgroundJobsOptions"/> at startup, ensuring all enabled jobs have
+/// well-formed cron expressions and positive numeric settings before the application starts accepting traffic.
+/// </summary>
 public sealed class BackgroundJobsOptionsValidator : IValidateOptions<BackgroundJobsOptions>
 {
+    /// <summary>
+    /// Validates all sub-option groups; returns a combined failure result if any setting is invalid,
+    /// or <see cref="ValidateOptionsResult.Success"/> if all are well-formed.
+    /// </summary>
     public ValidateOptionsResult Validate(string? name, BackgroundJobsOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);

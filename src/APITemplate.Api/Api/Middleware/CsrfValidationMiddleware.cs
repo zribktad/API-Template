@@ -22,6 +22,10 @@ public sealed class CsrfValidationMiddleware(
     IProblemDetailsService problemDetailsService
 )
 {
+    /// <summary>
+    /// Processes the request and enforces the CSRF header requirement for cookie-authenticated
+    /// mutating requests, returning HTTP 403 with problem details when the check fails.
+    /// </summary>
     public async Task InvokeAsync(HttpContext context)
     {
         // Safe methods cannot cause state changes, so CSRF is not a concern.

@@ -7,8 +7,16 @@ using Serilog.Sinks.OpenTelemetry;
 
 namespace APITemplate.Api.Extensions.Startup;
 
+/// <summary>
+/// Presentation-layer extension class that configures Microsoft.Extensions.Compliance
+/// redaction (HMAC for sensitive data, erasure for personal data) and Serilog OpenTelemetry sinks.
+/// </summary>
 public static class LoggingExtensions
 {
+    /// <summary>
+    /// Registers HMAC and erasing redactors for sensitive and personal data classifications
+    /// and enables log redaction on the host's logging pipeline.
+    /// </summary>
     public static WebApplicationBuilder AddApplicationRedaction(this WebApplicationBuilder builder)
     {
         builder.Services.AddRedaction(redactionBuilder =>
@@ -48,6 +56,10 @@ public static class LoggingExtensions
         return builder;
     }
 
+    /// <summary>
+    /// Attaches Serilog OpenTelemetry sinks for each enabled OTLP endpoint, enriching log
+    /// events with activity trace/span IDs and OpenTelemetry resource attributes.
+    /// </summary>
     public static LoggerConfiguration AddOpenTelemetrySinks(
         this LoggerConfiguration loggerConfiguration,
         IConfiguration configuration,

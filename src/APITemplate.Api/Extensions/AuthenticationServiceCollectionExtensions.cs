@@ -18,8 +18,16 @@ using Polly;
 
 namespace APITemplate.Api.Extensions;
 
+/// <summary>
+/// Presentation-layer extension class that configures all authentication and authorization
+/// services including Keycloak JWT, BFF cookie/OIDC flows, CORS, and per-permission policies.
+/// </summary>
 public static class AuthenticationServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers and validates CORS, BFF, system-identity, bootstrap-tenant, and Keycloak
+    /// options from configuration without yet configuring any authentication schemes.
+    /// </summary>
     public static IServiceCollection AddAuthenticationOptions(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -83,6 +91,11 @@ public static class AuthenticationServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Registers the full hybrid authentication pipeline: JWT bearer for API clients,
+    /// cookie + OIDC for browser BFF clients, session ticket store, and all per-permission
+    /// authorization policies mapped from <see cref="Permission.All"/>.
+    /// </summary>
     public static IServiceCollection AddKeycloakBffAuthentication(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -319,5 +332,6 @@ public static class AuthenticationServiceCollectionExtensions
         return Task.CompletedTask;
     }
 
+    /// <summary>Immutable carrier for the Keycloak options and derived authority URL used during scheme configuration.</summary>
     private sealed record AuthSettings(KeycloakOptions Keycloak, BffOptions Bff, string Authority);
 }

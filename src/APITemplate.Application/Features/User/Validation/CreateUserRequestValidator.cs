@@ -3,6 +3,7 @@ using APITemplate.Application.Features.User.DTOs;
 
 namespace APITemplate.Application.Features.User.Validation;
 
-public sealed class CreateUserRequestValidator : DataAnnotationsValidator<CreateUserRequest>
-{
-}
+/// <summary>
+/// FluentValidation validator for <see cref="DTOs.CreateUserRequest"/> that enforces data-annotation constraints.
+/// </summary>
+public sealed class CreateUserRequestValidator : DataAnnotationsValidator<CreateUserRequest> { }

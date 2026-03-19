@@ -9,8 +9,16 @@ using Polly;
 
 namespace APITemplate.Api.Extensions;
 
+/// <summary>
+/// Presentation-layer extension class that registers both incoming (HMAC-validated, channel-queued)
+/// and outgoing (signed, HTTP-delivered) webhook infrastructure services.
+/// </summary>
 public static class WebhookServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers <see cref="WebhookOptions"/>, the HMAC payload validator, the inbound channel
+    /// queue with its background processor, and the logging webhook event handler.
+    /// </summary>
     public static IServiceCollection AddIncomingWebhookServices(
         this IServiceCollection services,
         IConfiguration configuration
@@ -33,6 +41,10 @@ public static class WebhookServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Registers the HMAC payload signer, the outbound channel queue with its background delivery
+    /// service, and an HTTP client with a Polly exponential-backoff retry pipeline for failed deliveries.
+    /// </summary>
     public static IServiceCollection AddOutgoingWebhookServices(this IServiceCollection services)
     {
         services.AddSingleton<IWebhookPayloadSigner, HmacWebhookPayloadSigner>();

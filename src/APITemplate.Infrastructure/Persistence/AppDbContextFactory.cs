@@ -16,6 +16,10 @@ namespace APITemplate.Infrastructure.Persistence;
 /// </summary>
 public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
+    /// <summary>
+    /// Creates an <see cref="AppDbContext"/> with null-object collaborators so EF Core tooling
+    /// can scaffold and apply migrations without a running application host.
+    /// </summary>
     public AppDbContext CreateDbContext(string[] args)
     {
         var configuration = new ConfigurationBuilder()
@@ -62,14 +66,35 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
 
     private sealed class NullAuditableEntityStateManager : IAuditableEntityStateManager
     {
-        public void StampAdded(EntityEntry entry, IAuditableTenantEntity entity, DateTime now, Guid actor, bool hasTenant, Guid currentTenantId) { }
+        public void StampAdded(
+            EntityEntry entry,
+            IAuditableTenantEntity entity,
+            DateTime now,
+            Guid actor,
+            bool hasTenant,
+            Guid currentTenantId
+        ) { }
+
         public void StampModified(IAuditableTenantEntity entity, DateTime now, Guid actor) { }
-        public void MarkSoftDeleted(EntityEntry entry, IAuditableTenantEntity entity, DateTime now, Guid actor) { }
+
+        public void MarkSoftDeleted(
+            EntityEntry entry,
+            IAuditableTenantEntity entity,
+            DateTime now,
+            Guid actor
+        ) { }
     }
 
     private sealed class NullSoftDeleteProcessor : ISoftDeleteProcessor
     {
-        public Task ProcessAsync(AppDbContext dbContext, EntityEntry entry, IAuditableTenantEntity entity, DateTime now, Guid actor, IReadOnlyCollection<ISoftDeleteCascadeRule> softDeleteCascadeRules, CancellationToken cancellationToken)
-            => Task.CompletedTask;
+        public Task ProcessAsync(
+            AppDbContext dbContext,
+            EntityEntry entry,
+            IAuditableTenantEntity entity,
+            DateTime now,
+            Guid actor,
+            IReadOnlyCollection<ISoftDeleteCascadeRule> softDeleteCascadeRules,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
     }
 }

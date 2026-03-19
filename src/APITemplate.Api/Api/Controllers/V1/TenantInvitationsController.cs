@@ -15,6 +15,10 @@ namespace APITemplate.Api.Controllers.V1;
 [ApiVersion(1.0)]
 [ApiController]
 [Route("api/v{version:apiVersion}/tenant-invitations")]
+/// <summary>
+/// Presentation-layer controller that manages the lifecycle of tenant invitations,
+/// including creation, acceptance via a token link, revocation, and resending.
+/// </summary>
 public sealed class TenantInvitationsController : ControllerBase
 {
     private readonly ISender _sender;
@@ -24,6 +28,7 @@ public sealed class TenantInvitationsController : ControllerBase
         _sender = sender;
     }
 
+    /// <summary>Returns a paginated list of tenant invitations, optionally filtered.</summary>
     [HttpGet]
     [RequirePermission(Permission.Invitations.Read)]
     [OutputCache(PolicyName = CachePolicyNames.TenantInvitations)]
@@ -36,6 +41,7 @@ public sealed class TenantInvitationsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Creates a new tenant invitation and sends the invite email.</summary>
     [HttpPost]
     [RequirePermission(Permission.Invitations.Create)]
     public async Task<ActionResult<TenantInvitationResponse>> Create(
@@ -47,6 +53,7 @@ public sealed class TenantInvitationsController : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { version = this.GetApiVersion() }, invitation);
     }
 
+    /// <summary>Accepts a pending invitation using the one-time token from the invite email; allows anonymous callers.</summary>
     [HttpPost("accept")]
     [AllowAnonymous]
     public async Task<IActionResult> Accept(
@@ -58,6 +65,7 @@ public sealed class TenantInvitationsController : ControllerBase
         return Ok();
     }
 
+    /// <summary>Marks an outstanding invitation as revoked so the token can no longer be accepted.</summary>
     [HttpPatch("{id:guid}/revoke")]
     [RequirePermission(Permission.Invitations.Revoke)]
     public async Task<IActionResult> Revoke(Guid id, CancellationToken ct)
@@ -66,6 +74,7 @@ public sealed class TenantInvitationsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Re-sends the invitation email for a pending invitation that has not yet been accepted or revoked.</summary>
     [HttpPost("{id:guid}/resend")]
     [RequirePermission(Permission.Invitations.Create)]
     public async Task<IActionResult> Resend(Guid id, CancellationToken ct)

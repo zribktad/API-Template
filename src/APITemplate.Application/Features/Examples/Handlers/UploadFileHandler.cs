@@ -10,8 +10,12 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Application.Features.Examples.Handlers;
 
+/// <summary>Stores an uploaded file and persists its metadata as described by the inner <see cref="UploadFileRequest"/>.</summary>
 public sealed record UploadFileCommand(UploadFileRequest Request) : IRequest<FileUploadResponse>;
 
+/// <summary>
+/// Application-layer handler that validates file type and size constraints, saves the file to storage, persists its metadata in a transaction, and rolls back the physical file on any persistence failure.
+/// </summary>
 public sealed class UploadFileHandler : IRequestHandler<UploadFileCommand, FileUploadResponse>
 {
     private readonly IStoredFileRepository _repository;
@@ -32,6 +36,7 @@ public sealed class UploadFileHandler : IRequestHandler<UploadFileCommand, FileU
         _options = options.Value;
     }
 
+    /// <summary>Validates extension and size, saves to storage, persists the entity record in a transaction, and cleans up the physical file if the database write fails.</summary>
     public async Task<FileUploadResponse> Handle(UploadFileCommand command, CancellationToken ct)
     {
         var req = command.Request;

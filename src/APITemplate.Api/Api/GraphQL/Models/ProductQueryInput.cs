@@ -2,6 +2,10 @@ using APITemplate.Application.Common.DTOs;
 
 namespace APITemplate.Api.GraphQL.Models;
 
+/// <summary>
+/// GraphQL input type for querying products, supporting full-text search, price and date
+/// range filters, category constraints, sorting, and pagination.
+/// </summary>
 public sealed class ProductQueryInput
 {
     public string? Name { get; init; }

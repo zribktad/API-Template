@@ -8,6 +8,11 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Infrastructure.Email;
 
+/// <summary>
+/// Infrastructure implementation of <see cref="IFailedEmailStore"/> that persists a <see cref="FailedEmail"/>
+/// record when delivery fails, provided the email is marked retryable and the email-retry job is enabled.
+/// Uses a new DI scope per call to avoid captive-dependency issues with scoped services.
+/// </summary>
 public sealed class FailedEmailStore : IFailedEmailStore
 {
     private readonly IServiceScopeFactory _scopeFactory;
@@ -25,6 +30,11 @@ public sealed class FailedEmailStore : IFailedEmailStore
         _logger = logger;
     }
 
+    /// <summary>
+    /// Persists a new <see cref="FailedEmail"/> for <paramref name="message"/> if the message is
+    /// retryable and the email-retry feature is enabled; silently swallows storage errors to avoid
+    /// masking the original send failure.
+    /// </summary>
     public async Task StoreFailedAsync(
         EmailMessage message,
         string error,

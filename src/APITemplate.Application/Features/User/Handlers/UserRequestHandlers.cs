@@ -11,24 +11,55 @@ using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Application.Features.User;
 
+/// <summary>
+/// MediatR query that retrieves a paginated, filtered list of users.
+/// </summary>
 public sealed record GetUsersQuery(UserFilter Filter) : IRequest<PagedResponse<UserResponse>>;
 
+/// <summary>
+/// MediatR query that retrieves a single user by their unique identifier.
+/// </summary>
 public sealed record GetUserByIdQuery(Guid Id) : IRequest<UserResponse?>;
 
+/// <summary>
+/// MediatR command that creates a new user account in both Keycloak and the local database.
+/// </summary>
 public sealed record CreateUserCommand(CreateUserRequest Request) : IRequest<UserResponse>;
 
+/// <summary>
+/// MediatR command that updates the username and email of the specified user.
+/// </summary>
 public sealed record UpdateUserCommand(Guid Id, UpdateUserRequest Request) : IRequest;
 
+/// <summary>
+/// MediatR command that activates the specified user account in both Keycloak and the local database.
+/// </summary>
 public sealed record ActivateUserCommand(Guid Id) : IRequest;
 
+/// <summary>
+/// MediatR command that deactivates the specified user account in both Keycloak and the local database.
+/// </summary>
 public sealed record DeactivateUserCommand(Guid Id) : IRequest;
 
+/// <summary>
+/// MediatR command that changes the application role of the specified user.
+/// </summary>
 public sealed record ChangeUserRoleCommand(Guid Id, ChangeUserRoleRequest Request) : IRequest;
 
+/// <summary>
+/// MediatR command that deletes the specified user from Keycloak and the local database.
+/// </summary>
 public sealed record DeleteUserCommand(Guid Id) : IRequest;
 
+/// <summary>
+/// MediatR command that triggers a Keycloak password-reset email for the given email address.
+/// </summary>
 public sealed record KeycloakPasswordResetCommand(RequestPasswordResetRequest Request) : IRequest;
 
+/// <summary>
+/// Application-layer handler that processes all user-related MediatR requests and commands.
+/// Coordinates repository access, Keycloak administration, unit-of-work commits, and domain-event publication.
+/// </summary>
 public sealed class UserRequestHandlers
     : IRequestHandler<GetUsersQuery, PagedResponse<UserResponse>>,
         IRequestHandler<GetUserByIdQuery, UserResponse?>,
@@ -61,6 +92,9 @@ public sealed class UserRequestHandlers
         _keycloakAdmin = keycloakAdmin;
     }
 
+    /// <summary>
+    /// Returns a paginated list of users that match the filter criteria. Item and count queries run concurrently.
+    /// </summary>
     public async Task<PagedResponse<UserResponse>> Handle(
         GetUsersQuery request,
         CancellationToken ct
@@ -77,9 +111,16 @@ public sealed class UserRequestHandlers
         );
     }
 
+    /// <summary>
+    /// Returns the user with the specified ID projected to <see cref="UserResponse"/>, or <see langword="null"/> if not found.
+    /// </summary>
     public async Task<UserResponse?> Handle(GetUserByIdQuery request, CancellationToken ct) =>
         await _repository.FirstOrDefaultAsync(new UserByIdSpecification(request.Id), ct);
 
+    /// <summary>
+    /// Creates the user in Keycloak first, then persists to the local database.
+    /// On DB failure a compensating Keycloak delete is attempted and the original exception is re-thrown.
+    /// </summary>
     public async Task<UserResponse> Handle(CreateUserCommand command, CancellationToken ct)
     {
         await Task.WhenAll(
@@ -148,6 +189,9 @@ public sealed class UserRequestHandlers
         }
     }
 
+    /// <summary>
+    /// Updates the user's username and email, validating uniqueness only when the values change.
+    /// </summary>
     public async Task Handle(UpdateUserCommand command, CancellationToken ct)
     {
         var user = await GetUserOrThrowAsync(command.Id, ct);
@@ -168,6 +212,9 @@ public sealed class UserRequestHandlers
         await _publisher.Publish(new UsersChangedNotification(), ct);
     }
 
+    /// <summary>
+    /// Enables the user in Keycloak (when a Keycloak ID is present) and sets <c>IsActive = true</c> locally.
+    /// </summary>
     public async Task Handle(ActivateUserCommand command, CancellationToken ct)
     {
         var user = await GetUserOrThrowAsync(command.Id, ct);
@@ -182,6 +229,9 @@ public sealed class UserRequestHandlers
         await _publisher.Publish(new UsersChangedNotification(), ct);
     }
 
+    /// <summary>
+    /// Disables the user in Keycloak (when a Keycloak ID is present) and sets <c>IsActive = false</c> locally.
+    /// </summary>
     public async Task Handle(DeactivateUserCommand command, CancellationToken ct)
     {
         var user = await GetUserOrThrowAsync(command.Id, ct);
@@ -196,6 +246,9 @@ public sealed class UserRequestHandlers
         await _publisher.Publish(new UsersChangedNotification(), ct);
     }
 
+    /// <summary>
+    /// Updates the user's role and publishes a <c>UserRoleChangedNotification</c>; notification failures are swallowed and logged.
+    /// </summary>
     public async Task Handle(ChangeUserRoleCommand command, CancellationToken ct)
     {
         var user = await GetUserOrThrowAsync(command.Id, ct);
@@ -230,6 +283,9 @@ public sealed class UserRequestHandlers
         await _publisher.Publish(new UsersChangedNotification(), ct);
     }
 
+    /// <summary>
+    /// Deletes the user from Keycloak first, then removes the local record. A 404 from Keycloak on retry is tolerated by the service.
+    /// </summary>
     public async Task Handle(DeleteUserCommand command, CancellationToken ct)
     {
         var user = await GetUserOrThrowAsync(command.Id, ct);
@@ -246,6 +302,10 @@ public sealed class UserRequestHandlers
         await _publisher.Publish(new UsersChangedNotification(), ct);
     }
 
+    /// <summary>
+    /// Sends a Keycloak password-reset email if the user exists and has a linked Keycloak account.
+    /// Silently no-ops for unknown addresses to avoid user enumeration; failures are swallowed and logged.
+    /// </summary>
     public async Task Handle(KeycloakPasswordResetCommand command, CancellationToken ct)
     {
         var user = await _repository.FindByEmailAsync(command.Request.Email, ct);
@@ -267,12 +327,18 @@ public sealed class UserRequestHandlers
         }
     }
 
+    /// <summary>
+    /// Fetches the <see cref="AppUser"/> with the given <paramref name="id"/> or throws <see cref="Domain.Exceptions.NotFoundException"/>.
+    /// </summary>
     private async Task<AppUser> GetUserOrThrowAsync(Guid id, CancellationToken ct)
     {
         return await _repository.GetByIdAsync(id, ct)
             ?? throw new NotFoundException(nameof(AppUser), id, ErrorCatalog.Users.NotFound);
     }
 
+    /// <summary>
+    /// Throws <see cref="Domain.Exceptions.ConflictException"/> if the email address is already in use.
+    /// </summary>
     private async Task ValidateEmailUniqueAsync(string email, CancellationToken ct)
     {
         if (await _repository.ExistsByEmailAsync(email, ct))
@@ -284,6 +350,9 @@ public sealed class UserRequestHandlers
         }
     }
 
+    /// <summary>
+    /// Throws <see cref="Domain.Exceptions.ConflictException"/> if the normalised username is already in use.
+    /// </summary>
     private async Task ValidateUsernameUniqueAsync(string username, CancellationToken ct)
     {
         var normalized = AppUser.NormalizeUsername(username);

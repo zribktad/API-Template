@@ -6,6 +6,11 @@ using Polly.Registry;
 
 namespace APITemplate.Infrastructure.Email;
 
+/// <summary>
+/// Hosted background service that drains <see cref="IEmailQueueReader"/>, sending each
+/// <see cref="EmailMessage"/> through the SMTP resilience pipeline and storing failures
+/// via <see cref="IFailedEmailStore"/> for later retry.
+/// </summary>
 public sealed class EmailSendingBackgroundService : QueueConsumerBackgroundService<EmailMessage>
 {
     private readonly IEmailSender _sender;
@@ -28,6 +33,7 @@ public sealed class EmailSendingBackgroundService : QueueConsumerBackgroundServi
         _logger = logger;
     }
 
+    /// <summary>Executes delivery of <paramref name="message"/> through the configured SMTP resilience pipeline.</summary>
     protected override async Task ProcessItemAsync(EmailMessage message, CancellationToken ct)
     {
         var pipeline = _resiliencePipelineProvider.GetPipeline(ResiliencePipelineKeys.SmtpSend);
@@ -41,6 +47,7 @@ public sealed class EmailSendingBackgroundService : QueueConsumerBackgroundServi
         );
     }
 
+    /// <summary>Logs the final send failure and delegates to <see cref="IFailedEmailStore"/> to persist the message for retry.</summary>
     protected override async Task HandleErrorAsync(
         EmailMessage message,
         Exception ex,

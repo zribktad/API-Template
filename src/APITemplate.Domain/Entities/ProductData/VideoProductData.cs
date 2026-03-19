@@ -2,6 +2,9 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace APITemplate.Domain.Entities.ProductData;
 
+/// <summary>
+/// MongoDB document subtype that represents video media linked to a product, storing video-specific metadata such as duration and resolution.
+/// </summary>
 [BsonDiscriminator("video")]
 public sealed class VideoProductData : ProductData
 {

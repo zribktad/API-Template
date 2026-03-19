@@ -5,6 +5,7 @@ using APITemplate.Infrastructure.Persistence;
 
 namespace APITemplate.Infrastructure.Repositories;
 
+/// <summary>EF Core repository for <see cref="AppUser"/> with specification-based lookup by email and username.</summary>
 public sealed class UserRepository : RepositoryBase<AppUser>, IUserRepository
 {
     public UserRepository(AppDbContext dbContext)

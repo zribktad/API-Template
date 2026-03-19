@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace APITemplate.Infrastructure.Persistence.Configurations;
 
+/// <summary>EF Core configuration for the <see cref="FailedEmail"/> entity, with composite indexes optimized for claim-based retry and expiration queries.</summary>
 public sealed class FailedEmailConfiguration : IEntityTypeConfiguration<FailedEmail>
 {
     public void Configure(EntityTypeBuilder<FailedEmail> builder)

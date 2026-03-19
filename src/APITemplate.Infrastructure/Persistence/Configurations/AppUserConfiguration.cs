@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace APITemplate.Infrastructure.Persistence.Configurations;
 
+/// <summary>EF Core configuration for the <see cref="AppUser"/> entity, defining constraints, indexes, and enum persistence.</summary>
 public sealed class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
 {
     public void Configure(EntityTypeBuilder<AppUser> builder)

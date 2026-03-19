@@ -1,5 +1,8 @@
 namespace APITemplate.Application.Features.Tenant.DTOs;
 
+/// <summary>
+/// Read model returned to callers after a tenant query or creation.
+/// </summary>
 public sealed record TenantResponse(
     Guid Id,
     string Code,

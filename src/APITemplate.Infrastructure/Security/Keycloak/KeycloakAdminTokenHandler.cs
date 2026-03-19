@@ -16,9 +16,14 @@ public sealed class KeycloakAdminTokenHandler : DelegatingHandler
         _tokenProvider = tokenProvider;
     }
 
+    /// <summary>
+    /// Fetches a valid service-account token from <see cref="KeycloakAdminTokenProvider"/>
+    /// and attaches it as a Bearer Authorization header before forwarding the request.
+    /// </summary>
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var token = await _tokenProvider.GetTokenAsync(cancellationToken);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

@@ -21,7 +21,14 @@ public sealed class FluentValidationActionFilter : IAsyncActionFilter
         _serviceProvider = serviceProvider;
     }
 
-    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    /// <summary>
+    /// Iterates over all action arguments, resolves a matching <see cref="IValidator{T}"/> from DI
+    /// for each, and short-circuits with HTTP 400 if any validation fails.
+    /// </summary>
+    public async Task OnActionExecutionAsync(
+        ActionExecutingContext context,
+        ActionExecutionDelegate next
+    )
     {
         foreach (var argument in context.ActionArguments.Values)
         {
@@ -36,7 +43,10 @@ public sealed class FluentValidationActionFilter : IAsyncActionFilter
                 continue;
 
             var validationContext = new ValidationContext<object>(argument);
-            var result = await validator.ValidateAsync(validationContext, context.HttpContext.RequestAborted);
+            var result = await validator.ValidateAsync(
+                validationContext,
+                context.HttpContext.RequestAborted
+            );
 
             if (result.IsValid)
                 continue;
@@ -48,7 +58,9 @@ public sealed class FluentValidationActionFilter : IAsyncActionFilter
 
         if (!context.ModelState.IsValid)
         {
-            context.Result = new BadRequestObjectResult(new ValidationProblemDetails(context.ModelState));
+            context.Result = new BadRequestObjectResult(
+                new ValidationProblemDetails(context.ModelState)
+            );
             return;
         }
 

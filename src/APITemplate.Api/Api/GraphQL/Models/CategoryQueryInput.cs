@@ -2,6 +2,10 @@ using APITemplate.Application.Common.DTOs;
 
 namespace APITemplate.Api.GraphQL.Models;
 
+/// <summary>
+/// GraphQL input type for querying categories, providing optional text search,
+/// sorting, and pagination parameters.
+/// </summary>
 public sealed class CategoryQueryInput
 {
     public string? Query { get; init; }

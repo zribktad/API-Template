@@ -5,6 +5,9 @@ using FluentValidation;
 
 namespace APITemplate.Application.Features.Examples.Validation;
 
+/// <summary>
+/// FluentValidation validator for a single <see cref="BatchProductItem"/>; inherits data-annotation rules and adds the shared description-required-above-price-threshold rule.
+/// </summary>
 public sealed class BatchProductItemValidator : DataAnnotationsValidator<BatchProductItem>
 {
     public BatchProductItemValidator()

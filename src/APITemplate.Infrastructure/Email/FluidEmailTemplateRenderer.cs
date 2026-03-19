@@ -5,12 +5,18 @@ using Fluid;
 
 namespace APITemplate.Infrastructure.Email;
 
+/// <summary>
+/// Renders Liquid email templates embedded as assembly resources using the Fluid library.
+/// Parsed templates are cached in a <see cref="ConcurrentDictionary{TKey,TValue}"/> to avoid
+/// repeated parsing across requests.
+/// </summary>
 public sealed class FluidEmailTemplateRenderer : IEmailTemplateRenderer
 {
     private static readonly FluidParser Parser = new();
     private static readonly Assembly ResourceAssembly = typeof(FluidEmailTemplateRenderer).Assembly;
     private static readonly ConcurrentDictionary<string, IFluidTemplate> TemplateCache = new();
 
+    /// <summary>Retrieves (or parses and caches) the named template and renders it against <paramref name="model"/>.</summary>
     public async Task<string> RenderAsync(
         string templateName,
         object model,

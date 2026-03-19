@@ -2,9 +2,14 @@ using APITemplate.Domain.Enums;
 
 namespace APITemplate.Domain.Entities;
 
+/// <summary>
+/// Domain entity representing an application user belonging to a tenant.
+/// Tracks identity information, Keycloak linkage, role, and soft-delete state.
+/// </summary>
 public sealed class AppUser : IAuditableTenantEntity
 {
     public Guid Id { get; set; }
+
     /// <summary>
     /// Original username exactly as entered by the user (preserves casing and formatting).
     /// </summary>
@@ -43,6 +48,13 @@ public sealed class AppUser : IAuditableTenantEntity
     public DateTime? DeletedAtUtc { get; set; }
     public Guid? DeletedBy { get; set; }
 
+    /// <summary>
+    /// Returns the canonical form of a username: trimmed and converted to uppercase invariant.
+    /// </summary>
     public static string NormalizeUsername(string username) => username.Trim().ToUpperInvariant();
+
+    /// <summary>
+    /// Returns the canonical form of an email address: trimmed and converted to uppercase invariant.
+    /// </summary>
     public static string NormalizeEmail(string email) => email.Trim().ToUpperInvariant();
 }

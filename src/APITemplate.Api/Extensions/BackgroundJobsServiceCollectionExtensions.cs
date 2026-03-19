@@ -20,6 +20,10 @@ using TickerQ.Utilities.Entities;
 
 namespace APITemplate.Api.Extensions;
 
+/// <summary>
+/// Presentation-layer extension class that registers TickerQ-backed recurring background jobs,
+/// per-entity soft-delete cleanup strategies, and related infrastructure services.
+/// </summary>
 public static class BackgroundJobsServiceCollectionExtensions
 {
     private static readonly Type[] SoftDeleteCleanupOrder =
@@ -33,6 +37,10 @@ public static class BackgroundJobsServiceCollectionExtensions
         typeof(Tenant),
     ];
 
+    /// <summary>
+    /// Registers background job services, soft-delete cleanup strategies, and the TickerQ
+    /// runtime (when enabled), including its EF Core scheduler store and recurring job registrations.
+    /// </summary>
     public static IServiceCollection AddBackgroundJobs(
         this IServiceCollection services,
         IConfiguration configuration

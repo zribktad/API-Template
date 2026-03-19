@@ -3,6 +3,10 @@ using Microsoft.Extensions.Configuration;
 
 namespace APITemplate.Application.Common.Options.Security;
 
+/// <summary>
+/// Configuration for the Keycloak identity provider, covering realm, server URL, client credentials,
+/// and startup readiness-check behaviour.
+/// </summary>
 public sealed class KeycloakOptions
 {
     [Required]
@@ -27,6 +31,9 @@ public sealed class KeycloakOptions
     public KeycloakCredentialsOptions Credentials { get; init; } = new();
 }
 
+/// <summary>
+/// Client-secret credentials used when authenticating against the Keycloak Admin REST API.
+/// </summary>
 public sealed class KeycloakCredentialsOptions
 {
     [ConfigurationKeyName("secret")]

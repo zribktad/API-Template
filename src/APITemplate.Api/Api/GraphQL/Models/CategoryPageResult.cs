@@ -1,5 +1,8 @@
 namespace APITemplate.Api.GraphQL.Models;
 
-public sealed record CategoryPageResult(
-    PagedResponse<CategoryResponse> Page)
+/// <summary>
+/// GraphQL return type that wraps a paginated category result set, implementing
+/// <see cref="IPagedItems{T}"/> so the schema exposes consistent paging fields.
+/// </summary>
+public sealed record CategoryPageResult(PagedResponse<CategoryResponse> Page)
     : IPagedItems<CategoryResponse>;

@@ -10,14 +10,30 @@ using TenantEntity = APITemplate.Domain.Entities.Tenant;
 
 namespace APITemplate.Application.Features.Tenant;
 
+/// <summary>
+/// MediatR query that retrieves a paginated, filtered list of tenants.
+/// </summary>
 public sealed record GetTenantsQuery(TenantFilter Filter) : IRequest<PagedResponse<TenantResponse>>;
 
+/// <summary>
+/// MediatR query that retrieves a single tenant by its unique identifier.
+/// </summary>
 public sealed record GetTenantByIdQuery(Guid Id) : IRequest<TenantResponse?>;
 
+/// <summary>
+/// MediatR command that creates a new tenant from the supplied request data.
+/// </summary>
 public sealed record CreateTenantCommand(CreateTenantRequest Request) : IRequest<TenantResponse>;
 
+/// <summary>
+/// MediatR command that permanently removes the tenant with the given identifier.
+/// </summary>
 public sealed record DeleteTenantCommand(Guid Id) : IRequest;
 
+/// <summary>
+/// Application-layer handler that processes all tenant-related MediatR requests and commands.
+/// Coordinates repository access, unit-of-work transactions, and domain-event publication.
+/// </summary>
 public sealed class TenantRequestHandlers
     : IRequestHandler<GetTenantsQuery, PagedResponse<TenantResponse>>,
         IRequestHandler<GetTenantByIdQuery, TenantResponse?>,
@@ -45,6 +61,9 @@ public sealed class TenantRequestHandlers
         _timeProvider = timeProvider;
     }
 
+    /// <summary>
+    /// Returns a paginated list of tenants that match the filter criteria.
+    /// </summary>
     public async Task<PagedResponse<TenantResponse>> Handle(
         GetTenantsQuery request,
         CancellationToken ct
@@ -63,9 +82,16 @@ public sealed class TenantRequestHandlers
         );
     }
 
+    /// <summary>
+    /// Returns the tenant with the specified ID, or <see langword="null"/> if not found.
+    /// </summary>
     public async Task<TenantResponse?> Handle(GetTenantByIdQuery request, CancellationToken ct) =>
         await _repository.FirstOrDefaultAsync(new TenantByIdSpecification(request.Id), ct);
 
+    /// <summary>
+    /// Creates a new tenant inside a transaction and publishes a <c>TenantsChangedNotification</c>.
+    /// Throws <see cref="Domain.Exceptions.ConflictException"/> if the code is already taken.
+    /// </summary>
     public async Task<TenantResponse> Handle(CreateTenantCommand command, CancellationToken ct)
     {
         if (await _repository.CodeExistsAsync(command.Request.Code, ct))
@@ -96,6 +122,9 @@ public sealed class TenantRequestHandlers
         return tenant.ToResponse();
     }
 
+    /// <summary>
+    /// Deletes the specified tenant inside a transaction, then publishes soft-delete and change notifications.
+    /// </summary>
     public async Task Handle(DeleteTenantCommand command, CancellationToken ct)
     {
         await _unitOfWork.ExecuteInTransactionAsync(

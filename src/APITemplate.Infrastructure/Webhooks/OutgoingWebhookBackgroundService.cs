@@ -8,6 +8,10 @@ using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Infrastructure.Webhooks;
 
+/// <summary>
+/// Background service that drains the outgoing webhook queue, signs each payload with HMAC-SHA256,
+/// and delivers it via HTTP POST to the registered callback URL.
+/// </summary>
 public sealed class OutgoingWebhookBackgroundService
     : QueueConsumerBackgroundService<OutgoingWebhookItem>
 {
@@ -28,6 +32,7 @@ public sealed class OutgoingWebhookBackgroundService
         _logger = logger;
     }
 
+    /// <summary>Signs and HTTP-POSTs the outgoing webhook item to its registered callback URL.</summary>
     protected override async Task ProcessItemAsync(OutgoingWebhookItem item, CancellationToken ct)
     {
         var signatureResult = _signer.Sign(item.SerializedPayload);
@@ -51,6 +56,7 @@ public sealed class OutgoingWebhookBackgroundService
         _logger.LogInformation("Outgoing webhook delivered to {Url}", item.CallbackUrl);
     }
 
+    /// <summary>Logs delivery failures at error level and returns a completed task to allow the queue to continue processing.</summary>
     protected override Task HandleErrorAsync(
         OutgoingWebhookItem item,
         Exception ex,

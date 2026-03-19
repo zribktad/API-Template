@@ -11,6 +11,10 @@ using MediatR;
 
 namespace APITemplate.Api.Extensions;
 
+/// <summary>
+/// Presentation-layer extension class that registers application services (MediatR, validators,
+/// tenant/actor context providers) and API versioning configuration.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>
@@ -49,6 +53,10 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Configures URL-segment API versioning (defaulting to v1) and the API explorer used by
+    /// OpenAPI to group endpoints by version.
+    /// </summary>
     public static IServiceCollection AddApiVersioningConfiguration(this IServiceCollection services)
     {
         // Enable API versioning and configure how clients specify the version.
