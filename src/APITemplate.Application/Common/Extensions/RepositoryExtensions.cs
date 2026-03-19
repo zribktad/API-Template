@@ -27,8 +27,8 @@ public static class RepositoryExtensions
     )
         where T : class
     {
-        var itemsTask = repository.ListAsync(listSpec, ct);
-        var countTask = repository.CountAsync(countSpec, ct);
-        return new PagedResponse<TResult>(await itemsTask, await countTask, pageNumber, pageSize);
+        var items = await repository.ListAsync(listSpec, ct);
+        var count = await repository.CountAsync(countSpec, ct);
+        return new PagedResponse<TResult>(items, count, pageNumber, pageSize);
     }
 }
