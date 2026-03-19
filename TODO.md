@@ -27,6 +27,26 @@
 - [ ] Add email notification for password reset workflow.
 - [ ] Add email notification for user role changes.
 
+## Real-Time Communication (SignalR)
+
+Implement real-time notifications and chat using ASP.NET Core SignalR.
+
+**Architecture:**
+- NotificationHub: job status, data updates, user status
+- ChatHub: 1:1, groups, channels
+- Redis backplane for multi-instance
+- Optional persistence (flexible, add later if needed)
+
+**Implementation:**
+- [ ] Setup SignalR infrastructure (Hubs, backplane, middleware)
+- [ ] NotificationHub: job/product/user status updates
+- [ ] ChatHub: 1:1 messaging
+- [ ] ChatHub: group and channel messaging
+- [ ] Authorization and connection management
+- [ ] Client SDK (JavaScript/TypeScript)
+- [ ] Message persistence layer (pluggable design)
+- [ ] Error handling, reconnection, idempotency
+
 ## Contracts
 
 - [ ] Extract request/response DTOs and shared contract models into a separate NuGet package.
