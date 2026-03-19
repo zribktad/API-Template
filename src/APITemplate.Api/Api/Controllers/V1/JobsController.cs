@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/jobs")]
 /// <summary>
 /// Presentation-layer controller that demonstrates long-running job submission and
 /// asynchronous status polling using a channel-based job queue.

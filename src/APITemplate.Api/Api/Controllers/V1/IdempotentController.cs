@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/idempotent")]
 /// <summary>
 /// Presentation-layer controller that demonstrates idempotent POST semantics using the
 /// <see cref="Idempotent"/> action filter to detect and short-circuit duplicate requests.

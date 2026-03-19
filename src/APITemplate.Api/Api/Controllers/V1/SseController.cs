@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/sse")]
 /// <summary>
 /// Presentation-layer controller that demonstrates Server-Sent Events (SSE) by streaming
 /// notifications as newline-delimited JSON over a persistent HTTP connection.

@@ -12,7 +12,6 @@ using Microsoft.Extensions.Options;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/bff")]
 [Authorize(AuthenticationSchemes = AuthConstants.BffSchemes.Cookie)]
 /// <summary>
 /// Presentation-layer controller that exposes Backend-for-Frontend (BFF) endpoints for

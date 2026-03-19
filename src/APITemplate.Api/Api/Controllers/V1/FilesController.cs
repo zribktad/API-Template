@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/files")]
 /// <summary>
 /// Presentation-layer controller that demonstrates multipart file upload and streamed download
 /// using local file storage, limited to 10 MB per upload request.

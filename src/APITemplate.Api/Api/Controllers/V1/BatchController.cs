@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/batch")]
 /// <summary>
 /// Presentation-layer controller that demonstrates bulk-creation patterns by accepting
 /// a collection of products in a single HTTP request and dispatching them via MediatR.

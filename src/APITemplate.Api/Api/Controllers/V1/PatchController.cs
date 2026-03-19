@@ -10,7 +10,6 @@ using SystemTextJsonPatch;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/patch")]
 /// <summary>
 /// Presentation-layer controller that demonstrates JSON Patch (RFC 6902) support
 /// for partial product updates using <c>SystemTextJsonPatch</c>.
