@@ -1,4 +1,3 @@
-using APITemplate.Extensions;
 using Serilog;
 
 try
@@ -30,7 +29,7 @@ try
     builder.Services.AddGraphQLConfiguration(); // Register GraphQL schema and server services.
     builder.Services.AddFileStorageServices(builder.Configuration); // Register file storage (local FS) for example upload/download.
     builder.Services.AddJobServices(); // Register long-running job queue and background processor.
-    builder.Services.AddWebhookServices(builder.Configuration); // Register webhook HMAC validation, queue, and background processor.
+    builder.Services.AddIncomingWebhookServices(builder.Configuration); // Register webhook HMAC validation, queue, and background processor.
     builder.Services.AddOutgoingWebhookServices(); // Register outgoing webhook queue, signer, and delivery background service.
 
     var app = builder.Build(); // Materialize the web app from configured services.

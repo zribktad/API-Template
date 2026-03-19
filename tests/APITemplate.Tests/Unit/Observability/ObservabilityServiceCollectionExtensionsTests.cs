@@ -1,5 +1,5 @@
+using APITemplate.Api.Extensions;
 using APITemplate.Application.Common.Options;
-using APITemplate.Extensions;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Shouldly;
@@ -16,7 +16,8 @@ public sealed class ObservabilityServiceCollectionExtensionsTests
 
         var endpoints = ObservabilityServiceCollectionExtensions.GetEnabledOtlpEndpoints(
             options,
-            new FakeHostEnvironment(Environments.Development));
+            new FakeHostEnvironment(Environments.Development)
+        );
 
         endpoints.ShouldContain("http://localhost:4317");
     }
@@ -26,26 +27,18 @@ public sealed class ObservabilityServiceCollectionExtensionsTests
     {
         var options = new ObservabilityOptions
         {
-            Otlp = new OtlpEndpointOptions
-            {
-                Endpoint = "http://alloy:4317"
-            },
+            Otlp = new OtlpEndpointOptions { Endpoint = "http://alloy:4317" },
             Exporters = new ObservabilityExportersOptions
             {
-                Otlp = new ObservabilityExporterToggleOptions
-                {
-                    Enabled = true
-                },
-                Aspire = new ObservabilityExporterToggleOptions
-                {
-                    Enabled = false
-                }
-            }
+                Otlp = new ObservabilityExporterToggleOptions { Enabled = true },
+                Aspire = new ObservabilityExporterToggleOptions { Enabled = false },
+            },
         };
 
         var endpoints = ObservabilityServiceCollectionExtensions.GetEnabledOtlpEndpoints(
             options,
-            new FakeHostEnvironment(Environments.Production));
+            new FakeHostEnvironment(Environments.Production)
+        );
 
         endpoints.ShouldBe(["http://alloy:4317"]);
     }

@@ -1,5 +1,5 @@
+using APITemplate.Api.Extensions;
 using APITemplate.Application.Common.Options;
-using APITemplate.Extensions;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Tests.Integration.Helpers;
 using Microsoft.AspNetCore.Hosting;

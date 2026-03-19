@@ -1,4 +1,4 @@
-using APITemplate.Application.Options;
+using APITemplate.Application.Common.Options.Security;
 using APITemplate.Infrastructure.Logging;
 using Shouldly;
 using Xunit;
@@ -13,11 +13,13 @@ public class RedactionConfigurationTests
         var options = new RedactionOptions
         {
             HmacKeyEnvironmentVariable = "APITEMPLATE_REDACTION_HMAC_KEY",
-            HmacKey = "dev-key"
+            HmacKey = "dev-key",
         };
 
-        var key = RedactionConfiguration.ResolveHmacKey(options, name =>
-            name == "APITEMPLATE_REDACTION_HMAC_KEY" ? "prod-key" : null);
+        var key = RedactionConfiguration.ResolveHmacKey(
+            options,
+            name => name == "APITEMPLATE_REDACTION_HMAC_KEY" ? "prod-key" : null
+        );
 
         key.ShouldBe("prod-key");
     }
@@ -28,7 +30,7 @@ public class RedactionConfigurationTests
         var options = new RedactionOptions
         {
             HmacKeyEnvironmentVariable = "APITEMPLATE_REDACTION_HMAC_KEY",
-            HmacKey = "dev-key"
+            HmacKey = "dev-key",
         };
 
         var key = RedactionConfiguration.ResolveHmacKey(options, _ => null);
@@ -42,11 +44,12 @@ public class RedactionConfigurationTests
         var options = new RedactionOptions
         {
             HmacKeyEnvironmentVariable = "APITEMPLATE_REDACTION_HMAC_KEY",
-            HmacKey = string.Empty
+            HmacKey = string.Empty,
         };
 
         var ex = Should.Throw<InvalidOperationException>(() =>
-            RedactionConfiguration.ResolveHmacKey(options, _ => null));
+            RedactionConfiguration.ResolveHmacKey(options, _ => null)
+        );
 
         ex.Message.ShouldContain("APITEMPLATE_REDACTION_HMAC_KEY");
     }

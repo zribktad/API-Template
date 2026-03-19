@@ -1,4 +1,4 @@
-using APITemplate.Extensions;
+using APITemplate.Api.Extensions.Configuration;
 using Microsoft.Extensions.Configuration;
 using Shouldly;
 using Xunit;

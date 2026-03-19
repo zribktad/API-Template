@@ -1,7 +1,7 @@
+using APITemplate.Api.Extensions;
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Options;
 using APITemplate.Domain.Interfaces;
-using APITemplate.Extensions;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Persistence.Auditing;
 using APITemplate.Infrastructure.Persistence.EntityNormalization;
@@ -41,11 +41,18 @@ public abstract class PostgresTestBase : IAsyncLifetime
         {
             await using var initConn = new NpgsqlConnection(_factory.ConnectionString);
             await initConn.OpenAsync();
-            _respawner = await Respawner.CreateAsync(initConn, new RespawnerOptions
-            {
-                DbAdapter = DbAdapter.Postgres,
-                TablesToIgnore = [new Respawn.Graph.Table("__EFMigrationsHistory"), new Respawn.Graph.Table("Tenants")]
-            });
+            _respawner = await Respawner.CreateAsync(
+                initConn,
+                new RespawnerOptions
+                {
+                    DbAdapter = DbAdapter.Postgres,
+                    TablesToIgnore =
+                    [
+                        new Respawn.Graph.Table("__EFMigrationsHistory"),
+                        new Respawn.Graph.Table("Tenants"),
+                    ],
+                }
+            );
         }
 
         await using var conn = new NpgsqlConnection(_factory.ConnectionString);
@@ -53,10 +60,19 @@ public abstract class PostgresTestBase : IAsyncLifetime
         await _respawner.ResetAsync(conn);
     }
 
-    protected async Task<AppDbContext> CreateDbContextAsync(bool hasTenant, Guid tenantId, Guid actorId, CancellationToken ct)
+    protected async Task<AppDbContext> CreateDbContextAsync(
+        bool hasTenant,
+        Guid tenantId,
+        Guid actorId,
+        CancellationToken ct
+    )
     {
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        PersistenceServiceCollectionExtensions.ConfigurePostgresDbContext(optionsBuilder, _factory.ConnectionString, new TransactionDefaultsOptions());
+        PersistenceServiceCollectionExtensions.ConfigurePostgresDbContext(
+            optionsBuilder,
+            _factory.ConnectionString,
+            new TransactionDefaultsOptions()
+        );
         var options = optionsBuilder.Options;
 
         var stateManager = new AuditableEntityStateManager();
@@ -68,18 +84,20 @@ public abstract class PostgresTestBase : IAsyncLifetime
             [new ProductSoftDeleteCascadeRule()],
             new AppUserEntityNormalizationService(),
             stateManager,
-            new SoftDeleteProcessor(stateManager));
+            new SoftDeleteProcessor(stateManager)
+        );
 
         await context.Database.OpenConnectionAsync(ct);
         return context;
     }
 
-    protected static UnitOfWork CreateUnitOfWork(AppDbContext dbContext)
-        => new(
+    protected static UnitOfWork CreateUnitOfWork(AppDbContext dbContext) =>
+        new(
             dbContext,
             Options.Create(new TransactionDefaultsOptions()),
             NullLogger<UnitOfWork>.Instance,
-            new EfCoreTransactionProvider(dbContext));
+            new EfCoreTransactionProvider(dbContext)
+        );
 
     protected sealed class TestTenantProvider(Guid tenantId, bool hasTenant) : ITenantProvider
     {

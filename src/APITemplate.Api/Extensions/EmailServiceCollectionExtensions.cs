@@ -5,7 +5,7 @@ using APITemplate.Infrastructure.Email;
 using APITemplate.Infrastructure.Security;
 using Polly;
 
-namespace APITemplate.Extensions;
+namespace APITemplate.Api.Extensions;
 
 public static class EmailServiceCollectionExtensions
 {

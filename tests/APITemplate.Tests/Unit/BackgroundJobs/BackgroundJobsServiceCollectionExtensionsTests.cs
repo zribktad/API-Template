@@ -1,8 +1,8 @@
+using APITemplate.Api.Extensions;
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Common.Email;
 using APITemplate.Application.Common.Options;
 using APITemplate.Domain.Entities;
-using APITemplate.Extensions;
 using APITemplate.Infrastructure.BackgroundJobs.Services;
 using APITemplate.Infrastructure.BackgroundJobs.TickerQ;
 using APITemplate.Infrastructure.BackgroundJobs.TickerQ.Coordination;

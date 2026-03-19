@@ -10,7 +10,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-namespace APITemplate.Extensions;
+namespace APITemplate.Api.Extensions;
 
 public static class ObservabilityServiceCollectionExtensions
 {

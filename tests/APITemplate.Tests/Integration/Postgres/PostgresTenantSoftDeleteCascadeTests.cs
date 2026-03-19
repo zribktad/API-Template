@@ -1,8 +1,8 @@
+using APITemplate.Api.Extensions;
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Options;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
-using APITemplate.Extensions;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Persistence.Auditing;
 using APITemplate.Infrastructure.Persistence.EntityNormalization;

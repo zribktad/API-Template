@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using StackExchange.Redis;
 
-namespace APITemplate.Extensions;
+namespace APITemplate.Api.Extensions;
 
 public static class ApiServiceCollectionExtensions
 {

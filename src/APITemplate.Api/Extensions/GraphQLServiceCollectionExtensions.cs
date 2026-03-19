@@ -1,6 +1,6 @@
 using APITemplate.Api.GraphQL.Instrumentation;
 
-namespace APITemplate.Extensions;
+namespace APITemplate.Api.Extensions;
 
 public static class GraphQLServiceCollectionExtensions
 {
@@ -20,7 +20,9 @@ public static class GraphQLServiceCollectionExtensions
             .AddDataLoader<Api.GraphQL.DataLoaders.ProductReviewsByProductDataLoader>()
             .AddAuthorization()
             .AddInstrumentation()
-            .AddDiagnosticEventListener(sp => sp.GetRequiredService<GraphQlExecutionMetricsListener>())
+            .AddDiagnosticEventListener(sp =>
+                sp.GetRequiredService<GraphQlExecutionMetricsListener>()
+            )
             .ModifyPagingOptions(o =>
             {
                 o.MaxPageSize = PaginationFilter.MaxPageSize;
