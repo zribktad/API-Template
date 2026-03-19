@@ -11,7 +11,11 @@ namespace APITemplate.Api.OpenApi;
 /// </summary>
 public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransformer
 {
-    public Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context, CancellationToken cancellationToken)
+    public Task TransformAsync(
+        OpenApiDocument document,
+        OpenApiDocumentTransformerContext context,
+        CancellationToken cancellationToken
+    )
     {
         document.Components ??= new OpenApiComponents();
         document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>();
@@ -27,12 +31,21 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
 
             foreach (var operation in path.Operations.Values)
             {
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status400BadRequest, problemDetailsSchema);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status401Unauthorized, problemDetailsSchema);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status403Forbidden, problemDetailsSchema);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status404NotFound, problemDetailsSchema);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status409Conflict, problemDetailsSchema);
-                OpenApiErrorResponseHelper.AddErrorResponse(operation, StatusCodes.Status500InternalServerError, problemDetailsSchema);
+                int[] errorStatusCodes =
+                [
+                    StatusCodes.Status400BadRequest,
+                    StatusCodes.Status401Unauthorized,
+                    StatusCodes.Status403Forbidden,
+                    StatusCodes.Status404NotFound,
+                    StatusCodes.Status409Conflict,
+                    StatusCodes.Status500InternalServerError,
+                ];
+                foreach (var statusCode in errorStatusCodes)
+                    OpenApiErrorResponseHelper.AddErrorResponse(
+                        operation,
+                        statusCode,
+                        problemDetailsSchema
+                    );
             }
         }
 
@@ -47,7 +60,11 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
             Description = "Standard RFC 7807 ProblemDetails payload used by REST error responses.",
             Properties = new Dictionary<string, IOpenApiSchema>
             {
-                ["type"] = new OpenApiSchema { Type = JsonSchemaType.String, Description = "Error documentation URI." },
+                ["type"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Description = "Error documentation URI.",
+                },
                 ["title"] = new OpenApiSchema { Type = JsonSchemaType.String },
                 ["status"] = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
                 ["detail"] = new OpenApiSchema { Type = JsonSchemaType.String },
@@ -59,18 +76,18 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
                     Type = JsonSchemaType.Object | JsonSchemaType.Null,
                     AdditionalProperties = new OpenApiSchema
                     {
-                        Type = JsonSchemaType.String
-                               | JsonSchemaType.Integer
-                               | JsonSchemaType.Number
-                               | JsonSchemaType.Boolean
-                               | JsonSchemaType.Null
-                               | JsonSchemaType.Object
-                               | JsonSchemaType.Array
-                    }
-                }
+                        Type =
+                            JsonSchemaType.String
+                            | JsonSchemaType.Integer
+                            | JsonSchemaType.Number
+                            | JsonSchemaType.Boolean
+                            | JsonSchemaType.Null
+                            | JsonSchemaType.Object
+                            | JsonSchemaType.Array,
+                    },
+                },
             },
-            Required = new HashSet<string> { "type", "title", "status", "traceId", "errorCode" }
+            Required = new HashSet<string> { "type", "title", "status", "traceId", "errorCode" },
         };
     }
-
 }

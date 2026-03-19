@@ -1,3 +1,4 @@
+using APITemplate.Api.Extensions.Resilience;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;
@@ -31,16 +32,12 @@ public static class PersistenceServiceCollectionExtensions
             ConfigurationSections.DefaultConnection
         )!;
 
-        var transactionDefaults =
-            configuration.SectionFor<TransactionDefaultsOptions>().Get<TransactionDefaultsOptions>()
-            ?? new TransactionDefaultsOptions();
-
         services.Configure<TransactionDefaultsOptions>(
             configuration.SectionFor<TransactionDefaultsOptions>()
         );
 
         services.AddDbContext<AppDbContext>(options =>
-            ConfigurePostgresDbContext(options, connectionString, transactionDefaults)
+            ConfigurePostgresDbContext(options, connectionString)
         );
 
         // Repositories (data access)
@@ -76,18 +73,16 @@ public static class PersistenceServiceCollectionExtensions
 
         services
             .AddHealthChecks()
-            .AddNpgSql(connectionString, name: "postgresql", tags: ["database"]);
+            .AddNpgSql(connectionString, name: HealthCheckNames.PostgreSql, tags: ["database"]);
 
         return services;
     }
 
     internal static void ConfigurePostgresDbContext(
         DbContextOptionsBuilder options,
-        string connectionString,
-        TransactionDefaultsOptions transactionDefaults
+        string connectionString
     )
     {
-        _ = transactionDefaults;
         options.UseNpgsql(connectionString);
     }
 
@@ -113,9 +108,9 @@ public static class PersistenceServiceCollectionExtensions
                 builder.AddRetry(
                     new()
                     {
-                        MaxRetryAttempts = 3,
+                        MaxRetryAttempts = ResilienceDefaults.MaxRetryAttempts,
                         BackoffType = DelayBackoffType.Exponential,
-                        Delay = TimeSpan.FromSeconds(1),
+                        Delay = ResilienceDefaults.ShortDelay,
                         UseJitter = true,
                     }
                 );
@@ -131,7 +126,9 @@ public static class PersistenceServiceCollectionExtensions
                 )
         );
 
-        services.AddHealthChecks().AddCheck<MongoDbHealthCheck>("mongodb", tags: ["database"]);
+        services
+            .AddHealthChecks()
+            .AddCheck<MongoDbHealthCheck>(HealthCheckNames.MongoDb, tags: ["database"]);
 
         return services;
     }

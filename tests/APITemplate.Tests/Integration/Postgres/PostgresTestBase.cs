@@ -70,8 +70,7 @@ public abstract class PostgresTestBase : IAsyncLifetime
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         PersistenceServiceCollectionExtensions.ConfigurePostgresDbContext(
             optionsBuilder,
-            _factory.ConnectionString,
-            new TransactionDefaultsOptions()
+            _factory.ConnectionString
         );
         var options = optionsBuilder.Options;
 

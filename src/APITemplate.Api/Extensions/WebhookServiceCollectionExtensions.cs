@@ -1,3 +1,4 @@
+using APITemplate.Api.Extensions.Resilience;
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Common.Contracts;
 using APITemplate.Application.Common.Options;
@@ -53,9 +54,9 @@ public static class WebhookServiceCollectionExtensions
                     builder.AddRetry(
                         new HttpRetryStrategyOptions
                         {
-                            MaxRetryAttempts = 3,
+                            MaxRetryAttempts = ResilienceDefaults.MaxRetryAttempts,
                             BackoffType = DelayBackoffType.Exponential,
-                            Delay = TimeSpan.FromSeconds(2),
+                            Delay = ResilienceDefaults.LongDelay,
                             UseJitter = true,
                         }
                     );

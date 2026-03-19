@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Bff.DTOs;
@@ -11,10 +12,9 @@ using Microsoft.Extensions.Options;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
 [Route("api/v{version:apiVersion}/bff")]
 [Authorize(AuthenticationSchemes = AuthConstants.BffSchemes.Cookie)]
-public sealed class BffController : ControllerBase
+public sealed class BffController : ApiControllerBase
 {
     private readonly BffOptions _bffOptions;
 

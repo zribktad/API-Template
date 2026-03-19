@@ -1,5 +1,6 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using MediatR;
@@ -9,9 +10,7 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
-public sealed class TenantsController : ControllerBase
+public sealed class TenantsController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -38,7 +37,7 @@ public sealed class TenantsController : ControllerBase
     public async Task<ActionResult<TenantResponse>> GetById(Guid id, CancellationToken ct)
     {
         var tenant = await _sender.Send(new GetTenantByIdQuery(id), ct);
-        return tenant is null ? NotFound() : Ok(tenant);
+        return OkOrNotFound(tenant);
     }
 
     [HttpPost]
@@ -49,11 +48,7 @@ public sealed class TenantsController : ControllerBase
     )
     {
         var tenant = await _sender.Send(new CreateTenantCommand(request), ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = tenant.Id, version = this.GetApiVersion() },
-            tenant
-        );
+        return CreatedAtGetById(tenant, tenant.Id);
     }
 
     [HttpDelete("{id:guid}")]

@@ -26,7 +26,7 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
 
         var connectionString =
             configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres";
+            ?? DesignTimeDefaults.FallbackConnectionString;
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(connectionString)
@@ -62,14 +62,35 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
 
     private sealed class NullAuditableEntityStateManager : IAuditableEntityStateManager
     {
-        public void StampAdded(EntityEntry entry, IAuditableTenantEntity entity, DateTime now, Guid actor, bool hasTenant, Guid currentTenantId) { }
+        public void StampAdded(
+            EntityEntry entry,
+            IAuditableTenantEntity entity,
+            DateTime now,
+            Guid actor,
+            bool hasTenant,
+            Guid currentTenantId
+        ) { }
+
         public void StampModified(IAuditableTenantEntity entity, DateTime now, Guid actor) { }
-        public void MarkSoftDeleted(EntityEntry entry, IAuditableTenantEntity entity, DateTime now, Guid actor) { }
+
+        public void MarkSoftDeleted(
+            EntityEntry entry,
+            IAuditableTenantEntity entity,
+            DateTime now,
+            Guid actor
+        ) { }
     }
 
     private sealed class NullSoftDeleteProcessor : ISoftDeleteProcessor
     {
-        public Task ProcessAsync(AppDbContext dbContext, EntityEntry entry, IAuditableTenantEntity entity, DateTime now, Guid actor, IReadOnlyCollection<ISoftDeleteCascadeRule> softDeleteCascadeRules, CancellationToken cancellationToken)
-            => Task.CompletedTask;
+        public Task ProcessAsync(
+            AppDbContext dbContext,
+            EntityEntry entry,
+            IAuditableTenantEntity entity,
+            DateTime now,
+            Guid actor,
+            IReadOnlyCollection<ISoftDeleteCascadeRule> softDeleteCascadeRules,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
     }
 }

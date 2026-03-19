@@ -18,7 +18,7 @@ public sealed class TickerQSchedulerDbContextFactory
 
         var connectionString =
             configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres";
+            ?? Persistence.DesignTimeDefaults.FallbackConnectionString;
 
         var options = new DbContextOptionsBuilder<TickerQSchedulerDbContext>()
             .UseNpgsql(

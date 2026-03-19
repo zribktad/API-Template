@@ -1,5 +1,6 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using MediatR;
@@ -9,9 +10,7 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
-public sealed class CategoriesController : ControllerBase
+public sealed class CategoriesController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -38,7 +37,7 @@ public sealed class CategoriesController : ControllerBase
     public async Task<ActionResult<CategoryResponse>> GetById(Guid id, CancellationToken ct)
     {
         var category = await _sender.Send(new GetCategoryByIdQuery(id), ct);
-        return category is null ? NotFound() : Ok(category);
+        return OkOrNotFound(category);
     }
 
     [HttpPost]
@@ -49,11 +48,7 @@ public sealed class CategoriesController : ControllerBase
     )
     {
         var category = await _sender.Send(new CreateCategoryCommand(request), ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = category.Id, version = this.GetApiVersion() },
-            category
-        );
+        return CreatedAtGetById(category, category.Id);
     }
 
     [HttpPut("{id:guid}")]
@@ -89,6 +84,6 @@ public sealed class CategoriesController : ControllerBase
     )
     {
         var stats = await _sender.Send(new GetCategoryStatsQuery(id), ct);
-        return stats is null ? NotFound() : Ok(stats);
+        return OkOrNotFound(stats);
     }
 }

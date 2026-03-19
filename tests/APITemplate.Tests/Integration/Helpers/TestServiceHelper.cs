@@ -3,6 +3,7 @@ using APITemplate.Application.Common.Startup;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.BackgroundJobs.TickerQ;
 using APITemplate.Infrastructure.BackgroundJobs.TickerQ.Coordination;
+using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Persistence.Startup;
 using APITemplate.Infrastructure.Security;
@@ -75,7 +76,11 @@ internal static class TestServiceHelper
             {
                 var toRemove = options
                     .Registrations.Where(r =>
-                        r.Name is "mongodb" or "keycloak" or "postgresql" or "dragonfly"
+                        r.Name
+                            is HealthCheckNames.MongoDb
+                                or HealthCheckNames.Keycloak
+                                or HealthCheckNames.PostgreSql
+                                or HealthCheckNames.Dragonfly
                     )
                     .ToList();
                 foreach (var r in toRemove)
