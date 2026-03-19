@@ -1,5 +1,6 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using MediatR;
@@ -9,13 +10,11 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
 /// <summary>
 /// Presentation-layer controller that exposes CRUD endpoints for product categories,
 /// including a stored-procedure-backed statistics query.
 /// </summary>
-public sealed class CategoriesController : ControllerBase
+public sealed class CategoriesController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -46,7 +45,7 @@ public sealed class CategoriesController : ControllerBase
     public async Task<ActionResult<CategoryResponse>> GetById(Guid id, CancellationToken ct)
     {
         var category = await _sender.Send(new GetCategoryByIdQuery(id), ct);
-        return category is null ? NotFound() : Ok(category);
+        return OkOrNotFound(category);
     }
 
     /// <summary>Creates a new category and returns it with a 201 Location header.</summary>
@@ -58,11 +57,7 @@ public sealed class CategoriesController : ControllerBase
     )
     {
         var category = await _sender.Send(new CreateCategoryCommand(request), ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = category.Id, version = this.GetApiVersion() },
-            category
-        );
+        return CreatedAtGetById(category, category.Id);
     }
 
     /// <summary>Replaces all mutable fields of an existing category.</summary>
@@ -100,6 +95,6 @@ public sealed class CategoriesController : ControllerBase
     )
     {
         var stats = await _sender.Send(new GetCategoryStatsQuery(id), ct);
-        return stats is null ? NotFound() : Ok(stats);
+        return OkOrNotFound(stats);
     }
 }

@@ -35,11 +35,7 @@ public static class AuthenticationServiceCollectionExtensions
     )
     {
         var corsSection = configuration.SectionFor<CorsOptions>();
-        services
-            .AddOptions<CorsOptions>()
-            .Bind(corsSection)
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<CorsOptions>(configuration);
 
         var corsOrigins = (corsSection.Get<CorsOptions>() ?? new CorsOptions())
             .AllowedOrigins.Where(origin => !string.IsNullOrWhiteSpace(origin))
@@ -61,32 +57,21 @@ public static class AuthenticationServiceCollectionExtensions
             });
         }
 
-        services
-            .AddOptions<BffOptions>()
-            .Bind(configuration.SectionFor<BffOptions>())
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<BffOptions>(configuration);
+
+        services.AddValidatedOptions<SystemIdentityOptions>(
+            configuration,
+            validateDataAnnotations: false
+        );
 
         services
-            .AddOptions<SystemIdentityOptions>()
-            .Bind(configuration.SectionFor<SystemIdentityOptions>())
-            .ValidateOnStart();
-
-        services
-            .AddOptions<BootstrapTenantOptions>()
-            .Bind(configuration.SectionFor<BootstrapTenantOptions>())
-            .ValidateDataAnnotations()
+            .AddValidatedOptions<BootstrapTenantOptions>(configuration)
             .Validate(
                 o => !string.IsNullOrWhiteSpace(o.Code) && !string.IsNullOrWhiteSpace(o.Name),
                 "Bootstrap tenant code/name is required"
-            )
-            .ValidateOnStart();
+            );
 
-        services
-            .AddOptions<KeycloakOptions>()
-            .Bind(configuration.SectionFor<KeycloakOptions>())
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<KeycloakOptions>(configuration);
 
         return services;
     }
@@ -239,7 +224,7 @@ public static class AuthenticationServiceCollectionExtensions
         services.AddSingleton<IRolePermissionMap, StaticRolePermissionMap>();
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
-        var authBuilder = services
+        services
             .AddKeycloakAuthorization(configuration)
             .AddAuthorizationBuilder()
             .SetFallbackPolicy(
@@ -277,20 +262,7 @@ public static class AuthenticationServiceCollectionExtensions
                         )
             );
 
-        foreach (var permission in Permission.All)
-        {
-            authBuilder.AddPolicy(
-                permission,
-                policy =>
-                    policy
-                        .AddAuthenticationSchemes(
-                            JwtBearerDefaults.AuthenticationScheme,
-                            AuthConstants.BffSchemes.Cookie
-                        )
-                        .RequireAuthenticatedUser()
-                        .AddRequirements(new PermissionRequirement(permission))
-            );
-        }
+        services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
     }
 
     private static void ConfigureKeycloakInfrastructure(
@@ -300,7 +272,9 @@ public static class AuthenticationServiceCollectionExtensions
     {
         services.AddHttpClient(nameof(KeycloakHealthCheck));
         services.AddHttpClient(AuthConstants.HttpClients.KeycloakToken);
-        services.AddHealthChecks().AddCheck<KeycloakHealthCheck>("keycloak", tags: ["identity"]);
+        services
+            .AddHealthChecks()
+            .AddCheck<KeycloakHealthCheck>(HealthCheckNames.Keycloak, tags: ["identity"]);
 
         var keycloakOptions = configuration.SectionFor<KeycloakOptions>().Get<KeycloakOptions>()!;
 

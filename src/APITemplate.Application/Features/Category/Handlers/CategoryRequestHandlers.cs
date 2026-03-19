@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Category.Mappings;
 using APITemplate.Application.Features.Category.Specifications;
 using APITemplate.Domain.Exceptions;
@@ -61,16 +62,12 @@ public sealed class CategoryRequestHandlers
         CancellationToken ct
     )
     {
-        var items = await _repository.ListAsync(new CategorySpecification(request.Filter), ct);
-        var totalCount = await _repository.CountAsync(
+        return await _repository.GetPagedAsync(
+            new CategorySpecification(request.Filter),
             new CategoryCountSpecification(request.Filter),
-            ct
-        );
-        return new PagedResponse<CategoryResponse>(
-            items,
-            totalCount,
             request.Filter.PageNumber,
-            request.Filter.PageSize
+            request.Filter.PageSize,
+            ct
         );
     }
 
@@ -119,13 +116,11 @@ public sealed class CategoryRequestHandlers
     /// </summary>
     public async Task Handle(UpdateCategoryCommand command, CancellationToken ct)
     {
-        var category =
-            await _repository.GetByIdAsync(command.Id, ct)
-            ?? throw new NotFoundException(
-                nameof(CategoryEntity),
-                command.Id,
-                ErrorCatalog.Categories.NotFound
-            );
+        var category = await _repository.GetByIdOrThrowAsync(
+            command.Id,
+            ErrorCatalog.Categories.NotFound,
+            ct
+        );
 
         await _unitOfWork.ExecuteInTransactionAsync(
             async () =>

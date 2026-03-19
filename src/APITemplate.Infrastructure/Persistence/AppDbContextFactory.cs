@@ -6,7 +6,6 @@ using APITemplate.Infrastructure.Persistence.SoftDelete;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.Configuration;
 
 namespace APITemplate.Infrastructure.Persistence;
 
@@ -22,15 +21,8 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
     /// </summary>
     public AppDbContext CreateDbContext(string[] args)
     {
-        var configuration = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json", optional: true)
-            .AddJsonFile("appsettings.Development.json", optional: true)
-            .AddEnvironmentVariables()
-            .Build();
-
-        var connectionString =
-            configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres";
+        var configuration = DesignTimeConfigurationHelper.BuildConfiguration();
+        var connectionString = DesignTimeConfigurationHelper.GetConnectionString(configuration);
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(connectionString)

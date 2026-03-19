@@ -35,36 +35,21 @@ public sealed class ProblemDetailsOpenApiTransformer : IOpenApiDocumentTransform
 
             foreach (var operation in path.Operations.Values)
             {
-                OpenApiErrorResponseHelper.AddErrorResponse(
-                    operation,
+                int[] errorStatusCodes =
+                [
                     StatusCodes.Status400BadRequest,
-                    problemDetailsSchema
-                );
-                OpenApiErrorResponseHelper.AddErrorResponse(
-                    operation,
                     StatusCodes.Status401Unauthorized,
-                    problemDetailsSchema
-                );
-                OpenApiErrorResponseHelper.AddErrorResponse(
-                    operation,
                     StatusCodes.Status403Forbidden,
-                    problemDetailsSchema
-                );
-                OpenApiErrorResponseHelper.AddErrorResponse(
-                    operation,
                     StatusCodes.Status404NotFound,
-                    problemDetailsSchema
-                );
-                OpenApiErrorResponseHelper.AddErrorResponse(
-                    operation,
                     StatusCodes.Status409Conflict,
-                    problemDetailsSchema
-                );
-                OpenApiErrorResponseHelper.AddErrorResponse(
-                    operation,
                     StatusCodes.Status500InternalServerError,
-                    problemDetailsSchema
-                );
+                ];
+                foreach (var statusCode in errorStatusCodes)
+                    OpenApiErrorResponseHelper.AddErrorResponse(
+                        operation,
+                        statusCode,
+                        problemDetailsSchema
+                    );
             }
         }
 

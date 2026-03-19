@@ -1,5 +1,6 @@
 using APITemplate.Application.Common.Contracts;
 using APITemplate.Application.Common.Errors;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
@@ -33,13 +34,11 @@ public sealed class DownloadFileHandler : IRequestHandler<DownloadFileQuery, Fil
     /// <summary>Looks up the stored file entity and opens the backing storage stream, returning a <see cref="FileDownloadResult"/> for the presentation layer.</summary>
     public async Task<FileDownloadResult> Handle(DownloadFileQuery query, CancellationToken ct)
     {
-        var entity =
-            await _repository.GetByIdAsync(query.Request.Id, ct)
-            ?? throw new NotFoundException(
-                nameof(StoredFile),
-                query.Request.Id,
-                ErrorCatalog.Examples.FileNotFound
-            );
+        var entity = await _repository.GetByIdOrThrowAsync(
+            query.Request.Id,
+            ErrorCatalog.Examples.FileNotFound,
+            ct
+        );
 
         var stream =
             await _storage.OpenReadAsync(entity.StoragePath, ct)

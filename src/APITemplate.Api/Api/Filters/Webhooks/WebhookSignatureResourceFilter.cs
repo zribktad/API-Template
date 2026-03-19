@@ -4,7 +4,7 @@ using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace APITemplate.Api.Filters;
+namespace APITemplate.Api.Filters.Webhooks;
 
 /// <summary>
 /// Resource filter that validates the HMAC signature of incoming webhook requests for

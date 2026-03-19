@@ -1,5 +1,6 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.DTOs;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.TenantInvitation;
@@ -13,13 +14,12 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
 [Route("api/v{version:apiVersion}/tenant-invitations")]
 /// <summary>
 /// Presentation-layer controller that manages the lifecycle of tenant invitations,
 /// including creation, acceptance via a token link, revocation, and resending.
 /// </summary>
-public sealed class TenantInvitationsController : ControllerBase
+public sealed class TenantInvitationsController : ApiControllerBase
 {
     private readonly ISender _sender;
 

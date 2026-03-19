@@ -1,5 +1,6 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using MediatR;
@@ -9,13 +10,11 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
 /// <summary>
 /// Presentation-layer controller that exposes CRUD endpoints for product reviews,
 /// with output-cache support and a dedicated by-product lookup endpoint.
 /// </summary>
-public sealed class ProductReviewsController : ControllerBase
+public sealed class ProductReviewsController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -44,7 +43,7 @@ public sealed class ProductReviewsController : ControllerBase
     public async Task<ActionResult<ProductReviewResponse>> GetById(Guid id, CancellationToken ct)
     {
         var review = await _sender.Send(new GetProductReviewByIdQuery(id), ct);
-        return review is null ? NotFound() : Ok(review);
+        return OkOrNotFound(review);
     }
 
     /// <summary>Returns all reviews for the specified product.</summary>
@@ -69,11 +68,7 @@ public sealed class ProductReviewsController : ControllerBase
     )
     {
         var review = await _sender.Send(new CreateProductReviewCommand(request), ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = review.Id, version = this.GetApiVersion() },
-            review
-        );
+        return CreatedAtGetById(review, review.Id);
     }
 
     /// <summary>Deletes a product review by its identifier.</summary>

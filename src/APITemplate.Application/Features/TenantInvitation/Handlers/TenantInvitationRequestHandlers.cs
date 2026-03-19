@@ -1,6 +1,7 @@
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Email;
 using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Features.TenantInvitation.DTOs;
 using APITemplate.Application.Features.TenantInvitation.Mappings;
@@ -95,20 +96,12 @@ public sealed class TenantInvitationRequestHandlers
         CancellationToken ct
     )
     {
-        var items = await _invitationRepository.ListAsync(
+        return await _invitationRepository.GetPagedAsync(
             new TenantInvitationFilterSpecification(request.Filter),
-            ct
-        );
-        var totalCount = await _invitationRepository.CountAsync(
             new TenantInvitationCountSpecification(request.Filter),
-            ct
-        );
-
-        return new PagedResponse<TenantInvitationResponse>(
-            items,
-            totalCount,
             request.Filter.PageNumber,
-            request.Filter.PageSize
+            request.Filter.PageSize,
+            ct
         );
     }
 
@@ -130,13 +123,11 @@ public sealed class TenantInvitationRequestHandlers
                 ErrorCatalog.Invitations.AlreadyPending
             );
 
-        var tenant =
-            await _tenantRepository.GetByIdAsync(_tenantProvider.TenantId, ct)
-            ?? throw new NotFoundException(
-                nameof(Domain.Entities.Tenant),
-                _tenantProvider.TenantId,
-                ErrorCatalog.Tenants.NotFound
-            );
+        var tenant = await _tenantRepository.GetByIdOrThrowAsync(
+            _tenantProvider.TenantId,
+            ErrorCatalog.Tenants.NotFound,
+            ct
+        );
 
         var rawToken = _tokenGenerator.GenerateToken();
         var tokenHash = _tokenGenerator.HashToken(rawToken);
@@ -219,13 +210,11 @@ public sealed class TenantInvitationRequestHandlers
     /// </summary>
     public async Task Handle(RevokeTenantInvitationCommand command, CancellationToken ct)
     {
-        var invitation =
-            await _invitationRepository.GetByIdAsync(command.InvitationId, ct)
-            ?? throw new NotFoundException(
-                nameof(TenantInvitationEntity),
-                command.InvitationId,
-                ErrorCatalog.Invitations.NotFound
-            );
+        var invitation = await _invitationRepository.GetByIdOrThrowAsync(
+            command.InvitationId,
+            ErrorCatalog.Invitations.NotFound,
+            ct
+        );
 
         invitation.Status = InvitationStatus.Revoked;
         await _invitationRepository.UpdateAsync(invitation, ct);
@@ -239,13 +228,11 @@ public sealed class TenantInvitationRequestHandlers
     /// </summary>
     public async Task Handle(ResendTenantInvitationCommand command, CancellationToken ct)
     {
-        var invitation =
-            await _invitationRepository.GetByIdAsync(command.InvitationId, ct)
-            ?? throw new NotFoundException(
-                nameof(TenantInvitationEntity),
-                command.InvitationId,
-                ErrorCatalog.Invitations.NotFound
-            );
+        var invitation = await _invitationRepository.GetByIdOrThrowAsync(
+            command.InvitationId,
+            ErrorCatalog.Invitations.NotFound,
+            ct
+        );
 
         if (invitation.Status != InvitationStatus.Pending)
             throw new ConflictException(
@@ -260,13 +247,11 @@ public sealed class TenantInvitationRequestHandlers
                 ErrorCatalog.Invitations.Expired
             );
 
-        var tenant =
-            await _tenantRepository.GetByIdAsync(_tenantProvider.TenantId, ct)
-            ?? throw new NotFoundException(
-                nameof(Domain.Entities.Tenant),
-                _tenantProvider.TenantId,
-                ErrorCatalog.Tenants.NotFound
-            );
+        var tenant = await _tenantRepository.GetByIdOrThrowAsync(
+            _tenantProvider.TenantId,
+            ErrorCatalog.Tenants.NotFound,
+            ct
+        );
 
         // Generate new token for resend
         var rawToken = _tokenGenerator.GenerateToken();

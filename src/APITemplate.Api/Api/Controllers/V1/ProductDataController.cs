@@ -1,5 +1,6 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using MediatR;
@@ -9,13 +10,12 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
 [Route("api/v{version:apiVersion}/product-data")]
 /// <summary>
 /// Presentation-layer controller that manages product supplementary data (images and videos)
 /// stored in MongoDB, with output-cache integration for read endpoints.
 /// </summary>
-public sealed class ProductDataController : ControllerBase
+public sealed class ProductDataController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -44,7 +44,7 @@ public sealed class ProductDataController : ControllerBase
     public async Task<ActionResult<ProductDataResponse>> GetById(Guid id, CancellationToken ct)
     {
         var item = await _sender.Send(new GetProductDataByIdQuery(id), ct);
-        return item is null ? NotFound() : Ok(item);
+        return OkOrNotFound(item);
     }
 
     /// <summary>Creates a new image product-data document and returns it with a 201 Location header.</summary>
@@ -56,11 +56,7 @@ public sealed class ProductDataController : ControllerBase
     )
     {
         var created = await _sender.Send(new CreateImageProductDataCommand(request), ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = created.Id, version = this.GetApiVersion() },
-            created
-        );
+        return CreatedAtGetById(created, created.Id);
     }
 
     /// <summary>Creates a new video product-data document and returns it with a 201 Location header.</summary>
@@ -72,11 +68,7 @@ public sealed class ProductDataController : ControllerBase
     )
     {
         var created = await _sender.Send(new CreateVideoProductDataCommand(request), ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = created.Id, version = this.GetApiVersion() },
-            created
-        );
+        return CreatedAtGetById(created, created.Id);
     }
 
     /// <summary>Deletes a product data document by its identifier.</summary>

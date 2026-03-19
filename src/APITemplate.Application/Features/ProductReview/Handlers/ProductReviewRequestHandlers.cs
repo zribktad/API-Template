@@ -1,5 +1,6 @@
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.ProductReview.Mappings;
 using APITemplate.Application.Features.ProductReview.Specifications;
@@ -77,19 +78,12 @@ public sealed class ProductReviewRequestHandlers
         CancellationToken ct
     )
     {
-        var items = await _reviewRepository.ListAsync(
+        return await _reviewRepository.GetPagedAsync(
             new ProductReviewSpecification(request.Filter),
-            ct
-        );
-        var totalCount = await _reviewRepository.CountAsync(
             new ProductReviewCountSpecification(request.Filter),
-            ct
-        );
-        return new PagedResponse<ProductReviewResponse>(
-            items,
-            totalCount,
             request.Filter.PageNumber,
-            request.Filter.PageSize
+            request.Filter.PageSize,
+            ct
         );
     }
 
@@ -144,17 +138,11 @@ public sealed class ProductReviewRequestHandlers
     )
     {
         var userId = _actorProvider.ActorId;
-        var productExists =
-            await _productRepository.GetByIdAsync(command.Request.ProductId, ct) is not null;
-
-        if (!productExists)
-        {
-            throw new NotFoundException(
-                "Product",
-                command.Request.ProductId,
-                ErrorCatalog.Reviews.ProductNotFoundForReview
-            );
-        }
+        await _productRepository.GetByIdOrThrowAsync(
+            command.Request.ProductId,
+            ErrorCatalog.Reviews.ProductNotFoundForReview,
+            ct
+        );
 
         var review = await _unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -185,13 +173,11 @@ public sealed class ProductReviewRequestHandlers
     public async Task Handle(DeleteProductReviewCommand command, CancellationToken ct)
     {
         var userId = _actorProvider.ActorId;
-        var review =
-            await _reviewRepository.GetByIdAsync(command.Id, ct)
-            ?? throw new NotFoundException(
-                "ProductReview",
-                command.Id,
-                ErrorCatalog.Reviews.ReviewNotFound
-            );
+        var review = await _reviewRepository.GetByIdOrThrowAsync(
+            command.Id,
+            ErrorCatalog.Reviews.ReviewNotFound,
+            ct
+        );
 
         if (review.UserId != userId)
         {

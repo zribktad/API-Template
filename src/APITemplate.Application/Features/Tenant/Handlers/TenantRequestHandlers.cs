@@ -1,5 +1,6 @@
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Tenant.DTOs;
 using APITemplate.Application.Features.Tenant.Mappings;
 using APITemplate.Application.Features.Tenant.Specifications;
@@ -69,16 +70,12 @@ public sealed class TenantRequestHandlers
         CancellationToken ct
     )
     {
-        var items = await _repository.ListAsync(new TenantSpecification(request.Filter), ct);
-        var totalCount = await _repository.CountAsync(
+        return await _repository.GetPagedAsync(
+            new TenantSpecification(request.Filter),
             new TenantCountSpecification(request.Filter),
-            ct
-        );
-        return new PagedResponse<TenantResponse>(
-            items,
-            totalCount,
             request.Filter.PageNumber,
-            request.Filter.PageSize
+            request.Filter.PageSize,
+            ct
         );
     }
 

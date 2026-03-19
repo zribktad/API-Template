@@ -105,58 +105,28 @@ public static class ObservabilityServiceCollectionExtensions
                     TelemetryInstrumentNames.HttpServerRequestDuration,
                     new ExplicitBucketHistogramConfiguration
                     {
-                        Boundaries =
-                        [
-                            0.005,
-                            0.01,
-                            0.025,
-                            0.05,
-                            0.075,
-                            0.1,
-                            0.25,
-                            0.5,
-                            0.75,
-                            1,
-                            2.5,
-                            5,
-                            10,
-                        ],
+                        Boundaries = TelemetryHistogramBoundaries.HttpRequestDurationSeconds,
                     }
                 )
                 .AddView(
                     TelemetryInstrumentNames.HttpClientRequestDuration,
                     new ExplicitBucketHistogramConfiguration
                     {
-                        Boundaries =
-                        [
-                            0.005,
-                            0.01,
-                            0.025,
-                            0.05,
-                            0.075,
-                            0.1,
-                            0.25,
-                            0.5,
-                            0.75,
-                            1,
-                            2.5,
-                            5,
-                            10,
-                        ],
+                        Boundaries = TelemetryHistogramBoundaries.HttpRequestDurationSeconds,
                     }
                 )
                 .AddView(
                     TelemetryMetricNames.OutputCacheInvalidationDuration,
                     new ExplicitBucketHistogramConfiguration
                     {
-                        Boundaries = [1, 5, 10, 25, 50, 100, 250, 500, 1000],
+                        Boundaries = TelemetryHistogramBoundaries.CacheOperationDurationMs,
                     }
                 )
                 .AddView(
                     TelemetryMetricNames.GraphQlRequestDuration,
                     new ExplicitBucketHistogramConfiguration
                     {
-                        Boundaries = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000],
+                        Boundaries = TelemetryHistogramBoundaries.GraphQlRequestDurationMs,
                     }
                 );
 

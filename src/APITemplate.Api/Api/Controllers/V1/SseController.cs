@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using APITemplate.Api.Authorization;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Application.Features.Examples.Handlers;
 using Asp.Versioning;
@@ -10,13 +11,12 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
 [Route("api/v{version:apiVersion}/sse")]
 /// <summary>
 /// Presentation-layer controller that demonstrates Server-Sent Events (SSE) by streaming
 /// notifications as newline-delimited JSON over a persistent HTTP connection.
 /// </summary>
-public sealed class SseController : ControllerBase
+public sealed class SseController : ApiControllerBase
 {
     private const string EventStreamContentType = "text/event-stream";
     private const string NoCacheDirective = "no-cache";

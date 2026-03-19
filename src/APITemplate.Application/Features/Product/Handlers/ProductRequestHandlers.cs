@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Product.Mappings;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.Product.Specifications;
@@ -199,13 +200,11 @@ public sealed class ProductRequestHandlers
         if (!categoryId.HasValue)
             return;
 
-        _ =
-            await _categoryRepository.GetByIdAsync(categoryId.Value, ct)
-            ?? throw new NotFoundException(
-                nameof(Category),
-                categoryId.Value,
-                ErrorCatalog.Categories.NotFound
-            );
+        await _categoryRepository.GetByIdOrThrowAsync(
+            categoryId.Value,
+            ErrorCatalog.Categories.NotFound,
+            ct
+        );
     }
 
     /// <summary>Deduplicates the supplied IDs, verifies each exists in the repository, and throws <see cref="NotFoundException"/> for any missing entries.</summary>

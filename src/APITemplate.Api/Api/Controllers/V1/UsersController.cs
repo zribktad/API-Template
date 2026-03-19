@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.DTOs;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.User.DTOs;
@@ -14,13 +15,11 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
 /// <summary>
 /// Presentation-layer controller that exposes user management endpoints including
 /// CRUD operations, activation/deactivation, role changes, and self-service password reset.
 /// </summary>
-public sealed class UsersController : ControllerBase
+public sealed class UsersController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -49,7 +48,7 @@ public sealed class UsersController : ControllerBase
     public async Task<ActionResult<UserResponse>> GetById(Guid id, CancellationToken ct)
     {
         var user = await _sender.Send(new GetUserByIdQuery(id), ct);
-        return user is null ? NotFound() : Ok(user);
+        return OkOrNotFound(user);
     }
 
     /// <summary>
@@ -68,7 +67,7 @@ public sealed class UsersController : ControllerBase
             return Unauthorized();
 
         var user = await _sender.Send(new GetUserByIdQuery(id), ct);
-        return user is null ? NotFound() : Ok(user);
+        return OkOrNotFound(user);
     }
 
     /// <summary>Creates a new user account and returns it with a 201 Location header.</summary>
@@ -80,11 +79,7 @@ public sealed class UsersController : ControllerBase
     )
     {
         var user = await _sender.Send(new CreateUserCommand(request), ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = user.Id, version = this.GetApiVersion() },
-            user
-        );
+        return CreatedAtGetById(user, user.Id);
     }
 
     /// <summary>Replaces all mutable fields of an existing user.</summary>

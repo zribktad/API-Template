@@ -1,3 +1,4 @@
+using APITemplate.Api.Extensions.Resilience;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;
@@ -50,9 +51,9 @@ public static class KeycloakAdminServiceCollectionExtensions
                     builder.AddRetry(
                         new HttpRetryStrategyOptions
                         {
-                            MaxRetryAttempts = 3,
+                            MaxRetryAttempts = ResilienceDefaults.MaxRetryAttempts,
                             BackoffType = DelayBackoffType.Exponential,
-                            Delay = TimeSpan.FromSeconds(1),
+                            Delay = ResilienceDefaults.ShortDelay,
                             UseJitter = true,
                         }
                     );

@@ -1,4 +1,4 @@
-namespace APITemplate.Api.Filters;
+namespace APITemplate.Api.Filters.Webhooks;
 
 /// <summary>
 /// Marks an action method as requiring webhook HMAC signature validation.

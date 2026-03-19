@@ -1,5 +1,6 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using MediatR;
@@ -9,13 +10,11 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
 /// <summary>
 /// Presentation-layer controller that exposes full CRUD endpoints for the product catalog,
 /// with permission-based authorization and tenant-aware output caching.
 /// </summary>
-public sealed class ProductsController : ControllerBase
+public sealed class ProductsController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -44,7 +43,7 @@ public sealed class ProductsController : ControllerBase
     public async Task<ActionResult<ProductResponse>> GetById(Guid id, CancellationToken ct)
     {
         var product = await _sender.Send(new GetProductByIdQuery(id), ct);
-        return product is null ? NotFound() : Ok(product);
+        return OkOrNotFound(product);
     }
 
     /// <summary>Creates a new product and returns it with a 201 Location header.</summary>
@@ -56,11 +55,7 @@ public sealed class ProductsController : ControllerBase
     )
     {
         var product = await _sender.Send(new CreateProductCommand(request), ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = product.Id, version = this.GetApiVersion() },
-            product
-        );
+        return CreatedAtGetById(product, product.Id);
     }
 
     /// <summary>Replaces all mutable fields of an existing product.</summary>

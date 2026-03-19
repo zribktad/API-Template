@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.User.DTOs;
 using APITemplate.Application.Features.User.Mappings;
@@ -100,14 +101,12 @@ public sealed class UserRequestHandlers
         CancellationToken ct
     )
     {
-        var itemsTask = _repository.ListAsync(new UserFilterSpecification(request.Filter), ct);
-        var countTask = _repository.CountAsync(new UserCountSpecification(request.Filter), ct);
-
-        return new PagedResponse<UserResponse>(
-            await itemsTask,
-            await countTask,
+        return await _repository.GetPagedAsync(
+            new UserFilterSpecification(request.Filter),
+            new UserCountSpecification(request.Filter),
             request.Filter.PageNumber,
-            request.Filter.PageSize
+            request.Filter.PageSize,
+            ct
         );
     }
 
@@ -332,8 +331,7 @@ public sealed class UserRequestHandlers
     /// </summary>
     private async Task<AppUser> GetUserOrThrowAsync(Guid id, CancellationToken ct)
     {
-        return await _repository.GetByIdAsync(id, ct)
-            ?? throw new NotFoundException(nameof(AppUser), id, ErrorCatalog.Users.NotFound);
+        return await _repository.GetByIdOrThrowAsync(id, ErrorCatalog.Users.NotFound, ct);
     }
 
     /// <summary>
