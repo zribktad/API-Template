@@ -1,4 +1,4 @@
-namespace APITemplate.Api.Filters;
+namespace APITemplate.Api.Filters.Idempotency;
 
 public static class IdempotencyConstants
 {

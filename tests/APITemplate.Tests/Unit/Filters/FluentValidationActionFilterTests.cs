@@ -1,11 +1,11 @@
-using APITemplate.Api.Filters;
+using APITemplate.Api.Filters.Validation;
 using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
@@ -24,7 +24,7 @@ public sealed class FluentValidationActionFilterTests
 
         var httpContext = new DefaultHttpContext
         {
-            RequestServices = services.BuildServiceProvider()
+            RequestServices = services.BuildServiceProvider(),
         };
         httpContext.Request.Path = "/api/v1/test";
 
@@ -33,19 +33,21 @@ public sealed class FluentValidationActionFilterTests
             new RouteData(),
             new ControllerActionDescriptor
             {
-                AttributeRouteInfo = new AttributeRouteInfo
-                {
-                    Template = "api/v1/test"
-                }
-            });
+                AttributeRouteInfo = new AttributeRouteInfo { Template = "api/v1/test" },
+            }
+        );
 
         var context = new ActionExecutingContext(
             actionContext,
             [],
             new Dictionary<string, object?> { ["request"] = new TestRequest(string.Empty) },
-            controller: new object());
+            controller: new object()
+        );
 
-        await sut.OnActionExecutionAsync(context, () => throw new InvalidOperationException("Should not execute"));
+        await sut.OnActionExecutionAsync(
+            context,
+            () => throw new InvalidOperationException("Should not execute")
+        );
 
         context.Result.ShouldBeOfType<BadRequestObjectResult>();
     }

@@ -4,7 +4,7 @@ using APITemplate.Application.Common.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace APITemplate.Api.Filters;
+namespace APITemplate.Api.Filters.Idempotency;
 
 public sealed class IdempotencyActionFilter : IAsyncActionFilter
 {

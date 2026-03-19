@@ -1,4 +1,4 @@
-using APITemplate.Api.Filters;
+using APITemplate.Api.Filters.Webhooks;
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;

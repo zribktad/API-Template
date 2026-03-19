@@ -1,5 +1,5 @@
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Filters;
+using APITemplate.Api.Filters.Idempotency;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Application.Features.Examples.Handlers;
