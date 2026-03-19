@@ -24,6 +24,7 @@ public sealed class TenantInvitationCountSpecification : Specification<TenantInv
     public TenantInvitationCountSpecification(TenantInvitationFilter filter)
     {
         Query.ApplyFilter(filter);
+        Query.AsNoTracking();
     }
 }
 
