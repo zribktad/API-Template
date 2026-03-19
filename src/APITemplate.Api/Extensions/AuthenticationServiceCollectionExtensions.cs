@@ -226,7 +226,7 @@ public static class AuthenticationServiceCollectionExtensions
         services.AddSingleton<IRolePermissionMap, StaticRolePermissionMap>();
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
-        var authBuilder = services
+        services
             .AddKeycloakAuthorization(configuration)
             .AddAuthorizationBuilder()
             .SetFallbackPolicy(
