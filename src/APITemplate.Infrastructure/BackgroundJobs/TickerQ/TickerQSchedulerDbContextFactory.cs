@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Options;
+using APITemplate.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -9,10 +10,8 @@ public sealed class TickerQSchedulerDbContextFactory
 {
     public TickerQSchedulerDbContext CreateDbContext(string[] args)
     {
-        var configuration = Persistence.DesignTimeConfigurationHelper.BuildConfiguration();
-        var connectionString = Persistence.DesignTimeConfigurationHelper.GetConnectionString(
-            configuration
-        );
+        var configuration = DesignTimeConfigurationHelper.BuildConfiguration();
+        var connectionString = DesignTimeConfigurationHelper.GetConnectionString(configuration);
 
         var options = new DbContextOptionsBuilder<TickerQSchedulerDbContext>()
             .UseNpgsql(
