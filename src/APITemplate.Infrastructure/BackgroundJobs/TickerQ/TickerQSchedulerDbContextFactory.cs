@@ -1,7 +1,7 @@
 using APITemplate.Application.Common.Options;
+using APITemplate.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.Configuration;
 
 namespace APITemplate.Infrastructure.BackgroundJobs.TickerQ;
 
@@ -10,15 +10,8 @@ public sealed class TickerQSchedulerDbContextFactory
 {
     public TickerQSchedulerDbContext CreateDbContext(string[] args)
     {
-        var configuration = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json", optional: true)
-            .AddJsonFile("appsettings.Development.json", optional: true)
-            .AddEnvironmentVariables()
-            .Build();
-
-        var connectionString =
-            configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Port=5432;Database=apitemplate;Username=postgres;Password=postgres";
+        var configuration = DesignTimeConfigurationHelper.BuildConfiguration();
+        var connectionString = DesignTimeConfigurationHelper.GetConnectionString(configuration);
 
         var options = new DbContextOptionsBuilder<TickerQSchedulerDbContext>()
             .UseNpgsql(
