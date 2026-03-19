@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using APITemplate.Extensions;
 using APITemplate.Infrastructure.Logging;
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Compliance.Redaction;

@@ -7,7 +7,7 @@ using APITemplate.Infrastructure.Idempotency;
 using Microsoft.Extensions.Hosting;
 using StackExchange.Redis;
 
-namespace APITemplate.Extensions;
+namespace APITemplate.Api.Extensions;
 
 public static class InfrastructureServiceCollectionExtensions
 {

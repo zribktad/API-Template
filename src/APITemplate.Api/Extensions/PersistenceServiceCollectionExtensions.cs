@@ -18,7 +18,7 @@ using Kot.MongoDB.Migrations.DI;
 using Microsoft.EntityFrameworkCore;
 using Polly;
 
-namespace APITemplate.Extensions;
+namespace APITemplate.Api.Extensions;
 
 public static class PersistenceServiceCollectionExtensions
 {

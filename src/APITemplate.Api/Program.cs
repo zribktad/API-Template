@@ -1,4 +1,3 @@
-using APITemplate.Extensions;
 using Serilog;
 
 try

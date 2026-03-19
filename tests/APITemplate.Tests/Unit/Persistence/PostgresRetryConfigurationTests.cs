@@ -1,7 +1,7 @@
 using System.Data;
+using APITemplate.Api.Extensions;
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Options;
-using APITemplate.Extensions;
 using APITemplate.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;

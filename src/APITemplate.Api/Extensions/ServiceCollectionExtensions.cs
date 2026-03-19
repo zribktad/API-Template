@@ -9,7 +9,7 @@ using Asp.Versioning;
 using FluentValidation;
 using MediatR;
 
-namespace APITemplate.Extensions;
+namespace APITemplate.Api.Extensions;
 
 public static class ServiceCollectionExtensions
 {

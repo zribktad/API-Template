@@ -5,7 +5,7 @@ using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
 
-namespace APITemplate.Tests.Integration;
+namespace APITemplate.Tests.Integration.Features;
 
 public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory>
 {

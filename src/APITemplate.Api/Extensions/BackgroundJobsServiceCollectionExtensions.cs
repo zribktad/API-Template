@@ -18,7 +18,7 @@ using TickerQ.EntityFrameworkCore.DependencyInjection;
 using TickerQ.Utilities;
 using TickerQ.Utilities.Entities;
 
-namespace APITemplate.Extensions;
+namespace APITemplate.Api.Extensions;
 
 public static class BackgroundJobsServiceCollectionExtensions
 {

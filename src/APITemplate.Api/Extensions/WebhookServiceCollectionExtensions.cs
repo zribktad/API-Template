@@ -7,7 +7,7 @@ using APITemplate.Infrastructure.Webhooks;
 using Microsoft.Extensions.Http.Resilience;
 using Polly;
 
-namespace APITemplate.Extensions;
+namespace APITemplate.Api.Extensions;
 
 public static class WebhookServiceCollectionExtensions
 {
