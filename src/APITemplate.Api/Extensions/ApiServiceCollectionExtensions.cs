@@ -1,7 +1,8 @@
 using System.Threading.RateLimiting;
 using APITemplate.Api.Cache;
 using APITemplate.Api.ExceptionHandling;
-using APITemplate.Api.Filters;
+using APITemplate.Api.Filters.Idempotency;
+using APITemplate.Api.Filters.Webhooks;
 using APITemplate.Api.OpenApi;
 using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Observability;
