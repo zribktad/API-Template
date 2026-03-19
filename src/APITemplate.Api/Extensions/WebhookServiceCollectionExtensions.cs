@@ -1,3 +1,4 @@
+using APITemplate.Api.Extensions.Configuration;
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Common.Contracts;
 using APITemplate.Application.Common.Options;
@@ -16,11 +17,7 @@ public static class WebhookServiceCollectionExtensions
         IConfiguration configuration
     )
     {
-        services
-            .AddOptions<WebhookOptions>()
-            .Bind(configuration.SectionFor<WebhookOptions>())
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<WebhookOptions>(configuration);
 
         services.AddSingleton<IWebhookPayloadValidator, HmacWebhookPayloadValidator>();
         services.AddQueueWithConsumer<

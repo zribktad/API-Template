@@ -1,4 +1,5 @@
 using APITemplate.Api.Authorization;
+using APITemplate.Api.Extensions.Configuration;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;
@@ -27,11 +28,7 @@ public static class AuthenticationServiceCollectionExtensions
     )
     {
         var corsSection = configuration.SectionFor<CorsOptions>();
-        services
-            .AddOptions<CorsOptions>()
-            .Bind(corsSection)
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<CorsOptions>(configuration);
 
         var corsOrigins = (corsSection.Get<CorsOptions>() ?? new CorsOptions())
             .AllowedOrigins.Where(origin => !string.IsNullOrWhiteSpace(origin))
@@ -53,32 +50,21 @@ public static class AuthenticationServiceCollectionExtensions
             });
         }
 
-        services
-            .AddOptions<BffOptions>()
-            .Bind(configuration.SectionFor<BffOptions>())
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<BffOptions>(configuration);
+
+        services.AddValidatedOptions<SystemIdentityOptions>(
+            configuration,
+            validateDataAnnotations: false
+        );
 
         services
-            .AddOptions<SystemIdentityOptions>()
-            .Bind(configuration.SectionFor<SystemIdentityOptions>())
-            .ValidateOnStart();
-
-        services
-            .AddOptions<BootstrapTenantOptions>()
-            .Bind(configuration.SectionFor<BootstrapTenantOptions>())
-            .ValidateDataAnnotations()
+            .AddValidatedOptions<BootstrapTenantOptions>(configuration)
             .Validate(
                 o => !string.IsNullOrWhiteSpace(o.Code) && !string.IsNullOrWhiteSpace(o.Name),
                 "Bootstrap tenant code/name is required"
-            )
-            .ValidateOnStart();
+            );
 
-        services
-            .AddOptions<KeycloakOptions>()
-            .Bind(configuration.SectionFor<KeycloakOptions>())
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddValidatedOptions<KeycloakOptions>(configuration);
 
         return services;
     }
