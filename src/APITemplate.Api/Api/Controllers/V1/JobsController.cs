@@ -1,4 +1,5 @@
 using APITemplate.Api.Authorization;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Application.Features.Examples.Handlers;
@@ -9,9 +10,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
 [Route("api/v{version:apiVersion}/jobs")]
-public sealed class JobsController : ControllerBase
+public sealed class JobsController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -37,6 +37,6 @@ public sealed class JobsController : ControllerBase
     )
     {
         var result = await _sender.Send(new GetJobStatusQuery(request), ct);
-        return result is null ? NotFound() : Ok(result);
+        return OkOrNotFound(result);
     }
 }

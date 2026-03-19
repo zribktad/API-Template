@@ -1,5 +1,5 @@
 using APITemplate.Api.Extensions;
-using APITemplate.Application.Common.Options;
+using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Tests.Integration.Helpers;
 using Microsoft.AspNetCore.Hosting;
@@ -95,15 +95,10 @@ public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Progra
             foreach (var d in optionsConfigs)
                 services.Remove(d);
 
-            using var bootstrapProvider = services.BuildServiceProvider();
-            var transactionDefaults = bootstrapProvider
-                .GetRequiredService<IOptions<TransactionDefaultsOptions>>()
-                .Value;
             services.AddDbContext<AppDbContext>(options =>
                 PersistenceServiceCollectionExtensions.ConfigurePostgresDbContext(
                     options,
-                    connectionString,
-                    transactionDefaults
+                    connectionString
                 )
             );
 
@@ -111,7 +106,7 @@ public sealed class PostgresWebApplicationFactory : WebApplicationFactory<Progra
 
             services
                 .AddHealthChecks()
-                .AddNpgSql(connectionString, name: "postgresql", tags: ["database"]);
+                .AddNpgSql(connectionString, name: HealthCheckNames.PostgreSql, tags: ["database"]);
 
             TestServiceHelper.MockMongoServices(services);
             TestServiceHelper.ReplaceOutputCacheWithInMemory(services);

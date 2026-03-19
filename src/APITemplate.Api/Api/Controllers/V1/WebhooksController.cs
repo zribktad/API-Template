@@ -1,3 +1,4 @@
+using APITemplate.Api.Controllers;
 using APITemplate.Api.Filters.Webhooks;
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Features.Examples.DTOs;
@@ -8,9 +9,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
 [Route("api/v{version:apiVersion}/webhooks")]
-public sealed class WebhooksController : ControllerBase
+public sealed class WebhooksController : ApiControllerBase
 {
     private readonly IWebhookProcessingQueue _queue;
 

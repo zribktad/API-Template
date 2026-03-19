@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.DTOs;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.User.DTOs;
@@ -14,9 +15,7 @@ using Microsoft.AspNetCore.OutputCaching;
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
-public sealed class UsersController : ControllerBase
+public sealed class UsersController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -43,7 +42,7 @@ public sealed class UsersController : ControllerBase
     public async Task<ActionResult<UserResponse>> GetById(Guid id, CancellationToken ct)
     {
         var user = await _sender.Send(new GetUserByIdQuery(id), ct);
-        return user is null ? NotFound() : Ok(user);
+        return OkOrNotFound(user);
     }
 
     [HttpGet("me")]
@@ -58,7 +57,7 @@ public sealed class UsersController : ControllerBase
             return Unauthorized();
 
         var user = await _sender.Send(new GetUserByIdQuery(id), ct);
-        return user is null ? NotFound() : Ok(user);
+        return OkOrNotFound(user);
     }
 
     [HttpPost]
@@ -69,11 +68,7 @@ public sealed class UsersController : ControllerBase
     )
     {
         var user = await _sender.Send(new CreateUserCommand(request), ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = user.Id, version = this.GetApiVersion() },
-            user
-        );
+        return CreatedAtGetById(user, user.Id);
     }
 
     [HttpPut("{id:guid}")]

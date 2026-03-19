@@ -259,7 +259,9 @@ public static class AuthenticationServiceCollectionExtensions
     {
         services.AddHttpClient(nameof(KeycloakHealthCheck));
         services.AddHttpClient(AuthConstants.HttpClients.KeycloakToken);
-        services.AddHealthChecks().AddCheck<KeycloakHealthCheck>("keycloak", tags: ["identity"]);
+        services
+            .AddHealthChecks()
+            .AddCheck<KeycloakHealthCheck>(HealthCheckNames.Keycloak, tags: ["identity"]);
 
         var keycloakOptions = configuration.SectionFor<KeycloakOptions>().Get<KeycloakOptions>()!;
 

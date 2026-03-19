@@ -222,8 +222,7 @@ public sealed class PostgresTenantSoftDeleteCascadeTests(SharedPostgresContainer
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         PersistenceServiceCollectionExtensions.ConfigurePostgresDbContext(
             optionsBuilder,
-            _factory.ConnectionString,
-            new TransactionDefaultsOptions()
+            _factory.ConnectionString
         );
 
         var stateManager = new AuditableEntityStateManager();

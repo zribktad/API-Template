@@ -5,6 +5,7 @@ using APITemplate.Api.Filters.Idempotency;
 using APITemplate.Api.Filters.Webhooks;
 using APITemplate.Api.OpenApi;
 using APITemplate.Application.Common.Options;
+using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Observability;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
@@ -178,7 +179,7 @@ public static class ApiServiceCollectionExtensions
             services.AddStackExchangeRedisOutputCache(options =>
             {
                 options.ConnectionMultiplexerFactory = () => Task.FromResult(lazyMultiplexer.Value);
-                options.InstanceName = "ApiTemplate:OutputCache:";
+                options.InstanceName = RedisInstanceNames.OutputCache;
             });
 
             services
@@ -199,12 +200,16 @@ public static class ApiServiceCollectionExtensions
             services.AddStackExchangeRedisCache(options =>
             {
                 options.ConnectionMultiplexerFactory = () => Task.FromResult(lazyMultiplexer.Value);
-                options.InstanceName = "ApiTemplate:Session:";
+                options.InstanceName = RedisInstanceNames.Session;
             });
 
             services
                 .AddHealthChecks()
-                .AddRedis(dragonflyConnectionString, name: "dragonfly", tags: ["cache"]);
+                .AddRedis(
+                    dragonflyConnectionString,
+                    name: HealthCheckNames.Dragonfly,
+                    tags: ["cache"]
+                );
         }
         else
         {
