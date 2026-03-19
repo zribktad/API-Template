@@ -1,6 +1,6 @@
-using ImageProductDataEntity = APITemplate.Domain.Entities.ImageProductData;
-using ProductDataEntity = APITemplate.Domain.Entities.ProductData;
-using VideoProductDataEntity = APITemplate.Domain.Entities.VideoProductData;
+using ImageProductDataEntity = APITemplate.Domain.Entities.ProductData.ImageProductData;
+using ProductDataEntity = APITemplate.Domain.Entities.ProductData.ProductData;
+using VideoProductDataEntity = APITemplate.Domain.Entities.ProductData.VideoProductData;
 
 namespace APITemplate.Application.Features.ProductData.Mappings;
 
