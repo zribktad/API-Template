@@ -10,7 +10,7 @@ namespace APITemplate.Application.Common.Validation;
 public sealed class NotEmptyAttribute : ValidationAttribute
 {
     public NotEmptyAttribute()
-        : base("'{0}' is required and must not be empty or whitespace.") { }
+        : base("'{0}' is required and must not be empty, whitespace, or Guid.Empty.") { }
 
     protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
     {
