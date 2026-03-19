@@ -23,7 +23,10 @@ public sealed class ProductsController : ControllerBase
     [HttpGet]
     [RequirePermission(Permission.Products.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Products)]
-    public async Task<ActionResult<ProductsResponse>> GetAll([FromQuery] ProductFilter filter, CancellationToken ct)
+    public async Task<ActionResult<ProductsResponse>> GetAll(
+        [FromQuery] ProductFilter filter,
+        CancellationToken ct
+    )
     {
         var products = await _sender.Send(new GetProductsQuery(filter), ct);
         return Ok(products);
@@ -40,15 +43,26 @@ public sealed class ProductsController : ControllerBase
 
     [HttpPost]
     [RequirePermission(Permission.Products.Create)]
-    public async Task<ActionResult<ProductResponse>> Create(CreateProductRequest request, CancellationToken ct)
+    public async Task<ActionResult<ProductResponse>> Create(
+        CreateProductRequest request,
+        CancellationToken ct
+    )
     {
         var product = await _sender.Send(new CreateProductCommand(request), ct);
-        return CreatedAtAction(nameof(GetById), new { id = product.Id, version = "1.0" }, product);
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = product.Id, version = this.GetApiVersion() },
+            product
+        );
     }
 
     [HttpPut("{id:guid}")]
     [RequirePermission(Permission.Products.Update)]
-    public async Task<IActionResult> Update(Guid id, UpdateProductRequest request, CancellationToken ct)
+    public async Task<IActionResult> Update(
+        Guid id,
+        UpdateProductRequest request,
+        CancellationToken ct
+    )
     {
         await _sender.Send(new UpdateProductCommand(id, request), ct);
         return NoContent();

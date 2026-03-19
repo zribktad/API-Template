@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using APITemplate.Api.Cache;
 using APITemplate.Api.ExceptionHandling;
+using APITemplate.Api.Filters;
 using APITemplate.Api.OpenApi;
 using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Observability;
@@ -29,7 +30,15 @@ public static class ApiServiceCollectionExtensions
     )
     {
         // Controllers are the foundation of the Web API pipeline and must be registered first.
-        services.AddControllers();
+        services.AddControllers(options =>
+        {
+            options.Filters.AddService<IdempotencyActionFilter>();
+            options.Filters.AddService<WebhookSignatureResourceFilter>();
+        });
+
+        services.AddScoped<IdempotencyActionFilter>();
+        services.AddScoped<WebhookSignatureResourceFilter>();
+        services.AddIdempotencyStore();
 
         services
             // Register the exception / ProblemDetails handling infrastructure (RFC 7807 error payloads).

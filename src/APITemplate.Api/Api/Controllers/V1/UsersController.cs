@@ -69,8 +69,11 @@ public sealed class UsersController : ControllerBase
     )
     {
         var user = await _sender.Send(new CreateUserCommand(request), ct);
-        var version = HttpContext.GetRequestedApiVersion()?.ToString() ?? "1.0";
-        return CreatedAtAction(nameof(GetById), new { id = user.Id, version }, user);
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = user.Id, version = this.GetApiVersion() },
+            user
+        );
     }
 
     [HttpPut("{id:guid}")]

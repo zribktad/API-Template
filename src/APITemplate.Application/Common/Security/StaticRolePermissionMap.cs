@@ -38,6 +38,12 @@ public sealed class StaticRolePermissionMap : IRolePermissionMap
             Permission.Invitations.Read,
             Permission.Invitations.Create,
             Permission.Invitations.Revoke,
+            Permission.Examples.Read,
+            Permission.Examples.Create,
+            Permission.Examples.Update,
+            Permission.Examples.Execute,
+            Permission.Examples.Upload,
+            Permission.Examples.Download,
         };
 
         var userPermissions = new HashSet<string>(StringComparer.Ordinal)
@@ -47,6 +53,8 @@ public sealed class StaticRolePermissionMap : IRolePermissionMap
             Permission.ProductReviews.Read,
             Permission.ProductReviews.Create,
             Permission.ProductData.Read,
+            Permission.Examples.Read,
+            Permission.Examples.Download,
         };
 
         return new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal)

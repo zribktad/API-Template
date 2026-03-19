@@ -44,7 +44,7 @@ public sealed class TenantInvitationsController : ControllerBase
     )
     {
         var invitation = await _sender.Send(new CreateTenantInvitationCommand(request), ct);
-        return CreatedAtAction(nameof(GetAll), new { version = "1.0" }, invitation);
+        return CreatedAtAction(nameof(GetAll), new { version = this.GetApiVersion() }, invitation);
     }
 
     [HttpPost("accept")]

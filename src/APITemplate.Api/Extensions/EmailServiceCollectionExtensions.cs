@@ -18,9 +18,12 @@ public static class EmailServiceCollectionExtensions
         var emailOptions = emailSection.Get<EmailOptions>() ?? new EmailOptions();
         services.Configure<EmailOptions>(emailSection);
 
-        var queue = new ChannelEmailQueue();
-        services.AddSingleton(queue);
-        services.AddSingleton<IEmailQueue>(queue);
+        services.AddQueueWithConsumer<
+            ChannelEmailQueue,
+            IEmailQueue,
+            IEmailQueueReader,
+            EmailSendingBackgroundService
+        >();
         services.AddSingleton<IEmailTemplateRenderer, FluidEmailTemplateRenderer>();
         services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
         services.AddTransient<IEmailSender, MailKitEmailSender>();
@@ -42,8 +45,6 @@ public static class EmailServiceCollectionExtensions
                 );
             }
         );
-
-        services.AddHostedService<EmailSendingBackgroundService>();
 
         return services;
     }

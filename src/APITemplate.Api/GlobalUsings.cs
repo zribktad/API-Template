@@ -1,3 +1,4 @@
+global using APITemplate.Api.Extensions;
 global using APITemplate.Application.Common.DTOs;
 global using APITemplate.Application.Common.Errors;
 global using APITemplate.Application.Common.Options;

@@ -1,61 +1,59 @@
 using APITemplate.Application.Common.Email;
 using APITemplate.Application.Common.Resilience;
-using Microsoft.Extensions.Hosting;
+using APITemplate.Infrastructure.BackgroundJobs.Services;
 using Microsoft.Extensions.Logging;
 using Polly.Registry;
 
 namespace APITemplate.Infrastructure.Email;
 
-public sealed class EmailSendingBackgroundService : BackgroundService
+public sealed class EmailSendingBackgroundService : QueueConsumerBackgroundService<EmailMessage>
 {
-    private readonly ChannelEmailQueue _queue;
     private readonly IEmailSender _sender;
     private readonly ResiliencePipelineProvider<string> _resiliencePipelineProvider;
     private readonly IFailedEmailStore _failedEmailStore;
     private readonly ILogger<EmailSendingBackgroundService> _logger;
 
     public EmailSendingBackgroundService(
-        ChannelEmailQueue queue,
+        IEmailQueueReader queue,
         IEmailSender sender,
         ResiliencePipelineProvider<string> resiliencePipelineProvider,
         IFailedEmailStore failedEmailStore,
         ILogger<EmailSendingBackgroundService> logger
     )
+        : base(queue)
     {
-        _queue = queue;
         _sender = sender;
         _resiliencePipelineProvider = resiliencePipelineProvider;
         _failedEmailStore = failedEmailStore;
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ProcessItemAsync(EmailMessage message, CancellationToken ct)
     {
         var pipeline = _resiliencePipelineProvider.GetPipeline(ResiliencePipelineKeys.SmtpSend);
 
-        await foreach (var message in _queue.Reader.ReadAllAsync(stoppingToken))
-        {
-            try
+        await pipeline.ExecuteAsync(
+            async token =>
             {
-                await pipeline.ExecuteAsync(
-                    async token =>
-                    {
-                        await _sender.SendAsync(message, token);
-                    },
-                    stoppingToken
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Failed to send email to {Recipient} with subject '{Subject}' after all retry attempts.",
-                    message.To,
-                    message.Subject
-                );
+                await _sender.SendAsync(message, token);
+            },
+            ct
+        );
+    }
 
-                await _failedEmailStore.StoreFailedAsync(message, ex.Message, stoppingToken);
-            }
-        }
+    protected override async Task HandleErrorAsync(
+        EmailMessage message,
+        Exception ex,
+        CancellationToken ct
+    )
+    {
+        _logger.LogError(
+            ex,
+            "Failed to send email to {Recipient} with subject '{Subject}' after all retry attempts.",
+            message.To,
+            message.Subject
+        );
+
+        await _failedEmailStore.StoreFailedAsync(message, ex.Message, ct);
     }
 }

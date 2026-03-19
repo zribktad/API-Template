@@ -56,6 +56,16 @@ public static class Permission
         public const string Revoke = "Invitations.Revoke";
     }
 
+    public static class Examples
+    {
+        public const string Read = "Examples.Read";
+        public const string Create = "Examples.Create";
+        public const string Update = "Examples.Update";
+        public const string Execute = "Examples.Execute";
+        public const string Upload = "Examples.Upload";
+        public const string Download = "Examples.Download";
+    }
+
     private static readonly Lazy<IReadOnlySet<string>> LazyAll = new(() =>
     {
         var permissions = new HashSet<string>(StringComparer.Ordinal);

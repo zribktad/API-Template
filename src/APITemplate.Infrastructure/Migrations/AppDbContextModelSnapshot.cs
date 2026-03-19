@@ -220,6 +220,85 @@ namespace APITemplate.Migrations
                     b.ToTable("FailedEmails");
                 });
 
+            modelBuilder.Entity("APITemplate.Domain.Entities.JobExecution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CallbackUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("JobType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Parameters")
+                        .HasColumnType("text");
+
+                    b.Property<int>("ProgressPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("ResultPayload")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("SubmittedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "IsDeleted");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("JobExecutions", t =>
+                        {
+                            t.HasCheckConstraint("CK_JobExecutions_Progress", "\"ProgressPercent\" >= 0 AND \"ProgressPercent\" <= 100");
+
+                            t.HasCheckConstraint("CK_JobExecutions_SoftDeleteConsistency", "\"IsDeleted\" OR (\"DeletedAtUtc\" IS NULL AND \"DeletedBy\" IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("APITemplate.Domain.Entities.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -403,6 +482,66 @@ namespace APITemplate.Migrations
                     b.ToTable("ProductReviews", t =>
                         {
                             t.HasCheckConstraint("CK_ProductReviews_SoftDeleteConsistency", "\"IsDeleted\" OR (\"DeletedAtUtc\" IS NULL AND \"DeletedBy\" IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("APITemplate.Domain.Entities.StoredFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "IsDeleted");
+
+                    b.ToTable("ExampleFiles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ExampleFiles_SoftDeleteConsistency", "\"IsDeleted\" OR (\"DeletedAtUtc\" IS NULL AND \"DeletedBy\" IS NULL)");
                         });
                 });
 
@@ -631,6 +770,55 @@ namespace APITemplate.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("APITemplate.Domain.Entities.JobExecution", b =>
+                {
+                    b.HasOne("APITemplate.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("APITemplate.Domain.Entities.AuditInfo", "Audit", b1 =>
+                        {
+                            b1.Property<Guid>("JobExecutionId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<DateTime>("CreatedAtUtc")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("CreatedAtUtc")
+                                .HasDefaultValueSql("now()");
+
+                            b1.Property<Guid>("CreatedBy")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
+                                .HasColumnName("CreatedBy");
+
+                            b1.Property<DateTime>("UpdatedAtUtc")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("UpdatedAtUtc")
+                                .HasDefaultValueSql("now()");
+
+                            b1.Property<Guid>("UpdatedBy")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
+                                .HasColumnName("UpdatedBy");
+
+                            b1.HasKey("JobExecutionId");
+
+                            b1.ToTable("JobExecutions");
+
+                            b1.WithOwner()
+                                .HasForeignKey("JobExecutionId");
+                        });
+
+                    b.Navigation("Audit")
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("APITemplate.Domain.Entities.Product", b =>
                 {
                     b.HasOne("APITemplate.Domain.Entities.Category", "Category")
@@ -804,6 +992,55 @@ namespace APITemplate.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("APITemplate.Domain.Entities.StoredFile", b =>
+                {
+                    b.HasOne("APITemplate.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("APITemplate.Domain.Entities.AuditInfo", "Audit", b1 =>
+                        {
+                            b1.Property<Guid>("StoredFileId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<DateTime>("CreatedAtUtc")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("CreatedAtUtc")
+                                .HasDefaultValueSql("now()");
+
+                            b1.Property<Guid>("CreatedBy")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
+                                .HasColumnName("CreatedBy");
+
+                            b1.Property<DateTime>("UpdatedAtUtc")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("UpdatedAtUtc")
+                                .HasDefaultValueSql("now()");
+
+                            b1.Property<Guid>("UpdatedBy")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("uuid")
+                                .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
+                                .HasColumnName("UpdatedBy");
+
+                            b1.HasKey("StoredFileId");
+
+                            b1.ToTable("ExampleFiles");
+
+                            b1.WithOwner()
+                                .HasForeignKey("StoredFileId");
+                        });
+
+                    b.Navigation("Audit")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("APITemplate.Domain.Entities.Tenant", b =>

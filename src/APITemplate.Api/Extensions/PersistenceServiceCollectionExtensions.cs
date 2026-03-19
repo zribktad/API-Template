@@ -51,6 +51,8 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<ITenantInvitationRepository, TenantInvitationRepository>();
+        services.AddScoped<IStoredFileRepository, StoredFileRepository>();
+        services.AddScoped<IJobExecutionRepository, JobExecutionRepository>();
 
         // Infrastructure / persistence helpers
         services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
