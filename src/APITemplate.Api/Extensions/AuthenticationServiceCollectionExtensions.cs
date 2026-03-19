@@ -1,5 +1,4 @@
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Extensions.Configuration;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;

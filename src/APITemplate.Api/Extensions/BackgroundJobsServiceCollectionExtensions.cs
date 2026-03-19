@@ -1,4 +1,3 @@
-using APITemplate.Api.Extensions.Configuration;
 using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Common.Options;
 using APITemplate.Domain.Entities;

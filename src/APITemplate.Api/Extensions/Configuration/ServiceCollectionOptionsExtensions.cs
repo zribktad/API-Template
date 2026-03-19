@@ -1,4 +1,3 @@
-using APITemplate.Api.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace APITemplate.Api.Extensions.Configuration;

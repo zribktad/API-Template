@@ -1,7 +1,6 @@
 using System.Threading.RateLimiting;
 using APITemplate.Api.Cache;
 using APITemplate.Api.ExceptionHandling;
-using APITemplate.Api.Extensions.Configuration;
 using APITemplate.Api.Filters;
 using APITemplate.Api.OpenApi;
 using APITemplate.Application.Common.Options;
