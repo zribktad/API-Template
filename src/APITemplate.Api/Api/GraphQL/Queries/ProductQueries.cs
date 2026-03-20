@@ -1,6 +1,6 @@
 using APITemplate.Api.GraphQL.Models;
+using APITemplate.Application.Common.CQRS;
 using HotChocolate.Authorization;
-using MediatR;
 
 namespace APITemplate.Api.GraphQL.Queries;
 
@@ -13,11 +13,11 @@ public class ProductQueries
 {
     /// <summary>
     /// Returns a paginated product list with search facets, mapping the GraphQL input to the
-    /// application-layer filter before dispatching via MediatR.
+    /// application-layer filter before dispatching via the query handler.
     /// </summary>
     public async Task<ProductPageResult> GetProducts(
         ProductQueryInput? input,
-        [Service] ISender sender,
+        [Service] IQueryHandler<GetProductsQuery, ProductsResponse> handler,
         CancellationToken ct
     )
     {
@@ -36,14 +36,14 @@ public class ProductQueries
             input?.CategoryIds
         );
 
-        var page = await sender.Send(new GetProductsQuery(filter), ct);
+        var page = await handler.HandleAsync(new GetProductsQuery(filter), ct);
         return new ProductPageResult(page.Page, page.Facets);
     }
 
     /// <summary>Returns a single product by ID, or <see langword="null"/> if not found.</summary>
     public async Task<ProductResponse?> GetProductById(
         Guid id,
-        [Service] ISender sender,
+        [Service] IQueryHandler<GetProductByIdQuery, ProductResponse?> handler,
         CancellationToken ct
-    ) => await sender.Send(new GetProductByIdQuery(id), ct);
+    ) => await handler.HandleAsync(new GetProductByIdQuery(id), ct);
 }

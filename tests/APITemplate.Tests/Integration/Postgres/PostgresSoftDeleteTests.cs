@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.ProductReview;
@@ -8,7 +9,6 @@ using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Persistence;
 using APITemplate.Infrastructure.Repositories;
 using APITemplate.Tests.Integration.Helpers;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -17,7 +17,8 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Postgres;
 
-public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : PostgresTestBase(postgres)
+public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
+    : PostgresTestBase(postgres)
 {
     [Fact]
     public async Task DeleteProduct_WithExistingReviews_SoftDeletesReviews_Cascade()
@@ -28,7 +29,8 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
             _factory.Services,
             username,
             $"{username}@example.com",
-            ct: ct);
+            ct: ct
+        );
 
         Guid productId;
         Guid review1Id;
@@ -43,7 +45,7 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenant.Id,
-                Name = $"Category-Cascade-{Guid.NewGuid():N}"
+                Name = $"Category-Cascade-{Guid.NewGuid():N}",
             };
 
             db.Categories.Add(category);
@@ -51,7 +53,13 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
             categoryId = category.Id;
         }
 
-        IntegrationAuthHelper.Authenticate(_client, userId: seededUser.Id, tenantId: tenant.Id, username: username, role: Domain.Enums.UserRole.TenantAdmin);
+        IntegrationAuthHelper.Authenticate(
+            _client,
+            userId: seededUser.Id,
+            tenantId: tenant.Id,
+            username: username,
+            role: Domain.Enums.UserRole.TenantAdmin
+        );
 
         var createProductResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
@@ -59,48 +67,67 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
             {
                 Name = $"Product-Cascade-{Guid.NewGuid():N}",
                 Price = 88m,
-                CategoryId = categoryId
+                CategoryId = categoryId,
             },
-            ct);
+            ct
+        );
         createProductResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        var createdProduct = await createProductResponse.Content.ReadFromJsonAsync<ProductResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var createdProduct = await createProductResponse.Content.ReadFromJsonAsync<ProductResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         createdProduct.ShouldNotBeNull();
         productId = createdProduct!.Id;
 
         var createReview1 = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
             new { ProductId = productId, Rating = 5 },
-            ct);
+            ct
+        );
         createReview1.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var createdReview1 = await createReview1.Content.ReadFromJsonAsync<ProductReviewResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var createdReview1 = await createReview1.Content.ReadFromJsonAsync<ProductReviewResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         createdReview1.ShouldNotBeNull();
         review1Id = createdReview1!.Id;
 
         var createReview2 = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
             new { ProductId = productId, Rating = 4 },
-            ct);
+            ct
+        );
         createReview2.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var createdReview2 = await createReview2.Content.ReadFromJsonAsync<ProductReviewResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var createdReview2 = await createReview2.Content.ReadFromJsonAsync<ProductReviewResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         createdReview2.ShouldNotBeNull();
         review2Id = createdReview2!.Id;
 
         var deleteResponse = await _client.DeleteAsync($"/api/v1/products/{productId}", ct);
         deleteResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        var reviewsResponse = await _client.GetAsync($"/api/v1/productreviews/by-product/{productId}", ct);
+        var reviewsResponse = await _client.GetAsync(
+            $"/api/v1/productreviews/by-product/{productId}",
+            ct
+        );
         reviewsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var visibleReviews = await reviewsResponse.Content.ReadFromJsonAsync<ProductReviewResponse[]>(TestJsonOptions.CaseInsensitive, ct);
+        var visibleReviews =
+            await reviewsResponse.Content.ReadFromJsonAsync<ProductReviewResponse[]>(
+                TestJsonOptions.CaseInsensitive,
+                ct
+            );
         visibleReviews.ShouldNotBeNull();
         visibleReviews.ShouldBeEmpty();
 
         await using var verifyScope = _factory.Services.CreateAsyncScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var allReviews = await verifyDb.ProductReviews
-            .IgnoreQueryFilters()
+        var allReviews = await verifyDb
+            .ProductReviews.IgnoreQueryFilters()
             .Where(r => r.Id == review1Id || r.Id == review2Id)
             .ToListAsync(ct);
 
@@ -114,7 +141,12 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
         var ct = TestContext.Current.CancellationToken;
         var actorId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
-        var tenant = new Tenant { Id = tenantId, Code = $"tenant-soft-{Guid.NewGuid():N}", Name = "Tenant Soft Delete" };
+        var tenant = new Tenant
+        {
+            Id = tenantId,
+            Code = $"tenant-soft-{Guid.NewGuid():N}",
+            Name = "Tenant Soft Delete",
+        };
         var user = new AppUser
         {
             Id = Guid.NewGuid(),
@@ -122,12 +154,40 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
             Username = $"user-soft-{Guid.NewGuid():N}",
             Email = $"soft-{Guid.NewGuid():N}@example.com",
         };
-        var category = new Category { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Category-Soft-{Guid.NewGuid():N}" };
-        var product = new Product { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Product-Soft-{Guid.NewGuid():N}", Price = 50m, CategoryId = category.Id };
-        var review1 = new ProductReview { Id = Guid.NewGuid(), TenantId = tenantId, ProductId = product.Id, UserId = user.Id, Rating = 5 };
-        var review2 = new ProductReview { Id = Guid.NewGuid(), TenantId = tenantId, ProductId = product.Id, UserId = user.Id, Rating = 3 };
+        var category = new Category
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = $"Category-Soft-{Guid.NewGuid():N}",
+        };
+        var product = new Product
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = $"Product-Soft-{Guid.NewGuid():N}",
+            Price = 50m,
+            CategoryId = category.Id,
+        };
+        var review1 = new ProductReview
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ProductId = product.Id,
+            UserId = user.Id,
+            Rating = 5,
+        };
+        var review2 = new ProductReview
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ProductId = product.Id,
+            UserId = user.Id,
+            Rating = 3,
+        };
 
-        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        await using (
+            var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct)
+        )
         {
             seedContext.Tenants.Add(tenant);
             seedContext.Users.Add(user);
@@ -147,14 +207,23 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
         }
 
         await using var tenantContext = await CreateDbContextAsync(true, tenantId, actorId, ct);
-        await using var unrestrictedContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
+        await using var unrestrictedContext = await CreateDbContextAsync(
+            false,
+            Guid.Empty,
+            actorId,
+            ct
+        );
 
-        var visibleReviews = await tenantContext.ProductReviews.Where(r => r.ProductId == product.Id).ToListAsync(ct);
+        var visibleReviews = await tenantContext
+            .ProductReviews.Where(r => r.ProductId == product.Id)
+            .ToListAsync(ct);
         visibleReviews.ShouldBeEmpty();
 
-        var deletedProduct = await unrestrictedContext.Products.IgnoreQueryFilters().SingleAsync(p => p.Id == product.Id, ct);
-        var deletedReviews = await unrestrictedContext.ProductReviews
-            .IgnoreQueryFilters()
+        var deletedProduct = await unrestrictedContext
+            .Products.IgnoreQueryFilters()
+            .SingleAsync(p => p.Id == product.Id, ct);
+        var deletedReviews = await unrestrictedContext
+            .ProductReviews.IgnoreQueryFilters()
             .Where(r => r.ProductId == product.Id)
             .OrderBy(r => r.Id)
             .ToListAsync(ct);
@@ -174,41 +243,60 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
         var ct = TestContext.Current.CancellationToken;
         var actorId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
-        var tenant = new Tenant { Id = tenantId, Code = $"tenant-links-{Guid.NewGuid():N}", Name = "Tenant Links" };
-        var category = new Category { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Category-Links-{Guid.NewGuid():N}" };
-        var product = new Product { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Product-Links-{Guid.NewGuid():N}", Price = 50m, CategoryId = category.Id };
+        var tenant = new Tenant
+        {
+            Id = tenantId,
+            Code = $"tenant-links-{Guid.NewGuid():N}",
+            Name = "Tenant Links",
+        };
+        var category = new Category
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = $"Category-Links-{Guid.NewGuid():N}",
+        };
+        var product = new Product
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = $"Product-Links-{Guid.NewGuid():N}",
+            Price = 50m,
+            CategoryId = category.Id,
+        };
         var productDataId = Guid.NewGuid();
 
-        await using (var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct))
+        await using (
+            var seedContext = await CreateDbContextAsync(hasTenant: false, Guid.Empty, actorId, ct)
+        )
         {
             seedContext.Tenants.Add(tenant);
             seedContext.Categories.Add(category);
             seedContext.Products.Add(product);
-            seedContext.ProductDataLinks.Add(new ProductDataLink
-            {
-                ProductId = product.Id,
-                ProductDataId = productDataId,
-                TenantId = tenantId
-            });
+            seedContext.ProductDataLinks.Add(
+                new ProductDataLink
+                {
+                    ProductId = product.Id,
+                    ProductDataId = productDataId,
+                    TenantId = tenantId,
+                }
+            );
             await seedContext.SaveChangesAsync(ct);
         }
 
         await using (var deleteContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
         {
-            var handler = new ProductRequestHandlers(
+            var handler = new DeleteProductCommandHandler(
                 new ProductRepository(deleteContext),
-                Mock.Of<ICategoryRepository>(),
-                Mock.Of<IProductDataRepository>(),
-                new ProductDataLinkRepository(deleteContext, new TestTenantProvider(tenantId, true)),
                 CreateUnitOfWork(deleteContext),
-                Mock.Of<IPublisher>());
+                Mock.Of<IEventPublisher>()
+            );
 
-            await handler.Handle(new DeleteProductCommand(product.Id), ct);
+            await handler.HandleAsync(new DeleteProductCommand(product.Id), ct);
         }
 
         await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
-        var remainingLinks = await verifyContext.ProductDataLinks
-            .IgnoreQueryFilters()
+        var remainingLinks = await verifyContext
+            .ProductDataLinks.IgnoreQueryFilters()
             .Where(link => link.ProductId == product.Id)
             .ToListAsync(ct);
 
@@ -225,27 +313,55 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
         var actorId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
         var productDataId = Guid.NewGuid();
-        var mongoRepositoryMock = _factory.Services.GetRequiredService<Mock<IProductDataRepository>>();
+        var mongoRepositoryMock = _factory.Services.GetRequiredService<
+            Mock<IProductDataRepository>
+        >();
         mongoRepositoryMock.Reset();
         mongoRepositoryMock
             .Setup(r => r.GetByIdAsync(productDataId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ImageProductData { Id = productDataId, TenantId = tenantId, Title = "Image" });
+            .ReturnsAsync(
+                new ImageProductData
+                {
+                    Id = productDataId,
+                    TenantId = tenantId,
+                    Title = "Image",
+                }
+            );
 
-        var tenant = new Tenant { Id = tenantId, Code = $"tenant-pd-{Guid.NewGuid():N}", Name = "Tenant ProductData" };
-        var category = new Category { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Category-PD-{Guid.NewGuid():N}" };
-        var product = new Product { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Product-PD-{Guid.NewGuid():N}", Price = 50m, CategoryId = category.Id };
+        var tenant = new Tenant
+        {
+            Id = tenantId,
+            Code = $"tenant-pd-{Guid.NewGuid():N}",
+            Name = "Tenant ProductData",
+        };
+        var category = new Category
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = $"Category-PD-{Guid.NewGuid():N}",
+        };
+        var product = new Product
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = $"Product-PD-{Guid.NewGuid():N}",
+            Price = 50m,
+            CategoryId = category.Id,
+        };
 
         await using (var seedContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct))
         {
             seedContext.Tenants.Add(tenant);
             seedContext.Categories.Add(category);
             seedContext.Products.Add(product);
-            seedContext.ProductDataLinks.Add(new ProductDataLink
-            {
-                ProductId = product.Id,
-                ProductDataId = productDataId,
-                TenantId = tenantId
-            });
+            seedContext.ProductDataLinks.Add(
+                new ProductDataLink
+                {
+                    ProductId = product.Id,
+                    ProductDataId = productDataId,
+                    TenantId = tenantId,
+                }
+            );
             await seedContext.SaveChangesAsync(ct);
         }
 
@@ -254,13 +370,24 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres) : 
         response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);
-        var link = await verifyContext.ProductDataLinks
-            .IgnoreQueryFilters()
-            .SingleAsync(existing => existing.ProductId == product.Id && existing.ProductDataId == productDataId, ct);
+        var link = await verifyContext
+            .ProductDataLinks.IgnoreQueryFilters()
+            .SingleAsync(
+                existing =>
+                    existing.ProductId == product.Id && existing.ProductDataId == productDataId,
+                ct
+            );
 
         link.IsDeleted.ShouldBeTrue();
         mongoRepositoryMock.Verify(
-            r => r.SoftDeleteAsync(productDataId, It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+            r =>
+                r.SoftDeleteAsync(
+                    productDataId,
+                    It.IsAny<Guid>(),
+                    It.IsAny<DateTime>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
     }
 }

@@ -1,9 +1,9 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
+using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 
@@ -16,23 +16,17 @@ namespace APITemplate.Api.Controllers.V1;
 /// </summary>
 public sealed class TenantsController : ApiControllerBase
 {
-    private readonly ISender _sender;
-
-    public TenantsController(ISender sender)
-    {
-        _sender = sender;
-    }
-
     /// <summary>Returns a paginated, filterable list of tenants.</summary>
     [HttpGet]
     [RequirePermission(Permission.Tenants.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Tenants)]
     public async Task<ActionResult<PagedResponse<TenantResponse>>> GetAll(
         [FromQuery] TenantFilter filter,
+        [FromServices] IQueryHandler<GetTenantsQuery, PagedResponse<TenantResponse>> handler,
         CancellationToken ct
     )
     {
-        var tenants = await _sender.Send(new GetTenantsQuery(filter), ct);
+        var tenants = await handler.HandleAsync(new GetTenantsQuery(filter), ct);
         return Ok(tenants);
     }
 
@@ -40,9 +34,13 @@ public sealed class TenantsController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Tenants.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Tenants)]
-    public async Task<ActionResult<TenantResponse>> GetById(Guid id, CancellationToken ct)
+    public async Task<ActionResult<TenantResponse>> GetById(
+        Guid id,
+        [FromServices] IQueryHandler<GetTenantByIdQuery, TenantResponse?> handler,
+        CancellationToken ct
+    )
     {
-        var tenant = await _sender.Send(new GetTenantByIdQuery(id), ct);
+        var tenant = await handler.HandleAsync(new GetTenantByIdQuery(id), ct);
         return OkOrNotFound(tenant);
     }
 
@@ -51,19 +49,24 @@ public sealed class TenantsController : ApiControllerBase
     [RequirePermission(Permission.Tenants.Create)]
     public async Task<ActionResult<TenantResponse>> Create(
         CreateTenantRequest request,
+        [FromServices] ICommandHandler<CreateTenantCommand, TenantResponse> handler,
         CancellationToken ct
     )
     {
-        var tenant = await _sender.Send(new CreateTenantCommand(request), ct);
+        var tenant = await handler.HandleAsync(new CreateTenantCommand(request), ct);
         return CreatedAtGetById(tenant, tenant.Id);
     }
 
     /// <summary>Soft-deletes a tenant and cascades the deletion to its child entities.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.Tenants.Delete)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] ICommandHandler<DeleteTenantCommand> handler,
+        CancellationToken ct
+    )
     {
-        await _sender.Send(new DeleteTenantCommand(id), ct);
+        await handler.HandleAsync(new DeleteTenantCommand(id), ct);
         return NoContent();
     }
 }

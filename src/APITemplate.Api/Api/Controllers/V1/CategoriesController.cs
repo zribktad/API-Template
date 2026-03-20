@@ -1,9 +1,9 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
+using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 
@@ -16,13 +16,6 @@ namespace APITemplate.Api.Controllers.V1;
 /// </summary>
 public sealed class CategoriesController : ApiControllerBase
 {
-    private readonly ISender _sender;
-
-    public CategoriesController(ISender sender)
-    {
-        _sender = sender;
-    }
-
     /// <summary>
     /// Returns a paginated, filterable list of categories from the output cache.
     /// </summary>
@@ -31,10 +24,11 @@ public sealed class CategoriesController : ApiControllerBase
     [OutputCache(PolicyName = CachePolicyNames.Categories)]
     public async Task<ActionResult<PagedResponse<CategoryResponse>>> GetAll(
         [FromQuery] CategoryFilter filter,
+        [FromServices] IQueryHandler<GetCategoriesQuery, PagedResponse<CategoryResponse>> handler,
         CancellationToken ct
     )
     {
-        var categories = await _sender.Send(new GetCategoriesQuery(filter), ct);
+        var categories = await handler.HandleAsync(new GetCategoriesQuery(filter), ct);
         return Ok(categories);
     }
 
@@ -42,9 +36,13 @@ public sealed class CategoriesController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Categories.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Categories)]
-    public async Task<ActionResult<CategoryResponse>> GetById(Guid id, CancellationToken ct)
+    public async Task<ActionResult<CategoryResponse>> GetById(
+        Guid id,
+        [FromServices] IQueryHandler<GetCategoryByIdQuery, CategoryResponse?> handler,
+        CancellationToken ct
+    )
     {
-        var category = await _sender.Send(new GetCategoryByIdQuery(id), ct);
+        var category = await handler.HandleAsync(new GetCategoryByIdQuery(id), ct);
         return OkOrNotFound(category);
     }
 
@@ -53,10 +51,11 @@ public sealed class CategoriesController : ApiControllerBase
     [RequirePermission(Permission.Categories.Create)]
     public async Task<ActionResult<CategoryResponse>> Create(
         CreateCategoryRequest request,
+        [FromServices] ICommandHandler<CreateCategoryCommand, CategoryResponse> handler,
         CancellationToken ct
     )
     {
-        var category = await _sender.Send(new CreateCategoryCommand(request), ct);
+        var category = await handler.HandleAsync(new CreateCategoryCommand(request), ct);
         return CreatedAtGetById(category, category.Id);
     }
 
@@ -66,19 +65,24 @@ public sealed class CategoriesController : ApiControllerBase
     public async Task<IActionResult> Update(
         Guid id,
         UpdateCategoryRequest request,
+        [FromServices] ICommandHandler<UpdateCategoryCommand> handler,
         CancellationToken ct
     )
     {
-        await _sender.Send(new UpdateCategoryCommand(id, request), ct);
+        await handler.HandleAsync(new UpdateCategoryCommand(id, request), ct);
         return NoContent();
     }
 
     /// <summary>Soft-deletes a category by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.Categories.Delete)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] ICommandHandler<DeleteCategoryCommand> handler,
+        CancellationToken ct
+    )
     {
-        await _sender.Send(new DeleteCategoryCommand(id), ct);
+        await handler.HandleAsync(new DeleteCategoryCommand(id), ct);
         return NoContent();
     }
 
@@ -91,10 +95,11 @@ public sealed class CategoriesController : ApiControllerBase
     [OutputCache(PolicyName = CachePolicyNames.Categories)]
     public async Task<ActionResult<ProductCategoryStatsResponse>> GetStats(
         Guid id,
+        [FromServices] IQueryHandler<GetCategoryStatsQuery, ProductCategoryStatsResponse?> handler,
         CancellationToken ct
     )
     {
-        var stats = await _sender.Send(new GetCategoryStatsQuery(id), ct);
+        var stats = await handler.HandleAsync(new GetCategoryStatsQuery(id), ct);
         return OkOrNotFound(stats);
     }
 }

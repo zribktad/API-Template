@@ -1,18 +1,19 @@
 using APITemplate.Api.Cache;
-using APITemplate.Application.Common.Behaviors;
+using APITemplate.Api.Events;
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.CQRS.Decorators;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product;
 using APITemplate.Application.Features.Product.Validation;
 using APITemplate.Infrastructure.Security;
 using Asp.Versioning;
 using FluentValidation;
-using MediatR;
 
 namespace APITemplate.Api.Extensions;
 
 /// <summary>
-/// Presentation-layer extension class that registers application services (MediatR, validators,
+/// Presentation-layer extension class that registers application services (CQRS handlers, validators,
 /// tenant/actor context providers) and API versioning configuration.
 /// </summary>
 public static class ServiceCollectionExtensions
@@ -20,37 +21,70 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Registers application-layer services for dependency injection.
     /// </summary>
-    /// <remarks>
-    /// This includes:
-    /// - access to HTTP context (for tenant/actor resolution),
-    /// - application services that provide current tenant/actor identity,
-    /// - FluentValidation validators,
-    /// - and MediatR handlers + pipeline behaviors.
-    /// </remarks>
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        // Provides access to HttpContext in places that are not controllers/middleware.
         services.AddHttpContextAccessor();
 
-        // Tenant/actor context providers used in application logic (e.g. auditing, authorization).
         services.AddScoped<ITenantProvider, HttpTenantProvider>();
         services.AddScoped<IActorProvider, HttpActorProvider>();
 
-        // Register FluentValidation validators from the application layer.
         services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
 
-        // Register MediatR request/notification handlers and behaviors.
-        services.AddMediatR(cfg =>
-        {
-            // Scan the application layer for MediatR handlers.
-            cfg.RegisterServicesFromAssemblyContaining<CreateProductCommand>();
-            cfg.RegisterServicesFromAssemblyContaining<
-                CacheInvalidationHandler<ProductsChangedNotification>
-            >();
-            cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
-        });
+        services.AddCqrsHandlers();
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers all CQRS command/query/event handlers via Scrutor assembly scanning,
+    /// wraps command handlers with validation decorators, and registers the event publisher.
+    /// </summary>
+    private static void AddCqrsHandlers(this IServiceCollection services)
+    {
+        var applicationAssembly = typeof(CreateProductCommand).Assembly;
+        var apiAssembly = typeof(CacheInvalidationHandler<>).Assembly;
+
+        // Command handlers with result
+        services.Scan(scan =>
+            scan.FromAssemblies(applicationAssembly, apiAssembly)
+                .AddClasses(c => c.AssignableTo(typeof(ICommandHandler<,>)))
+                .AsImplementedInterfaces()
+                .WithScopedLifetime()
+        );
+
+        // Void command handlers
+        services.Scan(scan =>
+            scan.FromAssemblies(applicationAssembly, apiAssembly)
+                .AddClasses(c => c.AssignableTo(typeof(ICommandHandler<>)))
+                .AsImplementedInterfaces()
+                .WithScopedLifetime()
+        );
+
+        // Query handlers
+        services.Scan(scan =>
+            scan.FromAssemblies(applicationAssembly, apiAssembly)
+                .AddClasses(c => c.AssignableTo(typeof(IQueryHandler<,>)))
+                .AsImplementedInterfaces()
+                .WithScopedLifetime()
+        );
+
+        // Domain event handlers (closed generics only — Scrutor skips open generics)
+        services.Scan(scan =>
+            scan.FromAssemblies(applicationAssembly, apiAssembly)
+                .AddClasses(c => c.AssignableTo(typeof(IDomainEventHandler<>)))
+                .AsImplementedInterfaces()
+                .WithScopedLifetime()
+        );
+
+        // Open generic event handler — must be registered explicitly
+        services.AddScoped(typeof(IDomainEventHandler<>), typeof(CacheInvalidationHandler<>));
+
+        // Validation decorators for command handlers
+        services.Decorate(typeof(ICommandHandler<,>), typeof(ValidationCommandHandlerDecorator<,>));
+        services.Decorate(typeof(ICommandHandler<>), typeof(ValidationCommandHandlerDecorator<>));
+
+        // Event publisher
+        services.AddScoped<IEventPublisher, EventPublisher>();
     }
 
     /// <summary>

@@ -1,19 +1,13 @@
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Domain.Interfaces;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using Polly.Registry;
 
 namespace APITemplate.Application.Features.ProductData.Handlers;
 
-/// <summary>
-/// MediatR notification handler that soft-deletes all MongoDB product data documents belonging to a tenant
-/// when a <see cref="TenantSoftDeletedNotification"/> is received.
-/// Failures are logged without re-throwing so that the primary EF soft-delete is not rolled back.
-/// </summary>
 public sealed class ProductDataCascadeDeleteHandler
-    : INotificationHandler<TenantSoftDeletedNotification>
+    : IDomainEventHandler<TenantSoftDeletedNotification>
 {
     private readonly IProductDataRepository _productDataRepository;
     private readonly ResiliencePipelineProvider<string> _resiliencePipelineProvider;
@@ -30,11 +24,7 @@ public sealed class ProductDataCascadeDeleteHandler
         _logger = logger;
     }
 
-    /// <summary>
-    /// Handles the notification by soft-deleting all product data for the tenant via a Polly resilience pipeline.
-    /// Catches and logs any exception to prevent the failure from propagating to the caller.
-    /// </summary>
-    public async Task Handle(TenantSoftDeletedNotification notification, CancellationToken ct)
+    public async Task HandleAsync(TenantSoftDeletedNotification @event, CancellationToken ct)
     {
         var pipeline = _resiliencePipelineProvider.GetPipeline(
             ResiliencePipelineKeys.MongoProductDataDelete
@@ -45,9 +35,9 @@ public sealed class ProductDataCascadeDeleteHandler
             var count = await pipeline.ExecuteAsync(
                 async token =>
                     await _productDataRepository.SoftDeleteByTenantAsync(
-                        notification.TenantId,
-                        notification.ActorId,
-                        notification.DeletedAtUtc,
+                        @event.TenantId,
+                        @event.ActorId,
+                        @event.DeletedAtUtc,
                         token
                     ),
                 ct
@@ -56,7 +46,7 @@ public sealed class ProductDataCascadeDeleteHandler
             _logger.LogInformation(
                 "Cascade soft-deleted {Count} ProductData documents for tenant {TenantId}.",
                 count,
-                notification.TenantId
+                @event.TenantId
             );
         }
         catch (Exception ex)
@@ -64,7 +54,7 @@ public sealed class ProductDataCascadeDeleteHandler
             _logger.LogError(
                 ex,
                 "Failed to cascade soft-delete ProductData documents for tenant {TenantId}. EF entities are already soft-deleted.",
-                notification.TenantId
+                @event.TenantId
             );
         }
     }

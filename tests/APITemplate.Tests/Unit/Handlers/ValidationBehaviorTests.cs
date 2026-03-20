@@ -1,6 +1,6 @@
-using APITemplate.Application.Common.Behaviors;
+using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.CQRS.Decorators;
 using FluentValidation;
-using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
@@ -10,19 +10,22 @@ namespace APITemplate.Tests.Unit.Handlers;
 public sealed class ValidationBehaviorTests
 {
     [Fact]
-    public async Task Handle_WhenNestedRequestIsInvalid_ThrowsValidationException()
+    public async Task HandleAsync_WhenNestedRequestIsInvalid_ThrowsValidationException()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IValidator<CreateWidgetRequest>, CreateWidgetRequestValidator>();
-
         using var provider = services.BuildServiceProvider();
 
-        var sut = new ValidationBehavior<CreateWidgetCommand, string>(provider, []);
+        var inner = new StubCommandHandler<CreateWidgetCommand, string>("ok");
+        var sut = new ValidationCommandHandlerDecorator<CreateWidgetCommand, string>(
+            inner,
+            provider,
+            []
+        );
 
         var act = () =>
-            sut.Handle(
+            sut.HandleAsync(
                 new CreateWidgetCommand(new CreateWidgetRequest(string.Empty)),
-                _ => Task.FromResult("ok"),
                 TestContext.Current.CancellationToken
             );
 
@@ -30,33 +33,31 @@ public sealed class ValidationBehaviorTests
     }
 
     [Fact]
-    public async Task Handle_WhenRequestIsValid_InvokesNextDelegate()
+    public async Task HandleAsync_WhenRequestIsValid_InvokesInnerHandler()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IValidator<CreateWidgetRequest>, CreateWidgetRequestValidator>();
-
         using var provider = services.BuildServiceProvider();
 
-        var sut = new ValidationBehavior<CreateWidgetCommand, string>(provider, []);
+        var inner = new StubCommandHandler<CreateWidgetCommand, string>("ok");
+        var sut = new ValidationCommandHandlerDecorator<CreateWidgetCommand, string>(
+            inner,
+            provider,
+            []
+        );
 
-        var wasCalled = false;
-        var result = await sut.Handle(
+        var result = await sut.HandleAsync(
             new CreateWidgetCommand(new CreateWidgetRequest("widget")),
-            _ =>
-            {
-                wasCalled = true;
-                return Task.FromResult("ok");
-            },
             TestContext.Current.CancellationToken
         );
 
-        wasCalled.ShouldBeTrue();
         result.ShouldBe("ok");
+        inner.WasCalled.ShouldBeTrue();
     }
 
     private sealed record CreateWidgetRequest(string Name);
 
-    private sealed record CreateWidgetCommand(CreateWidgetRequest Request) : IRequest<string>;
+    private sealed record CreateWidgetCommand(CreateWidgetRequest Request) : ICommand<string>;
 
     private sealed class CreateWidgetRequestValidator : AbstractValidator<CreateWidgetRequest>
     {
@@ -67,22 +68,25 @@ public sealed class ValidationBehaviorTests
     }
 
     [Fact]
-    public async Task Handle_WhenCollectionItemIsInvalid_ThrowsValidationException()
+    public async Task HandleAsync_WhenCollectionItemIsInvalid_ThrowsValidationException()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IValidator<OrderLineRequest>, OrderLineRequestValidator>();
-
         using var provider = services.BuildServiceProvider();
 
-        var sut = new ValidationBehavior<CreateOrderCommand, string>(provider, []);
+        var inner = new StubCommandHandler<CreateOrderCommand, string>("ok");
+        var sut = new ValidationCommandHandlerDecorator<CreateOrderCommand, string>(
+            inner,
+            provider,
+            []
+        );
 
         var act = () =>
-            sut.Handle(
+            sut.HandleAsync(
                 new CreateOrderCommand([
                     new OrderLineRequest(string.Empty),
                     new OrderLineRequest("valid"),
                 ]),
-                _ => Task.FromResult("ok"),
                 TestContext.Current.CancellationToken
             );
 
@@ -90,40 +94,54 @@ public sealed class ValidationBehaviorTests
     }
 
     [Fact]
-    public async Task Handle_WhenCollectionItemsAreValid_InvokesNextDelegate()
+    public async Task HandleAsync_WhenCollectionItemsAreValid_InvokesInnerHandler()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IValidator<OrderLineRequest>, OrderLineRequestValidator>();
-
         using var provider = services.BuildServiceProvider();
 
-        var sut = new ValidationBehavior<CreateOrderCommand, string>(provider, []);
+        var inner = new StubCommandHandler<CreateOrderCommand, string>("ok");
+        var sut = new ValidationCommandHandlerDecorator<CreateOrderCommand, string>(
+            inner,
+            provider,
+            []
+        );
 
-        var wasCalled = false;
-        var result = await sut.Handle(
+        var result = await sut.HandleAsync(
             new CreateOrderCommand([new OrderLineRequest("one"), new OrderLineRequest("two")]),
-            _ =>
-            {
-                wasCalled = true;
-                return Task.FromResult("ok");
-            },
             TestContext.Current.CancellationToken
         );
 
-        wasCalled.ShouldBeTrue();
         result.ShouldBe("ok");
+        inner.WasCalled.ShouldBeTrue();
     }
 
     private sealed record OrderLineRequest(string Name);
 
     private sealed record CreateOrderCommand(IReadOnlyCollection<OrderLineRequest> Lines)
-        : IRequest<string>;
+        : ICommand<string>;
 
     private sealed class OrderLineRequestValidator : AbstractValidator<OrderLineRequest>
     {
         public OrderLineRequestValidator()
         {
             RuleFor(x => x.Name).NotEmpty();
+        }
+    }
+
+    /// <summary>Simple stub handler that avoids Moq proxy issues with private types.</summary>
+    private sealed class StubCommandHandler<TCommand, TResult> : ICommandHandler<TCommand, TResult>
+        where TCommand : ICommand<TResult>
+    {
+        private readonly TResult _result;
+        public bool WasCalled { get; private set; }
+
+        public StubCommandHandler(TResult result) => _result = result;
+
+        public Task<TResult> HandleAsync(TCommand command, CancellationToken ct)
+        {
+            WasCalled = true;
+            return Task.FromResult(_result);
         }
     }
 }

@@ -1,9 +1,9 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Application.Features.Examples.Handlers;
 using Asp.Versioning;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using SystemTextJsonPatch;
 
@@ -16,10 +16,6 @@ namespace APITemplate.Api.Controllers.V1;
 /// </summary>
 public sealed class PatchController : ApiControllerBase
 {
-    private readonly ISender _sender;
-
-    public PatchController(ISender sender) => _sender = sender;
-
     /// <summary>
     /// Applies a JSON Patch document to the specified product by passing an apply-delegate
     /// to the application layer, which mutates the DTO before persisting.
@@ -29,10 +25,11 @@ public sealed class PatchController : ApiControllerBase
     public async Task<ActionResult<ProductResponse>> PatchProduct(
         Guid id,
         [FromBody] JsonPatchDocument<PatchableProductDto> patchDocument,
+        [FromServices] ICommandHandler<PatchProductCommand, ProductResponse> handler,
         CancellationToken ct
     )
     {
-        var result = await _sender.Send(
+        var result = await handler.HandleAsync(
             new PatchProductCommand(id, dto => patchDocument.ApplyTo(dto)),
             ct
         );

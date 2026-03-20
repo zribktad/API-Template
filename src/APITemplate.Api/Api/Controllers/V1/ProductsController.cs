@@ -1,9 +1,9 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
+using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 
@@ -16,23 +16,17 @@ namespace APITemplate.Api.Controllers.V1;
 /// </summary>
 public sealed class ProductsController : ApiControllerBase
 {
-    private readonly ISender _sender;
-
-    public ProductsController(ISender sender)
-    {
-        _sender = sender;
-    }
-
     /// <summary>Returns a filtered, paginated product list including search facets.</summary>
     [HttpGet]
     [RequirePermission(Permission.Products.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Products)]
     public async Task<ActionResult<ProductsResponse>> GetAll(
         [FromQuery] ProductFilter filter,
+        [FromServices] IQueryHandler<GetProductsQuery, ProductsResponse> handler,
         CancellationToken ct
     )
     {
-        var products = await _sender.Send(new GetProductsQuery(filter), ct);
+        var products = await handler.HandleAsync(new GetProductsQuery(filter), ct);
         return Ok(products);
     }
 
@@ -40,9 +34,13 @@ public sealed class ProductsController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Products.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Products)]
-    public async Task<ActionResult<ProductResponse>> GetById(Guid id, CancellationToken ct)
+    public async Task<ActionResult<ProductResponse>> GetById(
+        Guid id,
+        [FromServices] IQueryHandler<GetProductByIdQuery, ProductResponse?> handler,
+        CancellationToken ct
+    )
     {
-        var product = await _sender.Send(new GetProductByIdQuery(id), ct);
+        var product = await handler.HandleAsync(new GetProductByIdQuery(id), ct);
         return OkOrNotFound(product);
     }
 
@@ -51,10 +49,11 @@ public sealed class ProductsController : ApiControllerBase
     [RequirePermission(Permission.Products.Create)]
     public async Task<ActionResult<ProductResponse>> Create(
         CreateProductRequest request,
+        [FromServices] ICommandHandler<CreateProductCommand, ProductResponse> handler,
         CancellationToken ct
     )
     {
-        var product = await _sender.Send(new CreateProductCommand(request), ct);
+        var product = await handler.HandleAsync(new CreateProductCommand(request), ct);
         return CreatedAtGetById(product, product.Id);
     }
 
@@ -64,19 +63,24 @@ public sealed class ProductsController : ApiControllerBase
     public async Task<IActionResult> Update(
         Guid id,
         UpdateProductRequest request,
+        [FromServices] ICommandHandler<UpdateProductCommand> handler,
         CancellationToken ct
     )
     {
-        await _sender.Send(new UpdateProductCommand(id, request), ct);
+        await handler.HandleAsync(new UpdateProductCommand(id, request), ct);
         return NoContent();
     }
 
     /// <summary>Soft-deletes a product by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.Products.Delete)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] ICommandHandler<DeleteProductCommand> handler,
+        CancellationToken ct
+    )
     {
-        await _sender.Send(new DeleteProductCommand(id), ct);
+        await handler.HandleAsync(new DeleteProductCommand(id), ct);
         return NoContent();
     }
 }

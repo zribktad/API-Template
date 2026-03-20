@@ -45,7 +45,7 @@
     <PackageReference Include="HotChocolate.AspNetCore" />
     <PackageReference Include="HotChocolate.Data.EntityFramework" />
     <PackageReference Include="HotChocolate.Diagnostics" />
-    <PackageReference Include="MediatR" />
+    <PackageReference Include="Scrutor" />
     <PackageReference Include="SystemTextJsonPatch" />
 
     <!-- EF Core + PostgreSQL -->

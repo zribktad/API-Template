@@ -1,25 +1,31 @@
-using MediatR;
+using APITemplate.Application.Common.CQRS;
 
 namespace APITemplate.Api.GraphQL.DataLoaders;
 
 /// <summary>
 /// Hot Chocolate batch data loader that resolves all reviews for a set of product IDs in a
-/// single MediatR query, preventing the N+1 problem when the GraphQL schema resolves reviews
+/// single query, preventing the N+1 problem when the GraphQL schema resolves reviews
 /// as a field on <c>ProductType</c>.
 /// </summary>
 public sealed class ProductReviewsByProductDataLoader
     : BatchDataLoader<Guid, ProductReviewResponse[]>
 {
-    private readonly ISender _sender;
+    private readonly IQueryHandler<
+        GetProductReviewsByProductIdsQuery,
+        IReadOnlyDictionary<Guid, ProductReviewResponse[]>
+    > _handler;
 
     public ProductReviewsByProductDataLoader(
-        ISender sender,
+        IQueryHandler<
+            GetProductReviewsByProductIdsQuery,
+            IReadOnlyDictionary<Guid, ProductReviewResponse[]>
+        > handler,
         IBatchScheduler batchScheduler,
         DataLoaderOptions options = default!
     )
         : base(batchScheduler, options)
     {
-        _sender = sender;
+        _handler = handler;
     }
 
     /// <summary>
@@ -30,6 +36,6 @@ public sealed class ProductReviewsByProductDataLoader
         IReadOnlyDictionary<Guid, ProductReviewResponse[]>
     > LoadBatchAsync(IReadOnlyList<Guid> productIds, CancellationToken ct)
     {
-        return await _sender.Send(new GetProductReviewsByProductIdsQuery(productIds), ct);
+        return await _handler.HandleAsync(new GetProductReviewsByProductIdsQuery(productIds), ct);
     }
 }

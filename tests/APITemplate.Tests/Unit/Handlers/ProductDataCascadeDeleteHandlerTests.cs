@@ -50,7 +50,7 @@ public sealed class ProductDataCascadeDeleteHandlerTests
             )
             .ReturnsAsync(5);
 
-        await _sut.Handle(notification, ct);
+        await _sut.HandleAsync(notification, ct);
 
         _productDataRepositoryMock.Verify(
             r =>
@@ -86,7 +86,7 @@ public sealed class ProductDataCascadeDeleteHandlerTests
             )
             .ReturnsAsync(3);
 
-        await _sut.Handle(notification, ct);
+        await _sut.HandleAsync(notification, ct);
 
         _loggerMock.Verify(
             logger =>
@@ -127,7 +127,7 @@ public sealed class ProductDataCascadeDeleteHandlerTests
             )
             .ThrowsAsync(new InvalidOperationException("MongoDB connection failed"));
 
-        await Should.NotThrowAsync(() => _sut.Handle(notification, ct));
+        await Should.NotThrowAsync(() => _sut.HandleAsync(notification, ct));
 
         _loggerMock.Verify(
             logger =>
@@ -166,7 +166,7 @@ public sealed class ProductDataCascadeDeleteHandlerTests
             )
             .ReturnsAsync(0);
 
-        await _sut.Handle(notification, ct);
+        await _sut.HandleAsync(notification, ct);
 
         _productDataRepositoryMock.Verify(
             r =>

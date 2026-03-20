@@ -1,9 +1,9 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
+using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 
@@ -16,23 +16,18 @@ namespace APITemplate.Api.Controllers.V1;
 /// </summary>
 public sealed class ProductReviewsController : ApiControllerBase
 {
-    private readonly ISender _sender;
-
-    public ProductReviewsController(ISender sender)
-    {
-        _sender = sender;
-    }
-
     /// <summary>Returns a paginated, filterable list of product reviews.</summary>
     [HttpGet]
     [RequirePermission(Permission.ProductReviews.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Reviews)]
     public async Task<ActionResult<PagedResponse<ProductReviewResponse>>> GetAll(
         [FromQuery] ProductReviewFilter filter,
+        [FromServices]
+            IQueryHandler<GetProductReviewsQuery, PagedResponse<ProductReviewResponse>> handler,
         CancellationToken ct
     )
     {
-        var reviews = await _sender.Send(new GetProductReviewsQuery(filter), ct);
+        var reviews = await handler.HandleAsync(new GetProductReviewsQuery(filter), ct);
         return Ok(reviews);
     }
 
@@ -40,9 +35,13 @@ public sealed class ProductReviewsController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.ProductReviews.Read)]
     [OutputCache(PolicyName = CachePolicyNames.Reviews)]
-    public async Task<ActionResult<ProductReviewResponse>> GetById(Guid id, CancellationToken ct)
+    public async Task<ActionResult<ProductReviewResponse>> GetById(
+        Guid id,
+        [FromServices] IQueryHandler<GetProductReviewByIdQuery, ProductReviewResponse?> handler,
+        CancellationToken ct
+    )
     {
-        var review = await _sender.Send(new GetProductReviewByIdQuery(id), ct);
+        var review = await handler.HandleAsync(new GetProductReviewByIdQuery(id), ct);
         return OkOrNotFound(review);
     }
 
@@ -52,10 +51,18 @@ public sealed class ProductReviewsController : ApiControllerBase
     [OutputCache(PolicyName = CachePolicyNames.Reviews)]
     public async Task<ActionResult<IEnumerable<ProductReviewResponse>>> GetByProductId(
         Guid productId,
+        [FromServices]
+            IQueryHandler<
+            GetProductReviewsByProductIdQuery,
+            IReadOnlyList<ProductReviewResponse>
+        > handler,
         CancellationToken ct
     )
     {
-        var reviews = await _sender.Send(new GetProductReviewsByProductIdQuery(productId), ct);
+        var reviews = await handler.HandleAsync(
+            new GetProductReviewsByProductIdQuery(productId),
+            ct
+        );
         return Ok(reviews);
     }
 
@@ -64,19 +71,24 @@ public sealed class ProductReviewsController : ApiControllerBase
     [RequirePermission(Permission.ProductReviews.Create)]
     public async Task<ActionResult<ProductReviewResponse>> Create(
         CreateProductReviewRequest request,
+        [FromServices] ICommandHandler<CreateProductReviewCommand, ProductReviewResponse> handler,
         CancellationToken ct
     )
     {
-        var review = await _sender.Send(new CreateProductReviewCommand(request), ct);
+        var review = await handler.HandleAsync(new CreateProductReviewCommand(request), ct);
         return CreatedAtGetById(review, review.Id);
     }
 
     /// <summary>Deletes a product review by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.ProductReviews.Delete)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] ICommandHandler<DeleteProductReviewCommand> handler,
+        CancellationToken ct
+    )
     {
-        await _sender.Send(new DeleteProductReviewCommand(id), ct);
+        await handler.HandleAsync(new DeleteProductReviewCommand(id), ct);
         return NoContent();
     }
 }

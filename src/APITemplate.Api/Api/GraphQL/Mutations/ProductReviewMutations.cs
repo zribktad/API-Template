@@ -1,6 +1,6 @@
+using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using HotChocolate.Authorization;
-using MediatR;
 
 namespace APITemplate.Api.GraphQL.Mutations;
 
@@ -12,26 +12,26 @@ namespace APITemplate.Api.GraphQL.Mutations;
 [ExtendObjectType(typeof(ProductMutations))]
 public class ProductReviewMutations
 {
-    /// <summary>Creates a new product review via MediatR and returns the resulting review response.</summary>
+    /// <summary>Creates a new product review and returns the resulting review response.</summary>
     [Authorize(Policy = Permission.ProductReviews.Create)]
     public async Task<ProductReviewResponse> CreateProductReview(
         CreateProductReviewRequest input,
-        [Service] ISender sender,
+        [Service] ICommandHandler<CreateProductReviewCommand, ProductReviewResponse> handler,
         CancellationToken ct
     )
     {
-        return await sender.Send(new CreateProductReviewCommand(input), ct);
+        return await handler.HandleAsync(new CreateProductReviewCommand(input), ct);
     }
 
     /// <summary>Deletes a product review by its ID and returns <see langword="true"/> on success.</summary>
     [Authorize(Policy = Permission.ProductReviews.Delete)]
     public async Task<bool> DeleteProductReview(
         Guid id,
-        [Service] ISender sender,
+        [Service] ICommandHandler<DeleteProductReviewCommand> handler,
         CancellationToken ct
     )
     {
-        await sender.Send(new DeleteProductReviewCommand(id), ct);
+        await handler.HandleAsync(new DeleteProductReviewCommand(id), ct);
         return true;
     }
 }
