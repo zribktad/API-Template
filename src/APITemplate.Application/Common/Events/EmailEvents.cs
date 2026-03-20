@@ -1,12 +1,10 @@
-using MediatR;
-
 namespace APITemplate.Application.Common.Events;
 
 /// <summary>
 /// Published after a new user successfully registers, triggering the welcome email notification.
 /// </summary>
 public sealed record UserRegisteredNotification(Guid UserId, string Email, string Username)
-    : INotification;
+    : IDomainEvent;
 
 /// <summary>
 /// Published after a tenant invitation is created, triggering the invitation email with the acceptance link.
@@ -16,7 +14,7 @@ public sealed record TenantInvitationCreatedNotification(
     string Email,
     string TenantName,
     string Token
-) : INotification;
+) : IDomainEvent;
 
 /// <summary>
 /// Published after a user's role is changed, triggering the role-change notification email.
@@ -27,4 +25,4 @@ public sealed record UserRoleChangedNotification(
     string Username,
     string OldRole,
     string NewRole
-) : INotification;
+) : IDomainEvent;

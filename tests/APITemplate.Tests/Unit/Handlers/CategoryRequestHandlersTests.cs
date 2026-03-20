@@ -1,11 +1,11 @@
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Category;
-using APITemplate.Application.Features.Category.Specifications;
 using APITemplate.Application.Features.Category.Mappings;
+using APITemplate.Application.Features.Category.Specifications;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
-using MediatR;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -16,17 +16,15 @@ public class CategoryRequestHandlersTests
 {
     private readonly Mock<ICategoryRepository> _repositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<IPublisher> _publisherMock;
-    private readonly CategoryRequestHandlers _sut;
+    private readonly Mock<IEventPublisher> _publisherMock;
 
     public CategoryRequestHandlersTests()
     {
         _repositoryMock = new Mock<ICategoryRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _publisherMock = new Mock<IPublisher>();
+        _publisherMock = new Mock<IEventPublisher>();
         _unitOfWorkMock.SetupImmediateTransactionExecution();
         _unitOfWorkMock.SetupImmediateTransactionExecution<Category>();
-        _sut = new CategoryRequestHandlers(_repositoryMock.Object, _unitOfWorkMock.Object, _publisherMock.Object);
     }
 
     [Fact]
@@ -36,17 +34,22 @@ public class CategoryRequestHandlersTests
         var items = new List<CategoryResponse>
         {
             new(Guid.NewGuid(), "Electronics", null, DateTime.UtcNow),
-            new(Guid.NewGuid(), "Books", "All books", DateTime.UtcNow)
+            new(Guid.NewGuid(), "Books", "All books", DateTime.UtcNow),
         };
 
         _repositoryMock
-            .Setup(r => r.ListAsync(It.IsAny<CategorySpecification>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.ListAsync(It.IsAny<CategorySpecification>(), It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync(items);
         _repositoryMock
-            .Setup(r => r.CountAsync(It.IsAny<CategoryCountSpecification>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.CountAsync(It.IsAny<CategoryCountSpecification>(), It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync(2);
 
-        var result = await _sut.Handle(new GetCategoriesQuery(new CategoryFilter()), ct);
+        var sut = new GetCategoriesQueryHandler(_repositoryMock.Object);
+        var result = await sut.HandleAsync(new GetCategoriesQuery(new CategoryFilter()), ct);
 
         result.Items.Count().ShouldBe(2);
         result.Items.First().Name.ShouldBe("Electronics");
@@ -59,13 +62,18 @@ public class CategoryRequestHandlersTests
     {
         var ct = TestContext.Current.CancellationToken;
         _repositoryMock
-            .Setup(r => r.ListAsync(It.IsAny<CategorySpecification>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.ListAsync(It.IsAny<CategorySpecification>(), It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync(new List<CategoryResponse>());
         _repositoryMock
-            .Setup(r => r.CountAsync(It.IsAny<CategoryCountSpecification>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.CountAsync(It.IsAny<CategoryCountSpecification>(), It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync(0);
 
-        var result = await _sut.Handle(new GetCategoriesQuery(new CategoryFilter()), ct);
+        var sut = new GetCategoriesQueryHandler(_repositoryMock.Object);
+        var result = await sut.HandleAsync(new GetCategoriesQuery(new CategoryFilter()), ct);
 
         result.Items.ShouldBeEmpty();
     }
@@ -75,13 +83,24 @@ public class CategoryRequestHandlersTests
     {
         var ct = TestContext.Current.CancellationToken;
         var categoryId = Guid.NewGuid();
-        var response = new CategoryResponse(categoryId, "Electronics", "Electronic devices", DateTime.UtcNow);
+        var response = new CategoryResponse(
+            categoryId,
+            "Electronics",
+            "Electronic devices",
+            DateTime.UtcNow
+        );
 
         _repositoryMock
-            .Setup(r => r.FirstOrDefaultAsync(It.IsAny<CategoryByIdSpecification>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.FirstOrDefaultAsync(
+                    It.IsAny<CategoryByIdSpecification>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync(response);
 
-        var result = await _sut.Handle(new GetCategoryByIdQuery(categoryId), ct);
+        var sut = new GetCategoryByIdQueryHandler(_repositoryMock.Object);
+        var result = await sut.HandleAsync(new GetCategoryByIdQuery(categoryId), ct);
 
         result.ShouldNotBeNull();
         result!.Id.ShouldBe(categoryId);
@@ -94,10 +113,16 @@ public class CategoryRequestHandlersTests
     {
         var ct = TestContext.Current.CancellationToken;
         _repositoryMock
-            .Setup(r => r.FirstOrDefaultAsync(It.IsAny<CategoryByIdSpecification>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.FirstOrDefaultAsync(
+                    It.IsAny<CategoryByIdSpecification>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync((CategoryResponse?)null);
 
-        var result = await _sut.Handle(new GetCategoryByIdQuery(Guid.NewGuid()), ct);
+        var sut = new GetCategoryByIdQueryHandler(_repositoryMock.Object);
+        var result = await sut.HandleAsync(new GetCategoryByIdQuery(Guid.NewGuid()), ct);
 
         result.ShouldBeNull();
     }
@@ -111,17 +136,34 @@ public class CategoryRequestHandlersTests
             .Setup(r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Category c, CancellationToken _) => c);
 
-        var result = await _sut.Handle(new CreateCategoryCommand(request), TestContext.Current.CancellationToken);
+        var sut = new CreateCategoryCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new CreateCategoryCommand(request),
+            TestContext.Current.CancellationToken
+        );
 
         result.ShouldNotBeNull();
         result.Id.ShouldNotBe(Guid.Empty);
         result.Name.ShouldBe("Electronics");
         result.Description.ShouldBe("Electronic devices");
 
-        _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(
+            r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
         _unitOfWorkMock.Verify(
-            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task<Category>>>(), It.IsAny<CancellationToken>(), It.IsAny<TransactionOptions?>()),
-            Times.Once);
+            u =>
+                u.ExecuteInTransactionAsync(
+                    It.IsAny<Func<Task<Category>>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<TransactionOptions?>()
+                ),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -133,7 +175,15 @@ public class CategoryRequestHandlersTests
             .Setup(r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Category c, CancellationToken _) => c);
 
-        var result = await _sut.Handle(new CreateCategoryCommand(request), TestContext.Current.CancellationToken);
+        var sut = new CreateCategoryCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new CreateCategoryCommand(request),
+            TestContext.Current.CancellationToken
+        );
 
         result.Name.ShouldBe("Books");
         result.Description.ShouldBeNull();
@@ -147,7 +197,7 @@ public class CategoryRequestHandlersTests
             Id = Guid.NewGuid(),
             Name = "Old Name",
             Description = "Old Description",
-            Audit = new() { CreatedAtUtc = DateTime.UtcNow }
+            Audit = new() { CreatedAtUtc = DateTime.UtcNow },
         };
 
         var request = new UpdateCategoryRequest("New Name", "New Description");
@@ -156,15 +206,36 @@ public class CategoryRequestHandlersTests
             .Setup(r => r.GetByIdAsync(category.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(category);
 
-        await _sut.Handle(new UpdateCategoryCommand(category.Id, request), TestContext.Current.CancellationToken);
+        var sut = new UpdateCategoryCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        await sut.HandleAsync(
+            new UpdateCategoryCommand(category.Id, request),
+            TestContext.Current.CancellationToken
+        );
 
-        _repositoryMock.Verify(r => r.UpdateAsync(
-            It.Is<Category>(c => c.Name == "New Name" && c.Description == "New Description"),
-            It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(
+            r =>
+                r.UpdateAsync(
+                    It.Is<Category>(c =>
+                        c.Name == "New Name" && c.Description == "New Description"
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
 
         _unitOfWorkMock.Verify(
-            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>(), It.IsAny<TransactionOptions?>()),
-            Times.Once);
+            u =>
+                u.ExecuteInTransactionAsync(
+                    It.IsAny<Func<Task>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<TransactionOptions?>()
+                ),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -174,12 +245,27 @@ public class CategoryRequestHandlersTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Category?)null);
 
-        var act = () => _sut.Handle(new UpdateCategoryCommand(Guid.NewGuid(), new UpdateCategoryRequest("Name", null)), TestContext.Current.CancellationToken);
+        var sut = new UpdateCategoryCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        var act = () =>
+            sut.HandleAsync(
+                new UpdateCategoryCommand(Guid.NewGuid(), new UpdateCategoryRequest("Name", null)),
+                TestContext.Current.CancellationToken
+            );
 
         await Should.ThrowAsync<NotFoundException>(act);
         _unitOfWorkMock.Verify(
-            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>(), It.IsAny<TransactionOptions?>()),
-            Times.Never);
+            u =>
+                u.ExecuteInTransactionAsync(
+                    It.IsAny<Func<Task>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<TransactionOptions?>()
+                ),
+            Times.Never
+        );
     }
 
     [Fact]
@@ -187,12 +273,26 @@ public class CategoryRequestHandlersTests
     {
         var id = Guid.NewGuid();
 
-        await _sut.Handle(new DeleteCategoryCommand(id), TestContext.Current.CancellationToken);
+        var sut = new DeleteCategoryCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        await sut.HandleAsync(new DeleteCategoryCommand(id), TestContext.Current.CancellationToken);
 
-        _repositoryMock.Verify(r => r.DeleteAsync(id, It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
+        _repositoryMock.Verify(
+            r => r.DeleteAsync(id, It.IsAny<CancellationToken>(), It.IsAny<string?>()),
+            Times.Once
+        );
         _unitOfWorkMock.Verify(
-            u => u.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>(), It.IsAny<TransactionOptions?>()),
-            Times.Once);
+            u =>
+                u.ExecuteInTransactionAsync(
+                    It.IsAny<Func<Task>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<TransactionOptions?>()
+                ),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -206,14 +306,15 @@ public class CategoryRequestHandlersTests
             CategoryName = "Electronics",
             ProductCount = 5,
             AveragePrice = 199.99m,
-            TotalReviews = 42
+            TotalReviews = 42,
         };
 
         _repositoryMock
             .Setup(r => r.GetStatsByIdAsync(categoryId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(stats);
 
-        var result = await _sut.Handle(new GetCategoryStatsQuery(categoryId), ct);
+        var sut = new GetCategoryStatsQueryHandler(_repositoryMock.Object);
+        var result = await sut.HandleAsync(new GetCategoryStatsQuery(categoryId), ct);
 
         result.ShouldNotBeNull();
         result!.CategoryId.ShouldBe(categoryId);
@@ -231,7 +332,8 @@ public class CategoryRequestHandlersTests
             .Setup(r => r.GetStatsByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductCategoryStats?)null);
 
-        var result = await _sut.Handle(new GetCategoryStatsQuery(Guid.NewGuid()), ct);
+        var sut = new GetCategoryStatsQueryHandler(_repositoryMock.Object);
+        var result = await sut.HandleAsync(new GetCategoryStatsQuery(Guid.NewGuid()), ct);
 
         result.ShouldBeNull();
     }

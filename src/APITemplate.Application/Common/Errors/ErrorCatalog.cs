@@ -20,11 +20,13 @@ public static class ErrorCatalog
     public static class Auth
     {
         public const string Forbidden = "AUTH-0403";
+        public const string ForbiddenOwnReviewsOnly = "You can only delete your own reviews.";
     }
 
     /// <summary>Error codes specific to the Products domain.</summary>
     public static class Products
     {
+        public const string EntityName = "Product";
         public const string NotFound = "PRD-0404";
         public const string ProductDataNotFound = "PRD-2404";
     }
@@ -62,6 +64,7 @@ public static class ErrorCatalog
     {
         public const string NotFound = "TNT-0404";
         public const string CodeAlreadyExists = "TNT-0409-CODE";
+        public const string CodeAlreadyExistsMessage = "Tenant with code '{0}' already exists.";
     }
 
     /// <summary>Error codes specific to the Invitations domain.</summary>
@@ -72,6 +75,13 @@ public static class ErrorCatalog
         public const string Expired = "INV-0410";
         public const string AlreadyAccepted = "INV-0409-ACCEPTED";
         public const string NotPending = "INV-0409-NOT-PENDING";
+
+        public const string NotFoundOrExpiredMessage = "Invitation not found or expired.";
+        public const string ExpiredMessage = "Invitation has expired.";
+        public const string AlreadyAcceptedMessage = "Invitation has already been accepted.";
+        public const string NotPendingMessage = "Only pending invitations can be resent.";
+        public const string ExpiredCreateNewMessage =
+            "Invitation has expired. Create a new one instead.";
     }
 
     /// <summary>Error codes used by the example/showcase feature endpoints.</summary>

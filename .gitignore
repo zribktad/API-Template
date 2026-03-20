@@ -28,6 +28,7 @@ artifacts/
 # Agent files
 .claude/**/*local*
 .cursor/**
+docs/superpowers/**
 **/obj-codex/**
 CLAUDE.md
 AGENTS.md
@@ -62,3 +63,4 @@ publish/
 
 # Git worktrees
 .worktrees/
+

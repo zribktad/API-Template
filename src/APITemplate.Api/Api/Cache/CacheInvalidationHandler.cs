@@ -1,14 +1,13 @@
 using APITemplate.Application.Common.Events;
-using MediatR;
 
 namespace APITemplate.Api.Cache;
 
 /// <summary>
-/// Generic MediatR notification handler that bridges domain events implementing
-/// <see cref="ICacheInvalidationNotification"/> to the output cache invalidation pipeline.
+/// Generic domain event handler that bridges domain events implementing
+/// <see cref="ICacheInvalidationEvent"/> to the output cache invalidation pipeline.
 /// </summary>
-public sealed class CacheInvalidationHandler<TNotification> : INotificationHandler<TNotification>
-    where TNotification : ICacheInvalidationNotification
+public sealed class CacheInvalidationHandler<TEvent> : IDomainEventHandler<TEvent>
+    where TEvent : ICacheInvalidationEvent
 {
     private readonly IOutputCacheInvalidationService _outputCacheInvalidationService;
 
@@ -18,8 +17,8 @@ public sealed class CacheInvalidationHandler<TNotification> : INotificationHandl
     }
 
     /// <summary>
-    /// Evicts the output cache entries tagged with the value provided by the notification.
+    /// Evicts the output cache entries tagged with the value provided by the event.
     /// </summary>
-    public Task Handle(TNotification notification, CancellationToken cancellationToken) =>
-        _outputCacheInvalidationService.EvictAsync(notification.CacheTag, cancellationToken);
+    public Task HandleAsync(TEvent @event, CancellationToken cancellationToken) =>
+        _outputCacheInvalidationService.EvictAsync(@event.CacheTag, cancellationToken);
 }

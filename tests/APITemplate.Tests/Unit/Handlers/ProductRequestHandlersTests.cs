@@ -1,3 +1,4 @@
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.Product.Specifications;
@@ -5,7 +6,6 @@ using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
-using MediatR;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -19,8 +19,7 @@ public class ProductRequestHandlersTests
     private readonly Mock<IProductDataRepository> _productDataRepositoryMock;
     private readonly Mock<IProductDataLinkRepository> _productDataLinkRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<IPublisher> _publisherMock;
-    private readonly ProductRequestHandlers _sut;
+    private readonly Mock<IEventPublisher> _publisherMock;
 
     public ProductRequestHandlersTests()
     {
@@ -29,17 +28,9 @@ public class ProductRequestHandlersTests
         _productDataRepositoryMock = new Mock<IProductDataRepository>();
         _productDataLinkRepositoryMock = new Mock<IProductDataLinkRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _publisherMock = new Mock<IPublisher>();
+        _publisherMock = new Mock<IEventPublisher>();
         _unitOfWorkMock.SetupImmediateTransactionExecution();
         _unitOfWorkMock.SetupImmediateTransactionExecution<Product>();
-        _sut = new ProductRequestHandlers(
-            _repositoryMock.Object,
-            _categoryRepositoryMock.Object,
-            _productDataRepositoryMock.Object,
-            _productDataLinkRepositoryMock.Object,
-            _unitOfWorkMock.Object,
-            _publisherMock.Object
-        );
     }
 
     [Theory]
@@ -70,7 +61,8 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync(response);
 
-        var result = await _sut.Handle(new GetProductByIdQuery(productId), ct);
+        var sut = new GetProductByIdQueryHandler(_repositoryMock.Object);
+        var result = await sut.HandleAsync(new GetProductByIdQuery(productId), ct);
 
         if (productExists)
         {
@@ -93,7 +85,14 @@ public class ProductRequestHandlersTests
             .Setup(r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Product p, CancellationToken _) => p);
 
-        var result = await _sut.Handle(
+        var sut = new CreateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        var result = await sut.HandleAsync(
             new CreateProductCommand(request),
             TestContext.Current.CancellationToken
         );
@@ -139,7 +138,14 @@ public class ProductRequestHandlersTests
             .Setup(r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Product p, CancellationToken _) => p);
 
-        var result = await _sut.Handle(
+        var sut = new CreateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        var result = await sut.HandleAsync(
             new CreateProductCommand(request),
             TestContext.Current.CancellationToken
         );
@@ -173,7 +179,14 @@ public class ProductRequestHandlersTests
             .Setup(r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Product p, CancellationToken _) => p);
 
-        var result = await _sut.Handle(
+        var sut = new CreateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        var result = await sut.HandleAsync(
             new CreateProductCommand(request),
             TestContext.Current.CancellationToken
         );
@@ -195,8 +208,18 @@ public class ProductRequestHandlersTests
             .Setup(r => r.GetByIdAsync(categoryId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Category?)null);
 
+        var sut = new CreateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
         var act = () =>
-            _sut.Handle(new CreateProductCommand(request), TestContext.Current.CancellationToken);
+            sut.HandleAsync(
+                new CreateProductCommand(request),
+                TestContext.Current.CancellationToken
+            );
 
         await Should.ThrowAsync<NotFoundException>(act);
     }
@@ -219,8 +242,18 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([]);
 
+        var sut = new CreateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
         var act = () =>
-            _sut.Handle(new CreateProductCommand(request), TestContext.Current.CancellationToken);
+            sut.HandleAsync(
+                new CreateProductCommand(request),
+                TestContext.Current.CancellationToken
+            );
 
         await Should.ThrowAsync<NotFoundException>(act);
     }
@@ -237,8 +270,16 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync((Product?)null);
 
+        var sut = new UpdateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _productDataLinkRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
         var act = () =>
-            _sut.Handle(
+            sut.HandleAsync(
                 new UpdateProductCommand(
                     Guid.NewGuid(),
                     new UpdateProductRequest("Name", null, 10m)
@@ -275,7 +316,12 @@ public class ProductRequestHandlersTests
             .Setup(r => r.ListByProductIdAsync(product.Id, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
-        await _sut.Handle(
+        var sut = new DeleteProductCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        await sut.HandleAsync(
             new DeleteProductCommand(product.Id),
             TestContext.Current.CancellationToken
         );
@@ -318,7 +364,15 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync(product);
 
-        await _sut.Handle(
+        var sut = new UpdateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _productDataLinkRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        await sut.HandleAsync(
             new UpdateProductCommand(
                 product.Id,
                 new UpdateProductRequest("New Name", "New Desc", 20m)
@@ -388,7 +442,15 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([new ImageProductData { Id = newId, Title = "Image" }]);
 
-        await _sut.Handle(
+        var sut = new UpdateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _productDataLinkRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        await sut.HandleAsync(
             new UpdateProductCommand(product.Id, request),
             TestContext.Current.CancellationToken
         );
@@ -422,7 +484,15 @@ public class ProductRequestHandlersTests
             .Setup(r => r.ListByProductIdAsync(product.Id, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product.ProductDataLinks.ToList());
 
-        await _sut.Handle(
+        var sut = new UpdateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _productDataLinkRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        await sut.HandleAsync(
             new UpdateProductCommand(
                 product.Id,
                 new UpdateProductRequest("New Name", "New Desc", 20m, null, [])
@@ -457,7 +527,15 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync(product);
 
-        await _sut.Handle(
+        var sut = new UpdateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _productDataLinkRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        await sut.HandleAsync(
             new UpdateProductCommand(
                 product.Id,
                 new UpdateProductRequest("New Name", "New Desc", 20m, null, null)
@@ -515,7 +593,15 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([new ImageProductData { Id = restoredId, Title = "Image" }]);
 
-        await _sut.Handle(
+        var sut = new UpdateProductCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _productDataLinkRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        await sut.HandleAsync(
             new UpdateProductCommand(
                 product.Id,
                 new UpdateProductRequest("New Name", null, 20m, null, [restoredId])
@@ -567,7 +653,8 @@ public class ProductRequestHandlersTests
             .Setup(r => r.GetPriceFacetsAsync(filter, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
-        var result = await _sut.Handle(new GetProductsQuery(filter), ct);
+        var sut = new GetProductsQueryHandler(_repositoryMock.Object);
+        var result = await sut.HandleAsync(new GetProductsQuery(filter), ct);
 
         result.Page.Items.Count().ShouldBe(2);
         result.Page.TotalCount.ShouldBe(2);

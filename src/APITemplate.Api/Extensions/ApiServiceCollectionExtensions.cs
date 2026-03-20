@@ -4,6 +4,7 @@ using APITemplate.Api.ExceptionHandling;
 using APITemplate.Api.Filters.Idempotency;
 using APITemplate.Api.Filters.Webhooks;
 using APITemplate.Api.OpenApi;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Observability;
@@ -103,7 +104,7 @@ public static class ApiServiceCollectionExtensions
             {
                 var endpoint = HttpRouteResolver.Resolve(context.HttpContext);
                 ApiMetrics.RecordRateLimitRejection(
-                    CachePolicyNames.RateLimitPolicy,
+                    CacheTags.RateLimitPolicy,
                     context.HttpContext.Request.Method,
                     endpoint
                 );
@@ -116,7 +117,7 @@ public static class ApiServiceCollectionExtensions
             var rateLimitOpts = sp.GetRequiredService<IOptions<RateLimitingOptions>>().Value;
             return new ConfigureOptions<RateLimiterOptions>(o =>
                 o.AddPolicy(
-                    CachePolicyNames.RateLimitPolicy,
+                    CacheTags.RateLimitPolicy,
                     httpContext =>
                         RateLimitPartition.GetFixedWindowLimiter(
                             partitionKey: httpContext.User.Identity?.Name
@@ -256,16 +257,16 @@ public static class ApiServiceCollectionExtensions
                     // and a tag matching the policy name for targeted invalidation.
                     ReadOnlySpan<(string Name, int ExpirationSeconds)> policies =
                     [
-                        (CachePolicyNames.Products, cachingOptions.ProductsExpirationSeconds),
-                        (CachePolicyNames.Categories, cachingOptions.CategoriesExpirationSeconds),
-                        (CachePolicyNames.Reviews, cachingOptions.ReviewsExpirationSeconds),
-                        (CachePolicyNames.ProductData, cachingOptions.ProductDataExpirationSeconds),
-                        (CachePolicyNames.Tenants, cachingOptions.TenantsExpirationSeconds),
+                        (CacheTags.Products, cachingOptions.ProductsExpirationSeconds),
+                        (CacheTags.Categories, cachingOptions.CategoriesExpirationSeconds),
+                        (CacheTags.Reviews, cachingOptions.ReviewsExpirationSeconds),
+                        (CacheTags.ProductData, cachingOptions.ProductDataExpirationSeconds),
+                        (CacheTags.Tenants, cachingOptions.TenantsExpirationSeconds),
                         (
-                            CachePolicyNames.TenantInvitations,
+                            CacheTags.TenantInvitations,
                             cachingOptions.TenantInvitationsExpirationSeconds
                         ),
-                        (CachePolicyNames.Users, cachingOptions.UsersExpirationSeconds),
+                        (CacheTags.Users, cachingOptions.UsersExpirationSeconds),
                     ];
 
                     foreach (var (name, expirationSeconds) in policies)
