@@ -89,7 +89,9 @@ public sealed class DoSomethingCommandHandler : ICommandHandler<DoSomethingComma
     public async Task<SomethingResponse> HandleAsync(DoSomethingCommand command, CancellationToken ct)
     {
         // business logic
-        await _publisher.PublishAsync(new SomethingChangedNotification(), ct);
+        var response = new SomethingResponse(/* ... */);
+
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Something), ct);
         return response;
     }
 }
