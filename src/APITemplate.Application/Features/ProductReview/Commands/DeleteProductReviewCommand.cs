@@ -43,7 +43,7 @@ public sealed class DeleteProductReviewCommandHandler : ICommandHandler<DeletePr
         if (review.UserId != userId)
         {
             throw new ForbiddenException(
-                "You can only delete your own reviews.",
+                ErrorCatalog.Auth.ForbiddenOwnReviewsOnly,
                 ErrorCatalog.Auth.Forbidden
             );
         }

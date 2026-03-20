@@ -3,6 +3,7 @@ using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Application.Features.Tenant;
 
@@ -15,13 +16,15 @@ public sealed class DeleteTenantCommandHandler : ICommandHandler<DeleteTenantCom
     private readonly IEventPublisher _publisher;
     private readonly IActorProvider _actorProvider;
     private readonly TimeProvider _timeProvider;
+    private readonly ILogger<DeleteTenantCommandHandler> _logger;
 
     public DeleteTenantCommandHandler(
         ITenantRepository repository,
         IUnitOfWork unitOfWork,
         IEventPublisher publisher,
         IActorProvider actorProvider,
-        TimeProvider timeProvider
+        TimeProvider timeProvider,
+        ILogger<DeleteTenantCommandHandler> logger
     )
     {
         _repository = repository;
@@ -29,6 +32,7 @@ public sealed class DeleteTenantCommandHandler : ICommandHandler<DeleteTenantCom
         _publisher = publisher;
         _actorProvider = actorProvider;
         _timeProvider = timeProvider;
+        _logger = logger;
     }
 
     public async Task HandleAsync(DeleteTenantCommand command, CancellationToken ct)
@@ -41,12 +45,13 @@ public sealed class DeleteTenantCommandHandler : ICommandHandler<DeleteTenantCom
             ct
         );
 
-        await _publisher.PublishAsync(
+        await _publisher.PublishSafeAsync(
             new TenantSoftDeletedNotification(
                 command.Id,
                 _actorProvider.ActorId,
                 _timeProvider.GetUtcNow().UtcDateTime
             ),
+            _logger,
             ct
         );
 

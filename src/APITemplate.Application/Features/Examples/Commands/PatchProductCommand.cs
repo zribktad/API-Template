@@ -9,7 +9,6 @@ using APITemplate.Domain.Interfaces;
 using FluentValidation;
 using DomainNotFoundException = APITemplate.Domain.Exceptions.NotFoundException;
 using DomainValidationException = APITemplate.Domain.Exceptions.ValidationException;
-using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Examples;
 
@@ -45,7 +44,7 @@ public sealed class PatchProductCommandHandler
         var product =
             await _repository.GetByIdAsync(command.Id, ct)
             ?? throw new DomainNotFoundException(
-                nameof(ProductEntity),
+                ErrorCatalog.Products.EntityName,
                 command.Id,
                 ErrorCatalog.Products.NotFound
             );

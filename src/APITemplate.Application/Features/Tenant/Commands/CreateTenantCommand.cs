@@ -32,7 +32,7 @@ public sealed class CreateTenantCommandHandler
     {
         if (await _repository.CodeExistsAsync(command.Request.Code, ct))
             throw new ConflictException(
-                $"Tenant with code '{command.Request.Code}' already exists.",
+                string.Format(ErrorCatalog.Tenants.CodeAlreadyExistsMessage, command.Request.Code),
                 ErrorCatalog.Tenants.CodeAlreadyExists
             );
 

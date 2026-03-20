@@ -42,27 +42,17 @@ public sealed class ChangeUserRoleCommandHandler : ICommandHandler<ChangeUserRol
         await _repository.UpdateAsync(user, ct);
         await _unitOfWork.CommitAsync(ct);
 
-        try
-        {
-            await _publisher.PublishAsync(
-                new UserRoleChangedNotification(
-                    user.Id,
-                    user.Email,
-                    user.Username,
-                    oldRole,
-                    command.Request.Role.ToString()
-                ),
-                ct
-            );
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(
-                ex,
-                "Failed to publish UserRoleChangedNotification for user {UserId}.",
-                user.Id
-            );
-        }
+        await _publisher.PublishSafeAsync(
+            new UserRoleChangedNotification(
+                user.Id,
+                user.Email,
+                user.Username,
+                oldRole,
+                command.Request.Role.ToString()
+            ),
+            _logger,
+            ct
+        );
 
         await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Users), ct);
     }

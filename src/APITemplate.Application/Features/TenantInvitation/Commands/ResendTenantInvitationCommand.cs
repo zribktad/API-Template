@@ -55,14 +55,14 @@ public sealed class ResendTenantInvitationCommandHandler
 
         if (invitation.Status != InvitationStatus.Pending)
             throw new ConflictException(
-                "Only pending invitations can be resent.",
+                ErrorCatalog.Invitations.NotPendingMessage,
                 ErrorCatalog.Invitations.NotPending
             );
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         if (invitation.ExpiresAtUtc < now)
             throw new ConflictException(
-                "Invitation has expired. Create a new one instead.",
+                ErrorCatalog.Invitations.ExpiredCreateNewMessage,
                 ErrorCatalog.Invitations.Expired
             );
 

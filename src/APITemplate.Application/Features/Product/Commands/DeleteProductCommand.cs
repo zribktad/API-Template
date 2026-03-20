@@ -4,7 +4,6 @@ using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.Product.Specifications;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
-using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product;
 
@@ -37,7 +36,7 @@ public sealed class DeleteProductCommandHandler : ICommandHandler<DeleteProductC
                 ct
             )
             ?? throw new NotFoundException(
-                nameof(ProductEntity),
+                ErrorCatalog.Products.EntityName,
                 command.Id,
                 ErrorCatalog.Products.NotFound
             );

@@ -171,8 +171,8 @@ services.Scan(scan => scan
     .WithScopedLifetime());
 // ... same for ICommandHandler<>, IQueryHandler<,>, IDomainEventHandler<>
 
-// Open generic handlers must be registered explicitly (Scrutor skips them)
-services.AddScoped(typeof(IDomainEventHandler<>), typeof(CacheInvalidationHandler<>));
+// Closed generic — open generic would break non-cache events at runtime
+services.AddScoped<IDomainEventHandler<CacheInvalidationNotification>, CacheInvalidationHandler<CacheInvalidationNotification>>();
 
 // Validation decorators wrap all command handlers
 services.Decorate(typeof(ICommandHandler<,>), typeof(ValidationCommandHandlerDecorator<,>));
@@ -225,11 +225,8 @@ public interface ICacheInvalidationEvent : IDomainEvent
     string CacheTag { get; }
 }
 
-// Concrete events
-public sealed record ProductsChangedNotification : ICacheInvalidationEvent
-{
-    public string CacheTag => "Products";
-}
+// Single generic event — pass a CacheTags constant to specify the region
+public sealed record CacheInvalidationNotification(string CacheTag) : ICacheInvalidationEvent;
 
 // Single generic handler evicts the output cache
 public sealed class CacheInvalidationHandler<TEvent> : IDomainEventHandler<TEvent>
@@ -240,10 +237,10 @@ public sealed class CacheInvalidationHandler<TEvent> : IDomainEventHandler<TEven
 }
 ```
 
-Command handlers publish these events after successful writes:
+Command handlers publish these events after successful writes using `CacheTags` constants:
 
 ```csharp
-await _publisher.PublishAsync(new ProductsChangedNotification(), ct);
+await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
 ```
 
 ---

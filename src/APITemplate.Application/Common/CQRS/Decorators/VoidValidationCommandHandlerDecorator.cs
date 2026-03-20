@@ -3,18 +3,17 @@ using FluentValidation;
 namespace APITemplate.Application.Common.CQRS.Decorators;
 
 /// <summary>
-/// Decorator that runs FluentValidation before delegating to the inner command handler (with result).
+/// Decorator that runs FluentValidation before delegating to the inner void command handler.
 /// </summary>
-public sealed class ValidationCommandHandlerDecorator<TCommand, TResult>
-    : ICommandHandler<TCommand, TResult>
-    where TCommand : ICommand<TResult>
+public sealed class ValidationCommandHandlerDecorator<TCommand> : ICommandHandler<TCommand>
+    where TCommand : ICommand
 {
-    private readonly ICommandHandler<TCommand, TResult> _inner;
+    private readonly ICommandHandler<TCommand> _inner;
     private readonly IServiceProvider _serviceProvider;
     private readonly IEnumerable<IValidator<TCommand>> _requestValidators;
 
     public ValidationCommandHandlerDecorator(
-        ICommandHandler<TCommand, TResult> inner,
+        ICommandHandler<TCommand> inner,
         IServiceProvider serviceProvider,
         IEnumerable<IValidator<TCommand>> requestValidators
     )
@@ -24,7 +23,7 @@ public sealed class ValidationCommandHandlerDecorator<TCommand, TResult>
         _requestValidators = requestValidators;
     }
 
-    public async Task<TResult> HandleAsync(TCommand command, CancellationToken ct)
+    public async Task HandleAsync(TCommand command, CancellationToken ct)
     {
         await CommandValidation.ValidateAndThrowAsync(
             command,
@@ -32,6 +31,6 @@ public sealed class ValidationCommandHandlerDecorator<TCommand, TResult>
             _serviceProvider,
             ct
         );
-        return await _inner.HandleAsync(command, ct);
+        await _inner.HandleAsync(command, ct);
     }
 }

@@ -60,8 +60,11 @@ public static class ServiceCollectionExtensions
                 .WithScopedLifetime()
         );
 
-        // Open generic event handler — must be registered explicitly
-        services.AddScoped(typeof(IDomainEventHandler<>), typeof(CacheInvalidationHandler<>));
+        // Closed generic — open generic registration would break non-cache events at runtime
+        services.AddScoped<
+            IDomainEventHandler<CacheInvalidationNotification>,
+            CacheInvalidationHandler<CacheInvalidationNotification>
+        >();
 
         // Validation decorators for command handlers
         services.Decorate(typeof(ICommandHandler<,>), typeof(ValidationCommandHandlerDecorator<,>));

@@ -584,7 +584,8 @@ public class UserRequestHandlersTests
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             _publisherMock.Object,
-            _keycloakAdminMock.Object
+            _keycloakAdminMock.Object,
+            new Mock<ILogger<DeleteUserCommandHandler>>().Object
         );
         await sut.HandleAsync(
             new DeleteUserCommand(user.Id),
@@ -614,7 +615,8 @@ public class UserRequestHandlersTests
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             _publisherMock.Object,
-            _keycloakAdminMock.Object
+            _keycloakAdminMock.Object,
+            new Mock<ILogger<DeleteUserCommandHandler>>().Object
         );
         var act = () =>
             sut.HandleAsync(

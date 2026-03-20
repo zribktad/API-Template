@@ -39,7 +39,7 @@ public sealed class AcceptTenantInvitationCommandHandler
         var invitation =
             await _invitationRepository.GetValidByTokenHashAsync(tokenHash, ct)
             ?? throw new NotFoundException(
-                "Invitation not found or expired.",
+                ErrorCatalog.Invitations.NotFoundOrExpiredMessage,
                 ErrorCatalog.Invitations.NotFound
             );
 
@@ -47,13 +47,13 @@ public sealed class AcceptTenantInvitationCommandHandler
 
         if (invitation.ExpiresAtUtc < now)
             throw new ConflictException(
-                "Invitation has expired.",
+                ErrorCatalog.Invitations.ExpiredMessage,
                 ErrorCatalog.Invitations.Expired
             );
 
         if (invitation.Status == InvitationStatus.Accepted)
             throw new ConflictException(
-                "Invitation has already been accepted.",
+                ErrorCatalog.Invitations.AlreadyAcceptedMessage,
                 ErrorCatalog.Invitations.AlreadyAccepted
             );
 
