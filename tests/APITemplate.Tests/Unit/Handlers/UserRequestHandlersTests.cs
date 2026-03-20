@@ -423,14 +423,14 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var sut = new ActivateUserCommandHandler(
+        var sut = new SetUserActiveCommandHandler(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             _publisherMock.Object,
             _keycloakAdminMock.Object
         );
         await sut.HandleAsync(
-            new ActivateUserCommand(user.Id),
+            new SetUserActiveCommand(user.Id, IsActive: true),
             TestContext.Current.CancellationToken
         );
 
@@ -455,14 +455,14 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var sut = new DeactivateUserCommandHandler(
+        var sut = new SetUserActiveCommandHandler(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             _publisherMock.Object,
             _keycloakAdminMock.Object
         );
         await sut.HandleAsync(
-            new DeactivateUserCommand(user.Id),
+            new SetUserActiveCommand(user.Id, IsActive: false),
             TestContext.Current.CancellationToken
         );
 
@@ -486,7 +486,7 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AppUser?)null);
 
-        var sut = new ActivateUserCommandHandler(
+        var sut = new SetUserActiveCommandHandler(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             _publisherMock.Object,
@@ -494,7 +494,7 @@ public class UserRequestHandlersTests
         );
         var act = () =>
             sut.HandleAsync(
-                new ActivateUserCommand(Guid.NewGuid()),
+                new SetUserActiveCommand(Guid.NewGuid(), IsActive: true),
                 TestContext.Current.CancellationToken
             );
 

@@ -103,11 +103,11 @@ public sealed class UsersController : ApiControllerBase
     [RequirePermission(Permission.Users.Update)]
     public async Task<IActionResult> Activate(
         Guid id,
-        [FromServices] ICommandHandler<ActivateUserCommand> handler,
+        [FromServices] ICommandHandler<SetUserActiveCommand> handler,
         CancellationToken ct
     )
     {
-        await handler.HandleAsync(new ActivateUserCommand(id), ct);
+        await handler.HandleAsync(new SetUserActiveCommand(id, IsActive: true), ct);
         return NoContent();
     }
 
@@ -116,11 +116,11 @@ public sealed class UsersController : ApiControllerBase
     [RequirePermission(Permission.Users.Update)]
     public async Task<IActionResult> Deactivate(
         Guid id,
-        [FromServices] ICommandHandler<DeactivateUserCommand> handler,
+        [FromServices] ICommandHandler<SetUserActiveCommand> handler,
         CancellationToken ct
     )
     {
-        await handler.HandleAsync(new DeactivateUserCommand(id), ct);
+        await handler.HandleAsync(new SetUserActiveCommand(id, IsActive: false), ct);
         return NoContent();
     }
 

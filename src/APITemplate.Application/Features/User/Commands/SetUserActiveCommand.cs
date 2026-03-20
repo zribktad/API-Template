@@ -6,48 +6,16 @@ using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record ActivateUserCommand(Guid Id) : ICommand;
+public sealed record SetUserActiveCommand(Guid Id, bool IsActive) : ICommand;
 
-public sealed record DeactivateUserCommand(Guid Id) : ICommand;
-
-public sealed class ActivateUserCommandHandler : ICommandHandler<ActivateUserCommand>
-{
-    private readonly SetUserActiveHandler _inner;
-
-    public ActivateUserCommandHandler(
-        IUserRepository repository,
-        IUnitOfWork unitOfWork,
-        IEventPublisher publisher,
-        IKeycloakAdminService keycloakAdmin
-    ) => _inner = new SetUserActiveHandler(repository, unitOfWork, publisher, keycloakAdmin);
-
-    public Task HandleAsync(ActivateUserCommand command, CancellationToken ct) =>
-        _inner.HandleAsync(command.Id, isActive: true, ct);
-}
-
-public sealed class DeactivateUserCommandHandler : ICommandHandler<DeactivateUserCommand>
-{
-    private readonly SetUserActiveHandler _inner;
-
-    public DeactivateUserCommandHandler(
-        IUserRepository repository,
-        IUnitOfWork unitOfWork,
-        IEventPublisher publisher,
-        IKeycloakAdminService keycloakAdmin
-    ) => _inner = new SetUserActiveHandler(repository, unitOfWork, publisher, keycloakAdmin);
-
-    public Task HandleAsync(DeactivateUserCommand command, CancellationToken ct) =>
-        _inner.HandleAsync(command.Id, isActive: false, ct);
-}
-
-internal sealed class SetUserActiveHandler
+public sealed class SetUserActiveCommandHandler : ICommandHandler<SetUserActiveCommand>
 {
     private readonly IUserRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEventPublisher _publisher;
     private readonly IKeycloakAdminService _keycloakAdmin;
 
-    public SetUserActiveHandler(
+    public SetUserActiveCommandHandler(
         IUserRepository repository,
         IUnitOfWork unitOfWork,
         IEventPublisher publisher,
@@ -60,14 +28,18 @@ internal sealed class SetUserActiveHandler
         _keycloakAdmin = keycloakAdmin;
     }
 
-    public async Task HandleAsync(Guid userId, bool isActive, CancellationToken ct)
+    public async Task HandleAsync(SetUserActiveCommand command, CancellationToken ct)
     {
-        var user = await _repository.GetByIdOrThrowAsync(userId, ErrorCatalog.Users.NotFound, ct);
+        var user = await _repository.GetByIdOrThrowAsync(
+            command.Id,
+            ErrorCatalog.Users.NotFound,
+            ct
+        );
 
         if (user.KeycloakUserId is not null)
-            await _keycloakAdmin.SetUserEnabledAsync(user.KeycloakUserId, isActive, ct);
+            await _keycloakAdmin.SetUserEnabledAsync(user.KeycloakUserId, command.IsActive, ct);
 
-        user.IsActive = isActive;
+        user.IsActive = command.IsActive;
         await _repository.UpdateAsync(user, ct);
         await _unitOfWork.CommitAsync(ct);
 
