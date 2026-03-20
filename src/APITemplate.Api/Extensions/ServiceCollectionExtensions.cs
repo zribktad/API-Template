@@ -44,33 +44,17 @@ public static class ServiceCollectionExtensions
         var applicationAssembly = typeof(CreateProductCommand).Assembly;
         var apiAssembly = typeof(CacheInvalidationHandler<>).Assembly;
 
-        // Command handlers with result
         services.Scan(scan =>
             scan.FromAssemblies(applicationAssembly, apiAssembly)
                 .AddClasses(c => c.AssignableTo(typeof(ICommandHandler<,>)))
                 .AsImplementedInterfaces()
                 .WithScopedLifetime()
-        );
-
-        // Void command handlers
-        services.Scan(scan =>
-            scan.FromAssemblies(applicationAssembly, apiAssembly)
                 .AddClasses(c => c.AssignableTo(typeof(ICommandHandler<>)))
                 .AsImplementedInterfaces()
                 .WithScopedLifetime()
-        );
-
-        // Query handlers
-        services.Scan(scan =>
-            scan.FromAssemblies(applicationAssembly, apiAssembly)
                 .AddClasses(c => c.AssignableTo(typeof(IQueryHandler<,>)))
                 .AsImplementedInterfaces()
                 .WithScopedLifetime()
-        );
-
-        // Domain event handlers (closed generics only — Scrutor skips open generics)
-        services.Scan(scan =>
-            scan.FromAssemblies(applicationAssembly, apiAssembly)
                 .AddClasses(c => c.AssignableTo(typeof(IDomainEventHandler<>)))
                 .AsImplementedInterfaces()
                 .WithScopedLifetime()

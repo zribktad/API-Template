@@ -1,7 +1,7 @@
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +19,7 @@ public sealed class TenantsController : ApiControllerBase
     /// <summary>Returns a paginated, filterable list of tenants.</summary>
     [HttpGet]
     [RequirePermission(Permission.Tenants.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Tenants)]
+    [OutputCache(PolicyName = CacheTags.Tenants)]
     public async Task<ActionResult<PagedResponse<TenantResponse>>> GetAll(
         [FromQuery] TenantFilter filter,
         [FromServices] IQueryHandler<GetTenantsQuery, PagedResponse<TenantResponse>> handler,
@@ -33,7 +33,7 @@ public sealed class TenantsController : ApiControllerBase
     /// <summary>Returns a single tenant by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Tenants.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Tenants)]
+    [OutputCache(PolicyName = CacheTags.Tenants)]
     public async Task<ActionResult<TenantResponse>> GetById(
         Guid id,
         [FromServices] IQueryHandler<GetTenantByIdQuery, TenantResponse?> handler,

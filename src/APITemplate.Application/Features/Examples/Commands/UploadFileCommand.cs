@@ -8,7 +8,7 @@ using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.Options;
 
-namespace APITemplate.Application.Features.Examples.Handlers;
+namespace APITemplate.Application.Features.Examples;
 
 public sealed record UploadFileCommand(UploadFileRequest Request) : ICommand<FileUploadResponse>;
 

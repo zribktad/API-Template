@@ -54,7 +54,7 @@ public sealed class CreateTenantCommandHandler
             ct
         );
 
-        await _publisher.PublishAsync(new TenantsChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Tenants), ct);
         return tenant.ToResponse();
     }
 }

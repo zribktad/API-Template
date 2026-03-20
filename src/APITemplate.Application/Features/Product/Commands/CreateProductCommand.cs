@@ -74,7 +74,7 @@ public sealed class CreateProductCommandHandler
             ct
         );
 
-        await _publisher.PublishAsync(new ProductsChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
         return product.ToResponse();
     }
 }

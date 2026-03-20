@@ -1,7 +1,7 @@
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +21,7 @@ public sealed class CategoriesController : ApiControllerBase
     /// </summary>
     [HttpGet]
     [RequirePermission(Permission.Categories.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Categories)]
+    [OutputCache(PolicyName = CacheTags.Categories)]
     public async Task<ActionResult<PagedResponse<CategoryResponse>>> GetAll(
         [FromQuery] CategoryFilter filter,
         [FromServices] IQueryHandler<GetCategoriesQuery, PagedResponse<CategoryResponse>> handler,
@@ -35,7 +35,7 @@ public sealed class CategoriesController : ApiControllerBase
     /// <summary>Returns a single category by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Categories.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Categories)]
+    [OutputCache(PolicyName = CacheTags.Categories)]
     public async Task<ActionResult<CategoryResponse>> GetById(
         Guid id,
         [FromServices] IQueryHandler<GetCategoryByIdQuery, CategoryResponse?> handler,
@@ -92,7 +92,7 @@ public sealed class CategoriesController : ApiControllerBase
     /// </summary>
     [HttpGet("{id:guid}/stats")]
     [RequirePermission(Permission.Categories.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Categories)]
+    [OutputCache(PolicyName = CacheTags.Categories)]
     public async Task<ActionResult<ProductCategoryStatsResponse>> GetStats(
         Guid id,
         [FromServices] IQueryHandler<GetCategoryStatsQuery, ProductCategoryStatsResponse?> handler,

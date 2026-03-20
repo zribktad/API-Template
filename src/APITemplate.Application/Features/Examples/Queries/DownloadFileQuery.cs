@@ -7,7 +7,7 @@ using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 
-namespace APITemplate.Application.Features.Examples.Handlers;
+namespace APITemplate.Application.Features.Examples;
 
 public sealed record DownloadFileQuery(DownloadFileRequest Request) : IQuery<FileDownloadResult>;
 

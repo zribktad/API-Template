@@ -90,28 +90,21 @@ public sealed class CreateTenantInvitationCommandHandler
         await _invitationRepository.AddAsync(invitation, ct);
         await _unitOfWork.CommitAsync(ct);
 
-        try
-        {
-            await _publisher.PublishAsync(
-                new TenantInvitationCreatedNotification(
-                    invitation.Id,
-                    invitation.Email,
-                    tenant.Name,
-                    rawToken
-                ),
-                ct
-            );
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(
-                ex,
-                "Failed to publish TenantInvitationCreatedNotification for invitation {InvitationId}.",
-                invitation.Id
-            );
-        }
+        await _publisher.PublishSafeAsync(
+            new TenantInvitationCreatedNotification(
+                invitation.Id,
+                invitation.Email,
+                tenant.Name,
+                rawToken
+            ),
+            _logger,
+            ct
+        );
 
-        await _publisher.PublishAsync(new TenantInvitationsChangedNotification(), ct);
+        await _publisher.PublishAsync(
+            new CacheInvalidationNotification(CacheTags.TenantInvitations),
+            ct
+        );
         return invitation.ToResponse();
     }
 }

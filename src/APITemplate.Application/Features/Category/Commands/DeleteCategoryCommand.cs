@@ -36,6 +36,6 @@ public sealed class DeleteCategoryCommandHandler : ICommandHandler<DeleteCategor
             ct
         );
 
-        await _publisher.PublishAsync(new CategoriesChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories), ct);
     }
 }

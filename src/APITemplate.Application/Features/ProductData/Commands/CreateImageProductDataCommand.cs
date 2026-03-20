@@ -49,7 +49,7 @@ public sealed class CreateImageProductDataCommandHandler
         };
 
         var created = await _repository.CreateAsync(entity, ct);
-        await _publisher.PublishAsync(new ProductDataChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.ProductData), ct);
         return created.ToResponse();
     }
 }

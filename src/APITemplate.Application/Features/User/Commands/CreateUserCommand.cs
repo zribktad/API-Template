@@ -65,23 +65,13 @@ public sealed class CreateUserCommandHandler : ICommandHandler<CreateUserCommand
             await _repository.AddAsync(user, ct);
             await _unitOfWork.CommitAsync(ct);
 
-            try
-            {
-                await _publisher.PublishAsync(
-                    new UserRegisteredNotification(user.Id, user.Email, user.Username),
-                    ct
-                );
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to publish UserRegisteredNotification for user {UserId}.",
-                    user.Id
-                );
-            }
+            await _publisher.PublishSafeAsync(
+                new UserRegisteredNotification(user.Id, user.Email, user.Username),
+                _logger,
+                ct
+            );
 
-            await _publisher.PublishAsync(new UsersChangedNotification(), ct);
+            await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Users), ct);
             return user.ToResponse();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

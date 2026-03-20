@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Examples.DTOs;
 
-namespace APITemplate.Application.Features.Examples.Handlers;
+namespace APITemplate.Application.Features.Examples;
 
 public sealed record GetNotificationStreamQuery(SseStreamRequest Request)
     : IQuery<IAsyncEnumerable<SseNotificationItem>>;

@@ -11,11 +11,13 @@ using DomainNotFoundException = APITemplate.Domain.Exceptions.NotFoundException;
 using DomainValidationException = APITemplate.Domain.Exceptions.ValidationException;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
-namespace APITemplate.Application.Features.Examples.Handlers;
+namespace APITemplate.Application.Features.Examples;
 
-public sealed record PatchProductCommand(Guid Id, Action<PatchableProductDto> ApplyPatch) : ICommand<ProductResponse>;
+public sealed record PatchProductCommand(Guid Id, Action<PatchableProductDto> ApplyPatch)
+    : ICommand<ProductResponse>;
 
-public sealed class PatchProductCommandHandler : ICommandHandler<PatchProductCommand, ProductResponse>
+public sealed class PatchProductCommandHandler
+    : ICommandHandler<PatchProductCommand, ProductResponse>
 {
     private readonly IProductRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
@@ -23,8 +25,11 @@ public sealed class PatchProductCommandHandler : ICommandHandler<PatchProductCom
     private readonly IEventPublisher _publisher;
 
     public PatchProductCommandHandler(
-        IProductRepository repository, IUnitOfWork unitOfWork,
-        IValidator<PatchableProductDto> validator, IEventPublisher publisher)
+        IProductRepository repository,
+        IUnitOfWork unitOfWork,
+        IValidator<PatchableProductDto> validator,
+        IEventPublisher publisher
+    )
     {
         _repository = repository;
         _unitOfWork = unitOfWork;
@@ -32,11 +37,18 @@ public sealed class PatchProductCommandHandler : ICommandHandler<PatchProductCom
         _publisher = publisher;
     }
 
-    public async Task<ProductResponse> HandleAsync(PatchProductCommand command, CancellationToken ct)
+    public async Task<ProductResponse> HandleAsync(
+        PatchProductCommand command,
+        CancellationToken ct
+    )
     {
         var product =
             await _repository.GetByIdAsync(command.Id, ct)
-            ?? throw new DomainNotFoundException(nameof(ProductEntity), command.Id, ErrorCatalog.Products.NotFound);
+            ?? throw new DomainNotFoundException(
+                nameof(ProductEntity),
+                command.Id,
+                ErrorCatalog.Products.NotFound
+            );
 
         var dto = new PatchableProductDto
         {
@@ -52,13 +64,20 @@ public sealed class PatchProductCommandHandler : ICommandHandler<PatchProductCom
         if (!validationResult.IsValid)
             throw new DomainValidationException(
                 string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage)),
-                ErrorCatalog.Examples.InvalidPatchDocument);
+                ErrorCatalog.Examples.InvalidPatchDocument
+            );
 
         product.UpdateDetails(dto.Name, dto.Description, dto.Price, dto.CategoryId);
 
-        await _unitOfWork.ExecuteInTransactionAsync(async () => { await _repository.UpdateAsync(product, ct); }, ct);
+        await _unitOfWork.ExecuteInTransactionAsync(
+            async () =>
+            {
+                await _repository.UpdateAsync(product, ct);
+            },
+            ct
+        );
 
-        await _publisher.PublishAsync(new ProductsChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
 
         return product.ToResponse();
     }

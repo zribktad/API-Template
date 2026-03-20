@@ -64,6 +64,6 @@ public sealed class ChangeUserRoleCommandHandler : ICommandHandler<ChangeUserRol
             );
         }
 
-        await _publisher.PublishAsync(new UsersChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Users), ct);
     }
 }

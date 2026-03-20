@@ -60,6 +60,6 @@ public sealed class DeleteProductReviewCommandHandler : ICommandHandler<DeletePr
             ct
         );
 
-        await _publisher.PublishAsync(new ProductReviewsChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews), ct);
     }
 }

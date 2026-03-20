@@ -2,7 +2,7 @@ using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Interfaces;
 
-namespace APITemplate.Application.Features.Examples.Handlers;
+namespace APITemplate.Application.Features.Examples;
 
 public sealed record GetJobStatusQuery(GetJobStatusRequest Request) : IQuery<JobStatusResponse?>;
 

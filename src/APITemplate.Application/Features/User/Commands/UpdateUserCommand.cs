@@ -55,6 +55,6 @@ public sealed class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand
         await _repository.UpdateAsync(user, ct);
         await _unitOfWork.CommitAsync(ct);
 
-        await _publisher.PublishAsync(new UsersChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Users), ct);
     }
 }

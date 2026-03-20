@@ -102,6 +102,6 @@ public sealed class DeleteProductDataCommandHandler : ICommandHandler<DeleteProd
             throw;
         }
 
-        await _publisher.PublishAsync(new ProductDataChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.ProductData), ct);
     }
 }

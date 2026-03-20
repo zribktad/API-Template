@@ -50,7 +50,7 @@ public sealed class CreateCategoryCommandHandler
             ct
         );
 
-        await _publisher.PublishAsync(new CategoriesChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories), ct);
         return category.ToResponse();
     }
 }

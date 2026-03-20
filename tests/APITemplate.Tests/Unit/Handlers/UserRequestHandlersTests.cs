@@ -182,7 +182,10 @@ public class UserRequestHandlersTests
         );
         _publisherMock.Verify(
             p =>
-                p.PublishAsync(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+                p.PublishAsync(
+                    It.IsAny<CacheInvalidationNotification>(),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
     }
@@ -315,7 +318,10 @@ public class UserRequestHandlersTests
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
         _publisherMock.Verify(
             p =>
-                p.PublishAsync(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+                p.PublishAsync(
+                    It.IsAny<CacheInvalidationNotification>(),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
     }
@@ -349,7 +355,10 @@ public class UserRequestHandlersTests
         );
         _publisherMock.Verify(
             p =>
-                p.PublishAsync(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+                p.PublishAsync(
+                    It.IsAny<CacheInvalidationNotification>(),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
     }
@@ -430,7 +439,10 @@ public class UserRequestHandlersTests
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
         _publisherMock.Verify(
             p =>
-                p.PublishAsync(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+                p.PublishAsync(
+                    It.IsAny<CacheInvalidationNotification>(),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
     }
@@ -459,7 +471,10 @@ public class UserRequestHandlersTests
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
         _publisherMock.Verify(
             p =>
-                p.PublishAsync(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+                p.PublishAsync(
+                    It.IsAny<CacheInvalidationNotification>(),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
     }
@@ -521,7 +536,10 @@ public class UserRequestHandlersTests
         );
         _publisherMock.Verify(
             p =>
-                p.PublishAsync(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+                p.PublishAsync(
+                    It.IsAny<CacheInvalidationNotification>(),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
     }
@@ -577,7 +595,10 @@ public class UserRequestHandlersTests
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
         _publisherMock.Verify(
             p =>
-                p.PublishAsync(It.IsAny<UsersChangedNotification>(), It.IsAny<CancellationToken>()),
+                p.PublishAsync(
+                    It.IsAny<CacheInvalidationNotification>(),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
     }

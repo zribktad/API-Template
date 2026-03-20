@@ -4,7 +4,7 @@ using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Domain.Interfaces;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
-namespace APITemplate.Application.Features.Examples.Handlers;
+namespace APITemplate.Application.Features.Examples;
 
 public sealed record IdempotentCreateCommand(IdempotentCreateRequest Request)
     : ICommand<IdempotentCreateResponse>;

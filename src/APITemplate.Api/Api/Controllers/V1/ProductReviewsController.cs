@@ -1,7 +1,7 @@
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +19,7 @@ public sealed class ProductReviewsController : ApiControllerBase
     /// <summary>Returns a paginated, filterable list of product reviews.</summary>
     [HttpGet]
     [RequirePermission(Permission.ProductReviews.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Reviews)]
+    [OutputCache(PolicyName = CacheTags.Reviews)]
     public async Task<ActionResult<PagedResponse<ProductReviewResponse>>> GetAll(
         [FromQuery] ProductReviewFilter filter,
         [FromServices]
@@ -34,7 +34,7 @@ public sealed class ProductReviewsController : ApiControllerBase
     /// <summary>Returns a single product review by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.ProductReviews.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Reviews)]
+    [OutputCache(PolicyName = CacheTags.Reviews)]
     public async Task<ActionResult<ProductReviewResponse>> GetById(
         Guid id,
         [FromServices] IQueryHandler<GetProductReviewByIdQuery, ProductReviewResponse?> handler,
@@ -48,7 +48,7 @@ public sealed class ProductReviewsController : ApiControllerBase
     /// <summary>Returns all reviews for the specified product.</summary>
     [HttpGet("by-product/{productId:guid}")]
     [RequirePermission(Permission.ProductReviews.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Reviews)]
+    [OutputCache(PolicyName = CacheTags.Reviews)]
     public async Task<ActionResult<IEnumerable<ProductReviewResponse>>> GetByProductId(
         Guid productId,
         [FromServices]

@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.Events;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace APITemplate.Api.Events;
 

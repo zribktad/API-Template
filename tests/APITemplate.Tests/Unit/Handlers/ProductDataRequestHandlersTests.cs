@@ -218,7 +218,7 @@ public class ProductDataRequestHandlersTests
         _publisherMock.Verify(
             p =>
                 p.PublishAsync(
-                    It.IsAny<ProductDataChangedNotification>(),
+                    It.IsAny<CacheInvalidationNotification>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -271,7 +271,7 @@ public class ProductDataRequestHandlersTests
         _publisherMock.Verify(
             p =>
                 p.PublishAsync(
-                    It.IsAny<ProductDataChangedNotification>(),
+                    It.IsAny<CacheInvalidationNotification>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -362,7 +362,7 @@ public class ProductDataRequestHandlersTests
         _publisherMock.Verify(
             p =>
                 p.PublishAsync(
-                    It.IsAny<ProductDataChangedNotification>(),
+                    It.IsAny<CacheInvalidationNotification>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once

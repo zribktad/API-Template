@@ -1,7 +1,7 @@
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +19,7 @@ public sealed class ProductsController : ApiControllerBase
     /// <summary>Returns a filtered, paginated product list including search facets.</summary>
     [HttpGet]
     [RequirePermission(Permission.Products.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Products)]
+    [OutputCache(PolicyName = CacheTags.Products)]
     public async Task<ActionResult<ProductsResponse>> GetAll(
         [FromQuery] ProductFilter filter,
         [FromServices] IQueryHandler<GetProductsQuery, ProductsResponse> handler,
@@ -33,7 +33,7 @@ public sealed class ProductsController : ApiControllerBase
     /// <summary>Returns a single product by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Products.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Products)]
+    [OutputCache(PolicyName = CacheTags.Products)]
     public async Task<ActionResult<ProductResponse>> GetById(
         Guid id,
         [FromServices] IQueryHandler<GetProductByIdQuery, ProductResponse?> handler,

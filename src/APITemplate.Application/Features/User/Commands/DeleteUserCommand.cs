@@ -42,6 +42,6 @@ public sealed class DeleteUserCommandHandler : ICommandHandler<DeleteUserCommand
         await _repository.DeleteAsync(user, ct);
         await _unitOfWork.CommitAsync(ct);
 
-        await _publisher.PublishAsync(new UsersChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Users), ct);
     }
 }

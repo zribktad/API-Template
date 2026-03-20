@@ -4,7 +4,7 @@ using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 
-namespace APITemplate.Application.Features.Examples.Handlers;
+namespace APITemplate.Application.Features.Examples;
 
 public sealed record SubmitJobCommand(SubmitJobRequest Request) : ICommand<JobStatusResponse>;
 

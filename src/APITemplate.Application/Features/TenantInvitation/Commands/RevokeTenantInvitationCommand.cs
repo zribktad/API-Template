@@ -39,6 +39,9 @@ public sealed class RevokeTenantInvitationCommandHandler
         await _invitationRepository.UpdateAsync(invitation, ct);
         await _unitOfWork.CommitAsync(ct);
 
-        await _publisher.PublishAsync(new TenantInvitationsChangedNotification(), ct);
+        await _publisher.PublishAsync(
+            new CacheInvalidationNotification(CacheTags.TenantInvitations),
+            ct
+        );
     }
 }

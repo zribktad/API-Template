@@ -1,9 +1,9 @@
-namespace APITemplate.Api.Cache;
+namespace APITemplate.Application.Common.Events;
 
 /// <summary>
-/// Centralizes the named output-cache and rate-limit policy identifiers used across the API layer.
+/// Centralizes cache tag and policy name constants used across the application and API layers.
 /// </summary>
-public static class CachePolicyNames
+public static class CacheTags
 {
     public const string Products = "Products";
     public const string Categories = "Categories";

@@ -1,10 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.DTOs;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.User.DTOs;
 using Asp.Versioning;
@@ -24,7 +24,7 @@ public sealed class UsersController : ApiControllerBase
     /// <summary>Returns a paginated, filterable list of users.</summary>
     [HttpGet]
     [RequirePermission(Permission.Users.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Users)]
+    [OutputCache(PolicyName = CacheTags.Users)]
     public async Task<ActionResult<PagedResponse<UserResponse>>> GetAll(
         [FromQuery] UserFilter filter,
         [FromServices] IQueryHandler<GetUsersQuery, PagedResponse<UserResponse>> handler,
@@ -38,7 +38,7 @@ public sealed class UsersController : ApiControllerBase
     /// <summary>Returns a single user by their identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Users.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Users)]
+    [OutputCache(PolicyName = CacheTags.Users)]
     public async Task<ActionResult<UserResponse>> GetById(
         Guid id,
         [FromServices] IQueryHandler<GetUserByIdQuery, UserResponse?> handler,

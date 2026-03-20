@@ -3,8 +3,8 @@ using APITemplate.Api.Controllers;
 using APITemplate.Api.Filters.Idempotency;
 using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
+using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
-using APITemplate.Application.Features.Examples.Handlers;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 

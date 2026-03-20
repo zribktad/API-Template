@@ -51,7 +51,7 @@ public sealed class DeleteProductCommandHandler : ICommandHandler<DeleteProductC
             ct
         );
 
-        await _publisher.PublishAsync(new ProductsChangedNotification(), ct);
-        await _publisher.PublishAsync(new ProductReviewsChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews), ct);
     }
 }

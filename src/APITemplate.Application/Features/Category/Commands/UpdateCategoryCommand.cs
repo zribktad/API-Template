@@ -45,6 +45,6 @@ public sealed class UpdateCategoryCommandHandler : ICommandHandler<UpdateCategor
             ct
         );
 
-        await _publisher.PublishAsync(new CategoriesChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories), ct);
     }
 }

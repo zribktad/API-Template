@@ -1,7 +1,7 @@
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +20,7 @@ public sealed class ProductDataController : ApiControllerBase
     /// <summary>Returns all product data documents, optionally filtered by type.</summary>
     [HttpGet]
     [RequirePermission(Permission.ProductData.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.ProductData)]
+    [OutputCache(PolicyName = CacheTags.ProductData)]
     public async Task<ActionResult<List<ProductDataResponse>>> GetAll(
         [FromQuery] string? type,
         [FromServices] IQueryHandler<GetProductDataQuery, List<ProductDataResponse>> handler,
@@ -34,7 +34,7 @@ public sealed class ProductDataController : ApiControllerBase
     /// <summary>Returns a single product data document by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.ProductData.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.ProductData)]
+    [OutputCache(PolicyName = CacheTags.ProductData)]
     public async Task<ActionResult<ProductDataResponse>> GetById(
         Guid id,
         [FromServices] IQueryHandler<GetProductDataByIdQuery, ProductDataResponse?> handler,

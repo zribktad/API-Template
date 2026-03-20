@@ -1,8 +1,8 @@
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Cache;
 using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.DTOs;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.TenantInvitation;
 using APITemplate.Application.Features.TenantInvitation.DTOs;
@@ -24,7 +24,7 @@ public sealed class TenantInvitationsController : ApiControllerBase
     /// <summary>Returns a paginated list of tenant invitations, optionally filtered.</summary>
     [HttpGet]
     [RequirePermission(Permission.Invitations.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.TenantInvitations)]
+    [OutputCache(PolicyName = CacheTags.TenantInvitations)]
     public async Task<ActionResult<PagedResponse<TenantInvitationResponse>>> GetAll(
         [FromQuery] TenantInvitationFilter filter,
         [FromServices]

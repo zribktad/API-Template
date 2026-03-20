@@ -50,6 +50,6 @@ public sealed class DeleteTenantCommandHandler : ICommandHandler<DeleteTenantCom
             ct
         );
 
-        await _publisher.PublishAsync(new TenantsChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Tenants), ct);
     }
 }

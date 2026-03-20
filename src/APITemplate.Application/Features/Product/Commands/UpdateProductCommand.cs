@@ -88,6 +88,6 @@ public sealed class UpdateProductCommandHandler : ICommandHandler<UpdateProductC
             ct
         );
 
-        await _publisher.PublishAsync(new ProductsChangedNotification(), ct);
+        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
     }
 }
