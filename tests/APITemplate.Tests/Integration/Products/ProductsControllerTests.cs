@@ -55,7 +55,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             )
             .ReturnsAsync([new ImageProductData { Id = productDataId, Title = "Image" }]);
 
-        var createdId = Guid.NewGuid();
+        var productName = $"Product with data-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -64,8 +64,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
                 {
                     new
                     {
-                        id = createdId,
-                        name = "Product with data",
+                        name = productName,
                         description = "Test product",
                         price = 25,
                         productDataIds = new[] { productDataId, productDataId },
@@ -77,6 +76,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var createdId = await ResolveProductIdAsync(productName, 25m, null, ct);
 
         var getResponse = await _client.GetAsync($"/api/v1/products/{createdId}", ct);
         getResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -86,7 +86,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         );
         fetched.ShouldNotBeNull();
         fetched!.ProductDataIds.ShouldBe([productDataId]);
-        fetched.Name.ShouldBe("Product with data");
+        fetched.Name.ShouldBe(productName);
     }
 
     [Fact]
@@ -129,7 +129,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             )
             .ReturnsAsync([new ImageProductData { Id = productDataId, Title = "Image" }]);
 
-        var createdId = Guid.NewGuid();
+        var productName = $"Product with data-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -138,8 +138,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
                 {
                     new
                     {
-                        id = createdId,
-                        name = "Product with data",
+                        name = productName,
                         description = "Test product",
                         price = 25,
                         productDataIds = new[] { productDataId },
@@ -151,6 +150,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var createdId = await ResolveProductIdAsync(productName, 25m, null, ct);
 
         var updateResponse = await _client.PutAsJsonAsync(
             "/api/v1/products",
@@ -189,8 +189,8 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var electronicsId = Guid.NewGuid();
-        var booksId = Guid.NewGuid();
+        var electronicsName = $"Electronics-{Guid.NewGuid():N}";
+        var booksName = $"Books-{Guid.NewGuid():N}";
 
         var electronicsResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
@@ -198,35 +198,21 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             {
                 Items = new[]
                 {
-                    new
-                    {
-                        Id = electronicsId,
-                        Name = "Electronics",
-                        Description = "Devices and accessories",
-                    },
+                    new { Name = electronicsName, Description = "Devices and accessories" },
                 },
             },
             ct
         );
         var booksResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
-            new
-            {
-                Items = new[]
-                {
-                    new
-                    {
-                        Id = booksId,
-                        Name = "Books",
-                        Description = "Printed books",
-                    },
-                },
-            },
+            new { Items = new[] { new { Name = booksName, Description = "Printed books" } } },
             ct
         );
 
         electronicsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         booksResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var electronicsId = await ResolveCategoryIdAsync(electronicsName, ct);
+        var booksId = await ResolveCategoryIdAsync(booksName, ct);
 
         await _client.PostAsJsonAsync(
             "/api/v1/products",
@@ -294,9 +280,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             .Page.Items.Select(item => item.Name)
             .ShouldBe(["Wireless Mouse", "Wireless Keyboard"], ignoreOrder: true);
         payload.Facets.Categories.Count.ShouldBeGreaterThanOrEqualTo(2);
-        var electronicsFacet = payload.Facets.Categories.Single(c =>
-            c.CategoryName == "Electronics"
-        );
+        var electronicsFacet = payload.Facets.Categories.Single(c => c.CategoryId == electronicsId);
         electronicsFacet.Count.ShouldBe(2);
         payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "0 - 50").Count.ShouldBe(1);
         payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "50 - 100").Count.ShouldBe(1);
@@ -344,5 +328,49 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         );
         secondPayload.ShouldNotBeNull();
         secondPayload!.Page.Items.ShouldContain(p => p.Name == "Cached product");
+    }
+
+    private async Task<Guid> ResolveProductIdAsync(
+        string name,
+        decimal price,
+        Guid? categoryId,
+        CancellationToken ct
+    )
+    {
+        var url = $"/api/v1/products?name={Uri.EscapeDataString(name)}";
+        if (categoryId.HasValue)
+            url += $"&categoryIds={categoryId.Value}";
+
+        var response = await _client.GetAsync(url, ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Page.Items.FirstOrDefault(p =>
+            p.Name == name && p.Price == price && p.CategoryId == categoryId
+        );
+        item.ShouldNotBeNull();
+        return item!.Id;
+    }
+
+    private async Task<Guid> ResolveCategoryIdAsync(string name, CancellationToken ct)
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/categories?name={Uri.EscapeDataString(name)}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponse<CategoryResponse>>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Items.FirstOrDefault(c => c.Name == name);
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }

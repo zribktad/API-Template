@@ -24,26 +24,16 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         var userId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client, tenantId: _tenantId);
 
         // 1. Create a product
-        var productId = Guid.NewGuid();
+        var productName = $"Reviewed Product-{Guid.NewGuid():N}";
         var productResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new
-            {
-                Items = new[]
-                {
-                    new
-                    {
-                        Id = productId,
-                        Name = "Reviewed Product",
-                        Price = 49.99,
-                    },
-                },
-            },
+            new { Items = new[] { new { Name = productName, Price = 49.99 } } },
             ct
         );
 
         var productBody = await productResponse.Content.ReadAsStringAsync(ct);
         productResponse.StatusCode.ShouldBe(HttpStatusCode.OK, productBody);
+        var productId = await ResolveProductIdAsync(productName, 49.99m, ct);
 
         // 2. Create a review for the product
         var createReviewResponse = await _client.PostAsJsonAsync(
@@ -149,26 +139,16 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
-        var productId = Guid.NewGuid();
+        var productName = $"No Review Product-{Guid.NewGuid():N}";
         var productResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new
-            {
-                Items = new[]
-                {
-                    new
-                    {
-                        Id = productId,
-                        Name = "No Review Product",
-                        Price = 9.99,
-                    },
-                },
-            },
+            new { Items = new[] { new { Name = productName, Price = 9.99 } } },
             ct
         );
 
         var productBody = await productResponse.Content.ReadAsStringAsync(ct);
         productResponse.StatusCode.ShouldBe(HttpStatusCode.OK, productBody);
+        var productId = await ResolveProductIdAsync(productName, 9.99m, ct);
 
         var response = await _client.GetAsync($"/api/v1/productreviews/by-product/{productId}", ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -179,5 +159,23 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         );
         reviews.ShouldNotBeNull();
         reviews!.ShouldBeEmpty();
+    }
+
+    private async Task<Guid> ResolveProductIdAsync(string name, decimal price, CancellationToken ct)
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/products?name={Uri.EscapeDataString(name)}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Page.Items.FirstOrDefault(p => p.Name == name && p.Price == price);
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }

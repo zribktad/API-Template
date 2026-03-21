@@ -34,20 +34,12 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         allCategories!.Items.ShouldBeEmpty();
 
         // 2. Create category
-        var createdId = Guid.NewGuid();
+        var categoryName = $"Electronics-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
             new
             {
-                Items = new[]
-                {
-                    new
-                    {
-                        Id = createdId,
-                        Name = "Electronics",
-                        Description = "Electronic devices",
-                    },
-                },
+                Items = new[] { new { Name = categoryName, Description = "Electronic devices" } },
             },
             ct
         );
@@ -61,6 +53,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         );
         createResult.ShouldNotBeNull();
         createResult!.Failures.ShouldBeEmpty();
+        var createdId = await ResolveCategoryIdAsync(categoryName, ct);
 
         // 3. Get by id
         var getByIdResponse = await _client.GetAsync($"/api/v1/categories/{createdId}", ct);
@@ -71,7 +64,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
             ct
         );
         fetched.ShouldNotBeNull();
-        fetched!.Name.ShouldBe("Electronics");
+        fetched!.Name.ShouldBe(categoryName);
 
         // 4. Update category
         var updateResponse = await _client.PutAsJsonAsync(
@@ -134,10 +127,10 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
-        var createdId = Guid.NewGuid();
+        var categoryName = $"Books-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
-            new { Items = new[] { new { Id = createdId, Name = "Books" } } },
+            new { Items = new[] { new { Name = categoryName } } },
             ct
         );
 
@@ -150,6 +143,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         );
         createResult.ShouldNotBeNull();
         createResult!.Failures.ShouldBeEmpty();
+        var createdId = await ResolveCategoryIdAsync(categoryName, ct);
 
         // Verify the created category has no description
         var getResponse = await _client.GetAsync($"/api/v1/categories/{createdId}", ct);
@@ -158,7 +152,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
             ct
         );
         created.ShouldNotBeNull();
-        created!.Name.ShouldBe("Books");
+        created!.Name.ShouldBe(categoryName);
         created.Description.ShouldBeNull();
     }
 
@@ -229,5 +223,23 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         payload.PageNumber.ShouldBe(1);
         payload.PageSize.ShouldBe(1);
         payload.TotalCount.ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    private async Task<Guid> ResolveCategoryIdAsync(string name, CancellationToken ct)
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/categories?name={Uri.EscapeDataString(name)}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponse<CategoryResponse>>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Items.FirstOrDefault(c => c.Name == name);
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }

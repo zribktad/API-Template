@@ -35,7 +35,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
         pagedEmpty!.Page.Items.ShouldBeEmpty();
 
         // 3. Create product
-        var createdId = Guid.NewGuid();
+        var productName = $"Test Product-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -44,8 +44,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
-                        Id = createdId,
-                        Name = "Test Product",
+                        Name = productName,
                         Description = "A description",
                         Price = 29.99,
                     },
@@ -63,6 +62,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
         );
         createBatch.ShouldNotBeNull();
         createBatch!.Failures.ShouldBeEmpty();
+        var createdId = await ResolveProductIdAsync(productName, 29.99m, ct);
 
         // 4. Get by id
         var getByIdResponse = await _client.GetAsync($"/api/v1/products/{createdId}", ct);
@@ -73,7 +73,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
             ct
         );
         fetched.ShouldNotBeNull();
-        fetched!.Name.ShouldBe("Test Product");
+        fetched!.Name.ShouldBe(productName);
         fetched.Price.ShouldBe(29.99m);
 
         // 5. Update product
@@ -156,5 +156,23 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
         );
         pagedResponse.ShouldNotBeNull();
         pagedResponse!.Page.Items.Count().ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    private async Task<Guid> ResolveProductIdAsync(string name, decimal price, CancellationToken ct)
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/products?name={Uri.EscapeDataString(name)}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Page.Items.FirstOrDefault(p => p.Name == name && p.Price == price);
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }

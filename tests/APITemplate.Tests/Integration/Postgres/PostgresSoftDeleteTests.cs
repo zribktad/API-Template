@@ -63,7 +63,7 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
             role: Domain.Enums.UserRole.TenantAdmin
         );
 
-        productId = Guid.NewGuid();
+        var productName = $"Product-Cascade-{Guid.NewGuid():N}";
         var createProductResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -72,8 +72,7 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
                 {
                     new
                     {
-                        Id = productId,
-                        Name = $"Product-Cascade-{Guid.NewGuid():N}",
+                        Name = productName,
                         Price = 88m,
                         CategoryId = categoryId,
                     },
@@ -90,6 +89,7 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
         );
         createProductBatch.ShouldNotBeNull();
         createProductBatch!.Failures.ShouldBeEmpty();
+        productId = await ResolveProductIdAsync(productName, 88m, categoryId, ct);
 
         var createReview1 = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
@@ -407,5 +407,30 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
                 ),
             Times.Once
         );
+    }
+
+    private async Task<Guid> ResolveProductIdAsync(
+        string name,
+        decimal price,
+        Guid categoryId,
+        CancellationToken ct
+    )
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/products?name={Uri.EscapeDataString(name)}&categoryIds={categoryId}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Page.Items.FirstOrDefault(p =>
+            p.Name == name && p.Price == price && p.CategoryId == categoryId
+        );
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }

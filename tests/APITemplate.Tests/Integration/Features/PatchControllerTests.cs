@@ -25,7 +25,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         // Create a product first
-        var productId = Guid.NewGuid();
+        var productName = $"Patch Original-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -34,8 +34,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
-                        Id = productId,
-                        Name = "Patch Original",
+                        Name = productName,
                         Description = "Keep this",
                         Price = 50.00m,
                     },
@@ -45,6 +44,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var productId = await ResolveProductIdAsync(productName, 50.00m, ct);
         var created = new { Id = productId };
 
         // Patch name only
@@ -77,7 +77,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var productId = Guid.NewGuid();
+        var productName = $"Multi Patch-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -86,8 +86,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
-                        Id = productId,
-                        Name = "Multi Patch",
+                        Name = productName,
                         Description = "Original",
                         Price = 25.00m,
                     },
@@ -97,6 +96,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var productId = await ResolveProductIdAsync(productName, 25.00m, ct);
         var created = new { Id = productId };
 
         var patchJson =
@@ -128,7 +128,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var productId = Guid.NewGuid();
+        var productName = $"Negative Patch-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -137,8 +137,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
-                        Id = productId,
-                        Name = "Negative Patch",
+                        Name = productName,
                         Description = "Test",
                         Price = 50.00m,
                     },
@@ -148,6 +147,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var productId = await ResolveProductIdAsync(productName, 50.00m, ct);
         var created = new { Id = productId };
 
         var patchJson = """[{"op": "replace", "path": "/price", "value": -1}]""";
@@ -192,7 +192,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
-        var productId = Guid.NewGuid();
+        var productName = $"Remove Desc-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -201,8 +201,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
-                        Id = productId,
-                        Name = "Remove Desc",
+                        Name = productName,
                         Description = "To be removed",
                         Price = 10.00m,
                     },
@@ -212,6 +211,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var productId = await ResolveProductIdAsync(productName, 10.00m, ct);
         var created = new { Id = productId };
 
         var patchJson = """[{"op": "remove", "path": "/description"}]""";
@@ -233,5 +233,23 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             TestJsonOptions.CaseInsensitive
         )!;
         patched.Description.ShouldBeNull();
+    }
+
+    private async Task<Guid> ResolveProductIdAsync(string name, decimal price, CancellationToken ct)
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/products?name={Uri.EscapeDataString(name)}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Page.Items.FirstOrDefault(p => p.Name == name && p.Price == price);
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }

@@ -180,7 +180,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
         // First create a product as PlatformAdmin
         var adminClient = _factory.CreateClient();
         IntegrationAuthHelper.Authenticate(adminClient);
-        var productId = Guid.NewGuid();
+        var productName = $"Review Target-{Guid.NewGuid():N}";
         var productResponse = await adminClient.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -189,8 +189,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
                 {
                     new
                     {
-                        Id = productId,
-                        Name = "Review Target",
+                        Name = productName,
                         Description = "For review",
                         Price = 5.00,
                     },
@@ -206,6 +205,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
         );
         productBatch.ShouldNotBeNull();
         productBatch!.Failures.ShouldBeEmpty();
+        var productId = await ResolveProductIdAsync(adminClient, productName, 5.00m, ct);
 
         // Then create a review as User
         var response = await client.PostAsJsonAsync(
@@ -220,5 +220,28 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
         );
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
+    }
+
+    private static async Task<Guid> ResolveProductIdAsync(
+        HttpClient client,
+        string name,
+        decimal price,
+        CancellationToken ct
+    )
+    {
+        var response = await client.GetAsync(
+            $"/api/v1/products?name={Uri.EscapeDataString(name)}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Page.Items.FirstOrDefault(p => p.Name == name && p.Price == price);
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }
