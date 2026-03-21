@@ -13,7 +13,7 @@
     <PackageVersion Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
     <PackageVersion Include="BCrypt.Net-Next" Version="4.1.0" />
     <PackageVersion Include="DotNet.Testcontainers" Version="1.6.0" />
-    <PackageVersion Include="Fluid.Core" Version="2.13.0" />
+    <PackageVersion Include="Fluid.Core" Version="2.31.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageVersion Include="HotChocolate.AspNetCore" Version="15.1.12" />
     <PackageVersion Include="HotChocolate.AspNetCore.Authorization" Version="15.1.12" />
@@ -39,12 +39,12 @@
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Telemetry" Version="10.4.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
-    <PackageVersion Include="MailKit" Version="4.12.1" />
+    <PackageVersion Include="MailKit" Version="4.15.1" />
     <PackageVersion Include="Scrutor" Version="7.0.0" />
     <PackageVersion Include="MimeKit" Version="4.15.1" />
-    <PackageVersion Include="MockQueryable.Moq" Version="10.0.2" />
-    <PackageVersion Include="MongoDB.Bson" Version="3.7.0" />
-    <PackageVersion Include="MongoDB.Driver" Version="3.7.0" />
+    <PackageVersion Include="MockQueryable.Moq" Version="10.0.5" />
+    <PackageVersion Include="MongoDB.Bson" Version="3.7.1" />
+    <PackageVersion Include="MongoDB.Driver" Version="3.7.1" />
     <PackageVersion Include="Moq" Version="4.20.72" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
     <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.2" />
@@ -57,7 +57,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Process" Version="1.15.0-beta.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.15.0-beta.1" />
-    <PackageVersion Include="Scalar.AspNetCore" Version="2.13.8" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.13.13" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageVersion Include="Serilog.Enrichers.Thread" Version="4.0.0" />
@@ -71,8 +71,8 @@
     <PackageVersion Include="MongoDB.Driver.Core.Extensions.DiagnosticSources" Version="3.0.0" />
     <PackageVersion Include="Respawn" Version="7.0.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.11.0" />
-    <PackageVersion Include="TickerQ" Version="10.2.1" />
-    <PackageVersion Include="TickerQ.EntityFrameworkCore" Version="10.2.1" />
+    <PackageVersion Include="TickerQ" Version="10.2.2" />
+    <PackageVersion Include="TickerQ.EntityFrameworkCore" Version="10.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Microsoft.Extensions.Resilience" Version="10.4.0" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
