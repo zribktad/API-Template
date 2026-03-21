@@ -13,23 +13,39 @@ internal static class PagedProjectionBuilder
     /// Builds <c>entity =&gt; new PagedRow&lt;TResult&gt;(selector(entity), countSource.Count())</c>
     /// as an expression tree that EF Core translates into a scalar sub-query for the count.
     /// </summary>
-    internal static Expression<Func<T, PagedRow<TResult>>> Build<T, TResult>(
-        Expression<Func<T, TResult>> selector,
+    internal static Expression<Func<T, PagedRow<TResult>>> BuildPaged<T, TResult>(
+        this Expression<Func<T, TResult>> selector,
         IQueryable<T> countSource
     )
     {
-        var entityParam = selector.Parameters[0];
-
+        // Build an expression node that represents Queryable.Count<T>(countSource).
+        // EF Core translates this into a scalar SQL sub-query: (SELECT COUNT(*) FROM ... WHERE ...).
+        // countSource.Expression carries the full filtered IQueryable (filters applied, no Skip/Take),
+        // so the COUNT covers all matching rows regardless of paging.
         var countCall = Expression.Call(
-            typeof(Queryable),
-            nameof(Queryable.Count),
-            [typeof(T)],
-            countSource.Expression
+            typeof(Queryable), // static class containing the method
+            nameof(Queryable.Count), // method name to call
+            [typeof(T)], // generic type argument: Count<T>
+            countSource.Expression // the IQueryable expression tree as the argument
         );
 
+        // Get the PagedRow<TResult>(TResult item, int totalCount) constructor via reflection
+        // so we can build a "new PagedRow<TResult>(...)" expression node.
         var ctor = typeof(PagedRow<TResult>).GetConstructors()[0];
+
+        // Combine: new PagedRow<TResult>(selector.Body, countCall)
+        //   - selector.Body is the original projection (e.g. new ProductResponse(product.Name, ...))
+        //   - countCall is the scalar COUNT sub-query expression built above
+        // EF Core sees this as a single SELECT with an inline sub-query for the count column.
         var newExpr = Expression.New(ctor, selector.Body, countCall);
 
+        // Reuse the lambda parameter from the original selector (e.g. the "product" in product => new ProductResponse(...)).
+        // This ensures the new combined expression operates on the same entity parameter that EF Core already understands.
+        var entityParam = selector.Parameters[0];
+
+        // Wrap everything into a lambda: entity => new PagedRow<TResult>(projection(entity), COUNT(*))
+        // This is the final expression that replaces the original .Select() projection,
+        // producing rows that carry both the projected DTO and the total count.
         return Expression.Lambda<Func<T, PagedRow<TResult>>>(newExpr, entityParam);
     }
 }

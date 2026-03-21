@@ -49,7 +49,7 @@ public abstract class RepositoryBase<T>
                 $"Specification {spec.GetType().Name} must define a Select projection to use GetPagedAsync."
             );
 
-        var combinedSelector = PagedProjectionBuilder.Build(spec.Selector, baseQuery);
+        var combinedSelector = spec.Selector.BuildPaged(baseQuery);
 
         // Apply skip/take + combined select → single SQL query
         var skip = (pageNumber - 1) * pageSize;
@@ -60,10 +60,29 @@ public abstract class RepositoryBase<T>
             .ToListAsync(ct);
 
         // Unwrap
-        var items = results.Select(r => r.Item);
-        var totalCount = results.Count > 0 ? results[0].TotalCount : await baseQuery.CountAsync(ct); // fallback for empty pages only
+        if (results.Count > 0)
+            return new PagedResponse<TResult>(
+                results.Select(r => r.Item),
+                results[0].TotalCount,
+                pageNumber,
+                pageSize
+            );
 
-        return new PagedResponse<TResult>(items, totalCount, pageNumber, pageSize);
+        // Empty page — if pageNumber > 1, verify whether data actually exists
+        if (pageNumber > 1)
+        {
+            var totalCount = await baseQuery.CountAsync(ct);
+            if (totalCount > 0)
+            {
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+                throw new ValidationException(
+                    $"PageNumber {pageNumber} exceeds total pages ({totalPages}).",
+                    ErrorCatalog.General.PageOutOfRange
+                );
+            }
+        }
+
+        return new PagedResponse<TResult>([], 0, pageNumber, pageSize);
     }
 
     // Override write methods — do NOT call SaveChangesAsync, that is UoW responsibility.
