@@ -34,41 +34,27 @@ public sealed class DeleteProductsCommandHandler
         var ids = command.Request.Ids;
         var results = new BatchResultItem[ids.Count];
 
-        // Load all products with links in a single query
-        var distinctIds = ids.Distinct().ToList();
+        var distinctIds = ids.Distinct().ToHashSet();
         var products = await _repository.ListAsync(
             new ProductsByIdsWithLinksSpecification(distinctIds),
             ct
         );
-        var productMap = products.ToDictionary(p => p.Id);
-
-        var hasFailures = false;
+        var foundIds = products.Select(p => p.Id).ToHashSet();
 
         for (var i = 0; i < ids.Count; i++)
-        {
-            if (!productMap.ContainsKey(ids[i]))
-            {
-                results[i] = new BatchResultItem(
-                    i,
-                    false,
-                    ids[i],
-                    [$"Product '{ids[i]}' not found."]
-                );
-                hasFailures = true;
-            }
-            else
-            {
-                results[i] = new BatchResultItem(i, true, ids[i], null);
-            }
-        }
+            results[i] = new BatchResultItem(i, true, ids[i], null);
 
-        if (hasFailures)
-        {
-            var successCount = results.Count(r => r.Success);
-            return new BatchResponse(results, successCount, results.Length - successCount);
-        }
+        var failureCount = BatchHelper.MarkMissing(
+            results,
+            ids.Count,
+            i => ids[i],
+            foundIds.Contains,
+            ErrorCatalog.Products.NotFoundMessage
+        );
 
-        // Soft-delete all in a single transaction
+        if (failureCount > 0)
+            return new BatchResponse(results, results.Length - failureCount, failureCount);
+
         await _unitOfWork.ExecuteInTransactionAsync(
             () =>
             {

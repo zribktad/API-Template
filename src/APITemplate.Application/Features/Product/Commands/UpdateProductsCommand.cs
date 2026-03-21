@@ -46,62 +46,42 @@ public sealed class UpdateProductsCommandHandler
     {
         var items = command.Request.Items;
         var results = new BatchResultItem[items.Count];
-        var hasFailures = false;
+        var failureCount = await BatchHelper.ValidateAsync(
+            _itemValidator,
+            items,
+            results,
+            i => items[i].Id,
+            ct
+        );
 
-        // Step 1: Validate each item individually
-        for (var i = 0; i < items.Count; i++)
-        {
-            var validationResult = await _itemValidator.ValidateAsync(items[i], ct);
-            if (!validationResult.IsValid)
-            {
-                results[i] = new BatchResultItem(
-                    i,
-                    false,
-                    items[i].Id,
-                    validationResult.Errors.Select(e => e.ErrorMessage).ToList()
-                );
-                hasFailures = true;
-            }
-            else
-            {
-                results[i] = new BatchResultItem(i, true, items[i].Id, null);
-            }
-        }
-
-        if (hasFailures)
-            return ToBatchResponse(results);
+        if (failureCount > 0)
+            return new BatchResponse(results, results.Length - failureCount, failureCount);
 
         // Step 2: Load all products in a single query
-        var ids = items.Select(item => item.Id).Distinct().ToList();
+        var ids = items.Select(item => item.Id).Distinct().ToHashSet();
         var products = await _repository.ListAsync(
             new ProductsByIdsWithLinksSpecification(ids),
             ct
         );
         var productMap = products.ToDictionary(p => p.Id);
 
-        for (var i = 0; i < items.Count; i++)
-        {
-            if (!productMap.ContainsKey(items[i].Id))
-            {
-                results[i] = new BatchResultItem(
-                    i,
-                    false,
-                    items[i].Id,
-                    [$"Product '{items[i].Id}' not found."]
-                );
-                hasFailures = true;
-            }
-        }
+        failureCount = BatchHelper.MarkMissing(
+            results,
+            items.Count,
+            i => items[i].Id,
+            productMap.ContainsKey,
+            ErrorCatalog.Products.NotFoundMessage
+        );
 
-        if (hasFailures)
-            return ToBatchResponse(results);
+        if (failureCount > 0)
+            return new BatchResponse(results, results.Length - failureCount, failureCount);
 
         // Step 3: Bulk validate category references
         var allCategoryIds = items
             .Where(item => item.CategoryId.HasValue)
             .Select(item => item.CategoryId!.Value)
             .Distinct()
-            .ToList();
+            .ToHashSet();
 
         var missingCategoryIds = await ProductValidationHelper.FindMissingCategoryIdsAsync(
             _categoryRepository,
@@ -120,9 +100,9 @@ public sealed class UpdateProductsCommandHandler
                         i,
                         false,
                         items[i].Id,
-                        [$"Category '{categoryId}' not found."]
+                        [string.Format(ErrorCatalog.Categories.NotFoundMessage, categoryId)]
                     );
-                    hasFailures = true;
+                    failureCount++;
                 }
             }
         }
@@ -132,7 +112,7 @@ public sealed class UpdateProductsCommandHandler
             .Where(item => item.ProductDataIds is { Count: > 0 })
             .SelectMany(item => item.ProductDataIds!)
             .Distinct()
-            .ToList();
+            .ToHashSet();
 
         var missingProductDataIds = await ProductValidationHelper.FindMissingProductDataIdsAsync(
             _productDataRepository,
@@ -158,14 +138,14 @@ public sealed class UpdateProductsCommandHandler
                             items[i].Id,
                             [$"Product data not found: {string.Join(", ", missing)}"]
                         );
-                        hasFailures = true;
+                        failureCount++;
                     }
                 }
             }
         }
 
-        if (hasFailures)
-            return ToBatchResponse(results);
+        if (failureCount > 0)
+            return new BatchResponse(results, results.Length - failureCount, failureCount);
 
         // Step 5: Update all products in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
@@ -196,12 +176,6 @@ public sealed class UpdateProductsCommandHandler
         );
 
         await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
-        return ToBatchResponse(results);
-    }
-
-    private static BatchResponse ToBatchResponse(BatchResultItem[] results)
-    {
-        var successCount = results.Count(r => r.Success);
-        return new BatchResponse(results, successCount, results.Length - successCount);
+        return new BatchResponse(results, results.Length, 0);
     }
 }

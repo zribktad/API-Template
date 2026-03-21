@@ -38,32 +38,16 @@ public sealed class CreateCategoriesCommandHandler
     {
         var items = command.Request.Items;
         var results = new BatchResultItem[items.Count];
-        var hasFailures = false;
+        var failureCount = await BatchHelper.ValidateAsync(
+            _itemValidator,
+            items,
+            results,
+            _ => null,
+            ct
+        );
 
-        for (var i = 0; i < items.Count; i++)
-        {
-            var validationResult = await _itemValidator.ValidateAsync(items[i], ct);
-            if (!validationResult.IsValid)
-            {
-                results[i] = new BatchResultItem(
-                    i,
-                    false,
-                    null,
-                    validationResult.Errors.Select(e => e.ErrorMessage).ToList()
-                );
-                hasFailures = true;
-            }
-            else
-            {
-                results[i] = new BatchResultItem(i, true, null, null);
-            }
-        }
-
-        if (hasFailures)
-        {
-            var successCount = results.Count(r => r.Success);
-            return new BatchResponse(results, successCount, results.Length - successCount);
-        }
+        if (failureCount > 0)
+            return new BatchResponse(results, results.Length - failureCount, failureCount);
 
         var entities = new List<CategoryEntity>(items.Count);
 

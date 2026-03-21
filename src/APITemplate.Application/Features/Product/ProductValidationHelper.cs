@@ -64,14 +64,15 @@ internal static class ProductValidationHelper
         if (categoryIds.Count == 0)
             return [];
 
-        var distinctIds = categoryIds.Distinct().ToList();
+        var distinctIds = categoryIds.Distinct().ToHashSet();
         var existing = await categoryRepository.ListAsync(
             new Category.Specifications.CategoriesByIdsSpecification(distinctIds),
             ct
         );
         var existingIds = existing.Select(c => c.Id).ToHashSet();
 
-        return distinctIds.Where(id => !existingIds.Contains(id)).ToHashSet();
+        distinctIds.ExceptWith(existingIds);
+        return distinctIds;
     }
 
     /// <summary>

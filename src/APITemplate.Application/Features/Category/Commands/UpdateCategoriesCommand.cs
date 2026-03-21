@@ -38,58 +38,32 @@ public sealed class UpdateCategoriesCommandHandler
     {
         var items = command.Request.Items;
         var results = new BatchResultItem[items.Count];
-        var hasFailures = false;
+        var failureCount = await BatchHelper.ValidateAsync(
+            _itemValidator,
+            items,
+            results,
+            i => items[i].Id,
+            ct
+        );
 
-        // Step 1: Validate each item individually
-        for (var i = 0; i < items.Count; i++)
-        {
-            var validationResult = await _itemValidator.ValidateAsync(items[i], ct);
-            if (!validationResult.IsValid)
-            {
-                results[i] = new BatchResultItem(
-                    i,
-                    false,
-                    items[i].Id,
-                    validationResult.Errors.Select(e => e.ErrorMessage).ToList()
-                );
-                hasFailures = true;
-            }
-            else
-            {
-                results[i] = new BatchResultItem(i, true, items[i].Id, null);
-            }
-        }
-
-        if (hasFailures)
-        {
-            var successCount = results.Count(r => r.Success);
-            return new BatchResponse(results, successCount, results.Length - successCount);
-        }
+        if (failureCount > 0)
+            return new BatchResponse(results, results.Length - failureCount, failureCount);
 
         // Step 2: Load all categories in a single query
-        var ids = items.Select(item => item.Id).Distinct().ToList();
+        var ids = items.Select(item => item.Id).Distinct().ToHashSet();
         var categories = await _repository.ListAsync(new CategoriesByIdsSpecification(ids), ct);
         var categoryMap = categories.ToDictionary(c => c.Id);
 
-        for (var i = 0; i < items.Count; i++)
-        {
-            if (!categoryMap.ContainsKey(items[i].Id))
-            {
-                results[i] = new BatchResultItem(
-                    i,
-                    false,
-                    items[i].Id,
-                    [$"Category '{items[i].Id}' not found."]
-                );
-                hasFailures = true;
-            }
-        }
+        failureCount = BatchHelper.MarkMissing(
+            results,
+            items.Count,
+            i => items[i].Id,
+            categoryMap.ContainsKey,
+            ErrorCatalog.Categories.NotFoundMessage
+        );
 
-        if (hasFailures)
-        {
-            var successCount = results.Count(r => r.Success);
-            return new BatchResponse(results, successCount, results.Length - successCount);
-        }
+        if (failureCount > 0)
+            return new BatchResponse(results, results.Length - failureCount, failureCount);
 
         // Step 3: Update all in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
