@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.CQRS.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Category.Specifications;
 using FluentValidation;
@@ -37,26 +38,28 @@ public sealed class UpdateCategoriesCommandHandler
     )
     {
         var items = command.Request.Items;
-        var collector = new BatchFailureCollector<UpdateCategoryItem>(items);
-
-        // Step 1: Validate each item (field-level rules — name, description, etc.)
-        await collector.ValidateAsync(_itemValidator, ct);
-
-        // Step 2: Load all target categories and mark missing ones as failed
-        var categoryMap = (
-            await _repository.ListAsync(
-                new CategoriesByIdsSpecification(items.Select(item => item.Id).ToHashSet()),
-                ct
-            )
-        ).ToDictionary(c => c.Id);
-
-        collector.MarkMissing(
-            categoryMap.Keys.ToHashSet(),
-            ErrorCatalog.Categories.NotFoundMessage
+        var context = new BatchFailureContext<UpdateCategoryItem>(items);
+        await context.ApplyRulesAsync(
+            ct,
+            new FluentValidationBatchRule<UpdateCategoryItem>(_itemValidator)
         );
 
-        if (collector.HasFailures)
-            return collector.ToFailureResponse();
+        // Step 2: Load all target categories and mark missing ones as failed
+        var requestedIds = items.Select(item => item.Id).ToHashSet();
+        var categoryMap = (
+            await _repository.ListAsync(new CategoriesByIdsSpecification(requestedIds), ct)
+        ).ToDictionary(c => c.Id);
+
+        await context.ApplyRulesAsync(
+            ct,
+            new MarkMissingByIdBatchRule<UpdateCategoryItem>(
+                categoryMap.Keys.ToHashSet(),
+                ErrorCatalog.Categories.NotFoundMessage
+            )
+        );
+
+        if (context.HasFailures)
+            return context.ToFailureResponse();
 
         // Step 3: Apply changes in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

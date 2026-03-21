@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.CQRS.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product.Specifications;
 using FluentValidation;
@@ -45,47 +46,52 @@ public sealed class UpdateProductsCommandHandler
     )
     {
         var items = command.Request.Items;
-        var collector = new BatchFailureCollector<UpdateProductItem>(items);
+        var context = new BatchFailureContext<UpdateProductItem>(items);
 
         // Step 1: Validate each item (field-level rules — name, price, etc.)
-        await collector.ValidateAsync(_itemValidator, ct);
+        await context.ApplyRulesAsync(
+            ct,
+            new FluentValidationBatchRule<UpdateProductItem>(_itemValidator)
+        );
 
         // Step 2: Load all target products and mark missing ones as failed
+        var requestedIds = items.Select(item => item.Id).ToHashSet();
         var productMap = (
-            await _repository.ListAsync(
-                new ProductsByIdsWithLinksSpecification(items.Select(item => item.Id).ToHashSet()),
-                ct
-            )
+            await _repository.ListAsync(new ProductsByIdsWithLinksSpecification(requestedIds), ct)
         ).ToDictionary(p => p.Id);
 
-        collector.MarkMissing(productMap.Keys.ToHashSet(), ErrorCatalog.Products.NotFoundMessage);
+        await context.ApplyRulesAsync(
+            ct,
+            new MarkMissingByIdBatchRule<UpdateProductItem>(
+                productMap.Keys.ToHashSet(),
+                ErrorCatalog.Products.NotFoundMessage
+            )
+        );
 
         // Step 3: Verify all referenced categories exist
-        collector.AddFailures(
+        context.AddFailures(
             await ProductValidationHelper.CheckCategoryReferencesAsync(
                 items,
                 item => item.CategoryId,
-                i => items[i].Id,
                 _categoryRepository,
-                collector.FailedIndices,
+                context.FailedIndices,
                 ct
             )
         );
 
         // Step 4: Verify all referenced product data entries exist
-        collector.AddFailures(
+        context.AddFailures(
             await ProductValidationHelper.CheckProductDataReferencesAsync(
                 items,
                 item => item.ProductDataIds,
-                i => items[i].Id,
                 _productDataRepository,
-                collector.FailedIndices,
+                context.FailedIndices,
                 ct
             )
         );
 
-        if (collector.HasFailures)
-            return collector.ToFailureResponse();
+        if (context.HasFailures)
+            return context.ToFailureResponse();
 
         // Step 5: Apply changes and sync product-data links in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
@@ -94,7 +100,8 @@ public sealed class UpdateProductsCommandHandler
                 for (var i = 0; i < items.Count; i++)
                 {
                     var item = items[i];
-                    var product = productMap[item.Id];
+                    var productId = item.Id;
+                    var product = productMap[productId];
 
                     product.UpdateDetails(item.Name, item.Description, item.Price, item.CategoryId);
 
@@ -102,7 +109,7 @@ public sealed class UpdateProductsCommandHandler
                     {
                         var productDataIds = item.ProductDataIds.Distinct().ToList();
                         var allLinks = await _productDataLinkRepository.ListByProductIdAsync(
-                            item.Id,
+                            productId,
                             includeDeleted: true,
                             ct
                         );

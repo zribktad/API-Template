@@ -1,6 +1,6 @@
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.CQRS.Rules;
 using APITemplate.Application.Common.Events;
-using APITemplate.Application.Features.Category.Specifications;
 using FluentValidation;
 using CategoryEntity = APITemplate.Domain.Entities.Category;
 
@@ -38,58 +38,20 @@ public sealed class CreateCategoriesCommandHandler
     )
     {
         var items = command.Request.Items;
-        var failures = await BatchFailureCollectorHelper.ValidateAsync(
-            _itemValidator,
-            items,
-            _ => null,
-            ct
+        var context = new BatchFailureContext<CreateCategoryRequest>(items);
+
+        await context.ApplyRulesAsync(
+            ct,
+            new FluentValidationBatchRule<CreateCategoryRequest>(_itemValidator)
         );
-        var failedIndices = failures.Select(f => f.Index).ToHashSet();
 
-        var duplicateIdFailures = BatchFailureCollectorHelper.MarkDuplicateOptionalIds(
-            items,
-            item => item.Id,
-            ErrorCatalog.Categories.DuplicateIdMessage,
-            failedIndices
-        );
-        failures.AddRange(duplicateIdFailures);
-        failedIndices.UnionWith(duplicateIdFailures.Select(f => f.Index));
-
-        var explicitIds = items
-            .Select((item, index) => new { Item = item, Index = index })
-            .Where(x => !failedIndices.Contains(x.Index) && x.Item.Id.HasValue)
-            .Select(x => x.Item.Id!.Value)
-            .ToHashSet();
-
-        if (explicitIds.Count > 0)
-        {
-            var existingIds = (
-                await _repository.ListAsync(
-                    new CategoriesByIdsSpecification(explicitIds, includeDeleted: true),
-                    ct
-                )
-            )
-                .Select(category => category.Id)
-                .ToHashSet();
-
-            var existingIdFailures = BatchFailureCollectorHelper.MarkExistingOptionalIds(
-                items,
-                item => item.Id,
-                existingIds,
-                ErrorCatalog.Categories.AlreadyExistsMessage,
-                failedIndices
-            );
-            failures.AddRange(existingIdFailures);
-            failedIndices.UnionWith(existingIdFailures.Select(f => f.Index));
-        }
-
-        if (failures.Count > 0)
-            return new BatchResponse(failures, 0, failures.Count);
+        if (context.HasFailures)
+            return context.ToFailureResponse();
 
         var entities = items
             .Select(item => new CategoryEntity
             {
-                Id = item.Id ?? Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 Name = item.Name,
                 Description = item.Description,
             })

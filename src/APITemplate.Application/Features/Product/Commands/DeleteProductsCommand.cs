@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.CQRS.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product.Specifications;
 
@@ -32,6 +33,7 @@ public sealed class DeleteProductsCommandHandler
     )
     {
         var ids = command.Request.Ids;
+        var context = new BatchFailureContext<Guid>(ids);
 
         // Step 1: Load all target products and mark missing ones as failed
         var products = await _repository.ListAsync(
@@ -39,15 +41,16 @@ public sealed class DeleteProductsCommandHandler
             ct
         );
 
-        var foundIds = products.Select(p => p.Id).ToHashSet();
-        var failures = BatchFailureCollectorHelper.MarkMissing(
-            ids,
-            foundIds,
-            ErrorCatalog.Products.NotFoundMessage
+        await context.ApplyRulesAsync(
+            ct,
+            new MarkMissingIdsBatchRule(
+                products.Select(product => product.Id).ToHashSet(),
+                ErrorCatalog.Products.NotFoundMessage
+            )
         );
 
-        if (failures.Count > 0)
-            return new BatchResponse(failures, 0, failures.Count);
+        if (context.HasFailures)
+            return context.ToFailureResponse();
 
         // Step 2: Soft-delete product-data links and remove products in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

@@ -54,14 +54,12 @@ internal static class ProductValidationHelper
     /// <summary>
     /// Checks that all referenced category IDs exist and returns per-item failures for items
     /// that reference a missing category. Items in <paramref name="failedIndices"/> are skipped.
-    /// Newly failed indices are added to <paramref name="failedIndices"/>.
     /// </summary>
     internal static async Task<List<BatchResultItem>> CheckCategoryReferencesAsync<T>(
         IReadOnlyList<T> items,
         Func<T, Guid?> categoryIdSelector,
-        Func<int, Guid?> idAt,
         ICategoryRepository categoryRepository,
-        HashSet<int> failedIndices,
+        IReadOnlySet<int> failedIndices,
         CancellationToken ct
     )
     {
@@ -92,14 +90,14 @@ internal static class ProductValidationHelper
             var categoryId = categoryIdSelector(items[i]);
             if (categoryId.HasValue && allCategoryIds.Contains(categoryId.Value))
             {
+                Guid? failureId = items[i] is IHasId hasId ? hasId.Id : null;
                 failures.Add(
                     new BatchResultItem(
                         i,
-                        idAt(i),
+                        failureId,
                         [string.Format(ErrorCatalog.Categories.NotFoundMessage, categoryId)]
                     )
                 );
-                failedIndices.Add(i);
             }
         }
 
@@ -113,9 +111,8 @@ internal static class ProductValidationHelper
     internal static async Task<List<BatchResultItem>> CheckProductDataReferencesAsync<T>(
         IReadOnlyList<T> items,
         Func<T, IReadOnlyCollection<Guid>?> productDataIdsSelector,
-        Func<int, Guid?> idAt,
         IProductDataRepository productDataRepository,
-        HashSet<int> failedIndices,
+        IReadOnlySet<int> failedIndices,
         CancellationToken ct
     )
     {
@@ -151,10 +148,11 @@ internal static class ProductValidationHelper
             var missing = pdIds.Where(id => missingIds.Contains(id)).ToList();
             if (missing.Count > 0)
             {
+                Guid? failureId = items[i] is IHasId hasId ? hasId.Id : null;
                 failures.Add(
                     new BatchResultItem(
                         i,
-                        idAt(i),
+                        failureId,
                         [$"Product data not found: {string.Join(", ", missing)}"]
                     )
                 );

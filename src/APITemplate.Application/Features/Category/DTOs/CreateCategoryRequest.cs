@@ -10,6 +10,5 @@ public sealed record CreateCategoryRequest(
     [NotEmpty(ErrorMessage = "Category name is required.")]
     [MaxLength(200, ErrorMessage = "Category name must not exceed 200 characters.")]
         string Name,
-    string? Description,
-    Guid? Id = null
+    string? Description
 );

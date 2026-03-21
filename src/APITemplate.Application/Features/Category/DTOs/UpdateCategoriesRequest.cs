@@ -16,7 +16,7 @@ public sealed record UpdateCategoriesRequest(
 /// Represents a single category within a batch update request, including its ID and replacement data.
 /// </summary>
 public sealed record UpdateCategoryItem(
-    Guid Id,
+    [NotEmpty(ErrorMessage = "Category ID is required.")] Guid Id,
     [NotEmpty(ErrorMessage = "Category name is required.")]
     [MaxLength(200, ErrorMessage = "Category name must not exceed 200 characters.")]
         string Name,

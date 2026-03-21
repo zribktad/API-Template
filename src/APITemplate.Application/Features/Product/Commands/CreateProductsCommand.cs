@@ -1,6 +1,6 @@
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.CQRS.Rules;
 using APITemplate.Application.Common.Events;
-using APITemplate.Application.Features.Product.Specifications;
 using APITemplate.Domain.Entities;
 using FluentValidation;
 using ProductEntity = APITemplate.Domain.Entities.Product;
@@ -44,87 +44,42 @@ public sealed class CreateProductsCommandHandler
     )
     {
         var items = command.Request.Items;
+        var context = new BatchFailureContext<CreateProductRequest>(items);
 
-        // Step 1: Validate each item (field-level rules — name, price, etc.)
-        var failures = await BatchFailureCollectorHelper.ValidateAsync(
-            _itemValidator,
-            items,
-            _ => null,
-            ct
+        // Step 1: Validate request shape.
+        await context.ApplyRulesAsync(
+            ct,
+            new FluentValidationBatchRule<CreateProductRequest>(_itemValidator)
         );
-        var failedIndices = failures.Select(f => f.Index).ToHashSet();
 
-        // Step 2: Reject duplicate client-supplied IDs inside the request
-        var duplicateIdFailures = BatchFailureCollectorHelper.MarkDuplicateOptionalIds(
-            items,
-            item => item.Id,
-            ErrorCatalog.Products.DuplicateIdMessage,
-            failedIndices
-        );
-        failures.AddRange(duplicateIdFailures);
-        failedIndices.UnionWith(duplicateIdFailures.Select(f => f.Index));
-
-        // Step 3: Reject client-supplied IDs that already exist (including soft-deleted rows)
-        var explicitIds = items
-            .Select((item, index) => new { Item = item, Index = index })
-            .Where(x => !failedIndices.Contains(x.Index) && x.Item.Id.HasValue)
-            .Select(x => x.Item.Id!.Value)
-            .ToHashSet();
-
-        if (explicitIds.Count > 0)
-        {
-            var existingIds = (
-                await _repository.ListAsync(
-                    new ProductsByIdsWithLinksSpecification(explicitIds, includeDeleted: true),
-                    ct
-                )
-            )
-                .Select(product => product.Id)
-                .ToHashSet();
-
-            var existingIdFailures = BatchFailureCollectorHelper.MarkExistingOptionalIds(
-                items,
-                item => item.Id,
-                existingIds,
-                ErrorCatalog.Products.AlreadyExistsMessage,
-                failedIndices
-            );
-            failures.AddRange(existingIdFailures);
-            failedIndices.UnionWith(existingIdFailures.Select(f => f.Index));
-        }
-
-        // Step 4: Verify all referenced categories exist
-        failures.AddRange(
+        // Step 2: Verify all referenced categories and product data exist.
+        context.AddFailures(
             await ProductValidationHelper.CheckCategoryReferencesAsync(
                 items,
                 item => item.CategoryId,
-                _ => null,
                 _categoryRepository,
-                failedIndices,
+                context.FailedIndices,
                 ct
             )
         );
-
-        // Step 5: Verify all referenced product data entries exist
-        failures.AddRange(
+        context.AddFailures(
             await ProductValidationHelper.CheckProductDataReferencesAsync(
                 items,
                 item => item.ProductDataIds,
-                _ => null,
                 _productDataRepository,
-                failedIndices,
+                context.FailedIndices,
                 ct
             )
         );
 
-        if (failures.Count > 0)
-            return new BatchResponse(failures, 0, failures.Count);
+        if (context.HasFailures)
+            return context.ToFailureResponse();
 
         // Step 6: Build entities and persist in a single transaction
         var entities = items
             .Select(item =>
             {
-                var productId = item.Id ?? Guid.NewGuid();
+                var productId = Guid.NewGuid();
                 var productDataIds = (item.ProductDataIds ?? []).Distinct().ToList();
 
                 return new ProductEntity

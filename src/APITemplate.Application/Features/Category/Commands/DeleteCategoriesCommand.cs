@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.CQRS;
+using APITemplate.Application.Common.CQRS.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Category.Specifications;
 
@@ -32,6 +33,7 @@ public sealed class DeleteCategoriesCommandHandler
     )
     {
         var ids = command.Request.Ids;
+        var context = new BatchFailureContext<Guid>(ids);
 
         // Step 1: Load all target categories and mark missing ones as failed
         var categories = await _repository.ListAsync(
@@ -39,15 +41,16 @@ public sealed class DeleteCategoriesCommandHandler
             ct
         );
 
-        var foundIds = categories.Select(c => c.Id).ToHashSet();
-        var failures = BatchFailureCollectorHelper.MarkMissing(
-            ids,
-            foundIds,
-            ErrorCatalog.Categories.NotFoundMessage
+        await context.ApplyRulesAsync(
+            ct,
+            new MarkMissingIdsBatchRule(
+                categories.Select(category => category.Id).ToHashSet(),
+                ErrorCatalog.Categories.NotFoundMessage
+            )
         );
 
-        if (failures.Count > 0)
-            return new BatchResponse(failures, 0, failures.Count);
+        if (context.HasFailures)
+            return context.ToFailureResponse();
 
         // Step 2: Remove categories in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

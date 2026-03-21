@@ -16,7 +16,7 @@ public sealed record UpdateProductsRequest(
 /// Represents a single product within a batch update request, including its ID and replacement data.
 /// </summary>
 public sealed record UpdateProductItem(
-    Guid Id,
+    [NotEmpty(ErrorMessage = "Product ID is required.")] Guid Id,
     [NotEmpty(ErrorMessage = "Product name is required.")]
     [MaxLength(200, ErrorMessage = "Product name must not exceed 200 characters.")]
         string Name,
