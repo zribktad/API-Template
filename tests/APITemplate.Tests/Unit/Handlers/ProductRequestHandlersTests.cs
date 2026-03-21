@@ -640,12 +640,15 @@ public class ProductRequestHandlersTests
             ),
         ];
 
+        var paged = new PagedResponse<ProductResponse>(
+            items,
+            2,
+            filter.PageNumber,
+            filter.PageSize
+        );
         _repositoryMock
-            .Setup(r => r.ListAsync(filter, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(items);
-        _repositoryMock
-            .Setup(r => r.CountAsync(filter, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(2);
+            .Setup(r => r.GetPagedAsync(filter, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paged);
         _repositoryMock
             .Setup(r => r.GetCategoryFacetsAsync(filter, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);

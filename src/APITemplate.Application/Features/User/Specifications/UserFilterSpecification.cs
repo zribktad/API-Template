@@ -1,4 +1,3 @@
-using APITemplate.Application.Features.User.DTOs;
 using APITemplate.Application.Features.User.Mappings;
 using APITemplate.Domain.Entities;
 using Ardalis.Specification;
@@ -21,7 +20,5 @@ public sealed class UserFilterSpecification : Specification<AppUser, UserRespons
         UserSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
 
         Query.Select(UserMappings.Projection);
-
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
     }
 }

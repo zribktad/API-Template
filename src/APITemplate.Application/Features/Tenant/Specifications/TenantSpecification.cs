@@ -19,6 +19,5 @@ public sealed class TenantSpecification : Specification<TenantEntity, TenantResp
         Query.AsNoTracking();
         TenantSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
         Query.Select(TenantMappings.Projection);
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
     }
 }

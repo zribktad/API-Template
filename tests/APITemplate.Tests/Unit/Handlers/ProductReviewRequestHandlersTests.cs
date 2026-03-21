@@ -45,19 +45,17 @@ public class ProductReviewRequestHandlersTests
             new(Guid.NewGuid(), Guid.NewGuid(), userId, null, 3, DateTime.UtcNow),
         };
 
+        var paged = new PagedResponse<ProductReviewResponse>(items, 2, 1, 10);
         _reviewRepoMock
             .Setup(r =>
-                r.ListAsync(It.IsAny<ProductReviewSpecification>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(items);
-        _reviewRepoMock
-            .Setup(r =>
-                r.CountAsync(
-                    It.IsAny<ProductReviewCountSpecification>(),
+                r.GetPagedAsync(
+                    It.IsAny<ProductReviewSpecification>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(2);
+            .ReturnsAsync(paged);
 
         var sut = new GetProductReviewsQueryHandler(_reviewRepoMock.Object);
         var result = await sut.HandleAsync(

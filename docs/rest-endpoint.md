@@ -201,7 +201,7 @@ public static class OrderMappings
 
 Specifications encapsulate query logic using `Ardalis.Specification`. Place them in `src/APITemplate.Application/Features/<Feature>/Specifications/`.
 
-**List specification** (paged, filtered, sorted, projected):
+**List specification** (filtered, sorted, projected — no Skip/Take):
 
 ```csharp
 // Application/Features/Order/Specifications/OrderSpecification.cs
@@ -219,30 +219,12 @@ public sealed class OrderSpecification : Specification<OrderEntity, OrderRespons
         Query.AsNoTracking();
         OrderSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
         Query.Select(OrderMappings.Projection);
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize)
-            .Take(filter.PageSize);
+        // No Skip/Take here — pagination is handled by repository.GetPagedAsync()
     }
 }
 ```
 
-**Count specification** (for pagination total):
-
-```csharp
-// Application/Features/Order/Specifications/OrderCountSpecification.cs
-using Ardalis.Specification;
-using OrderEntity = APITemplate.Domain.Entities.Order;
-
-namespace APITemplate.Application.Features.Order.Specifications;
-
-public sealed class OrderCountSpecification : Specification<OrderEntity>
-{
-    public OrderCountSpecification(OrderFilter filter)
-    {
-        Query.ApplyFilter(filter);
-        Query.AsNoTracking();
-    }
-}
-```
+> **Important:** Do NOT add `Skip`/`Take` to the specification. `RepositoryBase.GetPagedAsync` handles pagination and total count in a single optimized SQL query.
 
 **By-ID specification**:
 
@@ -265,7 +247,7 @@ public sealed class OrderByIdSpecification : Specification<OrderEntity, OrderRes
 }
 ```
 
-**Filter criteria** (reusable between list and count specs):
+**Filter criteria** (reusable filter logic):
 
 ```csharp
 // Application/Features/Order/Specifications/OrderFilterCriteria.cs
@@ -367,9 +349,8 @@ public sealed class OrderRequestHandlers :
 
     public async Task<PagedResponse<OrderResponse>> Handle(GetOrdersQuery request, CancellationToken ct)
     {
-        var items = await _repository.ListAsync(new OrderSpecification(request.Filter), ct);
-        var totalCount = await _repository.CountAsync(new OrderCountSpecification(request.Filter), ct);
-        return new PagedResponse<OrderResponse>(items, totalCount, request.Filter.PageNumber, request.Filter.PageSize);
+        return await _repository.GetPagedAsync(
+            new OrderSpecification(request.Filter), request.Filter.PageNumber, request.Filter.PageSize, ct);
     }
 
     public async Task<OrderResponse?> Handle(GetOrderByIdQuery request, CancellationToken ct)
@@ -660,8 +641,7 @@ Application/Features/Order/
 ├── Mappings/
 │   └── OrderMappings.cs              ← Expression projections
 ├── Specifications/
-│   ├── OrderSpecification.cs          ← paged list query
-│   ├── OrderCountSpecification.cs     ← count for pagination
+│   ├── OrderSpecification.cs          ← filtered list query (no Skip/Take)
 │   ├── OrderByIdSpecification.cs      ← single entity lookup
 │   └── OrderFilterCriteria.cs         ← shared filter logic
 ├── Validation/
@@ -678,7 +658,7 @@ Application/Features/Order/
 - [ ] Filter + Response + Request DTOs in `Application/Features/<Feature>/DTOs/`
 - [ ] FluentValidation validators in `Application/Features/<Feature>/Validation/`
 - [ ] Expression projection mappings in `Application/Features/<Feature>/Mappings/`
-- [ ] Specifications (list, count, byId, filter criteria) in `Application/Features/<Feature>/Specifications/`
+- [ ] Specifications (list, byId, filter criteria) in `Application/Features/<Feature>/Specifications/`
 - [ ] Sort field map in `Application/Features/<Feature>/`
 - [ ] MediatR queries, commands & handlers in `Application/Features/<Feature>/Handlers/`
 - [ ] Repository interface in `Domain/Interfaces/`

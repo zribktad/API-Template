@@ -17,7 +17,5 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
         ProductSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
 
         Query.Select(ProductMappings.Projection);
-
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
     }
 }

@@ -1,7 +1,5 @@
 using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Category.Specifications;
-using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.Category;
 
@@ -24,7 +22,6 @@ public sealed class GetCategoriesQueryHandler
     {
         return await _repository.GetPagedAsync(
             new CategorySpecification(request.Filter),
-            new CategoryCountSpecification(request.Filter),
             request.Filter.PageNumber,
             request.Filter.PageSize,
             ct

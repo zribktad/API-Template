@@ -16,6 +16,5 @@ public sealed class CategorySpecification : Specification<CategoryEntity, Catego
         Query.AsNoTracking();
         CategorySortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
         Query.Select(CategoryMappings.Projection);
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
     }
 }

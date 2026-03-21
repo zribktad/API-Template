@@ -21,22 +21,6 @@ public sealed class TenantInvitationFilterSpecification
         Query.AsNoTracking();
         Query.OrderByDescending(i => i.Audit.CreatedAtUtc);
         Query.Select(TenantInvitationMappings.Projection);
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
-    }
-}
-
-/// <summary>
-/// Ardalis specification used exclusively for counting tenant invitations that satisfy a given filter.
-/// </summary>
-public sealed class TenantInvitationCountSpecification : Specification<TenantInvitationEntity>
-{
-    /// <summary>
-    /// Initialises the specification with the shared filter criteria applied for counting.
-    /// </summary>
-    public TenantInvitationCountSpecification(TenantInvitationFilter filter)
-    {
-        Query.ApplyFilter(filter);
-        Query.AsNoTracking();
     }
 }
 

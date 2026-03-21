@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Tenant.DTOs;
 using APITemplate.Application.Features.Tenant.Specifications;
 using APITemplate.Domain.Interfaces;
@@ -22,7 +21,6 @@ public sealed class GetTenantsQueryHandler
     {
         return await _repository.GetPagedAsync(
             new TenantSpecification(request.Filter),
-            new TenantCountSpecification(request.Filter),
             request.Filter.PageNumber,
             request.Filter.PageSize,
             ct

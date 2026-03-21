@@ -19,7 +19,5 @@ public sealed class ProductReviewSpecification
         ProductReviewSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
 
         Query.Select(ProductReviewMappings.Projection);
-
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
     }
 }

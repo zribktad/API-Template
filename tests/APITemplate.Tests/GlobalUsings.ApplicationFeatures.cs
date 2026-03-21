@@ -19,6 +19,7 @@ global using APITemplate.Application.Features.Tenant;
 global using APITemplate.Application.Features.Tenant.DTOs;
 global using APITemplate.Application.Features.User;
 global using APITemplate.Application.Features.User.DTOs;
+global using APITemplate.Domain.Common;
 global using APITemplate.Domain.Entities.Contracts;
 global using APITemplate.Domain.Entities.ProductData;
 global using APITemplate.Domain.Interfaces;

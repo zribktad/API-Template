@@ -38,8 +38,7 @@ Application/Features/{Feature}/
 │   ├── {Feature}Service.cs           # Write operations
 │   └── {Feature}QueryService.cs      # Read operations
 ├── Specifications/
-│   ├── {Feature}Specification.cs     # Filtered/sorted/paged query
-│   ├── {Feature}CountSpecification.cs # Count query (for pagination)
+│   ├── {Feature}Specification.cs     # Filtered/sorted/projected query (no pagination)
 │   └── {Feature}FilterCriteria.cs    # Reusable filter logic
 ├── Validation/
 │   ├── Create{Feature}RequestValidator.cs
@@ -297,7 +296,7 @@ public static class ProductSortFields
 
 ### 7. Specifications
 
-**Main query specification** — `Application/Features/{Feature}/Specifications/{Feature}Specification.cs`:
+**Filter specification** — `Application/Features/{Feature}/Specifications/{Feature}Specification.cs`:
 
 ```csharp
 using Ardalis.Specification;
@@ -319,31 +318,14 @@ public sealed class ProductSpecification : Specification<ProductEntity, ProductR
         Query.Select(p => new ProductResponse(
             p.Id, p.Name, p.Description, p.Price, p.Audit.CreatedAtUtc));
 
-        // 4. Paginate
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize)
-             .Take(filter.PageSize);
+        // No Skip/Take here — pagination is handled by repository.GetPagedAsync()
     }
 }
 ```
 
-**Count specification** (for total count in pagination):
+> **Important:** Do NOT add `Skip`/`Take` to the specification. `RepositoryBase.GetPagedAsync` handles pagination and total count in a single optimized SQL query.
 
-```csharp
-using Ardalis.Specification;
-using ProductEntity = APITemplate.Domain.Entities.Product;
-
-namespace APITemplate.Application.Features.Product.Specifications;
-
-public sealed class ProductCountSpecification : Specification<ProductEntity>
-{
-    public ProductCountSpecification(ProductFilter filter)
-    {
-        Query.ApplyFilter(filter);
-    }
-}
-```
-
-**Filter criteria** (reusable between spec and count spec):
+**Filter criteria** (reusable filter logic):
 
 ```csharp
 using Ardalis.Specification;
@@ -491,9 +473,8 @@ public sealed class ProductQueryService : IProductQueryService
     public async Task<PagedResponse<ProductResponse>> GetPagedAsync(
         ProductFilter filter, CancellationToken ct = default)
     {
-        var items = await _repository.ListAsync(new ProductSpecification(filter), ct);
-        var totalCount = await _repository.CountAsync(new ProductCountSpecification(filter), ct);
-        return new PagedResponse<ProductResponse>(items, totalCount, filter.PageNumber, filter.PageSize);
+        return await _repository.GetPagedAsync(
+            new ProductSpecification(filter), filter.PageNumber, filter.PageSize, ct);
     }
 
     public async Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
@@ -719,8 +700,8 @@ dotnet ef migrations add Add{Feature} --project src/APITemplate
 - [ ] DTOs: Create request, Update request, Response, Filter
 - [ ] Mappings: Entity → Response extension method
 - [ ] Sort fields: `SortFieldMap<T>` definition
-- [ ] Specifications: main (filtered + sorted + paged + projected), count
-- [ ] Filter criteria: reusable between main and count specs
+- [ ] Specifications: main (filtered + sorted + projected — no Skip/Take)
+- [ ] Filter criteria: reusable filter logic
 - [ ] Validators: request validators, filter validator
 - [ ] Service interface and implementation (write + query)
 - [ ] Error codes in `ErrorCatalog`

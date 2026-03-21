@@ -1,4 +1,4 @@
-namespace APITemplate.Application.Common.DTOs;
+namespace APITemplate.Domain.Common;
 
 /// <summary>
 /// Generic paged result envelope returned by list queries throughout the Application layer.

@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.ProductReview.Specifications;
 using APITemplate.Domain.Interfaces;
 
@@ -25,7 +24,6 @@ public sealed class GetProductReviewsQueryHandler
     {
         return await _reviewRepository.GetPagedAsync(
             new ProductReviewSpecification(request.Filter),
-            new ProductReviewCountSpecification(request.Filter),
             request.Filter.PageNumber,
             request.Filter.PageSize,
             ct

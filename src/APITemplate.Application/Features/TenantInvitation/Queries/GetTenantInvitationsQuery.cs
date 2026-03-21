@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.TenantInvitation.DTOs;
 using APITemplate.Application.Features.TenantInvitation.Specifications;
 using APITemplate.Domain.Interfaces;
@@ -24,7 +23,6 @@ public sealed class GetTenantInvitationsQueryHandler
     {
         return await _invitationRepository.GetPagedAsync(
             new TenantInvitationFilterSpecification(request.Filter),
-            new TenantInvitationCountSpecification(request.Filter),
             request.Filter.PageNumber,
             request.Filter.PageSize,
             ct
