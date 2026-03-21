@@ -56,14 +56,15 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
 
         var query = new
         {
-            query = @"
+            query = """
                 mutation($input: CreateProductRequestInput!) {
                     createProduct(input: $input) {
-                        id
-                        name
-                        price
+                        successCount
+                        failureCount
+                        failures { index id errors }
                     }
-                }",
+                }
+                """,
             variables = new
             {
                 input = new
@@ -76,12 +77,13 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await _graphql.PostAsync(query);
-        var createProduct = await _graphql.ReadRequiredGraphQLFieldAsync<
+        var batch = await _graphql.ReadRequiredGraphQLFieldAsync<
             CreateProductData,
-            ProductItem
+            GraphQLBatchResult
         >(response, data => data.CreateProduct, "createProduct");
-        createProduct.Name.ShouldBe("GraphQL Product");
-        createProduct.Price.ShouldBe(49.99m);
+        batch.SuccessCount.ShouldBe(1);
+        batch.FailureCount.ShouldBe(0);
+        batch.Failures.ShouldBeEmpty();
     }
 
     [Fact]
@@ -89,28 +91,8 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     {
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
-        var query = new
-        {
-            query = @"
-                mutation($input: CreateProductRequestInput!) {
-                    createProduct(input: $input) {
-                        id
-                        name
-                    }
-                }",
-            variables = new
-            {
-                input = new { name = "GraphQL Product Generated Id", price = 19.99 },
-            },
-        };
-
-        var response = await _graphql.PostAsync(query);
-        var createProduct = await _graphql.ReadRequiredGraphQLFieldAsync<
-            CreateProductData,
-            ProductItem
-        >(response, data => data.CreateProduct, "createProduct");
-
-        createProduct.Id.ShouldNotBe(Guid.Empty);
+        var productId = await _graphql.CreateProductAsync("GraphQL Product Generated Id", 19.99m);
+        productId.ShouldNotBe(Guid.Empty);
     }
 
     [Fact]
@@ -126,20 +108,19 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
             .ReturnsAsync([new ImageProductData { Id = productDataId, Title = "Image" }]);
         var query = new
         {
-            query = @"
+            query = """
                 mutation($input: CreateProductRequestInput!) {
                     createProduct(input: $input) {
-                        id
-                        name
-                        price
-                        productDataIds
+                        successCount
+                        failureCount
                     }
-                }",
+                }
+                """,
             variables = new
             {
                 input = new
                 {
-                    name = "GraphQL Product",
+                    name = "GraphQL Product With Data",
                     price = 49.99,
                     productDataIds = new[] { productDataId },
                 },
@@ -147,11 +128,25 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await _graphql.PostAsync(query);
-        var createProduct = await _graphql.ReadRequiredGraphQLFieldAsync<
+        var batch = await _graphql.ReadRequiredGraphQLFieldAsync<
             CreateProductData,
-            ProductItem
+            GraphQLBatchResult
         >(response, data => data.CreateProduct, "createProduct");
-        createProduct.ProductDataIds.ShouldBe([productDataId]);
+        batch.SuccessCount.ShouldBe(1);
+        batch.FailureCount.ShouldBe(0);
+
+        var createdId = await _graphql.GetProductIdByNameAndPriceAsync(
+            "GraphQL Product With Data",
+            49.99m
+        );
+        var getQuery = new
+        {
+            query = $@"{{ productById(id: ""{createdId}"") {{ id productDataIds }} }}",
+        };
+        var getResponse = await _graphql.PostAsync(getQuery);
+        var loaded = await _graphql.ReadGraphQLResponseAsync<ProductByIdData>(getResponse);
+        loaded.ProductById.ShouldNotBeNull();
+        loaded.ProductById!.ProductDataIds.ShouldBe([productDataId]);
     }
 
     [Fact]
@@ -174,20 +169,31 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GraphQL_DeleteProduct_ReturnsTrue()
+    public async Task GraphQL_DeleteProduct_ReturnsBatchResult()
     {
-        var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var productId = await _graphql.CreateProductAsync("To Delete", 5.0m);
 
-        var deleteQuery = new { query = $@"mutation {{ deleteProduct(id: ""{productId}"") }}" };
+        var deleteQuery = new
+        {
+            query = $@"mutation {{
+                    deleteProduct(id: ""{productId}"") {{
+                        successCount
+                        failureCount
+                        failures {{ index id errors }}
+                    }}
+                }}",
+        };
 
         var deleteResponse = await _graphql.PostAsync(deleteQuery);
-        var deleteResult = await _graphql.ReadGraphQLResponseAsync<DeleteProductData>(
-            deleteResponse
-        );
-        deleteResult.DeleteProduct.ShouldBeTrue();
+        var deleteResult = await _graphql.ReadRequiredGraphQLFieldAsync<
+            DeleteProductData,
+            GraphQLBatchResult
+        >(deleteResponse, d => d.DeleteProduct, "deleteProduct");
+        deleteResult.SuccessCount.ShouldBe(1);
+        deleteResult.FailureCount.ShouldBe(0);
+        deleteResult.Failures.ShouldBeEmpty();
     }
 
     [Fact]

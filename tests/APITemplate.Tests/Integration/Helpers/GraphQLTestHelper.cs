@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using APITemplate.Tests.Integration.GraphQL;
 using Shouldly;
 using Xunit;
 using Xunit.Sdk;
@@ -28,22 +29,66 @@ internal sealed class GraphQLTestHelper
     {
         var mutation = new
         {
-            query = @"
+            query = """
                 mutation($input: CreateProductRequestInput!) {
-                    createProduct(input: $input) { id }
-                }",
-            variables = new
-            {
-                input = new { name, price }
-            }
+                    createProduct(input: $input) {
+                        successCount
+                        failureCount
+                        failures { index id errors }
+                    }
+                }
+                """,
+            variables = new { input = new { name, price } },
         };
 
         var response = await PostAsync(mutation);
-        var result = await ReadRequiredGraphQLFieldAsync<CreateProductData, ProductItem>(
+        var batch = await ReadRequiredGraphQLFieldAsync<CreateProductData, GraphQLBatchResult>(
             response,
             data => data.CreateProduct,
-            "createProduct");
-        return result.Id;
+            "createProduct"
+        );
+        batch.SuccessCount.ShouldBe(1);
+        batch.FailureCount.ShouldBe(0);
+
+        return await GetProductIdByNameAndPriceAsync(name, price);
+    }
+
+    /// <summary>Resolves a product id from the paginated list (e.g. after a batch create that does not return entity ids).</summary>
+    internal async Task<Guid> GetProductIdByNameAndPriceAsync(string name, decimal price)
+    {
+        var lookup = new
+        {
+            query = """
+                query($name: String!, $min: Decimal!, $max: Decimal!) {
+                    products(input: {
+                        name: $name
+                        minPrice: $min
+                        maxPrice: $max
+                        pageSize: 25
+                        sortBy: "createdAt"
+                        sortDirection: "desc"
+                    }) {
+                        page { items { id name price } }
+                    }
+                }
+                """,
+            variables = new
+            {
+                name,
+                min = price,
+                max = price,
+            },
+        };
+
+        var lookupResponse = await PostAsync(lookup);
+        var page = await ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
+            lookupResponse,
+            data => data.Products,
+            "products"
+        );
+        var match = page.Page.Items.FirstOrDefault(i => i.Name == name && i.Price == price);
+        match.ShouldNotBeNull($"Expected a product named '{name}' with price {price}.");
+        return match!.Id;
     }
 
     internal async Task<Guid> CreateReviewAsync(Guid productId, int rating)
@@ -54,17 +99,14 @@ internal sealed class GraphQLTestHelper
                 mutation($input: CreateProductReviewRequestInput!) {
                     createProductReview(input: $input) { id }
                 }",
-            variables = new
-            {
-                input = new { productId, rating }
-            }
+            variables = new { input = new { productId, rating } },
         };
 
         var response = await PostAsync(mutation);
-        var result = await ReadRequiredGraphQLFieldAsync<CreateProductReviewData, ProductReviewItem>(
-            response,
-            data => data.CreateProductReview,
-            "createProductReview");
+        var result = await ReadRequiredGraphQLFieldAsync<
+            CreateProductReviewData,
+            ProductReviewItem
+        >(response, data => data.CreateProductReview, "createProductReview");
         return result.Id;
     }
 
@@ -77,7 +119,8 @@ internal sealed class GraphQLTestHelper
     internal async Task<TValue> ReadRequiredGraphQLFieldAsync<TData, TValue>(
         HttpResponseMessage response,
         Func<TData, TValue?> selector,
-        string fieldName)
+        string fieldName
+    )
         where TValue : class
     {
         var (payload, body) = await ReadGraphQLPayloadAsync<TData>(response);
@@ -85,46 +128,61 @@ internal sealed class GraphQLTestHelper
         if (value is null)
         {
             throw new XunitException(
-                $"GraphQL response contained a null '{fieldName}' field. Response body: {body}");
+                $"GraphQL response contained a null '{fieldName}' field. Response body: {body}"
+            );
         }
 
         return value;
     }
 
-    private async Task<(TData Payload, string Body)> ReadGraphQLPayloadAsync<TData>(HttpResponseMessage response)
+    private async Task<(TData Payload, string Body)> ReadGraphQLPayloadAsync<TData>(
+        HttpResponseMessage response
+    )
     {
         var ct = TestContext.Current.CancellationToken;
         var body = await response.Content.ReadAsStringAsync(ct);
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.OK,
-            $"GraphQL request returned HTTP {(int)response.StatusCode}. Response body: {body}");
+            $"GraphQL request returned HTTP {(int)response.StatusCode}. Response body: {body}"
+        );
 
         GraphQLResponse<TData>? payload;
         try
         {
-            payload = JsonSerializer.Deserialize<GraphQLResponse<TData>>(body, GraphQLJsonOptions.Default);
+            payload = JsonSerializer.Deserialize<GraphQLResponse<TData>>(
+                body,
+                GraphQLJsonOptions.Default
+            );
         }
         catch (JsonException ex)
         {
             throw new XunitException(
-                $"GraphQL response could not be deserialized into {typeof(TData).Name}. " +
-                $"Response body: {body}{Environment.NewLine}{ex}");
+                $"GraphQL response could not be deserialized into {typeof(TData).Name}. "
+                    + $"Response body: {body}{Environment.NewLine}{ex}"
+            );
         }
 
         if (payload is null)
-            throw new XunitException($"GraphQL response was null after deserialization. Response body: {body}");
+            throw new XunitException(
+                $"GraphQL response was null after deserialization. Response body: {body}"
+            );
 
         if (payload.Errors is { Count: > 0 })
         {
             var errors = string.Join(
                 Environment.NewLine,
-                payload.Errors.Select(error => $"- {error.Message}"));
-            throw new XunitException($"GraphQL response contained errors:{Environment.NewLine}{errors}{Environment.NewLine}Response body: {body}");
+                payload.Errors.Select(error => $"- {error.Message}")
+            );
+            throw new XunitException(
+                $"GraphQL response contained errors:{Environment.NewLine}{errors}{Environment.NewLine}Response body: {body}"
+            );
         }
 
         if (payload.Data is null)
-            throw new XunitException($"GraphQL response did not contain a data payload. Response body: {body}");
+            throw new XunitException(
+                $"GraphQL response did not contain a data payload. Response body: {body}"
+            );
 
         return (payload.Data, body);
     }
