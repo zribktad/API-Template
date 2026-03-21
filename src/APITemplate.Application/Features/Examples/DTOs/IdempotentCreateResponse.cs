@@ -8,4 +8,4 @@ public sealed record IdempotentCreateResponse(
     string Name,
     string? Description,
     DateTime CreatedAtUtc
-);
+) : IHasId;

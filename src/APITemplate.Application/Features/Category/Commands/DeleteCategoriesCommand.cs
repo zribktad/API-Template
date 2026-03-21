@@ -42,7 +42,6 @@ public sealed class DeleteCategoriesCommandHandler
         var foundIds = categories.Select(c => c.Id).ToHashSet();
         var failures = BatchHelper.MarkMissing(
             ids,
-            id => id,
             foundIds.Contains,
             ErrorCatalog.Categories.NotFoundMessage
         );

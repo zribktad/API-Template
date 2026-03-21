@@ -8,4 +8,4 @@ public sealed record CategoryResponse(
     string Name,
     string? Description,
     DateTime CreatedAtUtc
-);
+) : IHasId;

@@ -17,4 +17,4 @@ public sealed record JobStatusResponse(
     DateTime? StartedAtUtc,
     DateTime? CompletedAtUtc,
     string? CallbackUrl
-);
+) : IHasId;

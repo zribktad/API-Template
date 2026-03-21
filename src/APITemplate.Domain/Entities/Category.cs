@@ -4,7 +4,7 @@ namespace APITemplate.Domain.Entities;
 /// Domain entity representing a product category within a tenant.
 /// Acts as an aggregate root that groups related <see cref="Product"/> entities.
 /// </summary>
-public sealed class Category : IAuditableTenantEntity
+public sealed class Category : IAuditableTenantEntity, IHasId
 {
     public Guid Id { get; set; }
 

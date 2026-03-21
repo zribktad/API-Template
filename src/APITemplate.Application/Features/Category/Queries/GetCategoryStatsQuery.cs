@@ -5,7 +5,7 @@ using APITemplate.Domain.Interfaces;
 namespace APITemplate.Application.Features.Category;
 
 /// <summary>Returns aggregated statistics for a category by its identifier, or <see langword="null"/> if not found.</summary>
-public sealed record GetCategoryStatsQuery(Guid Id) : IQuery<ProductCategoryStatsResponse?>;
+public sealed record GetCategoryStatsQuery(Guid Id) : IQuery<ProductCategoryStatsResponse?>, IHasId;
 
 /// <summary>Handles <see cref="GetCategoryStatsQuery"/>.</summary>
 public sealed class GetCategoryStatsQueryHandler

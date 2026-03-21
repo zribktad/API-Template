@@ -21,4 +21,4 @@ public sealed record UpdateCategoryItem(
     [MaxLength(200, ErrorMessage = "Category name must not exceed 200 characters.")]
         string Name,
     string? Description
-);
+) : IHasId;

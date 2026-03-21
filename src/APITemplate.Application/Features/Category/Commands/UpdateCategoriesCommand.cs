@@ -53,7 +53,6 @@ public sealed class UpdateCategoriesCommandHandler
         failures.AddRange(
             BatchHelper.MarkMissing(
                 items,
-                item => item.Id,
                 categoryMap.ContainsKey,
                 ErrorCatalog.Categories.NotFoundMessage,
                 failedIndices

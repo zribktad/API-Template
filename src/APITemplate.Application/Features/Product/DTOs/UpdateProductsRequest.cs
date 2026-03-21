@@ -24,4 +24,4 @@ public sealed record UpdateProductItem(
     [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than zero.")] decimal Price,
     Guid? CategoryId = null,
     IReadOnlyCollection<Guid>? ProductDataIds = null
-) : IProductRequest;
+) : IProductRequest, IHasId;

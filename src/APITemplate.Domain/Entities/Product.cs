@@ -4,7 +4,7 @@ namespace APITemplate.Domain.Entities;
 /// Core domain entity representing a product in the catalog.
 /// This is the aggregate root - all business rules around products start here.
 /// </summary>
-public sealed class Product : IAuditableTenantEntity
+public sealed class Product : IAuditableTenantEntity, IHasId
 {
     /// <summary>Unique identifier generated when the product is created.</summary>
     public Guid Id { get; set; }

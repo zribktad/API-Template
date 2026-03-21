@@ -8,7 +8,7 @@ namespace APITemplate.Application.Features.ProductData.DTOs;
 /// </summary>
 [JsonDerivedType(typeof(ImageProductDataResponse), "image")]
 [JsonDerivedType(typeof(VideoProductDataResponse), "video")]
-public abstract record ProductDataResponse
+public abstract record ProductDataResponse : IHasId
 {
     public Guid Id { get; init; }
     public string Type { get; init; } = string.Empty;

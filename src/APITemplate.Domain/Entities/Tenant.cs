@@ -4,7 +4,7 @@ namespace APITemplate.Domain.Entities;
 /// Aggregate root representing a tenant (organisation) in the multi-tenant system.
 /// All other tenant-scoped entities reference this entity through <see cref="TenantId"/>.
 /// </summary>
-public sealed class Tenant : IAuditableTenantEntity
+public sealed class Tenant : IAuditableTenantEntity, IHasId
 {
     public Guid Id { get; set; }
 

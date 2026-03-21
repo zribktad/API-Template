@@ -9,7 +9,7 @@ using Polly.Registry;
 
 namespace APITemplate.Application.Features.ProductData;
 
-public sealed record DeleteProductDataCommand(Guid Id) : ICommand;
+public sealed record DeleteProductDataCommand(Guid Id) : ICommand, IHasId;
 
 public sealed class DeleteProductDataCommandHandler : ICommandHandler<DeleteProductDataCommand>
 {

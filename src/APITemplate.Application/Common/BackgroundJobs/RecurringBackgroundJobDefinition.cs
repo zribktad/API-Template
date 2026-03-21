@@ -20,4 +20,4 @@ public sealed record RecurringBackgroundJobDefinition(
     string Description,
     int Retries = 0,
     int[]? RetryIntervals = null
-);
+) : IHasId;

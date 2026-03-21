@@ -60,7 +60,6 @@ public sealed class UpdateProductsCommandHandler
 
         var missingFailures = BatchHelper.MarkMissing(
             items,
-            item => item.Id,
             productMap.ContainsKey,
             ErrorCatalog.Products.NotFoundMessage,
             failedIndices

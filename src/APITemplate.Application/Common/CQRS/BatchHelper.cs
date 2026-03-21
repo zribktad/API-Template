@@ -128,11 +128,11 @@ internal static class BatchHelper
     /// </summary>
     internal static List<BatchResultItem> MarkMissing<T>(
         IReadOnlyList<T> items,
-        Func<T, Guid> idSelector,
         Func<Guid, bool> exists,
         string notFoundMessageTemplate,
         HashSet<int>? skip = null
     )
+        where T : IHasId
     {
         var failures = new List<BatchResultItem>();
 
@@ -141,7 +141,32 @@ internal static class BatchHelper
             if (skip is not null && skip.Contains(i))
                 continue;
 
-            var id = idSelector(items[i]);
+            var id = items[i].Id;
+            if (!exists(id))
+                failures.Add(
+                    new BatchResultItem(i, id, [string.Format(notFoundMessageTemplate, id)])
+                );
+        }
+
+        return failures;
+    }
+
+    /// <inheritdoc cref="MarkMissing{T}(IReadOnlyList{T}, Func{Guid, bool}, string, HashSet{int}?)"/>
+    internal static List<BatchResultItem> MarkMissing(
+        IReadOnlyList<Guid> ids,
+        Func<Guid, bool> exists,
+        string notFoundMessageTemplate,
+        HashSet<int>? skip = null
+    )
+    {
+        var failures = new List<BatchResultItem>();
+
+        for (var i = 0; i < ids.Count; i++)
+        {
+            if (skip is not null && skip.Contains(i))
+                continue;
+
+            var id = ids[i];
             if (!exists(id))
                 failures.Add(
                     new BatchResultItem(i, id, [string.Format(notFoundMessageTemplate, id)])

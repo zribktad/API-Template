@@ -6,7 +6,7 @@ using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record SetUserActiveCommand(Guid Id, bool IsActive) : ICommand;
+public sealed record SetUserActiveCommand(Guid Id, bool IsActive) : ICommand, IHasId;
 
 public sealed class SetUserActiveCommandHandler : ICommandHandler<SetUserActiveCommand>
 {

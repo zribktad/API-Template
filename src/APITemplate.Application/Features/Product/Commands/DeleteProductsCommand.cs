@@ -42,7 +42,6 @@ public sealed class DeleteProductsCommandHandler
         var foundIds = products.Select(p => p.Id).ToHashSet();
         var failures = BatchHelper.MarkMissing(
             ids,
-            id => id,
             foundIds.Contains,
             ErrorCatalog.Products.NotFoundMessage
         );

@@ -8,7 +8,7 @@ using APITemplate.Domain.Interfaces;
 namespace APITemplate.Application.Features.ProductReview;
 
 /// <summary>Deletes the product review with the given identifier; only the review's author may delete it.</summary>
-public sealed record DeleteProductReviewCommand(Guid Id) : ICommand;
+public sealed record DeleteProductReviewCommand(Guid Id) : ICommand, IHasId;
 
 /// <summary>Handles <see cref="DeleteProductReviewCommand"/>.</summary>
 public sealed class DeleteProductReviewCommandHandler : ICommandHandler<DeleteProductReviewCommand>

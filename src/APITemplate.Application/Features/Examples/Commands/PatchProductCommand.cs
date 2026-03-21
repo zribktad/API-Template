@@ -13,7 +13,8 @@ using DomainValidationException = APITemplate.Domain.Exceptions.ValidationExcept
 namespace APITemplate.Application.Features.Examples;
 
 public sealed record PatchProductCommand(Guid Id, Action<PatchableProductDto> ApplyPatch)
-    : ICommand<ProductResponse>;
+    : ICommand<ProductResponse>,
+        IHasId;
 
 public sealed class PatchProductCommandHandler
     : ICommandHandler<PatchProductCommand, ProductResponse>

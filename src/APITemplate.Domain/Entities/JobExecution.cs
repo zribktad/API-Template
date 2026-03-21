@@ -6,7 +6,7 @@ namespace APITemplate.Domain.Entities;
 /// Domain entity that tracks the lifecycle of a background job from submission through completion or failure.
 /// Exposes domain methods to advance the job's <see cref="JobStatus"/> while keeping state transitions encapsulated.
 /// </summary>
-public sealed class JobExecution : IAuditableTenantEntity
+public sealed class JobExecution : IAuditableTenantEntity, IHasId
 {
     public Guid Id { get; set; }
     public required string JobType { get; init; }

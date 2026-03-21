@@ -6,7 +6,7 @@ namespace APITemplate.Domain.Entities;
 /// Domain entity representing an email invitation for a user to join a tenant.
 /// Holds a hashed token used for secure acceptance and tracks the invitation lifecycle via <see cref="InvitationStatus"/>.
 /// </summary>
-public sealed class TenantInvitation : IAuditableTenantEntity
+public sealed class TenantInvitation : IAuditableTenantEntity, IHasId
 {
     public Guid Id { get; set; }
     public required string Email { get; set; }

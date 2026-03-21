@@ -11,4 +11,4 @@ public sealed record ProductResponse(
     Guid? CategoryId,
     DateTime CreatedAtUtc,
     IReadOnlyCollection<Guid> ProductDataIds
-);
+) : IHasId;

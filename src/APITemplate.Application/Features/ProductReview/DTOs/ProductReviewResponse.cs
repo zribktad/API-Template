@@ -10,4 +10,4 @@ public sealed record ProductReviewResponse(
     string? Comment,
     int Rating,
     DateTime CreatedAtUtc
-);
+) : IHasId;
