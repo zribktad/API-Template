@@ -352,7 +352,7 @@ public class CategoryRequestHandlersTests
     }
 
     [Fact]
-    public async Task BatchUpdateAsync_WithValidationFailure_ReturnsFailureWithoutLoadingCategories()
+    public async Task BatchUpdateAsync_WithValidationFailure_ReturnsValidationFailureWithoutStartingTransaction()
     {
         var updateItem = new UpdateCategoryItem(Guid.NewGuid(), "", null);
         var batchRequest = new UpdateCategoriesRequest([updateItem]);
@@ -364,6 +364,11 @@ public class CategoryRequestHandlersTests
             .ReturnsAsync(
                 new ValidationResult([new ValidationFailure("Name", "Category name is required.")])
             );
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(It.IsAny<CategoriesByIdsSpecification>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([]);
 
         var sut = new UpdateCategoriesCommandHandler(
             _repositoryMock.Object,
@@ -380,11 +385,12 @@ public class CategoryRequestHandlersTests
         result.FailureCount.ShouldBe(1);
         result.Failures[0].Errors.ShouldContain("Category name is required.");
 
-        _repositoryMock.Verify(
-            r =>
-                r.ListAsync(
-                    It.IsAny<CategoriesByIdsSpecification>(),
-                    It.IsAny<CancellationToken>()
+        _unitOfWorkMock.Verify(
+            u =>
+                u.ExecuteInTransactionAsync(
+                    It.IsAny<Func<Task>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<TransactionOptions?>()
                 ),
             Times.Never
         );
