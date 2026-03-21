@@ -7,13 +7,13 @@ using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
 namespace APITemplate.Application.Features.TenantInvitation.Specifications;
 
 /// <summary>
-/// Ardalis specification that retrieves a filtered, paginated page of tenant invitations projected to <see cref="TenantInvitationResponse"/>.
+/// Ardalis specification that retrieves a filtered list of tenant invitations projected to <see cref="TenantInvitationResponse"/>.
 /// </summary>
 public sealed class TenantInvitationFilterSpecification
     : Specification<TenantInvitationEntity, TenantInvitationResponse>
 {
     /// <summary>
-    /// Initialises the specification by applying filter criteria, descending creation-date ordering, projection, and pagination.
+    /// Initialises the specification by applying filter criteria, descending creation-date ordering, and projection.
     /// </summary>
     public TenantInvitationFilterSpecification(TenantInvitationFilter filter)
     {

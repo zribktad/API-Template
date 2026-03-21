@@ -5,12 +5,12 @@ using Ardalis.Specification;
 namespace APITemplate.Application.Features.User.Specifications;
 
 /// <summary>
-/// Ardalis specification that retrieves a filtered, sorted, and paginated page of users projected to <see cref="UserResponse"/>.
+/// Ardalis specification that retrieves a filtered and sorted list of users projected to <see cref="UserResponse"/>.
 /// </summary>
 public sealed class UserFilterSpecification : Specification<AppUser, UserResponse>
 {
     /// <summary>
-    /// Initialises the specification by applying filter criteria, sort order, projection, and pagination from the given <paramref name="filter"/>.
+    /// Initialises the specification by applying filter criteria, sort order, and projection from the given <paramref name="filter"/>.
     /// </summary>
     public UserFilterSpecification(UserFilter filter)
     {

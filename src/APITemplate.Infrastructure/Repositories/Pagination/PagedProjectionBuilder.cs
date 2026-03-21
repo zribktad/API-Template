@@ -31,7 +31,11 @@ internal static class PagedProjectionBuilder
 
         // Get the PagedRow<TResult>(TResult item, int totalCount) constructor via reflection
         // so we can build a "new PagedRow<TResult>(...)" expression node.
-        var ctor = typeof(PagedRow<TResult>).GetConstructors()[0];
+        var ctor =
+            typeof(PagedRow<TResult>).GetConstructor([typeof(TResult), typeof(int)])
+            ?? throw new InvalidOperationException(
+                $"No suitable constructor found for {typeof(PagedRow<TResult>)} with parameters (TResult, int)."
+            );
 
         // Combine: new PagedRow<TResult>(selector.Body, countCall)
         //   - selector.Body is the original projection (e.g. new ProductResponse(product.Name, ...))

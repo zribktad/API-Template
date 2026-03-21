@@ -6,12 +6,12 @@ using TenantEntity = APITemplate.Domain.Entities.Tenant;
 namespace APITemplate.Application.Features.Tenant.Specifications;
 
 /// <summary>
-/// Ardalis specification that retrieves a filtered, sorted, and paginated page of tenants projected to <see cref="TenantResponse"/>.
+/// Ardalis specification that retrieves a filtered and sorted list of tenants projected to <see cref="TenantResponse"/>.
 /// </summary>
 public sealed class TenantSpecification : Specification<TenantEntity, TenantResponse>
 {
     /// <summary>
-    /// Initialises the specification by applying filter criteria, sort order, projection, and pagination from the given <paramref name="filter"/>.
+    /// Initialises the specification by applying filter criteria, sort order, and projection from the given <paramref name="filter"/>.
     /// </summary>
     public TenantSpecification(TenantFilter filter)
     {

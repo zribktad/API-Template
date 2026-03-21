@@ -25,8 +25,9 @@ public abstract class RepositoryBase<T>
         : base(dbContext) { }
 
     /// <summary>
-    /// Returns a paged result using a single SQL query. The total count is embedded as a scalar
-    /// sub-query so that items and count are retrieved in one database round-trip.
+    /// Returns a paged result where the total count is embedded as a scalar sub-query alongside
+    /// the projected items. When the requested page is empty and <paramref name="pageNumber"/> &gt; 1,
+    /// a second COUNT query is issued to determine whether the page is out of range.
     /// The <paramref name="spec"/> must contain filter, sort, and projection but <b>no</b> Skip/Take.
     /// </summary>
     public virtual async Task<PagedResponse<TResult>> GetPagedAsync<TResult>(
@@ -36,12 +37,10 @@ public abstract class RepositoryBase<T>
         CancellationToken ct = default
     )
     {
-        // Get filtered + sorted entity query (no projection, no skip/take)
-        var baseQuery =
-            Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(
-                DbContext.Set<T>().AsQueryable(),
-                (ISpecification<T>)spec
-            );
+        // Get filtered + sorted entity query via virtual ApplySpecification
+        // so derived repositories (e.g. TenantRepository) can customise the source queryable.
+        var baseQuery = ApplySpecification((ISpecification<T>)spec);
+        var countSource = ApplySpecification((ISpecification<T>)spec, evaluateCriteriaOnly: true);
 
         // Build combined projection: entity => new PagedRow(projection(entity), baseQuery.Count())
         if (spec.Selector is null)
@@ -49,7 +48,7 @@ public abstract class RepositoryBase<T>
                 $"Specification {spec.GetType().Name} must define a Select projection to use GetPagedAsync."
             );
 
-        var combinedSelector = spec.Selector.BuildPaged(baseQuery);
+        var combinedSelector = spec.Selector.BuildPaged(countSource);
 
         // Apply skip/take + combined select → single SQL query
         var skip = (pageNumber - 1) * pageSize;

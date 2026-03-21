@@ -231,9 +231,10 @@ internal sealed class InMemoryProductRepository : IProductRepository
         CancellationToken ct = default
     )
     {
-        var items = await _inner.ListAsync(spec, ct);
         var count = await _inner.CountAsync(spec, ct);
-        return new PagedResponse<TResult>(items, count, pageNumber, pageSize);
+        var items = await _inner.ListAsync(spec, ct);
+        var pagedItems = items.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        return new PagedResponse<TResult>(pagedItems, count, pageNumber, pageSize);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
