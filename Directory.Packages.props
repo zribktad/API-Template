@@ -42,7 +42,7 @@
     <PackageVersion Include="MailKit" Version="4.12.1" />
     <PackageVersion Include="Scrutor" Version="7.0.0" />
     <PackageVersion Include="MimeKit" Version="4.15.1" />
-    <PackageVersion Include="MockQueryable.Moq" Version="10.0.2" />
+    <PackageVersion Include="MockQueryable.Moq" Version="10.0.5" />
     <PackageVersion Include="MongoDB.Bson" Version="3.7.0" />
     <PackageVersion Include="MongoDB.Driver" Version="3.7.0" />
     <PackageVersion Include="Moq" Version="4.20.72" />
