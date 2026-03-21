@@ -1,5 +1,3 @@
-using APITemplate.Domain.Entities;
-using APITemplate.Domain.Interfaces;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product.Repositories;
@@ -9,14 +7,11 @@ namespace APITemplate.Application.Features.Product.Repositories;
 /// </summary>
 public interface IProductRepository : IRepository<ProductEntity>
 {
-    /// <summary>Returns a projected, filtered, sorted, and paged list of products.</summary>
-    Task<IReadOnlyList<ProductResponse>> ListAsync(
+    /// <summary>Returns a single-query paged result of products matching the given filter.</summary>
+    Task<PagedResponse<ProductResponse>> GetPagedAsync(
         ProductFilter filter,
         CancellationToken ct = default
     );
-
-    /// <summary>Returns the total number of products matching the given filter, used for pagination metadata.</summary>
-    Task<int> CountAsync(ProductFilter filter, CancellationToken ct = default);
 
     /// <summary>Returns category facet counts for the current filter, ignoring any active category-ID constraints so all categories remain selectable.</summary>
     Task<IReadOnlyList<ProductCategoryFacetValue>> GetCategoryFacetsAsync(

@@ -1,6 +1,8 @@
 using APITemplate.Domain.Exceptions;
-using APITemplate.Domain.Interfaces;
 using APITemplate.Infrastructure.Persistence;
+using APITemplate.Infrastructure.Repositories.Pagination;
+using Ardalis.Specification;
+using Microsoft.EntityFrameworkCore;
 
 namespace APITemplate.Infrastructure.Repositories;
 
@@ -22,6 +24,66 @@ public abstract class RepositoryBase<T>
     protected RepositoryBase(AppDbContext dbContext)
         : base(dbContext) { }
 
+    /// <summary>
+    /// Returns a paged result where the total count is embedded as a scalar sub-query alongside
+    /// the projected items. When the requested page is empty and <paramref name="pageNumber"/> &gt; 1,
+    /// a second COUNT query is issued to determine whether the page is out of range.
+    /// The <paramref name="spec"/> must contain filter, sort, and projection but <b>no</b> Skip/Take.
+    /// </summary>
+    public virtual async Task<PagedResponse<TResult>> GetPagedAsync<TResult>(
+        ISpecification<T, TResult> spec,
+        int pageNumber,
+        int pageSize,
+        CancellationToken ct = default
+    )
+    {
+        // Get filtered + sorted entity query via virtual ApplySpecification
+        // so derived repositories (e.g. TenantRepository) can customise the source queryable.
+        var baseQuery = ApplySpecification((ISpecification<T>)spec);
+        var countSource = ApplySpecification((ISpecification<T>)spec, evaluateCriteriaOnly: true);
+
+        // Build combined projection: entity => new PagedRow(projection(entity), baseQuery.Count())
+        if (spec.Selector is null)
+            throw new InvalidOperationException(
+                $"Specification {spec.GetType().Name} must define a Select projection to use GetPagedAsync."
+            );
+
+        var combinedSelector = spec.Selector.BuildPaged(countSource);
+
+        // Apply skip/take + combined select → single SQL query
+        var skip = (pageNumber - 1) * pageSize;
+        var results = await baseQuery
+            .Skip(skip)
+            .Take(pageSize)
+            .Select(combinedSelector)
+            .ToListAsync(ct);
+
+        // Unwrap
+        if (results.Count > 0)
+            return new PagedResponse<TResult>(
+                results.Select(r => r.Item),
+                results[0].TotalCount,
+                pageNumber,
+                pageSize
+            );
+
+        // Empty page — if pageNumber > 1, verify whether data actually exists
+        if (pageNumber > 1)
+        {
+            var totalCount = await baseQuery.CountAsync(ct);
+            if (totalCount > 0)
+            {
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+                throw new ValidationException(
+                    $"PageNumber {pageNumber} exceeds total pages ({totalPages}).",
+                    ErrorCatalog.General.PageOutOfRange
+                );
+            }
+        }
+
+        return new PagedResponse<TResult>([], 0, pageNumber, pageSize);
+    }
+
     // Override write methods — do NOT call SaveChangesAsync, that is UoW responsibility.
     // Return 0 (no rows persisted yet — UoW will commit later).
     /// <summary>Tracks <paramref name="entity"/> for insertion without flushing to the database.</summary>
@@ -41,7 +103,7 @@ public abstract class RepositoryBase<T>
     // Guid-based delete (our contract, not in IRepositoryBase)
     /// <summary>
     /// Looks up the entity by <paramref name="id"/> and marks it for deletion.
-    /// Throws <see cref="Domain.Exceptions.NotFoundException"/> when the entity does not exist.
+    /// Throws <see cref="NotFoundException"/> when the entity does not exist.
     /// </summary>
     public async Task DeleteAsync(Guid id, CancellationToken ct = default, string? errorCode = null)
     {

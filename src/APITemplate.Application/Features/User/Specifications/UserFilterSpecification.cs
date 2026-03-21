@@ -1,4 +1,3 @@
-using APITemplate.Application.Features.User.DTOs;
 using APITemplate.Application.Features.User.Mappings;
 using APITemplate.Domain.Entities;
 using Ardalis.Specification;
@@ -6,12 +5,12 @@ using Ardalis.Specification;
 namespace APITemplate.Application.Features.User.Specifications;
 
 /// <summary>
-/// Ardalis specification that retrieves a filtered, sorted, and paginated page of users projected to <see cref="UserResponse"/>.
+/// Ardalis specification that retrieves a filtered and sorted list of users projected to <see cref="UserResponse"/>.
 /// </summary>
 public sealed class UserFilterSpecification : Specification<AppUser, UserResponse>
 {
     /// <summary>
-    /// Initialises the specification by applying filter criteria, sort order, projection, and pagination from the given <paramref name="filter"/>.
+    /// Initialises the specification by applying filter criteria, sort order, and projection from the given <paramref name="filter"/>.
     /// </summary>
     public UserFilterSpecification(UserFilter filter)
     {
@@ -21,7 +20,5 @@ public sealed class UserFilterSpecification : Specification<AppUser, UserRespons
         UserSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
 
         Query.Select(UserMappings.Projection);
-
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
     }
 }

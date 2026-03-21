@@ -16,19 +16,4 @@ public static class RepositoryExtensions
         return await repository.GetByIdAsync(id, ct)
             ?? throw new NotFoundException(typeof(T).Name, id, errorCode);
     }
-
-    public static async Task<PagedResponse<TResult>> GetPagedAsync<T, TResult>(
-        this IReadRepositoryBase<T> repository,
-        ISpecification<T, TResult> listSpec,
-        ISpecification<T> countSpec,
-        int pageNumber,
-        int pageSize,
-        CancellationToken ct = default
-    )
-        where T : class
-    {
-        var items = await repository.ListAsync(listSpec, ct);
-        var count = await repository.CountAsync(countSpec, ct);
-        return new PagedResponse<TResult>(items, count, pageNumber, pageSize);
-    }
 }

@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Features.Product.Repositories;
 
 namespace APITemplate.Application.Features.Product;
 
@@ -15,18 +14,12 @@ public sealed class GetProductsQueryHandler : IQueryHandler<GetProductsQuery, Pr
 
     public async Task<ProductsResponse> HandleAsync(GetProductsQuery request, CancellationToken ct)
     {
-        var items = await _repository.ListAsync(request.Filter, ct);
-        var totalCount = await _repository.CountAsync(request.Filter, ct);
+        var page = await _repository.GetPagedAsync(request.Filter, ct);
         var categoryFacets = await _repository.GetCategoryFacetsAsync(request.Filter, ct);
         var priceFacets = await _repository.GetPriceFacetsAsync(request.Filter, ct);
 
         return new ProductsResponse(
-            new PagedResponse<ProductResponse>(
-                items,
-                totalCount,
-                request.Filter.PageNumber,
-                request.Filter.PageSize
-            ),
+            page,
             new ProductSearchFacetsResponse(categoryFacets, priceFacets)
         );
     }

@@ -1,4 +1,3 @@
-using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.Product.Specifications;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
@@ -30,27 +29,26 @@ internal sealed class InMemoryProductRepository : IProductRepository
         _inner = new InnerRepository(dbContext);
     }
 
-    public async Task<IReadOnlyList<ProductResponse>> ListAsync(
+    public async Task<PagedResponse<ProductResponse>> GetPagedAsync(
         ProductFilter filter,
         CancellationToken ct = default
     )
     {
         var specification = new ProductSpecification(filter);
-        var query = SpecificationEvaluator.Default.GetQuery(
-            _dbContext.Products.AsQueryable(),
-            specification
-        );
-        return await query.ToListAsync(ct);
-    }
+        var items = await SpecificationEvaluator
+            .Default.GetQuery(_dbContext.Products.AsQueryable(), specification)
+            .Skip((filter.PageNumber - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync(ct);
 
-    public Task<int> CountAsync(ProductFilter filter, CancellationToken ct = default)
-    {
-        var specification = new ProductCountSpecification(filter);
-        var query = SpecificationEvaluator.Default.GetQuery(
-            _dbContext.Products.AsQueryable(),
-            specification
-        );
-        return query.CountAsync(ct);
+        var count = await SpecificationEvaluator
+            .Default.GetQuery(
+                _dbContext.Products.AsQueryable(),
+                (ISpecification<ProductEntity>)specification
+            )
+            .CountAsync(ct);
+
+        return new PagedResponse<ProductResponse>(items, count, filter.PageNumber, filter.PageSize);
     }
 
     public async Task<IReadOnlyList<ProductCategoryFacetValue>> GetCategoryFacetsAsync(
@@ -225,6 +223,19 @@ internal sealed class InMemoryProductRepository : IProductRepository
         ISpecification<ProductEntity> specification,
         CancellationToken cancellationToken = default
     ) => _inner.DeleteRangeAsync(specification, cancellationToken);
+
+    public async Task<PagedResponse<TResult>> GetPagedAsync<TResult>(
+        ISpecification<ProductEntity, TResult> spec,
+        int pageNumber,
+        int pageSize,
+        CancellationToken ct = default
+    )
+    {
+        var count = await _inner.CountAsync(spec, ct);
+        var items = await _inner.ListAsync(spec, ct);
+        var pagedItems = items.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        return new PagedResponse<TResult>(pagedItems, count, pageNumber, pageSize);
+    }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _inner.SaveChangesAsync(cancellationToken);

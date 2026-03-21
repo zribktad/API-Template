@@ -188,4 +188,99 @@ public class TenantsControllerTests : IClassFixture<CustomWebApplicationFactory>
         tenants!.Items.ShouldContain(t => t.Id == a.Id);
         tenants.Items.ShouldContain(t => t.Id == b.Id);
     }
+
+    [Fact]
+    public async Task GetAll_DifferentPages_ReturnDisjointItems()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var a = await CreateTenantAsync(Code("DP1"), "Disjoint A", ct);
+        var b = await CreateTenantAsync(Code("DP2"), "Disjoint B", ct);
+        var c = await CreateTenantAsync(Code("DP3"), "Disjoint C", ct);
+
+        var page1Response = await _client.GetAsync(
+            "/api/v1/tenants?pageNumber=1&pageSize=2&sortBy=code&sortDirection=asc",
+            ct
+        );
+        var page1 = await page1Response.Content.ReadFromJsonAsync<PagedResponse<TenantResponse>>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+
+        var page2Response = await _client.GetAsync(
+            "/api/v1/tenants?pageNumber=2&pageSize=2&sortBy=code&sortDirection=asc",
+            ct
+        );
+        var page2 = await page2Response.Content.ReadFromJsonAsync<PagedResponse<TenantResponse>>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+
+        page1.ShouldNotBeNull();
+        page2.ShouldNotBeNull();
+
+        page1!.PageNumber.ShouldBe(1);
+        page2!.PageNumber.ShouldBe(2);
+        page1.TotalCount.ShouldBe(page2.TotalCount);
+
+        // Pages must not share any items
+        var page1Ids = page1.Items.Select(t => t.Id).ToHashSet();
+        var page2Ids = page2.Items.Select(t => t.Id).ToHashSet();
+        page1Ids.Overlaps(page2Ids).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetAll_PageSizeCoversAll_ReturnsSinglePage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await CreateTenantAsync(Code("SP1"), "Single Page A", ct);
+        await CreateTenantAsync(Code("SP2"), "Single Page B", ct);
+
+        var response = await _client.GetAsync("/api/v1/tenants?pageNumber=1&pageSize=100", ct);
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponse<TenantResponse>>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        payload!.Items.Count().ShouldBe(payload.TotalCount);
+        payload.HasNextPage.ShouldBeFalse();
+        payload.TotalPages.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetAll_CallerFromDifferentTenant_SeesAllTenants()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        // Create a tenant while authenticated as _tenantId
+        var created = await CreateTenantAsync(Code("CT"), "Cross Tenant Corp", ct);
+
+        // Switch to a completely different tenant context
+        var otherTenantId = Guid.NewGuid();
+        IntegrationAuthHelper.Authenticate(_client, tenantId: otherTenantId);
+
+        var response = await _client.GetAsync("/api/v1/tenants?pageSize=100", ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var tenants = await response.Content.ReadFromJsonAsync<PagedResponse<TenantResponse>>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        tenants.ShouldNotBeNull();
+        tenants!.Items.ShouldContain(t => t.Id == created.Id);
+
+        // Restore original auth for other tests
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+    }
+
+    [Fact]
+    public async Task GetAll_PageOutOfRange_ReturnsBadRequest()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await CreateTenantAsync(Code("OOR"), "Out Of Range Corp", ct);
+
+        var response = await _client.GetAsync("/api/v1/tenants?pageNumber=9999&pageSize=1", ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
 }

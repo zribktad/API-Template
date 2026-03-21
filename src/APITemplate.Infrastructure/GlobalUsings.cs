@@ -10,6 +10,7 @@ global using APITemplate.Application.Features.Category.DTOs;
 global using APITemplate.Application.Features.Product.DTOs;
 global using APITemplate.Application.Features.Product.Repositories;
 global using APITemplate.Application.Features.Product.Specifications;
+global using APITemplate.Domain.Common;
 global using APITemplate.Domain.Entities.Contracts;
 global using APITemplate.Domain.Entities.ProductData;
 global using APITemplate.Domain.Interfaces;

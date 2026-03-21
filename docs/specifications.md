@@ -23,7 +23,7 @@ The `RepositoryBase<T>` in this project inherits from `Ardalis.Specification.Ent
 
 ### Projection Specification
 
-A `Specification<TEntity, TResult>` selects a projection DTO directly in SQL:
+A `Specification<TEntity, TResult>` selects a projection DTO directly in SQL. Do **not** include `Skip`/`Take` — pagination is handled by `RepositoryBase.GetPagedAsync`:
 
 ```csharp
 // Application/Specifications/ProductSpecification.cs
@@ -36,26 +36,12 @@ public sealed class ProductSpecification : Specification<Product, ProductRespons
         Query.OrderByDescending(p => p.CreatedAt)
              .Select(p => new ProductResponse(p.Id, p.Name, p.Description, p.Price, p.CreatedAt));
 
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize)
-             .Take(filter.PageSize);
+        // No Skip/Take here — pagination is handled by repository.GetPagedAsync()
     }
 }
 ```
 
-### Count Specification
-
-A separate specification for the `COUNT` query — avoids unnecessary joins:
-
-```csharp
-// Application/Specifications/ProductCountSpecification.cs
-public sealed class ProductCountSpecification : Specification<Product>
-{
-    public ProductCountSpecification(ProductFilter filter)
-    {
-        Query.ApplyFilter(filter);
-    }
-}
-```
+> **Important:** `GetPagedAsync(spec, pageNumber, pageSize, ct)` applies pagination and retrieves the total count in a single SQL query, eliminating the need for a separate count specification.
 
 ### Shared Filter Criteria
 
@@ -126,7 +112,7 @@ internal static class OrderFilterCriteria
 
 ## Step 3 – Create the List Specification
 
-Combines filtering, ordering, projection, and pagination in one place.
+Combines filtering, ordering, and projection in one place. Do **not** add `Skip`/`Take` — pagination is handled by `RepositoryBase.GetPagedAsync`.
 
 **`src/APITemplate/Application/Specifications/OrderSpecification.cs`**
 
@@ -146,39 +132,14 @@ public sealed class OrderSpecification : Specification<Order, OrderResponse>
         Query.OrderByDescending(o => o.CreatedAt)
              .Select(o => new OrderResponse(o.Id, o.CustomerId, o.TotalAmount, o.CreatedAt));
 
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize)
-             .Take(filter.PageSize);
+        // No Skip/Take here — pagination is handled by repository.GetPagedAsync()
     }
 }
 ```
 
 ---
 
-## Step 4 – Create the Count Specification
-
-The count query reuses the same filter criteria but does not project or paginate:
-
-**`src/APITemplate/Application/Specifications/OrderCountSpecification.cs`**
-
-```csharp
-using Ardalis.Specification;
-using APITemplate.Application.DTOs;
-using APITemplate.Domain.Entities;
-
-namespace APITemplate.Application.Specifications;
-
-public sealed class OrderCountSpecification : Specification<Order>
-{
-    public OrderCountSpecification(OrderFilter filter)
-    {
-        Query.ApplyFilter(filter);
-    }
-}
-```
-
----
-
-## Step 5 – Create a Single-Item Specification (with Includes)
+## Step 4 – Create a Single-Item Specification (with Includes)
 
 When you need to load related entities, use `.Include()` instead of returning a projection:
 
@@ -205,16 +166,14 @@ public sealed class OrderByIdSpecification : Specification<Order>
 
 ---
 
-## Step 6 – Use the Specifications in the Service
+## Step 5 – Use the Specifications in the Service
 
 ```csharp
 public async Task<PagedResponse<OrderResponse>> GetAllAsync(
     OrderFilter filter, CancellationToken ct = default)
 {
-    var items = await _repository.ListAsync(new OrderSpecification(filter), ct);
-    var total = await _repository.CountAsync(new OrderCountSpecification(filter), ct);
-
-    return new PagedResponse<OrderResponse>(items, total, filter.PageNumber, filter.PageSize);
+    return await _repository.GetPagedAsync(
+        new OrderSpecification(filter), filter.PageNumber, filter.PageSize, ct);
 }
 
 public async Task<OrderResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
@@ -233,6 +192,7 @@ These are provided by `RepositoryBase<T>` (via Ardalis):
 
 | Method | Description |
 |--------|-------------|
+| `GetPagedAsync(spec, pageNumber, pageSize, ct)` | Returns paginated results with total count in a single SQL query |
 | `ListAsync(spec)` | Returns all matching entities (or projected DTOs) |
 | `CountAsync(spec)` | Returns the count of matching entities |
 | `FirstOrDefaultAsync(spec)` | Returns first match or `null` |
@@ -281,10 +241,9 @@ public sealed class ReviewByProductIdSpecification : Specification<ProductReview
 ## Checklist
 
 - [ ] Create `<Entity>FilterCriteria.cs` with `ApplyFilter()` extension method
-- [ ] Create `<Entity>Specification.cs` (projection + pagination)
-- [ ] Create `<Entity>CountSpecification.cs` (filter only)
+- [ ] Create `<Entity>Specification.cs` (filter + sort + projection — no Skip/Take)
 - [ ] Create single-item specifications as needed (with `.Include()`)
-- [ ] Use `repository.ListAsync(spec)` and `repository.CountAsync(spec)` in the service
+- [ ] Use `repository.GetPagedAsync(spec, pageNumber, pageSize, ct)` in the service
 - [ ] No registration needed — specifications are plain classes
 
 ---
@@ -293,10 +252,9 @@ public sealed class ReviewByProductIdSpecification : Specification<ProductReview
 
 | File | Purpose |
 |------|---------|
-| `Application/Features/Product/Specifications/ProductSpecification.cs` | Projection + pagination example |
-| `Application/Features/Product/Specifications/ProductCountSpecification.cs` | Count-only example |
+| `Application/Features/Product/Specifications/ProductSpecification.cs` | Filter + sort + projection example (no Skip/Take) |
 | `Application/Features/Product/Specifications/ProductFilterCriteria.cs` | Shared `Where` criteria extension |
 | `Application/Features/ProductReview/Specifications/ProductReviewByProductIdSpecification.cs` | Single-relation filter |
-| `Infrastructure/Repositories/RepositoryBase.cs` | Base repository that executes specifications |
-| `Application/Features/Product/Services/ProductService.cs` | Usage of `ListAsync(spec)` + `CountAsync(spec)` |
+| `Infrastructure/Repositories/RepositoryBase.cs` | Base repository — provides `GetPagedAsync` for single-query pagination |
+| `Application/Features/Product/Services/ProductService.cs` | Usage of `GetPagedAsync(spec, pageNumber, pageSize, ct)` |
 

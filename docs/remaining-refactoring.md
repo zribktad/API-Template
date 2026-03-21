@@ -40,12 +40,6 @@ Status overview of DRY, KISS, and structural improvements identified by automate
 
 ## DRY #2 — Repeated Patterns
 
-### #2: Separate CountSpecification Classes
-- **Problem:** 5 CountSpecification files that are nearly identical — just `Query.ApplyFilter(filter); Query.AsNoTracking();`
-- **Files:** `CategoryCountSpecification.cs`, `ProductCountSpecification.cs`, `ProductReviewCountSpecification.cs`, `TenantCountSpecification.cs`, `UserCountSpecification.cs`
-- **Suggested fix:** Generic `CountSpecification<TEntity, TFilter>` base class with `ApplyFilter` + `AsNoTracking`
-- **Impact:** Low — each `ApplyFilter` is a different extension method per entity, so a generic base would require delegates; not worth the complexity (KISS concern)
-
 ### #3: Mapping Boilerplate (Projection + CompiledProjection + ToResponse)
 - **Problem:** 5 mapping files repeat the same 3-line scaffolding pattern
 - **Files:** `CategoryMappings.cs`, `ProductMappings.cs`, `ProductReviewMappings.cs`, `UserMappings.cs`, `TenantMappings.cs`

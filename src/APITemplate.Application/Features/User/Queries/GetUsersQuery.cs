@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.User.Specifications;
 using APITemplate.Domain.Interfaces;
 
@@ -20,7 +19,6 @@ public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedRes
     {
         return await _repository.GetPagedAsync(
             new UserFilterSpecification(request.Filter),
-            new UserCountSpecification(request.Filter),
             request.Filter.PageNumber,
             request.Filter.PageSize,
             ct

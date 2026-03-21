@@ -1,8 +1,5 @@
-using APITemplate.Application.Features.Product.Repositories;
-using APITemplate.Application.Features.Product.Specifications;
 using APITemplate.Domain.Entities;
 using APITemplate.Infrastructure.Persistence;
-using Ardalis.Specification.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace APITemplate.Infrastructure.Repositories;
@@ -25,31 +22,18 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
     public ProductRepository(AppDbContext dbContext)
         : base(dbContext) { }
 
-    /// <summary>Returns a filtered and projected list of products using the <see cref="ProductSpecification"/>.</summary>
-    public async Task<IReadOnlyList<ProductResponse>> ListAsync(
+    /// <summary>Returns a single-query paged result of products matching the given filter.</summary>
+    public async Task<PagedResponse<ProductResponse>> GetPagedAsync(
         ProductFilter filter,
         CancellationToken ct = default
     )
     {
-        var specification = new ProductSpecification(filter);
-        var query =
-            Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(
-                AppDb.Products.AsQueryable(),
-                specification
-            );
-        return (IReadOnlyList<ProductResponse>)await query.ToListAsync(ct);
-    }
-
-    /// <summary>Returns the total count of products matching the given filter.</summary>
-    public async Task<int> CountAsync(ProductFilter filter, CancellationToken ct = default)
-    {
-        var specification = new ProductCountSpecification(filter);
-        var query =
-            Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator.Default.GetQuery(
-                AppDb.Products.AsQueryable(),
-                specification
-            );
-        return await query.CountAsync(ct);
+        return await GetPagedAsync(
+            new ProductSpecification(filter),
+            filter.PageNumber,
+            filter.PageSize,
+            ct
+        );
     }
 
     /// <summary>Returns category facet counts for products matching the filter, ordered by descending count then category name.</summary>
@@ -65,29 +49,26 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
                 specification
             );
 
-        return (IReadOnlyList<ProductCategoryFacetValue>)
-            await query
-                .GroupBy(product => new
-                {
-                    product.CategoryId,
-                    CategoryName = product.Category != null
-                        ? product.Category.Name
-                        : "Uncategorized",
-                })
-                .Select(group => new
-                {
-                    group.Key.CategoryId,
-                    group.Key.CategoryName,
-                    Count = group.Count(),
-                })
-                .OrderByDescending(group => group.Count)
-                .ThenBy(group => group.CategoryName)
-                .Select(group => new ProductCategoryFacetValue(
-                    group.CategoryId,
-                    group.CategoryName,
-                    group.Count
-                ))
-                .ToArrayAsync(ct);
+        return await query
+            .GroupBy(product => new
+            {
+                product.CategoryId,
+                CategoryName = product.Category != null ? product.Category.Name : "Uncategorized",
+            })
+            .Select(group => new
+            {
+                group.Key.CategoryId,
+                group.Key.CategoryName,
+                Count = group.Count(),
+            })
+            .OrderByDescending(group => group.Count)
+            .ThenBy(group => group.CategoryName)
+            .Select(group => new ProductCategoryFacetValue(
+                group.CategoryId,
+                group.CategoryName,
+                group.Count
+            ))
+            .ToArrayAsync(ct);
     }
 
     /// <summary>Returns fixed price bucket facet counts computed in a single server-side aggregate query.</summary>
@@ -114,23 +95,22 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
             ))
             .SingleOrDefaultAsync(ct);
 
-        return (IReadOnlyList<ProductPriceFacetBucketResponse>)
-            DefaultPriceBuckets
-                .Select(bucket =>
-                    bucket with
+        return DefaultPriceBuckets
+            .Select(bucket =>
+                bucket with
+                {
+                    Count = bucket.Label switch
                     {
-                        Count = bucket.Label switch
-                        {
-                            "0 - 50" => counts?.ZeroToFifty ?? 0,
-                            "50 - 100" => counts?.FiftyToOneHundred ?? 0,
-                            "100 - 250" => counts?.OneHundredToTwoHundredFifty ?? 0,
-                            "250 - 500" => counts?.TwoHundredFiftyToFiveHundred ?? 0,
-                            "500+" => counts?.FiveHundredAndAbove ?? 0,
-                            _ => 0,
-                        },
-                    }
-                )
-                .ToArray();
+                        "0 - 50" => counts?.ZeroToFifty ?? 0,
+                        "50 - 100" => counts?.FiftyToOneHundred ?? 0,
+                        "100 - 250" => counts?.OneHundredToTwoHundredFifty ?? 0,
+                        "250 - 500" => counts?.TwoHundredFiftyToFiveHundred ?? 0,
+                        "500+" => counts?.FiveHundredAndAbove ?? 0,
+                        _ => 0,
+                    },
+                }
+            )
+            .ToArray();
     }
 
     private sealed record PriceFacetCounts(

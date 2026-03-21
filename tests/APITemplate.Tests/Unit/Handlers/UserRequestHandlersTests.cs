@@ -103,16 +103,17 @@ public class UserRequestHandlersTests
             ),
         };
 
+        var paged = new PagedResponse<UserResponse>(items, 2, 1, 10);
         _repositoryMock
             .Setup(r =>
-                r.ListAsync(It.IsAny<UserFilterSpecification>(), It.IsAny<CancellationToken>())
+                r.GetPagedAsync(
+                    It.IsAny<UserFilterSpecification>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
-            .ReturnsAsync(items);
-        _repositoryMock
-            .Setup(r =>
-                r.CountAsync(It.IsAny<UserCountSpecification>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(2);
+            .ReturnsAsync(paged);
 
         var sut = new GetUsersQueryHandler(_repositoryMock.Object);
         var result = await sut.HandleAsync(new GetUsersQuery(filter), ct);

@@ -37,16 +37,17 @@ public class CategoryRequestHandlersTests
             new(Guid.NewGuid(), "Books", "All books", DateTime.UtcNow),
         };
 
+        var paged = new PagedResponse<CategoryResponse>(items, 2, 1, 10);
         _repositoryMock
             .Setup(r =>
-                r.ListAsync(It.IsAny<CategorySpecification>(), It.IsAny<CancellationToken>())
+                r.GetPagedAsync(
+                    It.IsAny<CategorySpecification>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
-            .ReturnsAsync(items);
-        _repositoryMock
-            .Setup(r =>
-                r.CountAsync(It.IsAny<CategoryCountSpecification>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(2);
+            .ReturnsAsync(paged);
 
         var sut = new GetCategoriesQueryHandler(_repositoryMock.Object);
         var result = await sut.HandleAsync(new GetCategoriesQuery(new CategoryFilter()), ct);
@@ -61,16 +62,17 @@ public class CategoryRequestHandlersTests
     public async Task GetAllAsync_WhenEmpty_ReturnsEmptyList()
     {
         var ct = TestContext.Current.CancellationToken;
+        var paged = new PagedResponse<CategoryResponse>(new List<CategoryResponse>(), 0, 1, 10);
         _repositoryMock
             .Setup(r =>
-                r.ListAsync(It.IsAny<CategorySpecification>(), It.IsAny<CancellationToken>())
+                r.GetPagedAsync(
+                    It.IsAny<CategorySpecification>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
-            .ReturnsAsync(new List<CategoryResponse>());
-        _repositoryMock
-            .Setup(r =>
-                r.CountAsync(It.IsAny<CategoryCountSpecification>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(0);
+            .ReturnsAsync(paged);
 
         var sut = new GetCategoriesQueryHandler(_repositoryMock.Object);
         var result = await sut.HandleAsync(new GetCategoriesQuery(new CategoryFilter()), ct);

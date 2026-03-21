@@ -7,13 +7,13 @@ using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
 namespace APITemplate.Application.Features.TenantInvitation.Specifications;
 
 /// <summary>
-/// Ardalis specification that retrieves a filtered, paginated page of tenant invitations projected to <see cref="TenantInvitationResponse"/>.
+/// Ardalis specification that retrieves a filtered list of tenant invitations projected to <see cref="TenantInvitationResponse"/>.
 /// </summary>
 public sealed class TenantInvitationFilterSpecification
     : Specification<TenantInvitationEntity, TenantInvitationResponse>
 {
     /// <summary>
-    /// Initialises the specification by applying filter criteria, descending creation-date ordering, projection, and pagination.
+    /// Initialises the specification by applying filter criteria, descending creation-date ordering, and projection.
     /// </summary>
     public TenantInvitationFilterSpecification(TenantInvitationFilter filter)
     {
@@ -21,22 +21,6 @@ public sealed class TenantInvitationFilterSpecification
         Query.AsNoTracking();
         Query.OrderByDescending(i => i.Audit.CreatedAtUtc);
         Query.Select(TenantInvitationMappings.Projection);
-        Query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
-    }
-}
-
-/// <summary>
-/// Ardalis specification used exclusively for counting tenant invitations that satisfy a given filter.
-/// </summary>
-public sealed class TenantInvitationCountSpecification : Specification<TenantInvitationEntity>
-{
-    /// <summary>
-    /// Initialises the specification with the shared filter criteria applied for counting.
-    /// </summary>
-    public TenantInvitationCountSpecification(TenantInvitationFilter filter)
-    {
-        Query.ApplyFilter(filter);
-        Query.AsNoTracking();
     }
 }
 
