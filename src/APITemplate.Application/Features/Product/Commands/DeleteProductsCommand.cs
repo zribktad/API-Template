@@ -40,14 +40,14 @@ public sealed class DeleteProductsCommandHandler
         );
 
         var foundIds = products.Select(p => p.Id).ToHashSet();
-        var failures = BatchHelper.MarkMissing(
+        var failures = BatchFailureCollectorHelper.MarkMissing(
             ids,
-            foundIds.Contains,
+            foundIds,
             ErrorCatalog.Products.NotFoundMessage
         );
 
         if (failures.Count > 0)
-            return BatchHelper.ToAtomicFailureResponse(failures);
+            return new BatchResponse(failures, 0, failures.Count);
 
         // Step 2: Soft-delete product-data links and remove products in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

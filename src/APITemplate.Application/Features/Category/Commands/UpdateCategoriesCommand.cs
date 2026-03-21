@@ -37,10 +37,10 @@ public sealed class UpdateCategoriesCommandHandler
     )
     {
         var items = command.Request.Items;
+        var collector = new BatchFailureCollector<UpdateCategoryItem>(items);
 
         // Step 1: Validate each item (field-level rules — name, description, etc.)
-        var failures = await BatchHelper.ValidateAsync(_itemValidator, items, i => items[i].Id, ct);
-        var failedIndices = failures.Select(f => f.Index).ToHashSet();
+        await collector.ValidateAsync(_itemValidator, ct);
 
         // Step 2: Load all target categories and mark missing ones as failed
         var categoryMap = (
@@ -50,17 +50,13 @@ public sealed class UpdateCategoriesCommandHandler
             )
         ).ToDictionary(c => c.Id);
 
-        failures.AddRange(
-            BatchHelper.MarkMissing(
-                items,
-                categoryMap.ContainsKey,
-                ErrorCatalog.Categories.NotFoundMessage,
-                failedIndices
-            )
+        collector.MarkMissing(
+            categoryMap.Keys.ToHashSet(),
+            ErrorCatalog.Categories.NotFoundMessage
         );
 
-        if (failures.Count > 0)
-            return BatchHelper.ToAtomicFailureResponse(failures);
+        if (collector.HasFailures)
+            return collector.ToFailureResponse();
 
         // Step 3: Apply changes in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

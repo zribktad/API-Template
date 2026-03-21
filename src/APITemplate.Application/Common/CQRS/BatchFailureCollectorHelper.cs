@@ -3,18 +3,11 @@ using FluentValidation;
 namespace APITemplate.Application.Common.CQRS;
 
 /// <summary>
-/// Reusable building blocks for batch command handlers — validation and existence checking.
+/// Static batch helpers for command handlers that don't use the
+/// <see cref="BatchFailureCollector{T}"/> (e.g. create and delete handlers).
 /// </summary>
-internal static class BatchHelper
+internal static class BatchFailureCollectorHelper
 {
-    /// <summary>
-    /// Builds the standard all-or-nothing failure response for a batch command.
-    /// </summary>
-    internal static BatchResponse ToAtomicFailureResponse(IReadOnlyList<BatchResultItem> failures)
-    {
-        return new BatchResponse(failures, 0, failures.Count);
-    }
-
     /// <summary>
     /// Validates each item and returns a list of failures.
     /// </summary>
@@ -123,38 +116,12 @@ internal static class BatchHelper
     }
 
     /// <summary>
-    /// Returns failures for items whose ID is not recognised by the <paramref name="exists"/> predicate.
+    /// Returns failures for IDs not present in <paramref name="foundIds"/>.
     /// Items at indices in <paramref name="skip"/> are ignored.
     /// </summary>
-    internal static List<BatchResultItem> MarkMissing<T>(
-        IReadOnlyList<T> items,
-        Func<Guid, bool> exists,
-        string notFoundMessageTemplate,
-        HashSet<int>? skip = null
-    )
-        where T : IHasId
-    {
-        var failures = new List<BatchResultItem>();
-
-        for (var i = 0; i < items.Count; i++)
-        {
-            if (skip is not null && skip.Contains(i))
-                continue;
-
-            var id = items[i].Id;
-            if (!exists(id))
-                failures.Add(
-                    new BatchResultItem(i, id, [string.Format(notFoundMessageTemplate, id)])
-                );
-        }
-
-        return failures;
-    }
-
-    /// <inheritdoc cref="MarkMissing{T}(IReadOnlyList{T}, Func{Guid, bool}, string, HashSet{int}?)"/>
     internal static List<BatchResultItem> MarkMissing(
         IReadOnlyList<Guid> ids,
-        Func<Guid, bool> exists,
+        IReadOnlySet<Guid> foundIds,
         string notFoundMessageTemplate,
         HashSet<int>? skip = null
     )
@@ -167,7 +134,7 @@ internal static class BatchHelper
                 continue;
 
             var id = ids[i];
-            if (!exists(id))
+            if (!foundIds.Contains(id))
                 failures.Add(
                     new BatchResultItem(i, id, [string.Format(notFoundMessageTemplate, id)])
                 );

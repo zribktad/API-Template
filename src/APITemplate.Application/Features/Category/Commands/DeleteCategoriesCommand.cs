@@ -40,14 +40,14 @@ public sealed class DeleteCategoriesCommandHandler
         );
 
         var foundIds = categories.Select(c => c.Id).ToHashSet();
-        var failures = BatchHelper.MarkMissing(
+        var failures = BatchFailureCollectorHelper.MarkMissing(
             ids,
-            foundIds.Contains,
+            foundIds,
             ErrorCatalog.Categories.NotFoundMessage
         );
 
         if (failures.Count > 0)
-            return BatchHelper.ToAtomicFailureResponse(failures);
+            return new BatchResponse(failures, 0, failures.Count);
 
         // Step 2: Remove categories in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

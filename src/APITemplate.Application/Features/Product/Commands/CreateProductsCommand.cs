@@ -46,11 +46,16 @@ public sealed class CreateProductsCommandHandler
         var items = command.Request.Items;
 
         // Step 1: Validate each item (field-level rules — name, price, etc.)
-        var failures = await BatchHelper.ValidateAsync(_itemValidator, items, _ => null, ct);
+        var failures = await BatchFailureCollectorHelper.ValidateAsync(
+            _itemValidator,
+            items,
+            _ => null,
+            ct
+        );
         var failedIndices = failures.Select(f => f.Index).ToHashSet();
 
         // Step 2: Reject duplicate client-supplied IDs inside the request
-        var duplicateIdFailures = BatchHelper.MarkDuplicateOptionalIds(
+        var duplicateIdFailures = BatchFailureCollectorHelper.MarkDuplicateOptionalIds(
             items,
             item => item.Id,
             ErrorCatalog.Products.DuplicateIdMessage,
@@ -77,7 +82,7 @@ public sealed class CreateProductsCommandHandler
                 .Select(product => product.Id)
                 .ToHashSet();
 
-            var existingIdFailures = BatchHelper.MarkExistingOptionalIds(
+            var existingIdFailures = BatchFailureCollectorHelper.MarkExistingOptionalIds(
                 items,
                 item => item.Id,
                 existingIds,
@@ -113,7 +118,7 @@ public sealed class CreateProductsCommandHandler
         );
 
         if (failures.Count > 0)
-            return BatchHelper.ToAtomicFailureResponse(failures);
+            return new BatchResponse(failures, 0, failures.Count);
 
         // Step 6: Build entities and persist in a single transaction
         var entities = items

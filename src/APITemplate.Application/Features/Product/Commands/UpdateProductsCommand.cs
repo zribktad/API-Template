@@ -45,10 +45,10 @@ public sealed class UpdateProductsCommandHandler
     )
     {
         var items = command.Request.Items;
+        var collector = new BatchFailureCollector<UpdateProductItem>(items);
 
         // Step 1: Validate each item (field-level rules — name, price, etc.)
-        var failures = await BatchHelper.ValidateAsync(_itemValidator, items, i => items[i].Id, ct);
-        var failedIndices = failures.Select(f => f.Index).ToHashSet();
+        await collector.ValidateAsync(_itemValidator, ct);
 
         // Step 2: Load all target products and mark missing ones as failed
         var productMap = (
@@ -58,41 +58,34 @@ public sealed class UpdateProductsCommandHandler
             )
         ).ToDictionary(p => p.Id);
 
-        var missingFailures = BatchHelper.MarkMissing(
-            items,
-            productMap.ContainsKey,
-            ErrorCatalog.Products.NotFoundMessage,
-            failedIndices
-        );
-        failures.AddRange(missingFailures);
-        failedIndices.UnionWith(missingFailures.Select(f => f.Index));
+        collector.MarkMissing(productMap.Keys.ToHashSet(), ErrorCatalog.Products.NotFoundMessage);
 
         // Step 3: Verify all referenced categories exist
-        failures.AddRange(
+        collector.AddFailures(
             await ProductValidationHelper.CheckCategoryReferencesAsync(
                 items,
                 item => item.CategoryId,
                 i => items[i].Id,
                 _categoryRepository,
-                failedIndices,
+                collector.FailedIndices,
                 ct
             )
         );
 
         // Step 4: Verify all referenced product data entries exist
-        failures.AddRange(
+        collector.AddFailures(
             await ProductValidationHelper.CheckProductDataReferencesAsync(
                 items,
                 item => item.ProductDataIds,
                 i => items[i].Id,
                 _productDataRepository,
-                failedIndices,
+                collector.FailedIndices,
                 ct
             )
         );
 
-        if (failures.Count > 0)
-            return BatchHelper.ToAtomicFailureResponse(failures);
+        if (collector.HasFailures)
+            return collector.ToFailureResponse();
 
         // Step 5: Apply changes and sync product-data links in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

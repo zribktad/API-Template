@@ -38,10 +38,15 @@ public sealed class CreateCategoriesCommandHandler
     )
     {
         var items = command.Request.Items;
-        var failures = await BatchHelper.ValidateAsync(_itemValidator, items, _ => null, ct);
+        var failures = await BatchFailureCollectorHelper.ValidateAsync(
+            _itemValidator,
+            items,
+            _ => null,
+            ct
+        );
         var failedIndices = failures.Select(f => f.Index).ToHashSet();
 
-        var duplicateIdFailures = BatchHelper.MarkDuplicateOptionalIds(
+        var duplicateIdFailures = BatchFailureCollectorHelper.MarkDuplicateOptionalIds(
             items,
             item => item.Id,
             ErrorCatalog.Categories.DuplicateIdMessage,
@@ -67,7 +72,7 @@ public sealed class CreateCategoriesCommandHandler
                 .Select(category => category.Id)
                 .ToHashSet();
 
-            var existingIdFailures = BatchHelper.MarkExistingOptionalIds(
+            var existingIdFailures = BatchFailureCollectorHelper.MarkExistingOptionalIds(
                 items,
                 item => item.Id,
                 existingIds,
@@ -79,7 +84,7 @@ public sealed class CreateCategoriesCommandHandler
         }
 
         if (failures.Count > 0)
-            return BatchHelper.ToAtomicFailureResponse(failures);
+            return new BatchResponse(failures, 0, failures.Count);
 
         var entities = items
             .Select(item => new CategoryEntity
