@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using APITemplate.Application.Common.DTOs;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product;
 using APITemplate.Application.Features.Product.Repositories;
@@ -65,20 +67,27 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
             "/api/v1/products",
             new
             {
-                Name = $"Product-Cascade-{Guid.NewGuid():N}",
-                Price = 88m,
-                CategoryId = categoryId,
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = $"Product-Cascade-{Guid.NewGuid():N}",
+                        Price = 88m,
+                        CategoryId = categoryId,
+                    },
+                },
             },
             ct
         );
-        createProductResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var createProductBody = await createProductResponse.Content.ReadAsStringAsync(ct);
+        createProductResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createProductBody);
 
-        var createdProduct = await createProductResponse.Content.ReadFromJsonAsync<ProductResponse>(
-            TestJsonOptions.CaseInsensitive,
-            ct
+        var createProductBatch = JsonSerializer.Deserialize<BatchResponse>(
+            createProductBody,
+            TestJsonOptions.CaseInsensitive
         );
-        createdProduct.ShouldNotBeNull();
-        productId = createdProduct!.Id;
+        createProductBatch.ShouldNotBeNull();
+        productId = createProductBatch!.Results[0].Id!.Value;
 
         var createReview1 = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
@@ -106,8 +115,12 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
         createdReview2.ShouldNotBeNull();
         review2Id = createdReview2!.Id;
 
-        var deleteResponse = await _client.DeleteAsync($"/api/v1/products/{productId}", ct);
-        deleteResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/products")
+        {
+            Content = JsonContent.Create(new { Ids = new[] { productId } }),
+        };
+        var deleteResponse = await _client.SendAsync(deleteRequest, ct);
+        deleteResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var reviewsResponse = await _client.GetAsync(
             $"/api/v1/productreviews/by-product/{productId}",
@@ -285,13 +298,16 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
 
         await using (var deleteContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
         {
-            var handler = new DeleteProductCommandHandler(
+            var handler = new DeleteProductsCommandHandler(
                 new ProductRepository(deleteContext),
                 CreateUnitOfWork(deleteContext),
                 Mock.Of<IEventPublisher>()
             );
 
-            await handler.HandleAsync(new DeleteProductCommand(product.Id), ct);
+            await handler.HandleAsync(
+                new DeleteProductsCommand(new BatchDeleteRequest([product.Id])),
+                ct
+            );
         }
 
         await using var verifyContext = await CreateDbContextAsync(false, Guid.Empty, actorId, ct);

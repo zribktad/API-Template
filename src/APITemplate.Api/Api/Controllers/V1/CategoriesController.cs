@@ -46,44 +46,43 @@ public sealed class CategoriesController : ApiControllerBase
         return OkOrNotFound(category);
     }
 
-    /// <summary>Creates a new category and returns it with a 201 Location header.</summary>
+    /// <summary>Creates multiple categories in a single batch operation.</summary>
     [HttpPost]
     [RequirePermission(Permission.Categories.Create)]
-    public async Task<ActionResult<CategoryResponse>> Create(
-        CreateCategoryRequest request,
-        [FromServices] ICommandHandler<CreateCategoryCommand, CategoryResponse> handler,
+    public async Task<ActionResult<BatchResponse>> Create(
+        CreateCategoriesRequest request,
+        [FromServices] ICommandHandler<CreateCategoriesCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        var category = await handler.HandleAsync(new CreateCategoryCommand(request), ct);
-        return CreatedAtGetById(category, category.Id);
+        var result = await handler.HandleAsync(new CreateCategoriesCommand(request), ct);
+        return Ok(result);
     }
 
-    /// <summary>Replaces all mutable fields of an existing category.</summary>
-    [HttpPut("{id:guid}")]
+    /// <summary>Updates multiple categories in a single batch operation.</summary>
+    [HttpPut]
     [RequirePermission(Permission.Categories.Update)]
-    public async Task<IActionResult> Update(
-        Guid id,
-        UpdateCategoryRequest request,
-        [FromServices] ICommandHandler<UpdateCategoryCommand> handler,
+    public async Task<ActionResult<BatchResponse>> Update(
+        UpdateCategoriesRequest request,
+        [FromServices] ICommandHandler<UpdateCategoriesCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        await handler.HandleAsync(new UpdateCategoryCommand(id, request), ct);
-        return NoContent();
+        var result = await handler.HandleAsync(new UpdateCategoriesCommand(request), ct);
+        return Ok(result);
     }
 
-    /// <summary>Soft-deletes a category by its identifier.</summary>
-    [HttpDelete("{id:guid}")]
+    /// <summary>Soft-deletes multiple categories in a single batch operation.</summary>
+    [HttpDelete]
     [RequirePermission(Permission.Categories.Delete)]
-    public async Task<IActionResult> Delete(
-        Guid id,
-        [FromServices] ICommandHandler<DeleteCategoryCommand> handler,
+    public async Task<ActionResult<BatchResponse>> Delete(
+        BatchDeleteRequest request,
+        [FromServices] ICommandHandler<DeleteCategoriesCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        await handler.HandleAsync(new DeleteCategoryCommand(id), ct);
-        return NoContent();
+        var result = await handler.HandleAsync(new DeleteCategoriesCommand(request), ct);
+        return Ok(result);
     }
 
     /// <summary>

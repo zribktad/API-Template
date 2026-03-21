@@ -397,7 +397,7 @@ curl -X POST -H "Authorization: Bearer <token>" \
 |-------|------|------|
 | Api | `Controllers/V1/BatchController.cs` | Thin dispatch to MediatR |
 | Application | `Features/Examples/Handlers/BatchRequestHandlers.cs` | Validates each item, creates all in `ExecuteInTransactionAsync` if all valid |
-| Application | `Features/Examples/DTOs/BatchCreateProductsRequest.cs` | Request with items collection |
+| Application | `Features/Examples/DTOs/CreateProductsRequest.cs` | Request with items collection |
 | Application | `Features/Examples/DTOs/BatchCreateProductsResponse.cs` | Per-item result with success/failure/errors |
 
 ### Key implementation details

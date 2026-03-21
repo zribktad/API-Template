@@ -29,18 +29,25 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             "/api/v1/products",
             new
             {
-                Name = "Patch Original",
-                Description = "Keep this",
-                Price = 50.00m,
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Patch Original",
+                        Description = "Keep this",
+                        Price = 50.00m,
+                    },
+                },
             },
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        createResponse.StatusCode.ShouldBe(HttpStatusCode.Created, createBody);
-        var created = JsonSerializer.Deserialize<ProductResponse>(
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
             createBody,
             TestJsonOptions.CaseInsensitive
         )!;
+        var created = new { Id = createBatch.Results[0].Id!.Value };
 
         // Patch name only
         var patchJson = """[{"op": "replace", "path": "/name", "value": "Patch Updated"}]""";
@@ -76,17 +83,24 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             "/api/v1/products",
             new
             {
-                Name = "Multi Patch",
-                Description = "Original",
-                Price = 25.00m,
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Multi Patch",
+                        Description = "Original",
+                        Price = 25.00m,
+                    },
+                },
             },
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        var created = JsonSerializer.Deserialize<ProductResponse>(
+        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
             createBody,
             TestJsonOptions.CaseInsensitive
         )!;
+        var created = new { Id = createBatch.Results[0].Id!.Value };
 
         var patchJson =
             """[{"op": "replace", "path": "/name", "value": "Multi Updated"}, {"op": "replace", "path": "/price", "value": 99.99}]""";
@@ -121,17 +135,24 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             "/api/v1/products",
             new
             {
-                Name = "Negative Patch",
-                Description = "Test",
-                Price = 50.00m,
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Negative Patch",
+                        Description = "Test",
+                        Price = 50.00m,
+                    },
+                },
             },
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        var created = JsonSerializer.Deserialize<ProductResponse>(
+        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
             createBody,
             TestJsonOptions.CaseInsensitive
         )!;
+        var created = new { Id = createBatch.Results[0].Id!.Value };
 
         var patchJson = """[{"op": "replace", "path": "/price", "value": -1}]""";
         var patchContent = new StringContent(
@@ -179,17 +200,24 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             "/api/v1/products",
             new
             {
-                Name = "Remove Desc",
-                Description = "To be removed",
-                Price = 10.00m,
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Remove Desc",
+                        Description = "To be removed",
+                        Price = 10.00m,
+                    },
+                },
             },
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        var created = JsonSerializer.Deserialize<ProductResponse>(
+        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
             createBody,
             TestJsonOptions.CaseInsensitive
         )!;
+        var created = new { Id = createBatch.Results[0].Id!.Value };
 
         var patchJson = """[{"op": "remove", "path": "/description"}]""";
         var patchContent = new StringContent(

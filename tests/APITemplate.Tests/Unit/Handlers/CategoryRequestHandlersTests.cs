@@ -3,9 +3,10 @@ using APITemplate.Application.Features.Category;
 using APITemplate.Application.Features.Category.Mappings;
 using APITemplate.Application.Features.Category.Specifications;
 using APITemplate.Domain.Entities;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
+using FluentValidation;
+using FluentValidation.Results;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -17,14 +18,29 @@ public class CategoryRequestHandlersTests
     private readonly Mock<ICategoryRepository> _repositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IEventPublisher> _publisherMock;
+    private readonly Mock<IValidator<CreateCategoryRequest>> _createValidatorMock;
+    private readonly Mock<IValidator<UpdateCategoryItem>> _updateValidatorMock;
 
     public CategoryRequestHandlersTests()
     {
         _repositoryMock = new Mock<ICategoryRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _publisherMock = new Mock<IEventPublisher>();
+        _createValidatorMock = new Mock<IValidator<CreateCategoryRequest>>();
+        _updateValidatorMock = new Mock<IValidator<UpdateCategoryItem>>();
         _unitOfWorkMock.SetupImmediateTransactionExecution();
-        _unitOfWorkMock.SetupImmediateTransactionExecution<Category>();
+
+        _createValidatorMock
+            .Setup(v =>
+                v.ValidateAsync(It.IsAny<CreateCategoryRequest>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new ValidationResult());
+
+        _updateValidatorMock
+            .Setup(v =>
+                v.ValidateAsync(It.IsAny<UpdateCategoryItem>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new ValidationResult());
     }
 
     [Fact]
@@ -130,37 +146,46 @@ public class CategoryRequestHandlersTests
     }
 
     [Fact]
-    public async Task CreateAsync_CreatesAndReturnsCategoryResponse()
+    public async Task BatchCreateAsync_CreatesAndReturnsBatchResponse()
     {
         var request = new CreateCategoryRequest("Electronics", "Electronic devices");
+        var batchRequest = new CreateCategoriesRequest([request]);
 
         _repositoryMock
-            .Setup(r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Category c, CancellationToken _) => c);
+            .Setup(r =>
+                r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                (IEnumerable<Category> entities, CancellationToken _) => entities.ToList()
+            );
 
-        var sut = new CreateCategoryCommandHandler(
+        var sut = new CreateCategoriesCommandHandler(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object
+            _publisherMock.Object,
+            _createValidatorMock.Object
         );
         var result = await sut.HandleAsync(
-            new CreateCategoryCommand(request),
+            new CreateCategoriesCommand(batchRequest),
             TestContext.Current.CancellationToken
         );
 
         result.ShouldNotBeNull();
-        result.Id.ShouldNotBe(Guid.Empty);
-        result.Name.ShouldBe("Electronics");
-        result.Description.ShouldBe("Electronic devices");
+        result.SuccessCount.ShouldBe(1);
+        result.FailureCount.ShouldBe(0);
+        result.Results.Count.ShouldBe(1);
+        result.Results[0].Success.ShouldBeTrue();
+        result.Results[0].Id.ShouldNotBeNull();
+        result.Results[0].Id!.Value.ShouldNotBe(Guid.Empty);
 
         _repositoryMock.Verify(
-            r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()),
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
             Times.Once
         );
         _unitOfWorkMock.Verify(
             u =>
                 u.ExecuteInTransactionAsync(
-                    It.IsAny<Func<Task<Category>>>(),
+                    It.IsAny<Func<Task>>(),
                     It.IsAny<CancellationToken>(),
                     It.IsAny<TransactionOptions?>()
                 ),
@@ -169,30 +194,74 @@ public class CategoryRequestHandlersTests
     }
 
     [Fact]
-    public async Task CreateAsync_WithNullDescription_CreatesCategory()
+    public async Task BatchCreateAsync_WithNullDescription_CreatesCategory()
     {
         var request = new CreateCategoryRequest("Books", null);
+        var batchRequest = new CreateCategoriesRequest([request]);
 
         _repositoryMock
-            .Setup(r => r.AddAsync(It.IsAny<Category>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Category c, CancellationToken _) => c);
+            .Setup(r =>
+                r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                (IEnumerable<Category> entities, CancellationToken _) => entities.ToList()
+            );
 
-        var sut = new CreateCategoryCommandHandler(
+        var sut = new CreateCategoriesCommandHandler(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object
+            _publisherMock.Object,
+            _createValidatorMock.Object
         );
         var result = await sut.HandleAsync(
-            new CreateCategoryCommand(request),
+            new CreateCategoriesCommand(batchRequest),
             TestContext.Current.CancellationToken
         );
 
-        result.Name.ShouldBe("Books");
-        result.Description.ShouldBeNull();
+        result.SuccessCount.ShouldBe(1);
+        result.FailureCount.ShouldBe(0);
+        result.Results[0].Success.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task UpdateAsync_WhenCategoryExists_UpdatesAndCommits()
+    public async Task BatchCreateAsync_WithValidationFailure_ReturnsFailureResponse()
+    {
+        var request = new CreateCategoryRequest("", null);
+        var batchRequest = new CreateCategoriesRequest([request]);
+
+        _createValidatorMock
+            .Setup(v =>
+                v.ValidateAsync(It.IsAny<CreateCategoryRequest>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new ValidationResult([new ValidationFailure("Name", "Category name is required.")])
+            );
+
+        var sut = new CreateCategoriesCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _createValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new CreateCategoriesCommand(batchRequest),
+            TestContext.Current.CancellationToken
+        );
+
+        result.SuccessCount.ShouldBe(0);
+        result.FailureCount.ShouldBe(1);
+        result.Results[0].Success.ShouldBeFalse();
+        result.Results[0].Errors.ShouldNotBeNull();
+        result.Results[0].Errors!.ShouldContain("Category name is required.");
+
+        _repositoryMock.Verify(
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task BatchUpdateAsync_WhenCategoryExists_UpdatesAndCommits()
     {
         var category = new Category
         {
@@ -202,21 +271,29 @@ public class CategoryRequestHandlersTests
             Audit = new() { CreatedAtUtc = DateTime.UtcNow },
         };
 
-        var request = new UpdateCategoryRequest("New Name", "New Description");
+        var updateItem = new UpdateCategoryItem(category.Id, "New Name", "New Description");
+        var batchRequest = new UpdateCategoriesRequest([updateItem]);
 
         _repositoryMock
-            .Setup(r => r.GetByIdAsync(category.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(category);
+            .Setup(r =>
+                r.ListAsync(It.IsAny<CategoriesByIdsSpecification>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([category]);
 
-        var sut = new UpdateCategoryCommandHandler(
+        var sut = new UpdateCategoriesCommandHandler(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object
+            _publisherMock.Object,
+            _updateValidatorMock.Object
         );
-        await sut.HandleAsync(
-            new UpdateCategoryCommand(category.Id, request),
+        var result = await sut.HandleAsync(
+            new UpdateCategoriesCommand(batchRequest),
             TestContext.Current.CancellationToken
         );
+
+        result.SuccessCount.ShouldBe(1);
+        result.FailureCount.ShouldBe(0);
+        result.Results[0].Success.ShouldBeTrue();
 
         _repositoryMock.Verify(
             r =>
@@ -241,24 +318,35 @@ public class CategoryRequestHandlersTests
     }
 
     [Fact]
-    public async Task UpdateAsync_WhenCategoryDoesNotExist_ThrowsNotFoundException()
+    public async Task BatchUpdateAsync_WhenCategoryDoesNotExist_ReturnsFailure()
     {
-        _repositoryMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Category?)null);
+        var nonExistentId = Guid.NewGuid();
+        var updateItem = new UpdateCategoryItem(nonExistentId, "Name", null);
+        var batchRequest = new UpdateCategoriesRequest([updateItem]);
 
-        var sut = new UpdateCategoryCommandHandler(
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(It.IsAny<CategoriesByIdsSpecification>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new List<Category>());
+
+        var sut = new UpdateCategoriesCommandHandler(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object
+            _publisherMock.Object,
+            _updateValidatorMock.Object
         );
-        var act = () =>
-            sut.HandleAsync(
-                new UpdateCategoryCommand(Guid.NewGuid(), new UpdateCategoryRequest("Name", null)),
-                TestContext.Current.CancellationToken
-            );
+        var result = await sut.HandleAsync(
+            new UpdateCategoriesCommand(batchRequest),
+            TestContext.Current.CancellationToken
+        );
 
-        await Should.ThrowAsync<NotFoundException>(act);
+        result.SuccessCount.ShouldBe(0);
+        result.FailureCount.ShouldBe(1);
+        result.Results[0].Success.ShouldBeFalse();
+        result.Results[0].Errors.ShouldNotBeNull();
+        result.Results[0].Errors!.ShouldContain(e => e.Contains("not found"));
+
         _unitOfWorkMock.Verify(
             u =>
                 u.ExecuteInTransactionAsync(
@@ -271,19 +359,76 @@ public class CategoryRequestHandlersTests
     }
 
     [Fact]
-    public async Task DeleteAsync_CallsRepositoryDeleteAndCommits()
+    public async Task BatchUpdateAsync_WithValidationFailure_ReturnsFailureWithoutLoadingCategories()
+    {
+        var updateItem = new UpdateCategoryItem(Guid.NewGuid(), "", null);
+        var batchRequest = new UpdateCategoriesRequest([updateItem]);
+
+        _updateValidatorMock
+            .Setup(v =>
+                v.ValidateAsync(It.IsAny<UpdateCategoryItem>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new ValidationResult([new ValidationFailure("Name", "Category name is required.")])
+            );
+
+        var sut = new UpdateCategoriesCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _updateValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new UpdateCategoriesCommand(batchRequest),
+            TestContext.Current.CancellationToken
+        );
+
+        result.SuccessCount.ShouldBe(0);
+        result.FailureCount.ShouldBe(1);
+        result.Results[0].Success.ShouldBeFalse();
+        result.Results[0].Errors.ShouldNotBeNull();
+        result.Results[0].Errors!.ShouldContain("Category name is required.");
+
+        _repositoryMock.Verify(
+            r =>
+                r.ListAsync(
+                    It.IsAny<CategoriesByIdsSpecification>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task BatchDeleteAsync_WhenCategoryExists_DeletesAndCommits()
     {
         var id = Guid.NewGuid();
+        var category = new Category { Id = id, Name = "To Delete" };
+        var batchRequest = new BatchDeleteRequest([id]);
 
-        var sut = new DeleteCategoryCommandHandler(
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(It.IsAny<CategoriesByIdsSpecification>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([category]);
+
+        var sut = new DeleteCategoriesCommandHandler(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             _publisherMock.Object
         );
-        await sut.HandleAsync(new DeleteCategoryCommand(id), TestContext.Current.CancellationToken);
+        var result = await sut.HandleAsync(
+            new DeleteCategoriesCommand(batchRequest),
+            TestContext.Current.CancellationToken
+        );
+
+        result.SuccessCount.ShouldBe(1);
+        result.FailureCount.ShouldBe(0);
+        result.Results[0].Success.ShouldBeTrue();
+        result.Results[0].Id.ShouldBe(id);
 
         _repositoryMock.Verify(
-            r => r.DeleteAsync(id, It.IsAny<CancellationToken>(), It.IsAny<string?>()),
+            r => r.DeleteAsync(It.Is<Category>(c => c.Id == id), It.IsAny<CancellationToken>()),
             Times.Once
         );
         _unitOfWorkMock.Verify(
@@ -294,6 +439,45 @@ public class CategoryRequestHandlersTests
                     It.IsAny<TransactionOptions?>()
                 ),
             Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task BatchDeleteAsync_WhenCategoryDoesNotExist_ReturnsFailure()
+    {
+        var id = Guid.NewGuid();
+        var batchRequest = new BatchDeleteRequest([id]);
+
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(It.IsAny<CategoriesByIdsSpecification>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new List<Category>());
+
+        var sut = new DeleteCategoriesCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new DeleteCategoriesCommand(batchRequest),
+            TestContext.Current.CancellationToken
+        );
+
+        result.SuccessCount.ShouldBe(0);
+        result.FailureCount.ShouldBe(1);
+        result.Results[0].Success.ShouldBeFalse();
+        result.Results[0].Errors.ShouldNotBeNull();
+        result.Results[0].Errors!.ShouldContain(e => e.Contains("not found"));
+
+        _unitOfWorkMock.Verify(
+            u =>
+                u.ExecuteInTransactionAsync(
+                    It.IsAny<Func<Task>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<TransactionOptions?>()
+                ),
+            Times.Never
         );
     }
 

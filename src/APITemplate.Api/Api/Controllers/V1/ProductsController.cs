@@ -44,43 +44,42 @@ public sealed class ProductsController : ApiControllerBase
         return OkOrNotFound(product);
     }
 
-    /// <summary>Creates a new product and returns it with a 201 Location header.</summary>
+    /// <summary>Creates multiple products in a single batch operation.</summary>
     [HttpPost]
     [RequirePermission(Permission.Products.Create)]
-    public async Task<ActionResult<ProductResponse>> Create(
-        CreateProductRequest request,
-        [FromServices] ICommandHandler<CreateProductCommand, ProductResponse> handler,
+    public async Task<ActionResult<BatchResponse>> Create(
+        CreateProductsRequest request,
+        [FromServices] ICommandHandler<CreateProductsCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        var product = await handler.HandleAsync(new CreateProductCommand(request), ct);
-        return CreatedAtGetById(product, product.Id);
+        var result = await handler.HandleAsync(new CreateProductsCommand(request), ct);
+        return Ok(result);
     }
 
-    /// <summary>Replaces all mutable fields of an existing product.</summary>
-    [HttpPut("{id:guid}")]
+    /// <summary>Updates multiple products in a single batch operation.</summary>
+    [HttpPut]
     [RequirePermission(Permission.Products.Update)]
-    public async Task<IActionResult> Update(
-        Guid id,
-        UpdateProductRequest request,
-        [FromServices] ICommandHandler<UpdateProductCommand> handler,
+    public async Task<ActionResult<BatchResponse>> Update(
+        UpdateProductsRequest request,
+        [FromServices] ICommandHandler<UpdateProductsCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        await handler.HandleAsync(new UpdateProductCommand(id, request), ct);
-        return NoContent();
+        var result = await handler.HandleAsync(new UpdateProductsCommand(request), ct);
+        return Ok(result);
     }
 
-    /// <summary>Soft-deletes a product by its identifier.</summary>
-    [HttpDelete("{id:guid}")]
+    /// <summary>Soft-deletes multiple products in a single batch operation.</summary>
+    [HttpDelete]
     [RequirePermission(Permission.Products.Delete)]
-    public async Task<IActionResult> Delete(
-        Guid id,
-        [FromServices] ICommandHandler<DeleteProductCommand> handler,
+    public async Task<ActionResult<BatchResponse>> Delete(
+        BatchDeleteRequest request,
+        [FromServices] ICommandHandler<DeleteProductsCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        await handler.HandleAsync(new DeleteProductCommand(id), ct);
-        return NoContent();
+        var result = await handler.HandleAsync(new DeleteProductsCommand(request), ct);
+        return Ok(result);
     }
 }

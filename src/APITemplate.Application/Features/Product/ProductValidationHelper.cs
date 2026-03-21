@@ -1,7 +1,5 @@
 using APITemplate.Application.Common.Extensions;
-using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
-using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.Product;
 
@@ -51,5 +49,50 @@ internal static class ProductValidationHelper
         }
 
         return normalizedIds;
+    }
+
+    /// <summary>
+    /// Validates that all non-null category IDs exist in the database using a single query.
+    /// Returns the set of missing IDs instead of throwing, so callers can map errors to per-item results.
+    /// </summary>
+    internal static async Task<HashSet<Guid>> FindMissingCategoryIdsAsync(
+        ICategoryRepository categoryRepository,
+        IReadOnlyCollection<Guid> categoryIds,
+        CancellationToken ct
+    )
+    {
+        if (categoryIds.Count == 0)
+            return [];
+
+        var distinctIds = categoryIds.Distinct().ToList();
+        var existing = await categoryRepository.ListAsync(
+            new Category.Specifications.CategoriesByIdsSpecification(distinctIds),
+            ct
+        );
+        var existingIds = existing.Select(c => c.Id).ToHashSet();
+
+        return distinctIds.Where(id => !existingIds.Contains(id)).ToHashSet();
+    }
+
+    /// <summary>
+    /// Validates that all product-data IDs exist in the database using a single query.
+    /// Returns the set of missing IDs instead of throwing, so callers can map errors to per-item results.
+    /// </summary>
+    internal static async Task<HashSet<Guid>> FindMissingProductDataIdsAsync(
+        IProductDataRepository productDataRepository,
+        IReadOnlyCollection<Guid> productDataIds,
+        CancellationToken ct
+    )
+    {
+        var distinctIds = productDataIds.Distinct().ToArray();
+
+        if (distinctIds.Length == 0)
+            return [];
+
+        var existingIds = (await productDataRepository.GetByIdsAsync(distinctIds, ct))
+            .Select(pd => pd.Id)
+            .ToHashSet();
+
+        return distinctIds.Where(id => !existingIds.Contains(id)).ToHashSet();
     }
 }

@@ -1,8 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
-using APITemplate.Tests.Integration.Helpers;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
+using APITemplate.Tests.Integration.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
@@ -21,7 +21,9 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     {
         _client = factory.CreateClient();
         _graphql = new GraphQLTestHelper(_client);
-        _productDataRepositoryMock = factory.Services.GetRequiredService<Mock<IProductDataRepository>>();
+        _productDataRepositoryMock = factory.Services.GetRequiredService<
+            Mock<IProductDataRepository>
+        >();
         _productDataRepositoryMock.Reset();
     }
 
@@ -31,13 +33,17 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
-        var query = new { query = "{ products { page { items { id name price } totalCount pageNumber pageSize } facets { categories { categoryName count } priceBuckets { label count } } } }" };
+        var query = new
+        {
+            query = "{ products { page { items { id name price } totalCount pageNumber pageSize } facets { categories { categoryName count } priceBuckets { label count } } } }",
+        };
 
         var response = await _graphql.PostAsync(query);
         var products = await _graphql.ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
             response,
             data => data.Products,
-            "products");
+            "products"
+        );
         products.Page.Items.Count.ShouldBeGreaterThanOrEqualTo(0);
         products.Page.PageNumber.ShouldBeGreaterThan(0);
     }
@@ -64,16 +70,16 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     name = "GraphQL Product",
                     description = "Created via GraphQL",
-                    price = 49.99
-                }
-            }
+                    price = 49.99,
+                },
+            },
         };
 
         var response = await _graphql.PostAsync(query);
-        var createProduct = await _graphql.ReadRequiredGraphQLFieldAsync<CreateProductData, ProductItem>(
-            response,
-            data => data.CreateProduct,
-            "createProduct");
+        var createProduct = await _graphql.ReadRequiredGraphQLFieldAsync<
+            CreateProductData,
+            ProductItem
+        >(response, data => data.CreateProduct, "createProduct");
         createProduct.Name.ShouldBe("GraphQL Product");
         createProduct.Price.ShouldBe(49.99m);
     }
@@ -85,7 +91,9 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         _productDataRepositoryMock
-            .Setup(r => r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync([new ImageProductData { Id = productDataId, Title = "Image" }]);
         var query = new
         {
@@ -104,16 +112,16 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     name = "GraphQL Product",
                     price = 49.99,
-                    productDataIds = new[] { productDataId }
-                }
-            }
+                    productDataIds = new[] { productDataId },
+                },
+            },
         };
 
         var response = await _graphql.PostAsync(query);
-        var createProduct = await _graphql.ReadRequiredGraphQLFieldAsync<CreateProductData, ProductItem>(
-            response,
-            data => data.CreateProduct,
-            "createProduct");
+        var createProduct = await _graphql.ReadRequiredGraphQLFieldAsync<
+            CreateProductData,
+            ProductItem
+        >(response, data => data.CreateProduct, "createProduct");
         createProduct.ProductDataIds.ShouldBe([productDataId]);
     }
 
@@ -127,7 +135,7 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
 
         var getQuery = new
         {
-            query = $@"{{ productById(id: ""{productId}"") {{ id name productDataIds }} }}"
+            query = $@"{{ productById(id: ""{productId}"") {{ id name productDataIds }} }}",
         };
 
         var getResponse = await _graphql.PostAsync(getQuery);
@@ -144,13 +152,12 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
 
         var productId = await _graphql.CreateProductAsync("To Delete", 5.0m);
 
-        var deleteQuery = new
-        {
-            query = $@"mutation {{ deleteProduct(id: ""{productId}"") }}"
-        };
+        var deleteQuery = new { query = $@"mutation {{ deleteProduct(id: ""{productId}"") }}" };
 
         var deleteResponse = await _graphql.PostAsync(deleteQuery);
-        var deleteResult = await _graphql.ReadGraphQLResponseAsync<DeleteProductData>(deleteResponse);
+        var deleteResult = await _graphql.ReadGraphQLResponseAsync<DeleteProductData>(
+            deleteResponse
+        );
         deleteResult.DeleteProduct.ShouldBeTrue();
     }
 
@@ -190,16 +197,17 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
                     sortBy = "price",
                     sortDirection = "asc",
                     pageNumber = 1,
-                    pageSize = 2
-                }
-            }
+                    pageSize = 2,
+                },
+            },
         };
 
         var response = await _graphql.PostAsync(query);
         var products = await _graphql.ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
             response,
             data => data.Products,
-            "products");
+            "products"
+        );
         var items = products.Page.Items;
 
         items.Count.ShouldBe(2);
@@ -249,16 +257,16 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     name = prefix,
                     pageNumber = 1,
-                    pageSize = 10
-                }
-            }
+                    pageSize = 10,
+                },
+            },
         };
 
         var response = await _graphql.PostAsync(query);
-        var products = await _graphql.ReadRequiredGraphQLFieldAsync<ProductsWithReviewsData, ProductWithReviewsPage>(
-            response,
-            data => data.Products,
-            "products");
+        var products = await _graphql.ReadRequiredGraphQLFieldAsync<
+            ProductsWithReviewsData,
+            ProductWithReviewsPage
+        >(response, data => data.Products, "products");
         var items = products.Page.Items;
 
         items.Count.ShouldBeGreaterThanOrEqualTo(2);
@@ -299,20 +307,23 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
                     pageNumber = 1,
                     pageSize = 10,
                     sortBy = "price",
-                    sortDirection = "asc"
-                }
-            }
+                    sortDirection = "asc",
+                },
+            },
         };
 
         var response = await _graphql.PostAsync(query);
         var products = await _graphql.ReadRequiredGraphQLFieldAsync<ProductsData, ProductPage>(
             response,
             data => data.Products,
-            "products");
+            "products"
+        );
 
         products.Page.Items.Count.ShouldBe(3);
         products.Facets.ShouldNotBeNull();
-        products.Facets!.PriceBuckets.ShouldContain(bucket => bucket.Label == "0 - 50" && bucket.Count >= 2);
+        products.Facets!.PriceBuckets.ShouldContain(bucket =>
+            bucket.Label == "0 - 50" && bucket.Count >= 2
+        );
     }
 
     [Fact]
@@ -322,14 +333,28 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
 
         var officeResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
-            new { Name = "Office Supplies", Description = "Desk organization" },
-            TestContext.Current.CancellationToken);
+            new
+            {
+                Items = new[]
+                {
+                    new { Name = "Office Supplies", Description = "Desk organization" },
+                },
+            },
+            TestContext.Current.CancellationToken
+        );
         officeResponse.EnsureSuccessStatusCode();
 
         var kitchenResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
-            new { Name = "Kitchen Goods", Description = "Cookware and utensils" },
-            TestContext.Current.CancellationToken);
+            new
+            {
+                Items = new[]
+                {
+                    new { Name = "Kitchen Goods", Description = "Cookware and utensils" },
+                },
+            },
+            TestContext.Current.CancellationToken
+        );
         kitchenResponse.EnsureSuccessStatusCode();
 
         var query = new
@@ -352,16 +377,17 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
                     pageNumber = 1,
                     pageSize = 10,
                     sortBy = "name",
-                    sortDirection = "asc"
-                }
-            }
+                    sortDirection = "asc",
+                },
+            },
         };
 
         var response = await _graphql.PostAsync(query);
         var categories = await _graphql.ReadRequiredGraphQLFieldAsync<CategoriesData, CategoryPage>(
             response,
             data => data.Categories,
-            "categories");
+            "categories"
+        );
 
         categories.Page.Items.Count.ShouldBeGreaterThanOrEqualTo(2);
         categories.Page.TotalCount.ShouldBeGreaterThanOrEqualTo(2);

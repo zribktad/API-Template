@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using APITemplate.Application.Features.Examples.DTOs;
+using APITemplate.Application.Common.DTOs;
 using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
@@ -48,11 +48,11 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             },
         };
 
-        var response = await _client.PostAsJsonAsync("/api/v1/batch/products", request, ct);
+        var response = await _client.PostAsJsonAsync("/api/v1/products", request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
 
-        var result = JsonSerializer.Deserialize<BatchCreateProductsResponse>(
+        var result = JsonSerializer.Deserialize<BatchResponse>(
             body,
             TestJsonOptions.CaseInsensitive
         );
@@ -96,11 +96,11 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             },
         };
 
-        var response = await _client.PostAsJsonAsync("/api/v1/batch/products", request, ct);
+        var response = await _client.PostAsJsonAsync("/api/v1/products", request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
 
-        var result = JsonSerializer.Deserialize<BatchCreateProductsResponse>(
+        var result = JsonSerializer.Deserialize<BatchResponse>(
             body,
             TestJsonOptions.CaseInsensitive
         );
@@ -118,7 +118,7 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         var request = new { Items = Array.Empty<object>() };
-        var response = await _client.PostAsJsonAsync("/api/v1/batch/products", request, ct);
+        var response = await _client.PostAsJsonAsync("/api/v1/products", request, ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }

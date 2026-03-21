@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
@@ -25,22 +26,36 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         // 1. Create a product
         var productResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "Reviewed Product", Price = 49.99 },
-            ct);
+            new { Items = new[] { new { Name = "Reviewed Product", Price = 49.99 } } },
+            ct
+        );
 
-        productResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var product = await productResponse.Content.ReadFromJsonAsync<ProductResponse>(TestJsonOptions.CaseInsensitive, ct);
-        product.ShouldNotBeNull();
-        var productId = product!.Id;
+        var productBody = await productResponse.Content.ReadAsStringAsync(ct);
+        productResponse.StatusCode.ShouldBe(HttpStatusCode.OK, productBody);
+        var productBatch = JsonSerializer.Deserialize<BatchResponse>(
+            productBody,
+            TestJsonOptions.CaseInsensitive
+        );
+        productBatch.ShouldNotBeNull();
+        var productId = productBatch!.Results[0].Id!.Value;
 
         // 2. Create a review for the product
         var createReviewResponse = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
-            new { ProductId = productId, Comment = "Great product!", Rating = 5 },
-            ct);
+            new
+            {
+                ProductId = productId,
+                Comment = "Great product!",
+                Rating = 5,
+            },
+            ct
+        );
 
         createReviewResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var created = await createReviewResponse.Content.ReadFromJsonAsync<ProductReviewResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var created = await createReviewResponse.Content.ReadFromJsonAsync<ProductReviewResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         created.ShouldNotBeNull();
         var reviewId = created!.Id;
         created.UserId.ShouldBe(userId);
@@ -50,14 +65,23 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         // 3. Get review by id
         var getByIdResponse = await _client.GetAsync($"/api/v1/productreviews/{reviewId}", ct);
         getByIdResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var fetched = await getByIdResponse.Content.ReadFromJsonAsync<ProductReviewResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var fetched = await getByIdResponse.Content.ReadFromJsonAsync<ProductReviewResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         fetched.ShouldNotBeNull();
         fetched!.UserId.ShouldBe(userId);
 
         // 4. Get reviews by productId
-        var byProductResponse = await _client.GetAsync($"/api/v1/productreviews/by-product/{productId}", ct);
+        var byProductResponse = await _client.GetAsync(
+            $"/api/v1/productreviews/by-product/{productId}",
+            ct
+        );
         byProductResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var reviews = await byProductResponse.Content.ReadFromJsonAsync<ProductReviewResponse[]>(TestJsonOptions.CaseInsensitive, ct);
+        var reviews = await byProductResponse.Content.ReadFromJsonAsync<ProductReviewResponse[]>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         reviews.ShouldNotBeNull();
         reviews!.Length.ShouldBeGreaterThanOrEqualTo(1);
 
@@ -90,12 +114,16 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         var response = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
             new { ProductId = Guid.NewGuid(), Rating = 3 },
-            ct);
+            ct
+        );
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
 
-        var problem = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var problem = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         problem.ShouldNotBeNull();
         problem!.Status.ShouldBe((int)HttpStatusCode.NotFound);
         problem.Title.ShouldBe("Not Found");
@@ -103,7 +131,9 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         problem.Detail.ShouldContain("Product with id");
         problem.Detail.ShouldContain("not found");
         problem.ErrorCode.ShouldBe(ErrorCatalog.Reviews.ProductNotFoundForReview);
-        problem.Type.ShouldBe($"https://api-template.local/errors/{ErrorCatalog.Reviews.ProductNotFoundForReview}");
+        problem.Type.ShouldBe(
+            $"https://api-template.local/errors/{ErrorCatalog.Reviews.ProductNotFoundForReview}"
+        );
         problem.TraceId.ShouldNotBeNullOrWhiteSpace();
     }
 
@@ -115,17 +145,26 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
 
         var productResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "No Review Product", Price = 9.99 },
-            ct);
+            new { Items = new[] { new { Name = "No Review Product", Price = 9.99 } } },
+            ct
+        );
 
-        var product = await productResponse.Content.ReadFromJsonAsync<ProductResponse>(TestJsonOptions.CaseInsensitive, ct);
-        product.ShouldNotBeNull();
-        var productId = product!.Id;
+        var productBody = await productResponse.Content.ReadAsStringAsync(ct);
+        productResponse.StatusCode.ShouldBe(HttpStatusCode.OK, productBody);
+        var productBatch = JsonSerializer.Deserialize<BatchResponse>(
+            productBody,
+            TestJsonOptions.CaseInsensitive
+        );
+        productBatch.ShouldNotBeNull();
+        var productId = productBatch!.Results[0].Id!.Value;
 
         var response = await _client.GetAsync($"/api/v1/productreviews/by-product/{productId}", ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var reviews = await response.Content.ReadFromJsonAsync<ProductReviewResponse[]>(TestJsonOptions.CaseInsensitive, ct);
+        var reviews = await response.Content.ReadFromJsonAsync<ProductReviewResponse[]>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         reviews.ShouldNotBeNull();
         reviews!.ShouldBeEmpty();
     }

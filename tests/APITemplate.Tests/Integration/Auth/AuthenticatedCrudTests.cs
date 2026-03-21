@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
@@ -26,53 +27,97 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
         var getAllResponse = await _client.GetAsync("/api/v1/products", ct);
         getAllResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var pagedEmpty = await getAllResponse.Content.ReadFromJsonAsync<ProductsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var pagedEmpty = await getAllResponse.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         pagedEmpty.ShouldNotBeNull();
         pagedEmpty!.Page.Items.ShouldBeEmpty();
 
         // 3. Create product
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "Test Product", Description = "A description", Price = 29.99 },
-            ct);
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Test Product",
+                        Description = "A description",
+                        Price = 29.99,
+                    },
+                },
+            },
+            ct
+        );
 
-        createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var createBody = await createResponse.Content.ReadAsStringAsync(ct);
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
 
-        var created = await createResponse.Content.ReadFromJsonAsync<ProductResponse>(TestJsonOptions.CaseInsensitive, ct);
-        created.ShouldNotBeNull();
-        created!.Id.ShouldNotBe(Guid.Empty);
-        created.Name.ShouldBe("Test Product");
-        created.Price.ShouldBe(29.99m);
+        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
+            createBody,
+            TestJsonOptions.CaseInsensitive
+        );
+        createBatch.ShouldNotBeNull();
+        createBatch!.Results[0].Success.ShouldBeTrue();
+        var createdId = createBatch.Results[0].Id!.Value;
+        createdId.ShouldNotBe(Guid.Empty);
 
         // 4. Get by id
-        var getByIdResponse = await _client.GetAsync($"/api/v1/products/{created.Id}", ct);
+        var getByIdResponse = await _client.GetAsync($"/api/v1/products/{createdId}", ct);
         getByIdResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var fetched = await getByIdResponse.Content.ReadFromJsonAsync<ProductResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var fetched = await getByIdResponse.Content.ReadFromJsonAsync<ProductResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         fetched.ShouldNotBeNull();
         fetched!.Name.ShouldBe("Test Product");
+        fetched.Price.ShouldBe(29.99m);
 
         // 5. Update product
         var updateResponse = await _client.PutAsJsonAsync(
-            $"/api/v1/products/{created.Id}",
-            new { Name = "Updated Product", Description = "Updated desc", Price = 39.99 },
-            ct);
+            "/api/v1/products",
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Id = createdId,
+                        Name = "Updated Product",
+                        Description = "Updated desc",
+                        Price = 39.99,
+                    },
+                },
+            },
+            ct
+        );
 
-        updateResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var updateBody = await updateResponse.Content.ReadAsStringAsync(ct);
+        updateResponse.StatusCode.ShouldBe(HttpStatusCode.OK, updateBody);
 
         // 6. Verify update
-        var verifyResponse = await _client.GetAsync($"/api/v1/products/{created.Id}", ct);
-        var updated = await verifyResponse.Content.ReadFromJsonAsync<ProductResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var verifyResponse = await _client.GetAsync($"/api/v1/products/{createdId}", ct);
+        var updated = await verifyResponse.Content.ReadFromJsonAsync<ProductResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         updated.ShouldNotBeNull();
         updated!.Name.ShouldBe("Updated Product");
         updated.Price.ShouldBe(39.99m);
 
         // 7. Delete product
-        var deleteResponse = await _client.DeleteAsync($"/api/v1/products/{created.Id}", ct);
-        deleteResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/products")
+        {
+            Content = JsonContent.Create(new { Ids = new[] { createdId } }),
+        };
+        var deleteResponse = await _client.SendAsync(deleteRequest, ct);
+        deleteResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         // 8. Verify deletion
-        var getDeletedResponse = await _client.GetAsync($"/api/v1/products/{created.Id}", ct);
+        var getDeletedResponse = await _client.GetAsync($"/api/v1/products/{createdId}", ct);
         getDeletedResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
@@ -93,13 +138,22 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
-        await _client.PostAsJsonAsync("/api/v1/products",
-            new { Name = "Product A", Price = 10.0 }, ct);
-        await _client.PostAsJsonAsync("/api/v1/products",
-            new { Name = "Product B", Price = 20.0 }, ct);
+        await _client.PostAsJsonAsync(
+            "/api/v1/products",
+            new { Items = new[] { new { Name = "Product A", Price = 10.0 } } },
+            ct
+        );
+        await _client.PostAsJsonAsync(
+            "/api/v1/products",
+            new { Items = new[] { new { Name = "Product B", Price = 20.0 } } },
+            ct
+        );
 
         var response = await _client.GetAsync("/api/v1/products", ct);
-        var pagedResponse = await response.Content.ReadFromJsonAsync<ProductsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var pagedResponse = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         pagedResponse.ShouldNotBeNull();
         pagedResponse!.Page.Items.Count().ShouldBeGreaterThanOrEqualTo(2);
     }
