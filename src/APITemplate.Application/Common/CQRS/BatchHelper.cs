@@ -40,18 +40,23 @@ internal static class BatchHelper
 
     /// <summary>
     /// Returns failures for items whose ID is not recognised by the <paramref name="exists"/> predicate.
+    /// Items at indices in <paramref name="skip"/> are ignored.
     /// </summary>
     internal static List<BatchResultItem> MarkMissing<T>(
         IReadOnlyList<T> items,
         Func<T, Guid> idSelector,
         Func<Guid, bool> exists,
-        string notFoundMessageTemplate
+        string notFoundMessageTemplate,
+        HashSet<int>? skip = null
     )
     {
         var failures = new List<BatchResultItem>();
 
         for (var i = 0; i < items.Count; i++)
         {
+            if (skip is not null && skip.Contains(i))
+                continue;
+
             var id = idSelector(items[i]);
             if (!exists(id))
                 failures.Add(

@@ -665,6 +665,182 @@ public class ProductRequestHandlersTests
     }
 
     [Fact]
+    public async Task BatchCreateAsync_MultipleFailureTypes_ReportsFirstErrorPerItem()
+    {
+        // Item 0: validation failure (bad name via validator)
+        // Item 1: missing category
+        // Item 2: valid
+        var missingCategoryId = Guid.NewGuid();
+        var request = new CreateProductsRequest([
+            new CreateProductRequest("", "Desc", 10m),
+            new CreateProductRequest("Good Name", "Desc", 10m, missingCategoryId),
+            new CreateProductRequest("Also Good", "Desc", 20m),
+        ]);
+
+        _createValidatorMock
+            .Setup(v =>
+                v.ValidateAsync(
+                    It.Is<CreateProductRequest>(r => r.Name == ""),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new ValidationResult([new ValidationFailure("Name", "Name is required.")])
+            );
+
+        _categoryRepositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<Application.Features.Category.Specifications.CategoriesByIdsSpecification>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([]);
+
+        var sut = new CreateProductsCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _createValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new CreateProductsCommand(request),
+            TestContext.Current.CancellationToken
+        );
+
+        result.FailureCount.ShouldBe(2);
+        result.SuccessCount.ShouldBe(1);
+        result.Failures.Count.ShouldBe(2);
+        result.Failures.ShouldContain(f => f.Index == 0);
+        result.Failures.ShouldContain(f => f.Index == 1);
+
+        _repositoryMock.Verify(
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task BatchUpdateAsync_ValidationAndMissing_ReportsFirstErrorPerItem()
+    {
+        // Item 0: validation failure
+        // Item 1: not found (missing entity)
+        // Item 2: valid
+        var existingProduct = new Product
+        {
+            Id = Guid.NewGuid(),
+            Name = "Existing",
+            Price = 10m,
+            Audit = new() { CreatedAtUtc = DateTime.UtcNow },
+            ProductDataLinks = [],
+        };
+
+        var items = new UpdateProductsRequest([
+            new UpdateProductItem(Guid.NewGuid(), "", null, 10m),
+            new UpdateProductItem(Guid.NewGuid(), "Good Name", null, 20m),
+            new UpdateProductItem(existingProduct.Id, "Updated", null, 30m),
+        ]);
+
+        _updateValidatorMock
+            .Setup(v =>
+                v.ValidateAsync(
+                    It.Is<UpdateProductItem>(i => i.Name == ""),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new ValidationResult([new ValidationFailure("Name", "Name is required.")])
+            );
+
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<ProductsByIdsWithLinksSpecification>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([existingProduct]);
+
+        var sut = new UpdateProductsCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _productDataLinkRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _updateValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new UpdateProductsCommand(items),
+            TestContext.Current.CancellationToken
+        );
+
+        result.FailureCount.ShouldBe(2);
+        result.SuccessCount.ShouldBe(1);
+        result.Failures.Count.ShouldBe(2);
+        result.Failures.ShouldContain(f => f.Index == 0 && f.Errors.Any(e => e.Contains("Name")));
+        result.Failures.ShouldContain(f =>
+            f.Index == 1 && f.Errors.Any(e => e.Contains("not found"))
+        );
+
+        _unitOfWorkMock.Verify(
+            u =>
+                u.ExecuteInTransactionAsync(
+                    It.IsAny<Func<Task>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<TransactionOptions?>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task BatchDeleteAsync_SomeMissing_ReportsOnlyMissing()
+    {
+        var existingProduct = new Product
+        {
+            Id = Guid.NewGuid(),
+            Name = "Exists",
+            Price = 10m,
+            ProductDataLinks = [],
+        };
+        var missingId = Guid.NewGuid();
+
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<ProductsByIdsWithLinksSpecification>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([existingProduct]);
+
+        var sut = new DeleteProductsCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new DeleteProductsCommand(new BatchDeleteRequest([existingProduct.Id, missingId])),
+            TestContext.Current.CancellationToken
+        );
+
+        result.FailureCount.ShouldBe(1);
+        result.SuccessCount.ShouldBe(1);
+        result.Failures.ShouldHaveSingleItem();
+        result.Failures[0].Index.ShouldBe(1);
+        result.Failures[0].Id.ShouldBe(missingId);
+
+        _repositoryMock.Verify(
+            r =>
+                r.DeleteRangeAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task GetAllAsync_ReturnsAllProducts()
     {
         var ct = TestContext.Current.CancellationToken;

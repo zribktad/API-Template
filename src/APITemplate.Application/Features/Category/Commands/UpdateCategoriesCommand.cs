@@ -40,9 +40,7 @@ public sealed class UpdateCategoriesCommandHandler
 
         // Step 1: Validate each item (field-level rules — name, description, etc.)
         var failures = await BatchHelper.ValidateAsync(_itemValidator, items, i => items[i].Id, ct);
-
-        if (failures.Count > 0)
-            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
+        var failedIndices = failures.Select(f => f.Index).ToHashSet();
 
         // Step 2: Load all target categories and mark missing ones as failed
         var categoryMap = (
@@ -52,11 +50,14 @@ public sealed class UpdateCategoriesCommandHandler
             )
         ).ToDictionary(c => c.Id);
 
-        failures = BatchHelper.MarkMissing(
-            items,
-            item => item.Id,
-            categoryMap.ContainsKey,
-            ErrorCatalog.Categories.NotFoundMessage
+        failures.AddRange(
+            BatchHelper.MarkMissing(
+                items,
+                item => item.Id,
+                categoryMap.ContainsKey,
+                ErrorCatalog.Categories.NotFoundMessage,
+                failedIndices
+            )
         );
 
         if (failures.Count > 0)

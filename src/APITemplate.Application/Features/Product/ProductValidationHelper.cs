@@ -52,48 +52,115 @@ internal static class ProductValidationHelper
     }
 
     /// <summary>
-    /// Validates that all non-null category IDs exist in the database using a single query.
-    /// Returns the set of missing IDs instead of throwing, so callers can map errors to per-item results.
+    /// Checks that all referenced category IDs exist and returns per-item failures for items
+    /// that reference a missing category. Items in <paramref name="failedIndices"/> are skipped.
+    /// Newly failed indices are added to <paramref name="failedIndices"/>.
     /// </summary>
-    internal static async Task<HashSet<Guid>> FindMissingCategoryIdsAsync(
+    internal static async Task<List<BatchResultItem>> CheckCategoryReferencesAsync<T>(
+        IReadOnlyList<T> items,
+        Func<T, Guid?> categoryIdSelector,
+        Func<int, Guid?> idAt,
         ICategoryRepository categoryRepository,
-        IReadOnlyCollection<Guid> categoryIds,
+        HashSet<int> failedIndices,
         CancellationToken ct
     )
     {
-        if (categoryIds.Count == 0)
+        var allCategoryIds = items
+            .Where(item => categoryIdSelector(item).HasValue)
+            .Select(item => categoryIdSelector(item)!.Value)
+            .ToHashSet();
+
+        if (allCategoryIds.Count == 0)
             return [];
 
-        var distinctIds = categoryIds.ToHashSet();
         var existing = await categoryRepository.ListAsync(
-            new Category.Specifications.CategoriesByIdsSpecification(distinctIds),
+            new Category.Specifications.CategoriesByIdsSpecification(allCategoryIds),
             ct
         );
-        var existingIds = existing.Select(c => c.Id).ToHashSet();
+        allCategoryIds.ExceptWith(existing.Select(c => c.Id));
 
-        distinctIds.ExceptWith(existingIds);
-        return distinctIds;
+        if (allCategoryIds.Count == 0)
+            return [];
+
+        var failures = new List<BatchResultItem>();
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (failedIndices.Contains(i))
+                continue;
+
+            var categoryId = categoryIdSelector(items[i]);
+            if (categoryId.HasValue && allCategoryIds.Contains(categoryId.Value))
+            {
+                failures.Add(
+                    new BatchResultItem(
+                        i,
+                        idAt(i),
+                        [string.Format(ErrorCatalog.Categories.NotFoundMessage, categoryId)]
+                    )
+                );
+                failedIndices.Add(i);
+            }
+        }
+
+        return failures;
     }
 
     /// <summary>
-    /// Validates that all product-data IDs exist in the database using a single query.
-    /// Returns the set of missing IDs instead of throwing, so callers can map errors to per-item results.
+    /// Checks that all referenced product-data IDs exist and returns per-item failures for items
+    /// that reference missing product data. Items in <paramref name="failedIndices"/> are skipped.
     /// </summary>
-    internal static async Task<HashSet<Guid>> FindMissingProductDataIdsAsync(
+    internal static async Task<List<BatchResultItem>> CheckProductDataReferencesAsync<T>(
+        IReadOnlyList<T> items,
+        Func<T, IReadOnlyCollection<Guid>?> productDataIdsSelector,
+        Func<int, Guid?> idAt,
         IProductDataRepository productDataRepository,
-        IReadOnlyCollection<Guid> productDataIds,
+        HashSet<int> failedIndices,
         CancellationToken ct
     )
     {
-        var distinctIds = productDataIds.Distinct().ToArray();
+        var allProductDataIds = items
+            .Where(item => productDataIdsSelector(item) is { Count: > 0 })
+            .SelectMany(item => productDataIdsSelector(item)!)
+            .Distinct()
+            .ToArray();
 
-        if (distinctIds.Length == 0)
+        if (allProductDataIds.Length == 0)
             return [];
 
-        var existingIds = (await productDataRepository.GetByIdsAsync(distinctIds, ct))
+        var existingIds = (await productDataRepository.GetByIdsAsync(allProductDataIds, ct))
             .Select(pd => pd.Id)
             .ToHashSet();
 
-        return distinctIds.Where(id => !existingIds.Contains(id)).ToHashSet();
+        var missingIds = allProductDataIds.Where(id => !existingIds.Contains(id)).ToHashSet();
+
+        if (missingIds.Count == 0)
+            return [];
+
+        var failures = new List<BatchResultItem>();
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (failedIndices.Contains(i))
+                continue;
+
+            var pdIds = productDataIdsSelector(items[i]);
+            if (pdIds is not { Count: > 0 })
+                continue;
+
+            var missing = pdIds.Where(id => missingIds.Contains(id)).ToList();
+            if (missing.Count > 0)
+            {
+                failures.Add(
+                    new BatchResultItem(
+                        i,
+                        idAt(i),
+                        [$"Product data not found: {string.Join(", ", missing)}"]
+                    )
+                );
+            }
+        }
+
+        return failures;
     }
 }

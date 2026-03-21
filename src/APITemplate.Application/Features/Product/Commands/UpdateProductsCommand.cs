@@ -48,9 +48,7 @@ public sealed class UpdateProductsCommandHandler
 
         // Step 1: Validate each item (field-level rules — name, price, etc.)
         var failures = await BatchHelper.ValidateAsync(_itemValidator, items, i => items[i].Id, ct);
-
-        if (failures.Count > 0)
-            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
+        var failedIndices = failures.Select(f => f.Index).ToHashSet();
 
         // Step 2: Load all target products and mark missing ones as failed
         var productMap = (
@@ -60,84 +58,39 @@ public sealed class UpdateProductsCommandHandler
             )
         ).ToDictionary(p => p.Id);
 
-        failures = BatchHelper.MarkMissing(
+        var missingFailures = BatchHelper.MarkMissing(
             items,
             item => item.Id,
             productMap.ContainsKey,
-            ErrorCatalog.Products.NotFoundMessage
+            ErrorCatalog.Products.NotFoundMessage,
+            failedIndices
         );
-
-        if (failures.Count > 0)
-            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
+        failures.AddRange(missingFailures);
+        failedIndices.UnionWith(missingFailures.Select(f => f.Index));
 
         // Step 3: Verify all referenced categories exist
-        var allCategoryIds = items
-            .Where(item => item.CategoryId.HasValue)
-            .Select(item => item.CategoryId!.Value)
-            .ToHashSet();
-
-        var missingCategoryIds = await ProductValidationHelper.FindMissingCategoryIdsAsync(
-            _categoryRepository,
-            allCategoryIds,
-            ct
+        failures.AddRange(
+            await ProductValidationHelper.CheckCategoryReferencesAsync(
+                items,
+                item => item.CategoryId,
+                i => items[i].Id,
+                _categoryRepository,
+                failedIndices,
+                ct
+            )
         );
-
-        var failedIndices = new HashSet<int>();
-
-        if (missingCategoryIds.Count > 0)
-        {
-            for (var i = 0; i < items.Count; i++)
-            {
-                var categoryId = items[i].CategoryId;
-                if (categoryId.HasValue && missingCategoryIds.Contains(categoryId.Value))
-                {
-                    failures.Add(
-                        new BatchResultItem(
-                            i,
-                            items[i].Id,
-                            [string.Format(ErrorCatalog.Categories.NotFoundMessage, categoryId)]
-                        )
-                    );
-                    failedIndices.Add(i);
-                }
-            }
-        }
 
         // Step 4: Verify all referenced product data entries exist
-        var allProductDataIds = items
-            .Where(item => item.ProductDataIds is { Count: > 0 })
-            .SelectMany(item => item.ProductDataIds!)
-            .ToHashSet();
-
-        var missingProductDataIds = await ProductValidationHelper.FindMissingProductDataIdsAsync(
-            _productDataRepository,
-            allProductDataIds,
-            ct
+        failures.AddRange(
+            await ProductValidationHelper.CheckProductDataReferencesAsync(
+                items,
+                item => item.ProductDataIds,
+                i => items[i].Id,
+                _productDataRepository,
+                failedIndices,
+                ct
+            )
         );
-
-        if (missingProductDataIds.Count > 0)
-        {
-            for (var i = 0; i < items.Count; i++)
-            {
-                if (!failedIndices.Contains(i) && items[i].ProductDataIds is { Count: > 0 })
-                {
-                    var missing = items[i]
-                        .ProductDataIds!.Where(id => missingProductDataIds.Contains(id))
-                        .ToList();
-
-                    if (missing.Count > 0)
-                    {
-                        failures.Add(
-                            new BatchResultItem(
-                                i,
-                                items[i].Id,
-                                [$"Product data not found: {string.Join(", ", missing)}"]
-                            )
-                        );
-                    }
-                }
-            }
-        }
 
         if (failures.Count > 0)
             return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
