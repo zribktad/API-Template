@@ -70,13 +70,12 @@ public sealed class DeleteProductsCommandHandler
 
         // Soft-delete all in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
-            async () =>
+            () =>
             {
                 foreach (var product in products)
-                {
                     product.SoftDeleteProductDataLinks();
-                    await _repository.DeleteAsync(product, ct);
-                }
+
+                return _repository.DeleteRangeAsync(products, ct);
             },
             ct
         );

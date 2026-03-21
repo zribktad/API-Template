@@ -68,11 +68,7 @@ public sealed class DeleteCategoriesCommandHandler
         }
 
         await _unitOfWork.ExecuteInTransactionAsync(
-            async () =>
-            {
-                foreach (var category in categories)
-                    await _repository.DeleteAsync(category, ct);
-            },
+            () => _repository.DeleteRangeAsync(categories, ct),
             ct
         );
 
