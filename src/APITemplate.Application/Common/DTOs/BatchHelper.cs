@@ -3,19 +3,31 @@ using FluentValidation;
 namespace APITemplate.Application.Common.DTOs;
 
 /// <summary>
-/// Reusable building blocks for batch command handlers — validation and existence checking.
+/// Reusable building blocks for batch command handlers — initialization, validation and existence checking.
 /// </summary>
 internal static class BatchHelper
 {
     /// <summary>
-    /// Validates each item using FluentValidation and populates the results array.
+    /// Creates a results array with all items marked as successful.
+    /// </summary>
+    internal static BatchResultItem[] Initialize(int count, Func<int, Guid?> idAt)
+    {
+        var results = new BatchResultItem[count];
+
+        for (var i = 0; i < count; i++)
+            results[i] = new BatchResultItem(i, true, idAt(i), null);
+
+        return results;
+    }
+
+    /// <summary>
+    /// Validates each item and marks failures in the pre-initialized results array.
     /// Returns the number of failures.
     /// </summary>
     internal static async Task<int> ValidateAsync<T>(
         IValidator<T> validator,
         IReadOnlyList<T> items,
         BatchResultItem[] results,
-        Func<int, Guid?> idAt,
         CancellationToken ct
     )
     {
@@ -23,19 +35,14 @@ internal static class BatchHelper
 
         for (var i = 0; i < items.Count; i++)
         {
-            var id = idAt(i);
             var validationResult = await validator.ValidateAsync(items[i], ct);
 
-            if (validationResult.IsValid)
-            {
-                results[i] = new BatchResultItem(i, true, id, null);
-            }
-            else
+            if (!validationResult.IsValid)
             {
                 results[i] = new BatchResultItem(
                     i,
                     false,
-                    id,
+                    results[i].Id,
                     validationResult.Errors.Select(e => e.ErrorMessage).ToList()
                 );
                 failureCount++;
@@ -47,22 +54,24 @@ internal static class BatchHelper
 
     /// <summary>
     /// Marks items as failed when their ID is not found among loaded entities.
+    /// Items that already failed a previous step are skipped.
     /// Returns the number of newly marked failures.
     /// </summary>
     internal static int MarkMissing(
         BatchResultItem[] results,
-        int count,
-        Func<int, Guid> idAt,
-        Func<Guid, bool> exists,
+        HashSet<Guid> foundIds,
         string notFoundMessageTemplate
     )
     {
-        var failureCount = 0;
+        var newFailures = 0;
 
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < results.Length; i++)
         {
-            var id = idAt(i);
-            if (exists(id))
+            if (!results[i].Success)
+                continue;
+
+            var id = results[i].Id!.Value;
+            if (foundIds.Contains(id))
                 continue;
 
             results[i] = new BatchResultItem(
@@ -71,9 +80,9 @@ internal static class BatchHelper
                 id,
                 [string.Format(notFoundMessageTemplate, id)]
             );
-            failureCount++;
+            newFailures++;
         }
 
-        return failureCount;
+        return newFailures;
     }
 }

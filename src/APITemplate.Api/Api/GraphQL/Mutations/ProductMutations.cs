@@ -15,11 +15,12 @@ public class ProductMutations
     [Authorize(Policy = Permission.Products.Create)]
     public async Task<ProductResponse> CreateProduct(
         CreateProductRequest input,
-        [Service] ICommandHandler<CreateProductsCommand, BatchResponse> handler,
+        [Service] ICommandHandler<CreateProductsCommand, BatchResponse> commandHandler,
+        [Service] IQueryHandler<GetProductByIdQuery, ProductResponse?> queryHandler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(
+        var result = await commandHandler.HandleAsync(
             new CreateProductsCommand(new CreateProductsRequest([input])),
             ct
         );
@@ -29,15 +30,7 @@ public class ProductMutations
 
         var productId = result.Results[0].Id!.Value;
 
-        return new ProductResponse(
-            productId,
-            input.Name,
-            input.Description,
-            input.Price,
-            input.CategoryId,
-            DateTime.UtcNow,
-            (input.ProductDataIds ?? []).ToArray()
-        );
+        return (await queryHandler.HandleAsync(new GetProductByIdQuery(productId), ct))!;
     }
 
     /// <summary>Deletes a product by its ID and returns <see langword="true"/> on success.</summary>

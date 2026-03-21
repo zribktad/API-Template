@@ -43,19 +43,15 @@ public sealed class CreateProductsCommandHandler
     )
     {
         var items = command.Request.Items;
-        var results = new BatchResultItem[items.Count];
-        var failureCount = await BatchHelper.ValidateAsync(
-            _itemValidator,
-            items,
-            results,
-            _ => null,
-            ct
-        );
+        var results = BatchHelper.Initialize(items.Count, _ => null);
+
+        // Step 1: Validate each item (field-level rules — name, price, etc.)
+        var failureCount = await BatchHelper.ValidateAsync(_itemValidator, items, results, ct);
 
         if (failureCount > 0)
             return new BatchResponse(results, results.Length - failureCount, failureCount);
 
-        // Step 2: Bulk validate category references
+        // Step 2: Verify all referenced categories exist
         var allCategoryIds = items
             .Where(item => item.CategoryId.HasValue)
             .Select(item => item.CategoryId!.Value)
@@ -73,7 +69,11 @@ public sealed class CreateProductsCommandHandler
             for (var i = 0; i < items.Count; i++)
             {
                 var categoryId = items[i].CategoryId;
-                if (categoryId.HasValue && missingCategoryIds.Contains(categoryId.Value))
+                if (
+                    results[i].Success
+                    && categoryId.HasValue
+                    && missingCategoryIds.Contains(categoryId.Value)
+                )
                 {
                     results[i] = new BatchResultItem(
                         i,
@@ -86,7 +86,7 @@ public sealed class CreateProductsCommandHandler
             }
         }
 
-        // Step 3: Bulk validate product data references
+        // Step 3: Verify all referenced product data entries exist
         var allProductDataIds = items
             .Where(item => item.ProductDataIds is { Count: > 0 })
             .SelectMany(item => item.ProductDataIds!)
@@ -103,7 +103,7 @@ public sealed class CreateProductsCommandHandler
         {
             for (var i = 0; i < items.Count; i++)
             {
-                if (items[i].ProductDataIds is { Count: > 0 })
+                if (results[i].Success && items[i].ProductDataIds is { Count: > 0 })
                 {
                     var missing = items[i]
                         .ProductDataIds!.Where(id => missingProductDataIds.Contains(id))
@@ -126,7 +126,7 @@ public sealed class CreateProductsCommandHandler
         if (failureCount > 0)
             return new BatchResponse(results, results.Length - failureCount, failureCount);
 
-        // Step 4: Create all entities in a single transaction
+        // Step 4: Build entities and persist in a single transaction
         var entities = new List<ProductEntity>(items.Count);
 
         for (var i = 0; i < items.Count; i++)

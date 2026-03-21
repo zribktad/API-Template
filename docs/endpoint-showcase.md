@@ -321,17 +321,22 @@ curl -H "Authorization: Bearer <token>" "http://localhost:5000$LOCATION"
 
 ## 4. Batch Operations
 
-Create multiple products in a single request with per-item validation. All-or-nothing semantics: if any item fails validation, nothing is persisted.
+Create, update, and delete multiple products or categories in a single request with per-item validation. All-or-nothing semantics: if any item fails validation, nothing is persisted.
 
 ### When to use
-- Bulk imports (CSV → API), bulk creation/updates
+- Bulk imports (CSV → API), bulk creation/updates/deletes
 - Reducing round-trips for multi-item operations
 
-### Endpoint
+### Endpoints
 
 ```
-POST /api/v1/batch/products
-Permission: Examples.Create
+POST   /api/v1/products      — Batch create products  (Permission: Products.Create)
+PUT    /api/v1/products      — Batch update products  (Permission: Products.Update)
+DELETE /api/v1/products      — Batch delete products  (Permission: Products.Delete)
+
+POST   /api/v1/categories    — Batch create categories (Permission: Categories.Create)
+PUT    /api/v1/categories    — Batch update categories (Permission: Categories.Update)
+DELETE /api/v1/categories    — Batch delete categories (Permission: Categories.Delete)
 ```
 
 ### Request
@@ -388,23 +393,26 @@ Permission: Examples.Create
 curl -X POST -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"items": [{"name": "Mouse", "price": 30}, {"name": "Keyboard", "price": 80}]}' \
-  http://localhost:5000/api/v1/batch/products
+  http://localhost:5000/api/v1/products
 ```
 
 ### Architecture
 
 | Layer | File | Role |
 |-------|------|------|
-| Api | `Controllers/V1/BatchController.cs` | Thin dispatch to MediatR |
-| Application | `Features/Examples/Handlers/BatchRequestHandlers.cs` | Validates each item, creates all in `ExecuteInTransactionAsync` if all valid |
-| Application | `Features/Examples/DTOs/CreateProductsRequest.cs` | Request with items collection |
-| Application | `Features/Examples/DTOs/BatchCreateProductsResponse.cs` | Per-item result with success/failure/errors |
+| Api | `Controllers/V1/ProductsController.cs` | Batch create/update/delete for products |
+| Api | `Controllers/V1/CategoriesController.cs` | Batch create/update/delete for categories |
+| Application | `Features/Product/Commands/CreateProductsCommand.cs` | Validates each item, creates all in `ExecuteInTransactionAsync` if all valid |
+| Application | `Features/Product/DTOs/CreateProductsRequest.cs` | Request with items collection |
+| Application | `Common/DTOs/BatchResponse.cs` | Per-item result with success/failure/errors |
+| Application | `Common/DTOs/BatchHelper.cs` | Reusable validation and existence-checking logic |
 
 ### Key implementation details
-- Individual item validation via `IValidator<BatchProductItem>` — each item gets its own error list
+- Individual item validation via FluentValidation — each item gets its own error list
 - All-or-nothing: if validation fails for any item, the entire batch is rejected (no partial writes)
-- All valid items are created within a single `ExecuteInTransactionAsync` call
-- Reuses existing `Product` entity and `IProductRepository`
+- All valid items are persisted within a single `ExecuteInTransactionAsync` call
+- Bulk reference validation (categories, product data) in single DB queries
+- Reuses existing domain entities and repositories
 
 ---
 

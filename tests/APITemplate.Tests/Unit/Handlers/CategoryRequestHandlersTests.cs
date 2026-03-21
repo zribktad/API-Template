@@ -428,7 +428,11 @@ public class CategoryRequestHandlersTests
         result.Results[0].Id.ShouldBe(id);
 
         _repositoryMock.Verify(
-            r => r.DeleteAsync(It.Is<Category>(c => c.Id == id), It.IsAny<CancellationToken>()),
+            r =>
+                r.DeleteRangeAsync(
+                    It.Is<IEnumerable<Category>>(c => c.Any(x => x.Id == id)),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
         _unitOfWorkMock.Verify(

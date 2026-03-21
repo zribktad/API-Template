@@ -372,7 +372,11 @@ public class ProductRequestHandlersTests
         result.Results[0].Success.ShouldBeTrue();
 
         _repositoryMock.Verify(
-            r => r.DeleteAsync(product, It.IsAny<CancellationToken>()),
+            r =>
+                r.DeleteRangeAsync(
+                    It.Is<IEnumerable<Product>>(p => p.Contains(product)),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
         _unitOfWorkMock.Verify(

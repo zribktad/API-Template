@@ -37,35 +37,34 @@ public sealed class UpdateCategoriesCommandHandler
     )
     {
         var items = command.Request.Items;
-        var results = new BatchResultItem[items.Count];
-        var failureCount = await BatchHelper.ValidateAsync(
-            _itemValidator,
-            items,
-            results,
-            i => items[i].Id,
-            ct
-        );
+        var results = BatchHelper.Initialize(items.Count, i => items[i].Id);
+
+        // Step 1: Validate each item (field-level rules — name, description, etc.)
+        var failureCount = await BatchHelper.ValidateAsync(_itemValidator, items, results, ct);
 
         if (failureCount > 0)
             return new BatchResponse(results, results.Length - failureCount, failureCount);
 
-        // Step 2: Load all categories in a single query
-        var ids = items.Select(item => item.Id).Distinct().ToHashSet();
-        var categories = await _repository.ListAsync(new CategoriesByIdsSpecification(ids), ct);
-        var categoryMap = categories.ToDictionary(c => c.Id);
+        // Step 2: Load all target categories and mark missing ones as failed
+        var categoryMap = (
+            await _repository.ListAsync(
+                new CategoriesByIdsSpecification(
+                    items.Select(item => item.Id).Distinct().ToHashSet()
+                ),
+                ct
+            )
+        ).ToDictionary(c => c.Id);
 
-        failureCount = BatchHelper.MarkMissing(
+        failureCount += BatchHelper.MarkMissing(
             results,
-            items.Count,
-            i => items[i].Id,
-            categoryMap.ContainsKey,
+            new HashSet<Guid>(categoryMap.Keys),
             ErrorCatalog.Categories.NotFoundMessage
         );
 
         if (failureCount > 0)
             return new BatchResponse(results, results.Length - failureCount, failureCount);
 
-        // Step 3: Update all in a single transaction
+        // Step 3: Apply changes in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {

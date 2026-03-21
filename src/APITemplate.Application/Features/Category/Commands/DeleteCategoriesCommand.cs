@@ -32,31 +32,29 @@ public sealed class DeleteCategoriesCommandHandler
     )
     {
         var ids = command.Request.Ids;
-        var results = new BatchResultItem[ids.Count];
 
-        var distinctIds = ids.Distinct().ToHashSet();
+        // Step 1: Load all target categories and mark missing ones as failed
         var categories = await _repository.ListAsync(
-            new CategoriesByIdsSpecification(distinctIds),
+            new CategoriesByIdsSpecification(ids.Distinct().ToHashSet()),
             ct
         );
-        var foundIds = categories.Select(c => c.Id).ToHashSet();
 
-        for (var i = 0; i < ids.Count; i++)
-            results[i] = new BatchResultItem(i, true, ids[i], null);
-
+        var results = BatchHelper.Initialize(ids.Count, i => ids[i]);
         var failureCount = BatchHelper.MarkMissing(
             results,
-            ids.Count,
-            i => ids[i],
-            foundIds.Contains,
+            categories.Select(c => c.Id).ToHashSet(),
             ErrorCatalog.Categories.NotFoundMessage
         );
 
         if (failureCount > 0)
             return new BatchResponse(results, results.Length - failureCount, failureCount);
 
+        // Step 2: Remove categories in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
-            () => _repository.DeleteRangeAsync(categories, ct),
+            async () =>
+            {
+                await _repository.DeleteRangeAsync(categories, ct);
+            },
             ct
         );
 
