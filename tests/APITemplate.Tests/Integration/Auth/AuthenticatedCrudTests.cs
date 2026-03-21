@@ -35,6 +35,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
         pagedEmpty!.Page.Items.ShouldBeEmpty();
 
         // 3. Create product
+        var createdId = Guid.NewGuid();
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -43,6 +44,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
+                        Id = createdId,
                         Name = "Test Product",
                         Description = "A description",
                         Price = 29.99,
@@ -60,9 +62,7 @@ public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
             TestJsonOptions.CaseInsensitive
         );
         createBatch.ShouldNotBeNull();
-        createBatch!.Results[0].Success.ShouldBeTrue();
-        var createdId = createBatch.Results[0].Id!.Value;
-        createdId.ShouldNotBe(Guid.Empty);
+        createBatch!.Failures.ShouldBeEmpty();
 
         // 4. Get by id
         var getByIdResponse = await _client.GetAsync($"/api/v1/products/{createdId}", ct);

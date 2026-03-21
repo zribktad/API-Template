@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Tests.Integration.Helpers;
@@ -56,6 +55,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             )
             .ReturnsAsync([new ImageProductData { Id = productDataId, Title = "Image" }]);
 
+        var createdId = Guid.NewGuid();
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -64,6 +64,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
                 {
                     new
                     {
+                        id = createdId,
                         name = "Product with data",
                         description = "Test product",
                         price = 25,
@@ -76,13 +77,6 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
-        var batchResult = JsonSerializer.Deserialize<BatchResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        );
-        batchResult.ShouldNotBeNull();
-        batchResult!.Results[0].Success.ShouldBeTrue();
-        var createdId = batchResult.Results[0].Id!.Value;
 
         var getResponse = await _client.GetAsync($"/api/v1/products/{createdId}", ct);
         getResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -135,6 +129,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             )
             .ReturnsAsync([new ImageProductData { Id = productDataId, Title = "Image" }]);
 
+        var createdId = Guid.NewGuid();
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -143,6 +138,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
                 {
                     new
                     {
+                        id = createdId,
                         name = "Product with data",
                         description = "Test product",
                         price = 25,
@@ -155,12 +151,6 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
-        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        );
-        createBatch.ShouldNotBeNull();
-        var createdId = createBatch!.Results[0].Id!.Value;
 
         var updateResponse = await _client.PutAsJsonAsync(
             "/api/v1/products",
@@ -199,35 +189,44 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
+        var electronicsId = Guid.NewGuid();
+        var booksId = Guid.NewGuid();
+
         var electronicsResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
             new
             {
                 Items = new[]
                 {
-                    new { Name = "Electronics", Description = "Devices and accessories" },
+                    new
+                    {
+                        Id = electronicsId,
+                        Name = "Electronics",
+                        Description = "Devices and accessories",
+                    },
                 },
             },
             ct
         );
         var booksResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
-            new { Items = new[] { new { Name = "Books", Description = "Printed books" } } },
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Id = booksId,
+                        Name = "Books",
+                        Description = "Printed books",
+                    },
+                },
+            },
             ct
         );
 
-        var electronicsBatch = await electronicsResponse.Content.ReadFromJsonAsync<BatchResponse>(
-            TestJsonOptions.CaseInsensitive,
-            ct
-        );
-        var booksBatch = await booksResponse.Content.ReadFromJsonAsync<BatchResponse>(
-            TestJsonOptions.CaseInsensitive,
-            ct
-        );
-        electronicsBatch.ShouldNotBeNull();
-        booksBatch.ShouldNotBeNull();
-        var electronicsId = electronicsBatch!.Results[0].Id!.Value;
-        var booksId = booksBatch!.Results[0].Id!.Value;
+        electronicsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        booksResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         await _client.PostAsJsonAsync(
             "/api/v1/products",

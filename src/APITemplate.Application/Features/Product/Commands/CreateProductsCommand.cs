@@ -43,19 +43,17 @@ public sealed class CreateProductsCommandHandler
     )
     {
         var items = command.Request.Items;
-        var results = BatchHelper.Initialize(items.Count, _ => null);
 
         // Step 1: Validate each item (field-level rules — name, price, etc.)
-        var failureCount = await BatchHelper.ValidateAsync(_itemValidator, items, results, ct);
+        var failures = await BatchHelper.ValidateAsync(_itemValidator, items, _ => null, ct);
 
-        if (failureCount > 0)
-            return new BatchResponse(results, results.Length - failureCount, failureCount);
+        if (failures.Count > 0)
+            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
 
         // Step 2: Verify all referenced categories exist
         var allCategoryIds = items
             .Where(item => item.CategoryId.HasValue)
             .Select(item => item.CategoryId!.Value)
-            .Distinct()
             .ToHashSet();
 
         var missingCategoryIds = await ProductValidationHelper.FindMissingCategoryIdsAsync(
@@ -64,24 +62,23 @@ public sealed class CreateProductsCommandHandler
             ct
         );
 
+        var failedIndices = new HashSet<int>();
+
         if (missingCategoryIds.Count > 0)
         {
             for (var i = 0; i < items.Count; i++)
             {
                 var categoryId = items[i].CategoryId;
-                if (
-                    results[i].Success
-                    && categoryId.HasValue
-                    && missingCategoryIds.Contains(categoryId.Value)
-                )
+                if (categoryId.HasValue && missingCategoryIds.Contains(categoryId.Value))
                 {
-                    results[i] = new BatchResultItem(
-                        i,
-                        false,
-                        null,
-                        [string.Format(ErrorCatalog.Categories.NotFoundMessage, categoryId)]
+                    failures.Add(
+                        new BatchResultItem(
+                            i,
+                            null,
+                            [string.Format(ErrorCatalog.Categories.NotFoundMessage, categoryId)]
+                        )
                     );
-                    failureCount++;
+                    failedIndices.Add(i);
                 }
             }
         }
@@ -90,7 +87,6 @@ public sealed class CreateProductsCommandHandler
         var allProductDataIds = items
             .Where(item => item.ProductDataIds is { Count: > 0 })
             .SelectMany(item => item.ProductDataIds!)
-            .Distinct()
             .ToHashSet();
 
         var missingProductDataIds = await ProductValidationHelper.FindMissingProductDataIdsAsync(
@@ -103,7 +99,7 @@ public sealed class CreateProductsCommandHandler
         {
             for (var i = 0; i < items.Count; i++)
             {
-                if (results[i].Success && items[i].ProductDataIds is { Count: > 0 })
+                if (!failedIndices.Contains(i) && items[i].ProductDataIds is { Count: > 0 })
                 {
                     var missing = items[i]
                         .ProductDataIds!.Where(id => missingProductDataIds.Contains(id))
@@ -111,45 +107,41 @@ public sealed class CreateProductsCommandHandler
 
                     if (missing.Count > 0)
                     {
-                        results[i] = new BatchResultItem(
-                            i,
-                            false,
-                            null,
-                            [$"Product data not found: {string.Join(", ", missing)}"]
+                        failures.Add(
+                            new BatchResultItem(
+                                i,
+                                null,
+                                [$"Product data not found: {string.Join(", ", missing)}"]
+                            )
                         );
-                        failureCount++;
                     }
                 }
             }
         }
 
-        if (failureCount > 0)
-            return new BatchResponse(results, results.Length - failureCount, failureCount);
+        if (failures.Count > 0)
+            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
 
         // Step 4: Build entities and persist in a single transaction
-        var entities = new List<ProductEntity>(items.Count);
-
-        for (var i = 0; i < items.Count; i++)
-        {
-            var item = items[i];
-            var productId = Guid.NewGuid();
-            var productDataIds = (item.ProductDataIds ?? []).Distinct().ToList();
-
-            var entity = new ProductEntity
+        var entities = items
+            .Select(item =>
             {
-                Id = productId,
-                Name = item.Name,
-                Description = item.Description,
-                Price = item.Price,
-                CategoryId = item.CategoryId,
-                ProductDataLinks = productDataIds
-                    .Select(pdId => ProductDataLink.Create(productId, pdId))
-                    .ToList(),
-            };
+                var productId = item.Id ?? Guid.NewGuid();
+                var productDataIds = (item.ProductDataIds ?? []).Distinct().ToList();
 
-            entities.Add(entity);
-            results[i] = new BatchResultItem(i, true, productId, null);
-        }
+                return new ProductEntity
+                {
+                    Id = productId,
+                    Name = item.Name,
+                    Description = item.Description,
+                    Price = item.Price,
+                    CategoryId = item.CategoryId,
+                    ProductDataLinks = productDataIds
+                        .Select(pdId => ProductDataLink.Create(productId, pdId))
+                        .ToList(),
+                };
+            })
+            .ToList();
 
         await _unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -160,6 +152,6 @@ public sealed class CreateProductsCommandHandler
         );
 
         await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
-        return new BatchResponse(results, results.Length, 0);
+        return new BatchResponse([], items.Count, 0);
     }
 }

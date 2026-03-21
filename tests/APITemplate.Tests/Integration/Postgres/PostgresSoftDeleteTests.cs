@@ -63,6 +63,7 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
             role: Domain.Enums.UserRole.TenantAdmin
         );
 
+        productId = Guid.NewGuid();
         var createProductResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -71,6 +72,7 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
                 {
                     new
                     {
+                        Id = productId,
                         Name = $"Product-Cascade-{Guid.NewGuid():N}",
                         Price = 88m,
                         CategoryId = categoryId,
@@ -87,7 +89,7 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
             TestJsonOptions.CaseInsensitive
         );
         createProductBatch.ShouldNotBeNull();
-        productId = createProductBatch!.Results[0].Id!.Value;
+        createProductBatch!.Failures.ShouldBeEmpty();
 
         var createReview1 = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",

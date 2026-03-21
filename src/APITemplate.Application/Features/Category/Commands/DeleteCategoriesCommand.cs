@@ -35,19 +35,20 @@ public sealed class DeleteCategoriesCommandHandler
 
         // Step 1: Load all target categories and mark missing ones as failed
         var categories = await _repository.ListAsync(
-            new CategoriesByIdsSpecification(ids.Distinct().ToHashSet()),
+            new CategoriesByIdsSpecification(ids.ToHashSet()),
             ct
         );
 
-        var results = BatchHelper.Initialize(ids.Count, i => ids[i]);
-        var failureCount = BatchHelper.MarkMissing(
-            results,
-            categories.Select(c => c.Id).ToHashSet(),
+        var foundIds = categories.Select(c => c.Id).ToHashSet();
+        var failures = BatchHelper.MarkMissing(
+            ids,
+            id => id,
+            foundIds.Contains,
             ErrorCatalog.Categories.NotFoundMessage
         );
 
-        if (failureCount > 0)
-            return new BatchResponse(results, results.Length - failureCount, failureCount);
+        if (failures.Count > 0)
+            return new BatchResponse(failures, ids.Count - failures.Count, failures.Count);
 
         // Step 2: Remove categories in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
@@ -60,6 +61,6 @@ public sealed class DeleteCategoriesCommandHandler
 
         await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories), ct);
 
-        return new BatchResponse(results, results.Length, 0);
+        return new BatchResponse([], ids.Count, 0);
     }
 }

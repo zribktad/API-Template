@@ -45,38 +45,35 @@ public sealed class UpdateProductsCommandHandler
     )
     {
         var items = command.Request.Items;
-        var results = BatchHelper.Initialize(items.Count, i => items[i].Id);
 
         // Step 1: Validate each item (field-level rules — name, price, etc.)
-        var failureCount = await BatchHelper.ValidateAsync(_itemValidator, items, results, ct);
+        var failures = await BatchHelper.ValidateAsync(_itemValidator, items, i => items[i].Id, ct);
 
-        if (failureCount > 0)
-            return new BatchResponse(results, results.Length - failureCount, failureCount);
+        if (failures.Count > 0)
+            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
 
         // Step 2: Load all target products and mark missing ones as failed
         var productMap = (
             await _repository.ListAsync(
-                new ProductsByIdsWithLinksSpecification(
-                    items.Select(item => item.Id).Distinct().ToHashSet()
-                ),
+                new ProductsByIdsWithLinksSpecification(items.Select(item => item.Id).ToHashSet()),
                 ct
             )
         ).ToDictionary(p => p.Id);
 
-        failureCount += BatchHelper.MarkMissing(
-            results,
-            new HashSet<Guid>(productMap.Keys),
+        failures = BatchHelper.MarkMissing(
+            items,
+            item => item.Id,
+            productMap.ContainsKey,
             ErrorCatalog.Products.NotFoundMessage
         );
 
-        if (failureCount > 0)
-            return new BatchResponse(results, results.Length - failureCount, failureCount);
+        if (failures.Count > 0)
+            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
 
         // Step 3: Verify all referenced categories exist
         var allCategoryIds = items
             .Where(item => item.CategoryId.HasValue)
             .Select(item => item.CategoryId!.Value)
-            .Distinct()
             .ToHashSet();
 
         var missingCategoryIds = await ProductValidationHelper.FindMissingCategoryIdsAsync(
@@ -85,24 +82,23 @@ public sealed class UpdateProductsCommandHandler
             ct
         );
 
+        var failedIndices = new HashSet<int>();
+
         if (missingCategoryIds.Count > 0)
         {
             for (var i = 0; i < items.Count; i++)
             {
                 var categoryId = items[i].CategoryId;
-                if (
-                    results[i].Success
-                    && categoryId.HasValue
-                    && missingCategoryIds.Contains(categoryId.Value)
-                )
+                if (categoryId.HasValue && missingCategoryIds.Contains(categoryId.Value))
                 {
-                    results[i] = new BatchResultItem(
-                        i,
-                        false,
-                        items[i].Id,
-                        [string.Format(ErrorCatalog.Categories.NotFoundMessage, categoryId)]
+                    failures.Add(
+                        new BatchResultItem(
+                            i,
+                            items[i].Id,
+                            [string.Format(ErrorCatalog.Categories.NotFoundMessage, categoryId)]
+                        )
                     );
-                    failureCount++;
+                    failedIndices.Add(i);
                 }
             }
         }
@@ -111,7 +107,6 @@ public sealed class UpdateProductsCommandHandler
         var allProductDataIds = items
             .Where(item => item.ProductDataIds is { Count: > 0 })
             .SelectMany(item => item.ProductDataIds!)
-            .Distinct()
             .ToHashSet();
 
         var missingProductDataIds = await ProductValidationHelper.FindMissingProductDataIdsAsync(
@@ -124,7 +119,7 @@ public sealed class UpdateProductsCommandHandler
         {
             for (var i = 0; i < items.Count; i++)
             {
-                if (results[i].Success && items[i].ProductDataIds is { Count: > 0 })
+                if (!failedIndices.Contains(i) && items[i].ProductDataIds is { Count: > 0 })
                 {
                     var missing = items[i]
                         .ProductDataIds!.Where(id => missingProductDataIds.Contains(id))
@@ -132,20 +127,20 @@ public sealed class UpdateProductsCommandHandler
 
                     if (missing.Count > 0)
                     {
-                        results[i] = new BatchResultItem(
-                            i,
-                            false,
-                            items[i].Id,
-                            [$"Product data not found: {string.Join(", ", missing)}"]
+                        failures.Add(
+                            new BatchResultItem(
+                                i,
+                                items[i].Id,
+                                [$"Product data not found: {string.Join(", ", missing)}"]
+                            )
                         );
-                        failureCount++;
                     }
                 }
             }
         }
 
-        if (failureCount > 0)
-            return new BatchResponse(results, results.Length - failureCount, failureCount);
+        if (failures.Count > 0)
+            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
 
         // Step 5: Apply changes and sync product-data links in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
@@ -176,6 +171,6 @@ public sealed class UpdateProductsCommandHandler
         );
 
         await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
-        return new BatchResponse(results, results.Length, 0);
+        return new BatchResponse([], items.Count, 0);
     }
 }

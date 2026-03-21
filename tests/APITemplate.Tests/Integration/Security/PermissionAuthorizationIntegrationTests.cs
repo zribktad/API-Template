@@ -180,6 +180,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
         // First create a product as PlatformAdmin
         var adminClient = _factory.CreateClient();
         IntegrationAuthHelper.Authenticate(adminClient);
+        var productId = Guid.NewGuid();
         var productResponse = await adminClient.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -188,6 +189,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
                 {
                     new
                     {
+                        Id = productId,
                         Name = "Review Target",
                         Description = "For review",
                         Price = 5.00,
@@ -203,7 +205,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
             TestJsonOptions.CaseInsensitive
         );
         productBatch.ShouldNotBeNull();
-        var productId = productBatch!.Results[0].Id!.Value;
+        productBatch!.Failures.ShouldBeEmpty();
 
         // Then create a review as User
         var response = await client.PostAsJsonAsync(

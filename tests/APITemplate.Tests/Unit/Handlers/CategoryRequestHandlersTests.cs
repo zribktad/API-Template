@@ -173,10 +173,7 @@ public class CategoryRequestHandlersTests
         result.ShouldNotBeNull();
         result.SuccessCount.ShouldBe(1);
         result.FailureCount.ShouldBe(0);
-        result.Results.Count.ShouldBe(1);
-        result.Results[0].Success.ShouldBeTrue();
-        result.Results[0].Id.ShouldNotBeNull();
-        result.Results[0].Id!.Value.ShouldNotBe(Guid.Empty);
+        result.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
@@ -220,7 +217,7 @@ public class CategoryRequestHandlersTests
 
         result.SuccessCount.ShouldBe(1);
         result.FailureCount.ShouldBe(0);
-        result.Results[0].Success.ShouldBeTrue();
+        result.Failures.ShouldBeEmpty();
     }
 
     [Fact]
@@ -250,9 +247,7 @@ public class CategoryRequestHandlersTests
 
         result.SuccessCount.ShouldBe(0);
         result.FailureCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeFalse();
-        result.Results[0].Errors.ShouldNotBeNull();
-        result.Results[0].Errors!.ShouldContain("Category name is required.");
+        result.Failures[0].Errors.ShouldContain("Category name is required.");
 
         _repositoryMock.Verify(
             r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
@@ -293,7 +288,7 @@ public class CategoryRequestHandlersTests
 
         result.SuccessCount.ShouldBe(1);
         result.FailureCount.ShouldBe(0);
-        result.Results[0].Success.ShouldBeTrue();
+        result.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -343,9 +338,7 @@ public class CategoryRequestHandlersTests
 
         result.SuccessCount.ShouldBe(0);
         result.FailureCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeFalse();
-        result.Results[0].Errors.ShouldNotBeNull();
-        result.Results[0].Errors!.ShouldContain(e => e.Contains("not found"));
+        result.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
 
         _unitOfWorkMock.Verify(
             u =>
@@ -385,9 +378,7 @@ public class CategoryRequestHandlersTests
 
         result.SuccessCount.ShouldBe(0);
         result.FailureCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeFalse();
-        result.Results[0].Errors.ShouldNotBeNull();
-        result.Results[0].Errors!.ShouldContain("Category name is required.");
+        result.Failures[0].Errors.ShouldContain("Category name is required.");
 
         _repositoryMock.Verify(
             r =>
@@ -424,8 +415,7 @@ public class CategoryRequestHandlersTests
 
         result.SuccessCount.ShouldBe(1);
         result.FailureCount.ShouldBe(0);
-        result.Results[0].Success.ShouldBeTrue();
-        result.Results[0].Id.ShouldBe(id);
+        result.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -470,9 +460,7 @@ public class CategoryRequestHandlersTests
 
         result.SuccessCount.ShouldBe(0);
         result.FailureCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeFalse();
-        result.Results[0].Errors.ShouldNotBeNull();
-        result.Results[0].Errors!.ShouldContain(e => e.Contains("not found"));
+        result.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
 
         _unitOfWorkMock.Verify(
             u =>

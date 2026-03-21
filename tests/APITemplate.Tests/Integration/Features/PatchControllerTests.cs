@@ -25,6 +25,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         // Create a product first
+        var productId = Guid.NewGuid();
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -33,6 +34,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
+                        Id = productId,
                         Name = "Patch Original",
                         Description = "Keep this",
                         Price = 50.00m,
@@ -43,11 +45,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
-        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        )!;
-        var created = new { Id = createBatch.Results[0].Id!.Value };
+        var created = new { Id = productId };
 
         // Patch name only
         var patchJson = """[{"op": "replace", "path": "/name", "value": "Patch Updated"}]""";
@@ -79,6 +77,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
+        var productId = Guid.NewGuid();
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -87,6 +86,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
+                        Id = productId,
                         Name = "Multi Patch",
                         Description = "Original",
                         Price = 25.00m,
@@ -96,11 +96,8 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        )!;
-        var created = new { Id = createBatch.Results[0].Id!.Value };
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var created = new { Id = productId };
 
         var patchJson =
             """[{"op": "replace", "path": "/name", "value": "Multi Updated"}, {"op": "replace", "path": "/price", "value": 99.99}]""";
@@ -131,6 +128,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
+        var productId = Guid.NewGuid();
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -139,6 +137,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
+                        Id = productId,
                         Name = "Negative Patch",
                         Description = "Test",
                         Price = 50.00m,
@@ -148,11 +147,8 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        )!;
-        var created = new { Id = createBatch.Results[0].Id!.Value };
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var created = new { Id = productId };
 
         var patchJson = """[{"op": "replace", "path": "/price", "value": -1}]""";
         var patchContent = new StringContent(
@@ -196,6 +192,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
+        var productId = Guid.NewGuid();
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
@@ -204,6 +201,7 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
                 {
                     new
                     {
+                        Id = productId,
                         Name = "Remove Desc",
                         Description = "To be removed",
                         Price = 10.00m,
@@ -213,11 +211,8 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        var createBatch = JsonSerializer.Deserialize<BatchResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        )!;
-        var created = new { Id = createBatch.Results[0].Id!.Value };
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var created = new { Id = productId };
 
         var patchJson = """[{"op": "remove", "path": "/description"}]""";
         var patchContent = new StringContent(

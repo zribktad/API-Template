@@ -24,20 +24,26 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         var userId = IntegrationAuthHelper.AuthenticateAndGetUserId(_client, tenantId: _tenantId);
 
         // 1. Create a product
+        var productId = Guid.NewGuid();
         var productResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Items = new[] { new { Name = "Reviewed Product", Price = 49.99 } } },
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Id = productId,
+                        Name = "Reviewed Product",
+                        Price = 49.99,
+                    },
+                },
+            },
             ct
         );
 
         var productBody = await productResponse.Content.ReadAsStringAsync(ct);
         productResponse.StatusCode.ShouldBe(HttpStatusCode.OK, productBody);
-        var productBatch = JsonSerializer.Deserialize<BatchResponse>(
-            productBody,
-            TestJsonOptions.CaseInsensitive
-        );
-        productBatch.ShouldNotBeNull();
-        var productId = productBatch!.Results[0].Id!.Value;
 
         // 2. Create a review for the product
         var createReviewResponse = await _client.PostAsJsonAsync(
@@ -143,20 +149,26 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
+        var productId = Guid.NewGuid();
         var productResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Items = new[] { new { Name = "No Review Product", Price = 9.99 } } },
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Id = productId,
+                        Name = "No Review Product",
+                        Price = 9.99,
+                    },
+                },
+            },
             ct
         );
 
         var productBody = await productResponse.Content.ReadAsStringAsync(ct);
         productResponse.StatusCode.ShouldBe(HttpStatusCode.OK, productBody);
-        var productBatch = JsonSerializer.Deserialize<BatchResponse>(
-            productBody,
-            TestJsonOptions.CaseInsensitive
-        );
-        productBatch.ShouldNotBeNull();
-        var productId = productBatch!.Results[0].Id!.Value;
 
         var response = await _client.GetAsync($"/api/v1/productreviews/by-product/{productId}", ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);

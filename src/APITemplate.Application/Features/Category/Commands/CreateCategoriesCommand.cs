@@ -37,26 +37,19 @@ public sealed class CreateCategoriesCommandHandler
     )
     {
         var items = command.Request.Items;
-        var results = BatchHelper.Initialize(items.Count, _ => null);
-        var failureCount = await BatchHelper.ValidateAsync(_itemValidator, items, results, ct);
+        var failures = await BatchHelper.ValidateAsync(_itemValidator, items, _ => null, ct);
 
-        if (failureCount > 0)
-            return new BatchResponse(results, results.Length - failureCount, failureCount);
+        if (failures.Count > 0)
+            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
 
-        var entities = new List<CategoryEntity>(items.Count);
-
-        for (var i = 0; i < items.Count; i++)
-        {
-            var item = items[i];
-            var entity = new CategoryEntity
+        var entities = items
+            .Select(item => new CategoryEntity
             {
-                Id = Guid.NewGuid(),
+                Id = item.Id ?? Guid.NewGuid(),
                 Name = item.Name,
                 Description = item.Description,
-            };
-            entities.Add(entity);
-            results[i] = new BatchResultItem(i, true, entity.Id, null);
-        }
+            })
+            .ToList();
 
         await _unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -67,6 +60,6 @@ public sealed class CreateCategoriesCommandHandler
         );
 
         await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories), ct);
-        return new BatchResponse(results, results.Length, 0);
+        return new BatchResponse([], items.Count, 0);
     }
 }

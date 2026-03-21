@@ -13,5 +13,6 @@ public sealed record CreateProductRequest(
     string? Description,
     [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than zero.")] decimal Price,
     Guid? CategoryId = null,
-    IReadOnlyCollection<Guid>? ProductDataIds = null
+    IReadOnlyCollection<Guid>? ProductDataIds = null,
+    Guid? Id = null
 ) : IProductRequest;

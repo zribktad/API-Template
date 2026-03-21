@@ -34,11 +34,20 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         allCategories!.Items.ShouldBeEmpty();
 
         // 2. Create category
+        var createdId = Guid.NewGuid();
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
             new
             {
-                Items = new[] { new { Name = "Electronics", Description = "Electronic devices" } },
+                Items = new[]
+                {
+                    new
+                    {
+                        Id = createdId,
+                        Name = "Electronics",
+                        Description = "Electronic devices",
+                    },
+                },
             },
             ct
         );
@@ -51,9 +60,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
             TestJsonOptions.CaseInsensitive
         );
         createResult.ShouldNotBeNull();
-        createResult!.SuccessCount.ShouldBe(1);
-        createResult.Results[0].Id.ShouldNotBeNull();
-        var createdId = createResult.Results[0].Id!.Value;
+        createResult!.Failures.ShouldBeEmpty();
 
         // 3. Get by id
         var getByIdResponse = await _client.GetAsync($"/api/v1/categories/{createdId}", ct);
@@ -127,9 +134,10 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
+        var createdId = Guid.NewGuid();
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
-            new { Items = new[] { new { Name = "Books" } } },
+            new { Items = new[] { new { Id = createdId, Name = "Books" } } },
             ct
         );
 
@@ -141,8 +149,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
             TestJsonOptions.CaseInsensitive
         );
         createResult.ShouldNotBeNull();
-        createResult!.SuccessCount.ShouldBe(1);
-        var createdId = createResult.Results[0].Id!.Value;
+        createResult!.Failures.ShouldBeEmpty();
 
         // Verify the created category has no description
         var getResponse = await _client.GetAsync($"/api/v1/categories/{createdId}", ct);

@@ -117,10 +117,7 @@ public class ProductRequestHandlersTests
 
         result.SuccessCount.ShouldBe(1);
         result.FailureCount.ShouldBe(0);
-        result.Results.ShouldHaveSingleItem();
-        result.Results[0].Success.ShouldBeTrue();
-        result.Results[0].Id.ShouldNotBeNull();
-        result.Results[0].Id.ShouldNotBe(Guid.Empty);
+        result.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -174,7 +171,7 @@ public class ProductRequestHandlersTests
         );
 
         result.SuccessCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeTrue();
+        result.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -220,7 +217,7 @@ public class ProductRequestHandlersTests
         );
 
         result.SuccessCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeTrue();
+        result.Failures.ShouldBeEmpty();
     }
 
     [Fact]
@@ -253,9 +250,7 @@ public class ProductRequestHandlersTests
         );
 
         result.FailureCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeFalse();
-        result.Results[0].Errors.ShouldNotBeNull();
-        result.Results[0].Errors!.ShouldContain(e => e.Contains("Category"));
+        result.Failures[0].Errors.ShouldContain(e => e.Contains("Category"));
     }
 
     [Fact]
@@ -291,9 +286,7 @@ public class ProductRequestHandlersTests
         );
 
         result.FailureCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeFalse();
-        result.Results[0].Errors.ShouldNotBeNull();
-        result.Results[0].Errors!.ShouldContain(e => e.Contains("Product data not found"));
+        result.Failures[0].Errors.ShouldContain(e => e.Contains("Product data not found"));
     }
 
     [Fact]
@@ -327,9 +320,7 @@ public class ProductRequestHandlersTests
         );
 
         result.FailureCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeFalse();
-        result.Results[0].Errors.ShouldNotBeNull();
-        result.Results[0].Errors!.ShouldContain(e => e.Contains("not found"));
+        result.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
     }
 
     [Fact]
@@ -369,7 +360,7 @@ public class ProductRequestHandlersTests
 
         result.SuccessCount.ShouldBe(1);
         result.FailureCount.ShouldBe(0);
-        result.Results[0].Success.ShouldBeTrue();
+        result.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -431,7 +422,7 @@ public class ProductRequestHandlersTests
         );
 
         result.SuccessCount.ShouldBe(1);
-        result.Results[0].Success.ShouldBeTrue();
+        result.Failures.ShouldBeEmpty();
 
         product.Name.ShouldBe("New Name");
         product.Description.ShouldBe("New Desc");

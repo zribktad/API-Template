@@ -20,15 +20,14 @@ public class ProductMutations
         CancellationToken ct
     )
     {
+        var productId = Guid.NewGuid();
         var result = await commandHandler.HandleAsync(
-            new CreateProductsCommand(new CreateProductsRequest([input])),
+            new CreateProductsCommand(new CreateProductsRequest([input with { Id = productId }])),
             ct
         );
 
         if (result.FailureCount > 0)
-            throw new GraphQLException(string.Join("; ", result.Results[0].Errors ?? []));
-
-        var productId = result.Results[0].Id!.Value;
+            throw new GraphQLException(string.Join("; ", result.Failures[0].Errors));
 
         return (await queryHandler.HandleAsync(new GetProductByIdQuery(productId), ct))!;
     }
@@ -47,7 +46,7 @@ public class ProductMutations
         );
 
         if (result.FailureCount > 0)
-            throw new GraphQLException(string.Join("; ", result.Results[0].Errors ?? []));
+            throw new GraphQLException(string.Join("; ", result.Failures[0].Errors));
 
         return true;
     }

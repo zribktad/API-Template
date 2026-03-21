@@ -35,19 +35,20 @@ public sealed class DeleteProductsCommandHandler
 
         // Step 1: Load all target products and mark missing ones as failed
         var products = await _repository.ListAsync(
-            new ProductsByIdsWithLinksSpecification(ids.Distinct().ToHashSet()),
+            new ProductsByIdsWithLinksSpecification(ids.ToHashSet()),
             ct
         );
 
-        var results = BatchHelper.Initialize(ids.Count, i => ids[i]);
-        var failureCount = BatchHelper.MarkMissing(
-            results,
-            products.Select(p => p.Id).ToHashSet(),
+        var foundIds = products.Select(p => p.Id).ToHashSet();
+        var failures = BatchHelper.MarkMissing(
+            ids,
+            id => id,
+            foundIds.Contains,
             ErrorCatalog.Products.NotFoundMessage
         );
 
-        if (failureCount > 0)
-            return new BatchResponse(results, results.Length - failureCount, failureCount);
+        if (failures.Count > 0)
+            return new BatchResponse(failures, ids.Count - failures.Count, failures.Count);
 
         // Step 2: Soft-delete product-data links and remove products in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
@@ -64,6 +65,6 @@ public sealed class DeleteProductsCommandHandler
         await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
         await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews), ct);
 
-        return new BatchResponse(results, results.Length, 0);
+        return new BatchResponse([], ids.Count, 0);
     }
 }

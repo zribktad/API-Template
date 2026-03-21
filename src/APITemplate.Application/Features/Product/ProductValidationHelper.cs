@@ -64,7 +64,7 @@ internal static class ProductValidationHelper
         if (categoryIds.Count == 0)
             return [];
 
-        var distinctIds = categoryIds.Distinct().ToHashSet();
+        var distinctIds = categoryIds.ToHashSet();
         var existing = await categoryRepository.ListAsync(
             new Category.Specifications.CategoriesByIdsSpecification(distinctIds),
             ct

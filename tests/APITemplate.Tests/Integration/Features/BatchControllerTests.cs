@@ -59,8 +59,7 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         result.ShouldNotBeNull();
         result!.SuccessCount.ShouldBe(3);
         result.FailureCount.ShouldBe(0);
-        result.Results.Count.ShouldBe(3);
-        result.Results.ShouldAllBe(r => r.Success && r.Id.HasValue);
+        result.Failures.ShouldBeEmpty();
     }
 
     [Fact]
@@ -106,9 +105,8 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         );
         result.ShouldNotBeNull();
         result!.FailureCount.ShouldBeGreaterThan(0);
-        result.Results[1].Success.ShouldBeFalse();
-        result.Results[1].Errors.ShouldNotBeNull();
-        result.Results[1].Errors!.Count.ShouldBeGreaterThan(0);
+        result.Failures.ShouldContain(f => f.Index == 1);
+        result.Failures.First(f => f.Index == 1).Errors.Count.ShouldBeGreaterThan(0);
     }
 
     [Fact]
