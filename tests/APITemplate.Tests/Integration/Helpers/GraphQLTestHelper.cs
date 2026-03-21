@@ -64,6 +64,7 @@ internal sealed class GraphQLTestHelper
                         name: $name
                         minPrice: $min
                         maxPrice: $max
+                        pageNumber: 1
                         pageSize: 25
                         sortBy: "createdAt"
                         sortDirection: "desc"
@@ -95,10 +96,11 @@ internal sealed class GraphQLTestHelper
     {
         var mutation = new
         {
-            query = @"
+            query = """
                 mutation($input: CreateProductReviewRequestInput!) {
                     createProductReview(input: $input) { id }
-                }",
+                }
+                """,
             variables = new { input = new { productId, rating } },
         };
 

@@ -1,4 +1,3 @@
-using System.Net;
 using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
@@ -41,16 +40,16 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
                 {
                     productId,
                     comment = "Tested via GraphQL",
-                    rating = 4
-                }
-            }
+                    rating = 4,
+                },
+            },
         };
 
         var response = await _graphql.PostAsync(mutation);
-        var createProductReview = await _graphql.ReadRequiredGraphQLFieldAsync<CreateProductReviewData, ProductReviewItem>(
-            response,
-            data => data.CreateProductReview,
-            "createProductReview");
+        var createProductReview = await _graphql.ReadRequiredGraphQLFieldAsync<
+            CreateProductReviewData,
+            ProductReviewItem
+        >(response, data => data.CreateProductReview, "createProductReview");
         createProductReview.UserId.ShouldBe(userId);
         createProductReview.Rating.ShouldBe(4);
         createProductReview.ProductId.ShouldBe(productId);
@@ -62,13 +61,17 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
-        var query = new { query = "{ reviews { page { items { id userId rating } totalCount pageNumber pageSize } } }" };
+        var query = new
+        {
+            query = "{ reviews { page { items { id userId rating } totalCount pageNumber pageSize } } }",
+        };
 
         var response = await _graphql.PostAsync(query);
         var reviews = await _graphql.ReadRequiredGraphQLFieldAsync<ReviewsData, ProductReviewPage>(
             response,
             data => data.Reviews,
-            "reviews");
+            "reviews"
+        );
         reviews.Page.Items.Count.ShouldBeGreaterThanOrEqualTo(0);
         reviews.Page.PageNumber.ShouldBeGreaterThan(0);
     }
@@ -86,23 +89,20 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
                 mutation($input: CreateProductReviewRequestInput!) {
                     createProductReview(input: $input) { id }
                 }",
-            variables = new
-            {
-                input = new { productId, rating = 3 }
-            }
+            variables = new { input = new { productId, rating = 3 } },
         };
         await _graphql.PostAsync(createMutation);
 
         var query = new
         {
-            query = $@"{{ reviewsByProductId(productId: ""{productId}"", pageNumber: 1, pageSize: 20) {{ page {{ items {{ id userId rating }} totalCount }} }} }}"
+            query = $@"{{ reviewsByProductId(productId: ""{productId}"", pageNumber: 1, pageSize: 20) {{ page {{ items {{ id userId rating }} totalCount }} }} }}",
         };
 
         var response = await _graphql.PostAsync(query);
-        var reviewsByProductId = await _graphql.ReadRequiredGraphQLFieldAsync<ReviewsByProductIdData, ProductReviewPage>(
-            response,
-            data => data.ReviewsByProductId,
-            "reviewsByProductId");
+        var reviewsByProductId = await _graphql.ReadRequiredGraphQLFieldAsync<
+            ReviewsByProductIdData,
+            ProductReviewPage
+        >(response, data => data.ReviewsByProductId, "reviewsByProductId");
         reviewsByProductId.Page.Items.Count.ShouldBeGreaterThanOrEqualTo(1);
     }
 
@@ -138,16 +138,17 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
                     sortBy = "rating",
                     sortDirection = "desc",
                     pageNumber = 1,
-                    pageSize = 2
-                }
-            }
+                    pageSize = 2,
+                },
+            },
         };
 
         var response = await _graphql.PostAsync(query);
         var reviews = await _graphql.ReadRequiredGraphQLFieldAsync<ReviewsData, ProductReviewPage>(
             response,
             data => data.Reviews,
-            "reviews");
+            "reviews"
+        );
         var items = reviews.Page.Items;
 
         items.Count.ShouldBe(2);
@@ -162,7 +163,10 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
     {
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
-        var productId = await _graphql.CreateProductAsync("Product To Review Then Delete Review", 9.99m);
+        var productId = await _graphql.CreateProductAsync(
+            "Product To Review Then Delete Review",
+            9.99m
+        );
 
         var createMutation = new
         {
@@ -170,26 +174,25 @@ public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFacto
                 mutation($input: CreateProductReviewRequestInput!) {
                     createProductReview(input: $input) { id }
                 }",
-            variables = new
-            {
-                input = new { productId, rating = 2 }
-            }
+            variables = new { input = new { productId, rating = 2 } },
         };
 
         var createResponse = await _graphql.PostAsync(createMutation);
-        var createdReview = await _graphql.ReadRequiredGraphQLFieldAsync<CreateProductReviewData, ProductReviewItem>(
-            createResponse,
-            data => data.CreateProductReview,
-            "createProductReview");
+        var createdReview = await _graphql.ReadRequiredGraphQLFieldAsync<
+            CreateProductReviewData,
+            ProductReviewItem
+        >(createResponse, data => data.CreateProductReview, "createProductReview");
         var reviewId = createdReview.Id;
 
         var deleteMutation = new
         {
-            query = $@"mutation {{ deleteProductReview(id: ""{reviewId}"") }}"
+            query = $@"mutation {{ deleteProductReview(id: ""{reviewId}"") }}",
         };
 
         var deleteResponse = await _graphql.PostAsync(deleteMutation);
-        var deleteResult = await _graphql.ReadGraphQLResponseAsync<DeleteProductReviewData>(deleteResponse);
+        var deleteResult = await _graphql.ReadGraphQLResponseAsync<DeleteProductReviewData>(
+            deleteResponse
+        );
         deleteResult.DeleteProductReview.ShouldBeTrue();
     }
 }

@@ -12,16 +12,13 @@ namespace APITemplate.Api.GraphQL.Mutations;
 [ExtendObjectType(typeof(ProductMutations))]
 public class ProductReviewMutations
 {
-    /// <summary>Creates a new product review and returns the resulting review response.</summary>
+    /// <summary>Creates a new product review and returns the persisted review.</summary>
     [Authorize(Policy = Permission.ProductReviews.Create)]
-    public async Task<ProductReviewResponse> CreateProductReview(
+    public Task<ProductReviewResponse> CreateProductReview(
         CreateProductReviewRequest input,
         [Service] ICommandHandler<CreateProductReviewCommand, ProductReviewResponse> handler,
         CancellationToken ct
-    )
-    {
-        return await handler.HandleAsync(new CreateProductReviewCommand(input), ct);
-    }
+    ) => handler.HandleAsync(new CreateProductReviewCommand(input), ct);
 
     /// <summary>Deletes a product review by its ID and returns <see langword="true"/> on success.</summary>
     [Authorize(Policy = Permission.ProductReviews.Delete)]
