@@ -256,6 +256,80 @@ public class CategoryRequestHandlersTests
     }
 
     [Fact]
+    public async Task BatchCreateAsync_WithDuplicateExplicitIds_ReturnsAtomicFailure()
+    {
+        var duplicateId = Guid.NewGuid();
+        var batchRequest = new CreateCategoriesRequest([
+            new CreateCategoryRequest("First", null, duplicateId),
+            new CreateCategoryRequest("Second", null, duplicateId),
+        ]);
+
+        var sut = new CreateCategoriesCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _createValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new CreateCategoriesCommand(batchRequest),
+            TestContext.Current.CancellationToken
+        );
+
+        result.SuccessCount.ShouldBe(0);
+        result.FailureCount.ShouldBe(2);
+        result.Failures.ShouldContain(f => f.Id == duplicateId);
+
+        _repositoryMock.Verify(
+            r =>
+                r.ListAsync(
+                    It.IsAny<CategoriesByIdsSpecification>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        _repositoryMock.Verify(
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task BatchCreateAsync_WithExistingExplicitId_ReturnsFailure()
+    {
+        var existingId = Guid.NewGuid();
+        var batchRequest = new CreateCategoriesRequest([
+            new CreateCategoryRequest("Existing", null, existingId),
+        ]);
+
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(It.IsAny<CategoriesByIdsSpecification>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([new Category { Id = existingId, Name = "Existing" }]);
+
+        var sut = new CreateCategoriesCommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _createValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new CreateCategoriesCommand(batchRequest),
+            TestContext.Current.CancellationToken
+        );
+
+        result.SuccessCount.ShouldBe(0);
+        result.FailureCount.ShouldBe(1);
+        result.Failures[0].Id.ShouldBe(existingId);
+        result.Failures[0].Errors.ShouldContain(e => e.Contains("already exists"));
+
+        _repositoryMock.Verify(
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task BatchUpdateAsync_WhenCategoryExists_UpdatesAndCommits()
     {
         var category = new Category

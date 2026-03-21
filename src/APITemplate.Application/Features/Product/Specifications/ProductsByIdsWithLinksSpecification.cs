@@ -9,8 +9,14 @@ namespace APITemplate.Application.Features.Product.Specifications;
 /// </summary>
 public sealed class ProductsByIdsWithLinksSpecification : Specification<ProductEntity>
 {
-    public ProductsByIdsWithLinksSpecification(IReadOnlyCollection<Guid> ids)
+    public ProductsByIdsWithLinksSpecification(
+        IReadOnlyCollection<Guid> ids,
+        bool includeDeleted = false
+    )
     {
+        if (includeDeleted)
+            Query.IgnoreQueryFilters();
+
         Query
             .Where(product => ids.Contains(product.Id))
             .Include(product => product.ProductDataLinks);

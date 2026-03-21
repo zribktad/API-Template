@@ -8,8 +8,11 @@ namespace APITemplate.Application.Features.Category.Specifications;
 /// </summary>
 public sealed class CategoriesByIdsSpecification : Specification<CategoryEntity>
 {
-    public CategoriesByIdsSpecification(IReadOnlyCollection<Guid> ids)
+    public CategoriesByIdsSpecification(IReadOnlyCollection<Guid> ids, bool includeDeleted = false)
     {
+        if (includeDeleted)
+            Query.IgnoreQueryFilters();
+
         Query.Where(category => ids.Contains(category.Id));
     }
 }

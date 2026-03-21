@@ -1,5 +1,6 @@
 using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
+using APITemplate.Application.Features.Category.Specifications;
 using FluentValidation;
 using CategoryEntity = APITemplate.Domain.Entities.Category;
 
@@ -38,9 +39,47 @@ public sealed class CreateCategoriesCommandHandler
     {
         var items = command.Request.Items;
         var failures = await BatchHelper.ValidateAsync(_itemValidator, items, _ => null, ct);
+        var failedIndices = failures.Select(f => f.Index).ToHashSet();
+
+        var duplicateIdFailures = BatchHelper.MarkDuplicateOptionalIds(
+            items,
+            item => item.Id,
+            ErrorCatalog.Categories.DuplicateIdMessage,
+            failedIndices
+        );
+        failures.AddRange(duplicateIdFailures);
+        failedIndices.UnionWith(duplicateIdFailures.Select(f => f.Index));
+
+        var explicitIds = items
+            .Select((item, index) => new { Item = item, Index = index })
+            .Where(x => !failedIndices.Contains(x.Index) && x.Item.Id.HasValue)
+            .Select(x => x.Item.Id!.Value)
+            .ToHashSet();
+
+        if (explicitIds.Count > 0)
+        {
+            var existingIds = (
+                await _repository.ListAsync(
+                    new CategoriesByIdsSpecification(explicitIds, includeDeleted: true),
+                    ct
+                )
+            )
+                .Select(category => category.Id)
+                .ToHashSet();
+
+            var existingIdFailures = BatchHelper.MarkExistingOptionalIds(
+                items,
+                item => item.Id,
+                existingIds,
+                ErrorCatalog.Categories.AlreadyExistsMessage,
+                failedIndices
+            );
+            failures.AddRange(existingIdFailures);
+            failedIndices.UnionWith(existingIdFailures.Select(f => f.Index));
+        }
 
         if (failures.Count > 0)
-            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
+            return BatchHelper.ToAtomicFailureResponse(failures);
 
         var entities = items
             .Select(item => new CategoryEntity

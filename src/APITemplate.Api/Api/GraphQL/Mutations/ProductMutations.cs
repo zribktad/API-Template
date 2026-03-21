@@ -20,7 +20,7 @@ public class ProductMutations
         CancellationToken ct
     )
     {
-        var productId = Guid.NewGuid();
+        var productId = input.Id ?? Guid.NewGuid();
         var result = await commandHandler.HandleAsync(
             new CreateProductsCommand(new CreateProductsRequest([input with { Id = productId }])),
             ct

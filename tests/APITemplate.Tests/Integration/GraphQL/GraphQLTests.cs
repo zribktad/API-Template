@@ -85,6 +85,41 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GraphQL_CreateProduct_WithExplicitId_PreservesRequestedId()
+    {
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+        var requestedId = Guid.NewGuid();
+
+        var query = new
+        {
+            query = @"
+                mutation($input: CreateProductRequestInput!) {
+                    createProduct(input: $input) {
+                        id
+                        name
+                    }
+                }",
+            variables = new
+            {
+                input = new
+                {
+                    id = requestedId,
+                    name = "GraphQL Product With Explicit Id",
+                    price = 19.99,
+                },
+            },
+        };
+
+        var response = await _graphql.PostAsync(query);
+        var createProduct = await _graphql.ReadRequiredGraphQLFieldAsync<
+            CreateProductData,
+            ProductItem
+        >(response, data => data.CreateProduct, "createProduct");
+
+        createProduct.Id.ShouldBe(requestedId);
+    }
+
+    [Fact]
     public async Task GraphQL_CreateProduct_WithProductDataIds_ReturnsIds()
     {
         var productDataId = Guid.NewGuid();

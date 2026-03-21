@@ -48,7 +48,7 @@ public sealed class DeleteProductsCommandHandler
         );
 
         if (failures.Count > 0)
-            return new BatchResponse(failures, ids.Count - failures.Count, failures.Count);
+            return BatchHelper.ToAtomicFailureResponse(failures);
 
         // Step 2: Soft-delete product-data links and remove products in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

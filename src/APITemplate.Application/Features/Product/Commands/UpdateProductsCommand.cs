@@ -93,7 +93,7 @@ public sealed class UpdateProductsCommandHandler
         );
 
         if (failures.Count > 0)
-            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
+            return BatchHelper.ToAtomicFailureResponse(failures);
 
         // Step 5: Apply changes and sync product-data links in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

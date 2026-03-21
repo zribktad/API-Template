@@ -290,6 +290,94 @@ public class ProductRequestHandlersTests
     }
 
     [Fact]
+    public async Task BatchCreateAsync_WithDuplicateExplicitIds_ReturnsAtomicFailure()
+    {
+        var duplicateId = Guid.NewGuid();
+        var request = new CreateProductsRequest([
+            new CreateProductRequest("First", null, 10m, Id: duplicateId),
+            new CreateProductRequest("Second", null, 20m, Id: duplicateId),
+        ]);
+
+        var sut = new CreateProductsCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _createValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new CreateProductsCommand(request),
+            TestContext.Current.CancellationToken
+        );
+
+        result.SuccessCount.ShouldBe(0);
+        result.FailureCount.ShouldBe(2);
+        result.Failures.ShouldContain(f => f.Id == duplicateId);
+
+        _repositoryMock.Verify(
+            r =>
+                r.ListAsync(
+                    It.IsAny<ProductsByIdsWithLinksSpecification>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        _repositoryMock.Verify(
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task BatchCreateAsync_WithExistingExplicitId_ReturnsFailure()
+    {
+        var existingId = Guid.NewGuid();
+        var request = new CreateProductsRequest([
+            new CreateProductRequest("Existing", null, 10m, Id: existingId),
+        ]);
+
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<ProductsByIdsWithLinksSpecification>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([
+                new Product
+                {
+                    Id = existingId,
+                    Name = "Existing",
+                    Price = 10m,
+                },
+            ]);
+
+        var sut = new CreateProductsCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _createValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new CreateProductsCommand(request),
+            TestContext.Current.CancellationToken
+        );
+
+        result.SuccessCount.ShouldBe(0);
+        result.FailureCount.ShouldBe(1);
+        result.Failures[0].Id.ShouldBe(existingId);
+        result.Failures[0].Errors.ShouldContain(e => e.Contains("already exists"));
+
+        _repositoryMock.Verify(
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task BatchUpdateAsync_WhenProductNotFound_ReturnsFailure()
     {
         var productId = Guid.NewGuid();
@@ -711,7 +799,7 @@ public class ProductRequestHandlersTests
         );
 
         result.FailureCount.ShouldBe(2);
-        result.SuccessCount.ShouldBe(1);
+        result.SuccessCount.ShouldBe(0);
         result.Failures.Count.ShouldBe(2);
         result.Failures.ShouldContain(f => f.Index == 0);
         result.Failures.ShouldContain(f => f.Index == 1);
@@ -778,7 +866,7 @@ public class ProductRequestHandlersTests
         );
 
         result.FailureCount.ShouldBe(2);
-        result.SuccessCount.ShouldBe(1);
+        result.SuccessCount.ShouldBe(0);
         result.Failures.Count.ShouldBe(2);
         result.Failures.ShouldContain(f => f.Index == 0 && f.Errors.Any(e => e.Contains("Name")));
         result.Failures.ShouldContain(f =>
@@ -828,7 +916,7 @@ public class ProductRequestHandlersTests
         );
 
         result.FailureCount.ShouldBe(1);
-        result.SuccessCount.ShouldBe(1);
+        result.SuccessCount.ShouldBe(0);
         result.Failures.ShouldHaveSingleItem();
         result.Failures[0].Index.ShouldBe(1);
         result.Failures[0].Id.ShouldBe(missingId);

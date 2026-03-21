@@ -61,7 +61,7 @@ public sealed class UpdateCategoriesCommandHandler
         );
 
         if (failures.Count > 0)
-            return new BatchResponse(failures, items.Count - failures.Count, failures.Count);
+            return BatchHelper.ToAtomicFailureResponse(failures);
 
         // Step 3: Apply changes in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(

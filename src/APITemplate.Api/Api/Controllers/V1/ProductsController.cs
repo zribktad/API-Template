@@ -54,7 +54,7 @@ public sealed class ProductsController : ApiControllerBase
     )
     {
         var result = await handler.HandleAsync(new CreateProductsCommand(request), ct);
-        return Ok(result);
+        return BatchResult(result);
     }
 
     /// <summary>Updates multiple products in a single batch operation.</summary>
@@ -67,7 +67,7 @@ public sealed class ProductsController : ApiControllerBase
     )
     {
         var result = await handler.HandleAsync(new UpdateProductsCommand(request), ct);
-        return Ok(result);
+        return BatchResult(result);
     }
 
     /// <summary>Soft-deletes multiple products in a single batch operation.</summary>
@@ -80,6 +80,6 @@ public sealed class ProductsController : ApiControllerBase
     )
     {
         var result = await handler.HandleAsync(new DeleteProductsCommand(request), ct);
-        return Ok(result);
+        return BatchResult(result);
     }
 }

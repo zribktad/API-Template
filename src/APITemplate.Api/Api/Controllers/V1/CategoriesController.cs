@@ -56,7 +56,7 @@ public sealed class CategoriesController : ApiControllerBase
     )
     {
         var result = await handler.HandleAsync(new CreateCategoriesCommand(request), ct);
-        return Ok(result);
+        return BatchResult(result);
     }
 
     /// <summary>Updates multiple categories in a single batch operation.</summary>
@@ -69,7 +69,7 @@ public sealed class CategoriesController : ApiControllerBase
     )
     {
         var result = await handler.HandleAsync(new UpdateCategoriesCommand(request), ct);
-        return Ok(result);
+        return BatchResult(result);
     }
 
     /// <summary>Soft-deletes multiple categories in a single batch operation.</summary>
@@ -82,7 +82,7 @@ public sealed class CategoriesController : ApiControllerBase
     )
     {
         var result = await handler.HandleAsync(new DeleteCategoriesCommand(request), ct);
-        return Ok(result);
+        return BatchResult(result);
     }
 
     /// <summary>

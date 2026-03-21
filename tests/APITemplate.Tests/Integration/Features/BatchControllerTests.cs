@@ -97,7 +97,7 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await _client.PostAsJsonAsync("/api/v1/products", request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity, body);
 
         var result = JsonSerializer.Deserialize<BatchResponse>(
             body,

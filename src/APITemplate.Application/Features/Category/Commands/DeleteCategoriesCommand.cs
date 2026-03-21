@@ -48,7 +48,7 @@ public sealed class DeleteCategoriesCommandHandler
         );
 
         if (failures.Count > 0)
-            return new BatchResponse(failures, ids.Count - failures.Count, failures.Count);
+            return BatchHelper.ToAtomicFailureResponse(failures);
 
         // Step 2: Remove categories in a single transaction
         await _unitOfWork.ExecuteInTransactionAsync(
