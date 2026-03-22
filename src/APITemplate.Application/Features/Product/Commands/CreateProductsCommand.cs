@@ -52,25 +52,24 @@ public sealed class CreateProductsCommandHandler
             new FluentValidationBatchRule<CreateProductRequest>(_itemValidator)
         );
 
-        // Step 2: Verify all referenced categories and product data exist.
-        context.AddFailures(
-            await ProductValidationHelper.CheckCategoryReferencesAsync(
-                items,
-                item => item.CategoryId,
-                _categoryRepository,
-                context.FailedIndices,
-                ct
-            )
+        // Step 2–3: Reference checks skip only fluent-validation failures so both category and
+        // product-data issues can be reported for the same index (merged into one failure row).
+        var skipForReferenceChecks = context.FailedIndices.ToHashSet();
+        var categoryFailures = await ProductValidationHelper.CheckCategoryReferencesAsync(
+            items,
+            item => item.CategoryId,
+            _categoryRepository,
+            skipForReferenceChecks,
+            ct
         );
-        context.AddFailures(
-            await ProductValidationHelper.CheckProductDataReferencesAsync(
-                items,
-                item => item.ProductDataIds,
-                _productDataRepository,
-                context.FailedIndices,
-                ct
-            )
+        var productDataFailures = await ProductValidationHelper.CheckProductDataReferencesAsync(
+            items,
+            item => item.ProductDataIds,
+            _productDataRepository,
+            skipForReferenceChecks,
+            ct
         );
+        context.AddFailures(BatchFailureMerge.MergeByIndex(categoryFailures, productDataFailures));
 
         if (context.HasFailures)
             return context.ToFailureResponse();

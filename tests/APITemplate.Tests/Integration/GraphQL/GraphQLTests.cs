@@ -49,7 +49,7 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GraphQL_CreateProduct_ReturnsNewProduct()
+    public async Task GraphQL_CreateProducts_WithSingleItem_ReturnsBatchResult()
     {
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
@@ -57,8 +57,8 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         var query = new
         {
             query = """
-                mutation($input: CreateProductRequestInput!) {
-                    createProduct(input: $input) {
+                mutation($input: CreateProductsRequestInput!) {
+                    createProducts(input: $input) {
                         successCount
                         failureCount
                         failures { index id errors }
@@ -69,21 +69,27 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
             {
                 input = new
                 {
-                    name = "GraphQL Product",
-                    description = "Created via GraphQL",
-                    price = 49.99,
+                    items = new[]
+                    {
+                        new
+                        {
+                            name = "GraphQL Product",
+                            description = "Created via GraphQL",
+                            price = 49.99,
+                        },
+                    },
                 },
             },
         };
 
         var response = await _graphql.PostAsync(query);
-        var batch = await _graphql.ReadRequiredGraphQLFieldAsync<
-            CreateProductData,
+        var createProducts = await _graphql.ReadRequiredGraphQLFieldAsync<
+            CreateProductsData,
             GraphQLBatchResult
-        >(response, data => data.CreateProduct, "createProduct");
-        batch.SuccessCount.ShouldBe(1);
-        batch.FailureCount.ShouldBe(0);
-        batch.Failures.ShouldBeEmpty();
+        >(response, data => data.CreateProducts, "createProducts");
+        createProducts.SuccessCount.ShouldBe(1);
+        createProducts.FailureCount.ShouldBe(0);
+        createProducts.Failures.ShouldBeEmpty();
     }
 
     [Fact]
@@ -109,10 +115,11 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
         var query = new
         {
             query = """
-                mutation($input: CreateProductRequestInput!) {
-                    createProduct(input: $input) {
+                mutation($input: CreateProductsRequestInput!) {
+                    createProducts(input: $input) {
                         successCount
                         failureCount
+                        failures { index id errors }
                     }
                 }
                 """,
@@ -120,20 +127,27 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
             {
                 input = new
                 {
-                    name = "GraphQL Product With Data",
-                    price = 49.99,
-                    productDataIds = new[] { productDataId },
+                    items = new[]
+                    {
+                        new
+                        {
+                            name = "GraphQL Product With Data",
+                            price = 49.99,
+                            productDataIds = new[] { productDataId },
+                        },
+                    },
                 },
             },
         };
 
         var response = await _graphql.PostAsync(query);
         var batch = await _graphql.ReadRequiredGraphQLFieldAsync<
-            CreateProductData,
+            CreateProductsData,
             GraphQLBatchResult
-        >(response, data => data.CreateProduct, "createProduct");
+        >(response, data => data.CreateProducts, "createProducts");
         batch.SuccessCount.ShouldBe(1);
         batch.FailureCount.ShouldBe(0);
+        batch.Failures.ShouldBeEmpty();
 
         var createdId = await _graphql.GetProductIdByNameAndPriceAsync(
             "GraphQL Product With Data",
@@ -169,31 +183,88 @@ public class GraphQLTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GraphQL_DeleteProduct_ReturnsBatchResult()
+    public async Task GraphQL_DeleteProduct_ReturnsTrue()
     {
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
         var productId = await _graphql.CreateProductAsync("To Delete", 5.0m);
 
-        var deleteQuery = new
-        {
-            query = $@"mutation {{
-                    deleteProduct(id: ""{productId}"") {{
-                        successCount
-                        failureCount
-                        failures {{ index id errors }}
-                    }}
-                }}",
-        };
+        var deleteQuery = new { query = $@"mutation {{ deleteProduct(id: ""{productId}"") }}" };
 
         var deleteResponse = await _graphql.PostAsync(deleteQuery);
-        var deleteResult = await _graphql.ReadRequiredGraphQLFieldAsync<
-            DeleteProductData,
+        var deleteResult = await _graphql.ReadGraphQLResponseAsync<DeleteProductData>(
+            deleteResponse
+        );
+        deleteResult.DeleteProduct.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GraphQL_CreateProducts_ReturnsBatchResult()
+    {
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+
+        var query = new
+        {
+            query = """
+                mutation($input: CreateProductsRequestInput!) {
+                    createProducts(input: $input) {
+                        successCount
+                        failureCount
+                        failures { index id errors }
+                    }
+                }
+                """,
+            variables = new
+            {
+                input = new
+                {
+                    items = new[]
+                    {
+                        new { name = "GraphQL Batch P1", price = 11.0 },
+                        new { name = "GraphQL Batch P2", price = 22.0 },
+                    },
+                },
+            },
+        };
+
+        var response = await _graphql.PostAsync(query);
+        var batch = await _graphql.ReadRequiredGraphQLFieldAsync<
+            CreateProductsData,
             GraphQLBatchResult
-        >(deleteResponse, d => d.DeleteProduct, "deleteProduct");
-        deleteResult.SuccessCount.ShouldBe(1);
-        deleteResult.FailureCount.ShouldBe(0);
-        deleteResult.Failures.ShouldBeEmpty();
+        >(response, data => data.CreateProducts, "createProducts");
+        batch.SuccessCount.ShouldBe(2);
+        batch.FailureCount.ShouldBe(0);
+        batch.Failures.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GraphQL_DeleteProducts_ReturnsBatchResult()
+    {
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+
+        var productId = await _graphql.CreateProductAsync("To Batch Delete", 7.0m);
+        var query = new
+        {
+            query = """
+                mutation($input: BatchDeleteRequestInput!) {
+                    deleteProducts(input: $input) {
+                        successCount
+                        failureCount
+                        failures { index id errors }
+                    }
+                }
+                """,
+            variables = new { input = new { ids = new[] { productId } } },
+        };
+
+        var response = await _graphql.PostAsync(query);
+        var batch = await _graphql.ReadRequiredGraphQLFieldAsync<
+            DeleteProductsData,
+            GraphQLBatchResult
+        >(response, data => data.DeleteProducts, "deleteProducts");
+        batch.SuccessCount.ShouldBe(1);
+        batch.FailureCount.ShouldBe(0);
+        batch.Failures.ShouldBeEmpty();
     }
 
     [Fact]

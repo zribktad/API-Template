@@ -33,11 +33,15 @@ public class UnauthorizedAccessTests : IClassFixture<CustomWebApplicationFactory
         var ct = TestContext.Current.CancellationToken;
         var mutation = """
             {
-              "query": "mutation($input: CreateProductRequestInput!) { createProduct(input: $input) { successCount failureCount } }",
+              "query": "mutation($input: CreateProductsRequestInput!) { createProducts(input: $input) { successCount failureCount } }",
               "variables": {
                 "input": {
-                  "name": "unauthorized-mutation",
-                  "price": 1.23
+                  "items": [
+                    {
+                      "name": "unauthorized-mutation",
+                      "price": 1.23
+                    }
+                  ]
                 }
               }
             }

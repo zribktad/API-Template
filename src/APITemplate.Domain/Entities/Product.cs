@@ -62,17 +62,14 @@ public sealed class Product : IAuditableTenantEntity, IHasId
     }
 
     /// <summary>
-    /// Reconciles the product's <see cref="ProductDataLinks"/> collection against the desired set of <paramref name="productDataIds"/>.
-    /// Removes links not in the target set, restores soft-deleted links that reappear, and creates new links as needed.
+    /// Reconciles the product's <see cref="ProductDataLinks"/> collection against the desired set of <paramref name="targetIds"/>.
+    /// Removes links not in the target set and creates new links as needed.
     /// </summary>
     public void SyncProductDataLinks(
-        IReadOnlyCollection<Guid> productDataIds,
-        IReadOnlyCollection<ProductDataLink> allLinks
+        HashSet<Guid> targetIds,
+        Dictionary<Guid, ProductDataLink> existingById
     )
     {
-        var targetIds = productDataIds.ToHashSet();
-        var existingById = allLinks.ToDictionary(link => link.ProductDataId);
-
         foreach (
             var link in ProductDataLinks
                 .Where(link => !targetIds.Contains(link.ProductDataId))
@@ -80,18 +77,11 @@ public sealed class Product : IAuditableTenantEntity, IHasId
         )
             ProductDataLinks.Remove(link);
 
-        foreach (var productDataId in productDataIds)
+        foreach (var productDataId in targetIds)
         {
-            if (!existingById.TryGetValue(productDataId, out var existingLink))
+            if (!existingById.ContainsKey(productDataId))
             {
                 ProductDataLinks.Add(ProductDataLink.Create(Id, productDataId));
-                continue;
-            }
-
-            if (existingLink.IsDeleted)
-            {
-                existingLink.Restore();
-                ProductDataLinks.Add(existingLink);
             }
         }
     }

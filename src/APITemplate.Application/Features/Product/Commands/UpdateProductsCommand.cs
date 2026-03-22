@@ -2,6 +2,7 @@ using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.CQRS.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product.Specifications;
+using APITemplate.Domain.Entities;
 using FluentValidation;
 
 namespace APITemplate.Application.Features.Product;
@@ -68,27 +69,24 @@ public sealed class UpdateProductsCommandHandler
             )
         );
 
-        // Step 3: Verify all referenced categories exist
-        context.AddFailures(
-            await ProductValidationHelper.CheckCategoryReferencesAsync(
-                items,
-                item => item.CategoryId,
-                _categoryRepository,
-                context.FailedIndices,
-                ct
-            )
+        // Step 3–4: Reference checks skip only earlier failures (validation + missing entity) so
+        // category and product-data issues on the same row are merged into one failure.
+        var skipForReferenceChecks = context.FailedIndices.ToHashSet();
+        var categoryFailures = await ProductValidationHelper.CheckCategoryReferencesAsync(
+            items,
+            item => item.CategoryId,
+            _categoryRepository,
+            skipForReferenceChecks,
+            ct
         );
-
-        // Step 4: Verify all referenced product data entries exist
-        context.AddFailures(
-            await ProductValidationHelper.CheckProductDataReferencesAsync(
-                items,
-                item => item.ProductDataIds,
-                _productDataRepository,
-                context.FailedIndices,
-                ct
-            )
+        var productDataFailures = await ProductValidationHelper.CheckProductDataReferencesAsync(
+            items,
+            item => item.ProductDataIds,
+            _productDataRepository,
+            skipForReferenceChecks,
+            ct
         );
+        context.AddFailures(BatchFailureMerge.MergeByIndex(categoryFailures, productDataFailures));
 
         if (context.HasFailures)
             return context.ToFailureResponse();
@@ -107,13 +105,11 @@ public sealed class UpdateProductsCommandHandler
 
                     if (item.ProductDataIds is not null)
                     {
-                        var productDataIds = item.ProductDataIds.Distinct().ToList();
-                        var allLinks = await _productDataLinkRepository.ListByProductIdAsync(
-                            productId,
-                            includeDeleted: true,
-                            ct
+                        var targetIds = item.ProductDataIds.ToHashSet();
+                        var existingById = product.ProductDataLinks.ToDictionary(link =>
+                            link.ProductDataId
                         );
-                        product.SyncProductDataLinks(productDataIds, allLinks);
+                        product.SyncProductDataLinks(targetIds, existingById);
                     }
 
                     await _repository.UpdateAsync(product, ct);

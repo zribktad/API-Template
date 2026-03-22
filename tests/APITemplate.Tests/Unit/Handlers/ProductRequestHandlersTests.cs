@@ -483,8 +483,8 @@ public class ProductRequestHandlersTests
         );
         _productDataLinkRepositoryMock.Verify(
             r =>
-                r.ListByProductIdAsync(
-                    It.IsAny<Guid>(),
+                r.ListByProductIdsAsync(
+                    It.IsAny<IReadOnlyCollection<Guid>>(),
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
@@ -519,8 +519,19 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([product]);
         _productDataLinkRepositoryMock
-            .Setup(r => r.ListByProductIdAsync(product.Id, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(product.ProductDataLinks.ToList());
+            .Setup(r =>
+                r.ListByProductIdsAsync(
+                    It.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(product.Id)),
+                    true,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new Dictionary<Guid, IReadOnlyList<ProductDataLink>>
+                {
+                    [product.Id] = product.ProductDataLinks.ToList(),
+                }
+            );
         _productDataRepositoryMock
             .Setup(r =>
                 r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>())
@@ -570,8 +581,19 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([product]);
         _productDataLinkRepositoryMock
-            .Setup(r => r.ListByProductIdAsync(product.Id, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(product.ProductDataLinks.ToList());
+            .Setup(r =>
+                r.ListByProductIdsAsync(
+                    It.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(product.Id)),
+                    true,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new Dictionary<Guid, IReadOnlyList<ProductDataLink>>
+                {
+                    [product.Id] = product.ProductDataLinks.ToList(),
+                }
+            );
 
         var sut = new UpdateProductsCommandHandler(
             _repositoryMock.Object,
@@ -639,8 +661,8 @@ public class ProductRequestHandlersTests
         );
         _productDataLinkRepositoryMock.Verify(
             r =>
-                r.ListByProductIdAsync(
-                    It.IsAny<Guid>(),
+                r.ListByProductIdsAsync(
+                    It.IsAny<IReadOnlyCollection<Guid>>(),
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
@@ -677,8 +699,19 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([product]);
         _productDataLinkRepositoryMock
-            .Setup(r => r.ListByProductIdAsync(product.Id, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([deletedLink]);
+            .Setup(r =>
+                r.ListByProductIdsAsync(
+                    It.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(product.Id)),
+                    true,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new Dictionary<Guid, IReadOnlyList<ProductDataLink>>
+                {
+                    [product.Id] = [deletedLink],
+                }
+            );
         _productDataRepositoryMock
             .Setup(r =>
                 r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>())
@@ -763,6 +796,58 @@ public class ProductRequestHandlersTests
     }
 
     [Fact]
+    public async Task BatchCreateAsync_MissingCategoryAndProductData_MergesErrorsForSameItem()
+    {
+        var missingCategoryId = Guid.NewGuid();
+        var missingPdId = Guid.NewGuid();
+        var request = new CreateProductsRequest([
+            new CreateProductRequest("Good Name", "Desc", 10m, missingCategoryId, [missingPdId]),
+        ]);
+
+        _categoryRepositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<Application.Features.Category.Specifications.CategoriesByIdsSpecification>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([]);
+
+        _productDataRepositoryMock
+            .Setup(r =>
+                r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([]);
+
+        var sut = new CreateProductsCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _createValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new CreateProductsCommand(request),
+            TestContext.Current.CancellationToken
+        );
+
+        result.FailureCount.ShouldBe(1);
+        result.Failures.Count.ShouldBe(1);
+        result.Failures[0].Index.ShouldBe(0);
+        result.Failures[0].Errors.Count.ShouldBe(2);
+        result
+            .Failures[0]
+            .Errors.ShouldContain(e => e.Contains("Category", StringComparison.Ordinal));
+        result.Failures[0].Errors.ShouldContain(e => e.Contains("Product data not found"));
+
+        _repositoryMock.Verify(
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task BatchUpdateAsync_ValidationAndMissing_ReportsFirstErrorPerItem()
     {
         // Item 0: validation failure
@@ -824,6 +909,91 @@ public class ProductRequestHandlersTests
         result.Failures.ShouldContain(f =>
             f.Index == 1 && f.Errors.Any(e => e.Contains("not found"))
         );
+
+        _unitOfWorkMock.Verify(
+            u =>
+                u.ExecuteInTransactionAsync(
+                    It.IsAny<Func<Task>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<TransactionOptions?>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task BatchUpdateAsync_MissingCategoryAndProductData_MergesErrorsForSameItem()
+    {
+        var missingCategoryId = Guid.NewGuid();
+        var missingPdId = Guid.NewGuid();
+        var product = new Product
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.NewGuid(),
+            Name = "Existing",
+            Price = 10m,
+            Audit = new() { CreatedAtUtc = DateTime.UtcNow },
+            ProductDataLinks = [],
+        };
+
+        var items = new UpdateProductsRequest([
+            new UpdateProductItem(
+                product.Id,
+                "Updated",
+                null,
+                20m,
+                missingCategoryId,
+                [missingPdId]
+            ),
+        ]);
+
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<ProductsByIdsWithLinksSpecification>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([product]);
+
+        _categoryRepositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<Application.Features.Category.Specifications.CategoriesByIdsSpecification>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([]);
+
+        _productDataRepositoryMock
+            .Setup(r =>
+                r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([]);
+
+        var sut = new UpdateProductsCommandHandler(
+            _repositoryMock.Object,
+            _categoryRepositoryMock.Object,
+            _productDataRepositoryMock.Object,
+            _productDataLinkRepositoryMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object,
+            _updateValidatorMock.Object
+        );
+        var result = await sut.HandleAsync(
+            new UpdateProductsCommand(items),
+            TestContext.Current.CancellationToken
+        );
+
+        result.FailureCount.ShouldBe(1);
+        result.Failures.Count.ShouldBe(1);
+        result.Failures[0].Index.ShouldBe(0);
+        result.Failures[0].Id.ShouldBe(product.Id);
+        result.Failures[0].Errors.Count.ShouldBe(2);
+        result
+            .Failures[0]
+            .Errors.ShouldContain(e => e.Contains("Category", StringComparison.Ordinal));
+        result.Failures[0].Errors.ShouldContain(e => e.Contains("Product data not found"));
 
         _unitOfWorkMock.Verify(
             u =>

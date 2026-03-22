@@ -590,13 +590,17 @@ query {
 **Example GraphQL Mutation:**
 ```graphql
 mutation {
-  createProduct(input: {
-    name: "New Masterpiece Board Game"
-    price: 49.99
-    description: "An epic adventure game"
+  createProducts(input: {
+    items: [
+      {
+        name: "New Masterpiece Board Game"
+        price: 49.99
+        description: "An epic adventure game"
+      }
+    ]
   }) {
-    id
-    name
+    successCount
+    failureCount
   }
 }
 ```

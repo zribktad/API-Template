@@ -362,26 +362,35 @@ DELETE /api/v1/categories    — Batch delete categories (Permission: Categories
 
 ```json
 {
-  "results": [
-    { "index": 0, "success": true, "id": "aaa-...", "errors": null },
-    { "index": 1, "success": true, "id": "bbb-...", "errors": null }
-  ],
+  "failures": [],
   "successCount": 2,
   "failureCount": 0
 }
 ```
 
-### Response — Some Invalid (200 OK, but with errors)
+### Response — Some Invalid (422 Unprocessable Entity)
 
 ```json
 {
-  "results": [
-    { "index": 0, "success": false, "id": null, "errors": null },
-    { "index": 1, "success": false, "id": null, "errors": null },
-    { "index": 2, "success": false, "id": null, "errors": ["'Name' must not be empty.", "'Price' must be greater than '0'."] }
+  "failures": [
+    {
+      "index": 0,
+      "id": null,
+      "errors": [
+        "Product name is required.",
+        "Price must be greater than zero."
+      ]
+    },
+    {
+      "index": 1,
+      "id": "c38a5227-5324-4d8c-b1d7-6245d1ca820d",
+      "errors": [
+        "Product 'c38a5227-5324-4d8c-b1d7-6245d1ca820d' not found."
+      ]
+    }
   ],
   "successCount": 0,
-  "failureCount": 1
+  "failureCount": 2
 }
 ```
 
@@ -404,8 +413,8 @@ curl -X POST -H "Authorization: Bearer <token>" \
 | Api | `Controllers/V1/CategoriesController.cs` | Batch create/update/delete for categories |
 | Application | `Features/Product/Commands/CreateProductsCommand.cs` | Validates each item, creates all in `ExecuteInTransactionAsync` if all valid |
 | Application | `Features/Product/DTOs/CreateProductsRequest.cs` | Request with items collection |
-| Application | `Common/DTOs/BatchResponse.cs` | Per-item result with success/failure/errors |
-| Application | `Common/DTOs/BatchHelper.cs` | Reusable validation and existence-checking logic |
+| Application | `Common/DTOs/BatchResponse.cs` | Standard batch output (`failures`, `successCount`, `failureCount`) |
+| Application | `Common/CQRS/BatchFailureContext.cs` + `Common/CQRS/Rules/*` | Reusable validation and existence-checking orchestration |
 
 ### Key implementation details
 - Individual item validation via FluentValidation — each item gets its own error list

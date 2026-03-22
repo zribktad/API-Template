@@ -30,26 +30,25 @@ internal sealed class GraphQLTestHelper
         var mutation = new
         {
             query = """
-                mutation($input: CreateProductRequestInput!) {
-                    createProduct(input: $input) {
+                mutation($input: CreateProductsRequestInput!) {
+                    createProducts(input: $input) {
                         successCount
                         failureCount
                         failures { index id errors }
                     }
                 }
                 """,
-            variables = new { input = new { name, price } },
+            variables = new { input = new { items = new[] { new { name, price } } } },
         };
 
         var response = await PostAsync(mutation);
-        var batch = await ReadRequiredGraphQLFieldAsync<CreateProductData, GraphQLBatchResult>(
+        var batch = await ReadRequiredGraphQLFieldAsync<CreateProductsData, GraphQLBatchResult>(
             response,
-            data => data.CreateProduct,
-            "createProduct"
+            data => data.CreateProducts,
+            "createProducts"
         );
         batch.SuccessCount.ShouldBe(1);
         batch.FailureCount.ShouldBe(0);
-
         return await GetProductIdByNameAndPriceAsync(name, price);
     }
 

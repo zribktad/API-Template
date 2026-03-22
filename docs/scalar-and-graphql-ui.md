@@ -183,19 +183,22 @@ query {
 }
 ```
 
-**Create a product (requires `Authorization` header in Nitro):**
+**Create products (requires `Authorization` header in Nitro):**
 
 ```graphql
 mutation {
-  createProduct(input: {
-    name: "My New Product"
-    description: "Created from Nitro"
-    price: 49.99
+  createProducts(input: {
+    items: [
+      {
+        name: "My New Product"
+        description: "Created from Nitro"
+        price: 49.99
+      }
+    ]
   }) {
-    id
-    name
-    price
-    createdAtUtc
+    successCount
+    failureCount
+    failures { index id errors }
   }
 }
 ```
@@ -215,11 +218,11 @@ Instead of hardcoding values, use the **Variables** tab:
 **Query:**
 
 ```graphql
-mutation CreateProduct($input: CreateProductRequestInput!) {
-  createProduct(input: $input) {
-    id
-    name
-    price
+mutation CreateProducts($input: CreateProductsRequestInput!) {
+  createProducts(input: $input) {
+    successCount
+    failureCount
+    failures { index id errors }
   }
 }
 ```
@@ -229,9 +232,13 @@ mutation CreateProduct($input: CreateProductRequestInput!) {
 ```json
 {
   "input": {
-    "name": "Widget",
-    "description": "A useful widget",
-    "price": 9.99
+    "items": [
+      {
+        "name": "Widget",
+        "description": "A useful widget",
+        "price": 9.99
+      }
+    ]
   }
 }
 ```

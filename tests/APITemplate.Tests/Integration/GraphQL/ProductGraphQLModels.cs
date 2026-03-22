@@ -78,8 +78,10 @@ public sealed record GraphQLBatchResult(
     int FailureCount
 );
 
-public sealed record CreateProductData(GraphQLBatchResult CreateProduct);
+public sealed record CreateProductsData(GraphQLBatchResult CreateProducts);
 
 public sealed record ProductByIdData(ProductItem? ProductById);
 
-public sealed record DeleteProductData(GraphQLBatchResult DeleteProduct);
+public sealed record DeleteProductData(bool DeleteProduct);
+
+public sealed record DeleteProductsData(GraphQLBatchResult DeleteProducts);
