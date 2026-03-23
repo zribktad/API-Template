@@ -1,4 +1,3 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.User.DTOs;
@@ -7,46 +6,34 @@ using APITemplate.Domain.Entities;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using Wolverine;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record CreateUserCommand(CreateUserRequest Request) : ICommand<UserResponse>;
+public sealed record CreateUserCommand(CreateUserRequest Request);
 
-public sealed class CreateUserCommandHandler : ICommandHandler<CreateUserCommand, UserResponse>
+public sealed class CreateUserCommandHandler
 {
-    private readonly IUserRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IEventPublisher _publisher;
-    private readonly ILogger<CreateUserCommandHandler> _logger;
-    private readonly IKeycloakAdminService _keycloakAdmin;
-
-    public CreateUserCommandHandler(
+    public static async Task<UserResponse> HandleAsync(
+        CreateUserCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
-        IEventPublisher publisher,
+        IMessageBus bus,
         ILogger<CreateUserCommandHandler> logger,
-        IKeycloakAdminService keycloakAdmin
+        IKeycloakAdminService keycloakAdmin,
+        CancellationToken ct
     )
     {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
-        _logger = logger;
-        _keycloakAdmin = keycloakAdmin;
-    }
-
-    public async Task<UserResponse> HandleAsync(CreateUserCommand command, CancellationToken ct)
-    {
         await Task.WhenAll(
-            UserValidationHelper.ValidateEmailUniqueAsync(_repository, command.Request.Email, ct),
+            UserValidationHelper.ValidateEmailUniqueAsync(repository, command.Request.Email, ct),
             UserValidationHelper.ValidateUsernameUniqueAsync(
-                _repository,
+                repository,
                 command.Request.Username,
                 ct
             )
         );
 
-        var keycloakUserId = await _keycloakAdmin.CreateUserAsync(
+        var keycloakUserId = await keycloakAdmin.CreateUserAsync(
             command.Request.Username,
             command.Request.Email,
             ct
@@ -62,32 +49,31 @@ public sealed class CreateUserCommandHandler : ICommandHandler<CreateUserCommand
                 KeycloakUserId = keycloakUserId,
             };
 
-            await _repository.AddAsync(user, ct);
-            await _unitOfWork.CommitAsync(ct);
+            await repository.AddAsync(user, ct);
+            await unitOfWork.CommitAsync(ct);
 
-            await _publisher.PublishSafeAsync(
+            await bus.PublishSafeAsync(
                 new UserRegisteredNotification(user.Id, user.Email, user.Username),
-                _logger,
-                ct
+                logger
             );
 
-            await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Users), ct);
+            await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
             return user.ToResponse();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(
+            logger.LogError(
                 ex,
                 "DB save failed after creating Keycloak user {KeycloakUserId}. Attempting compensating delete.",
                 keycloakUserId
             );
             try
             {
-                await _keycloakAdmin.DeleteUserAsync(keycloakUserId, CancellationToken.None);
+                await keycloakAdmin.DeleteUserAsync(keycloakUserId, CancellationToken.None);
             }
             catch (Exception compensationEx)
             {
-                _logger.LogError(
+                logger.LogError(
                     compensationEx,
                     "Compensating Keycloak delete failed for user {KeycloakUserId}. Manual cleanup required.",
                     keycloakUserId

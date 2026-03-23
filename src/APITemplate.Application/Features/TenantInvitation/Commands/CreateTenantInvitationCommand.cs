@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.Context;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Email;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
@@ -11,70 +10,46 @@ using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Wolverine;
 using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
 
 namespace APITemplate.Application.Features.TenantInvitation;
 
-public sealed record CreateTenantInvitationCommand(CreateTenantInvitationRequest Request)
-    : ICommand<TenantInvitationResponse>;
+public sealed record CreateTenantInvitationCommand(CreateTenantInvitationRequest Request);
 
 public sealed class CreateTenantInvitationCommandHandler
-    : ICommandHandler<CreateTenantInvitationCommand, TenantInvitationResponse>
 {
-    private readonly ITenantInvitationRepository _invitationRepository;
-    private readonly ITenantRepository _tenantRepository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ISecureTokenGenerator _tokenGenerator;
-    private readonly IEventPublisher _publisher;
-    private readonly ITenantProvider _tenantProvider;
-    private readonly TimeProvider _timeProvider;
-    private readonly EmailOptions _emailOptions;
-    private readonly ILogger<CreateTenantInvitationCommandHandler> _logger;
-
-    public CreateTenantInvitationCommandHandler(
+    public static async Task<TenantInvitationResponse> HandleAsync(
+        CreateTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
         IUnitOfWork unitOfWork,
         ISecureTokenGenerator tokenGenerator,
-        IEventPublisher publisher,
+        IMessageBus bus,
         ITenantProvider tenantProvider,
         TimeProvider timeProvider,
         IOptions<EmailOptions> emailOptions,
-        ILogger<CreateTenantInvitationCommandHandler> logger
-    )
-    {
-        _invitationRepository = invitationRepository;
-        _tenantRepository = tenantRepository;
-        _unitOfWork = unitOfWork;
-        _tokenGenerator = tokenGenerator;
-        _publisher = publisher;
-        _tenantProvider = tenantProvider;
-        _timeProvider = timeProvider;
-        _emailOptions = emailOptions.Value;
-        _logger = logger;
-    }
-
-    public async Task<TenantInvitationResponse> HandleAsync(
-        CreateTenantInvitationCommand command,
+        ILogger<CreateTenantInvitationCommandHandler> logger,
         CancellationToken ct
     )
     {
+        var emailOpts = emailOptions.Value;
         var normalizedEmail = AppUser.NormalizeEmail(command.Request.Email);
 
-        if (await _invitationRepository.HasPendingInvitationAsync(normalizedEmail, ct))
+        if (await invitationRepository.HasPendingInvitationAsync(normalizedEmail, ct))
             throw new ConflictException(
                 $"A pending invitation already exists for '{command.Request.Email}'.",
                 ErrorCatalog.Invitations.AlreadyPending
             );
 
-        var tenant = await _tenantRepository.GetByIdOrThrowAsync(
-            _tenantProvider.TenantId,
+        var tenant = await tenantRepository.GetByIdOrThrowAsync(
+            tenantProvider.TenantId,
             ErrorCatalog.Tenants.NotFound,
             ct
         );
 
-        var rawToken = _tokenGenerator.GenerateToken();
-        var tokenHash = _tokenGenerator.HashToken(rawToken);
+        var rawToken = tokenGenerator.GenerateToken();
+        var tokenHash = tokenGenerator.HashToken(rawToken);
 
         var invitation = new TenantInvitationEntity
         {
@@ -82,29 +57,25 @@ public sealed class CreateTenantInvitationCommandHandler
             Email = command.Request.Email.Trim(),
             NormalizedEmail = normalizedEmail,
             TokenHash = tokenHash,
-            ExpiresAtUtc = _timeProvider
+            ExpiresAtUtc = timeProvider
                 .GetUtcNow()
-                .UtcDateTime.AddHours(_emailOptions.InvitationTokenExpiryHours),
+                .UtcDateTime.AddHours(emailOpts.InvitationTokenExpiryHours),
         };
 
-        await _invitationRepository.AddAsync(invitation, ct);
-        await _unitOfWork.CommitAsync(ct);
+        await invitationRepository.AddAsync(invitation, ct);
+        await unitOfWork.CommitAsync(ct);
 
-        await _publisher.PublishSafeAsync(
+        await bus.PublishSafeAsync(
             new TenantInvitationCreatedNotification(
                 invitation.Id,
                 invitation.Email,
                 tenant.Name,
                 rawToken
             ),
-            _logger,
-            ct
+            logger
         );
 
-        await _publisher.PublishAsync(
-            new CacheInvalidationNotification(CacheTags.TenantInvitations),
-            ct
-        );
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.TenantInvitations));
         return invitation.ToResponse();
     }
 }

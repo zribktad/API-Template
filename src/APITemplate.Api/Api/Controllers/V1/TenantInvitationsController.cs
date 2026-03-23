@@ -1,6 +1,5 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.DTOs;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
@@ -10,6 +9,7 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -19,7 +19,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that manages the lifecycle of tenant invitations,
 /// including creation, acceptance via a token link, revocation, and resending.
 /// </summary>
-public sealed class TenantInvitationsController : ApiControllerBase
+public sealed class TenantInvitationsController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>Returns a paginated list of tenant invitations, optionally filtered.</summary>
     [HttpGet]
@@ -27,15 +27,13 @@ public sealed class TenantInvitationsController : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.TenantInvitations)]
     public async Task<ActionResult<PagedResponse<TenantInvitationResponse>>> GetAll(
         [FromQuery] TenantInvitationFilter filter,
-        [FromServices]
-            IQueryHandler<
-            GetTenantInvitationsQuery,
-            PagedResponse<TenantInvitationResponse>
-        > handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new GetTenantInvitationsQuery(filter), ct);
+        var result = await bus.InvokeAsync<PagedResponse<TenantInvitationResponse>>(
+            new GetTenantInvitationsQuery(filter),
+            ct
+        );
         return Ok(result);
     }
 
@@ -44,12 +42,13 @@ public sealed class TenantInvitationsController : ApiControllerBase
     [RequirePermission(Permission.Invitations.Create)]
     public async Task<ActionResult<TenantInvitationResponse>> Create(
         CreateTenantInvitationRequest request,
-        [FromServices]
-            ICommandHandler<CreateTenantInvitationCommand, TenantInvitationResponse> handler,
         CancellationToken ct
     )
     {
-        var invitation = await handler.HandleAsync(new CreateTenantInvitationCommand(request), ct);
+        var invitation = await bus.InvokeAsync<TenantInvitationResponse>(
+            new CreateTenantInvitationCommand(request),
+            ct
+        );
         return CreatedAtAction(nameof(GetAll), new { version = this.GetApiVersion() }, invitation);
     }
 
@@ -58,37 +57,28 @@ public sealed class TenantInvitationsController : ApiControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Accept(
         [FromBody] AcceptInvitationRequest request,
-        [FromServices] ICommandHandler<AcceptTenantInvitationCommand> handler,
         CancellationToken ct
     )
     {
-        await handler.HandleAsync(new AcceptTenantInvitationCommand(request.Token), ct);
+        await bus.InvokeAsync(new AcceptTenantInvitationCommand(request.Token), ct);
         return Ok();
     }
 
     /// <summary>Marks an outstanding invitation as revoked so the token can no longer be accepted.</summary>
     [HttpPatch("{id:guid}/revoke")]
     [RequirePermission(Permission.Invitations.Revoke)]
-    public async Task<IActionResult> Revoke(
-        Guid id,
-        [FromServices] ICommandHandler<RevokeTenantInvitationCommand> handler,
-        CancellationToken ct
-    )
+    public async Task<IActionResult> Revoke(Guid id, CancellationToken ct)
     {
-        await handler.HandleAsync(new RevokeTenantInvitationCommand(id), ct);
+        await bus.InvokeAsync(new RevokeTenantInvitationCommand(id), ct);
         return NoContent();
     }
 
     /// <summary>Re-sends the invitation email for a pending invitation that has not yet been accepted or revoked.</summary>
     [HttpPost("{id:guid}/resend")]
     [RequirePermission(Permission.Invitations.Create)]
-    public async Task<IActionResult> Resend(
-        Guid id,
-        [FromServices] ICommandHandler<ResendTenantInvitationCommand> handler,
-        CancellationToken ct
-    )
+    public async Task<IActionResult> Resend(Guid id, CancellationToken ct)
     {
-        await handler.HandleAsync(new ResendTenantInvitationCommand(id), ct);
+        await bus.InvokeAsync(new ResendTenantInvitationCommand(id), ct);
         return Ok();
     }
 }

@@ -1,20 +1,19 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.Examples;
 
-public sealed record GetJobStatusQuery(GetJobStatusRequest Request) : IQuery<JobStatusResponse?>;
+public sealed record GetJobStatusQuery(GetJobStatusRequest Request);
 
-public sealed class GetJobStatusQueryHandler : IQueryHandler<GetJobStatusQuery, JobStatusResponse?>
+public sealed class GetJobStatusQueryHandler
 {
-    private readonly IJobExecutionRepository _repository;
-
-    public GetJobStatusQueryHandler(IJobExecutionRepository repository) => _repository = repository;
-
-    public async Task<JobStatusResponse?> HandleAsync(GetJobStatusQuery query, CancellationToken ct)
+    public static async Task<JobStatusResponse?> HandleAsync(
+        GetJobStatusQuery query,
+        IJobExecutionRepository repository,
+        CancellationToken ct
+    )
     {
-        var entity = await _repository.GetByIdAsync(query.Request.Id, ct);
+        var entity = await repository.GetByIdAsync(query.Request.Id, ct);
         return entity is null ? null : JobResponseMapper.MapToResponse(entity);
     }
 }

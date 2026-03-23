@@ -96,6 +96,8 @@ internal static class TestServiceHelper
         services.RemoveAll<IOutputCacheStore>();
         services.RemoveAll<IConnectionMultiplexer>();
         services.AddOutputCache();
+        services.RemoveAll<IOutputCacheStore>();
+        services.AddSingleton<IOutputCacheStore, TestOutputCacheStore>();
         services.RemoveAll<IValidateOptions<DragonflyOptions>>();
         services.RemoveAll<IOptionsChangeTokenSource<DragonflyOptions>>();
     }
@@ -159,7 +161,7 @@ internal static class TestServiceHelper
         || descriptor.ServiceType == typeof(IDistributedJobCoordinator)
         || (
             descriptor.ServiceType
-                == typeof(APITemplate.Application.Common.BackgroundJobs.IRecurringBackgroundJobRegistration)
+                == typeof(Application.Common.BackgroundJobs.IRecurringBackgroundJobRegistration)
             && IsTickerQRuntimeType(descriptor.ImplementationType)
         );
 

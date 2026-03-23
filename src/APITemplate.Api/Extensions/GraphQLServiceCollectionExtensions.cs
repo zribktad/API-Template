@@ -19,14 +19,14 @@ public static class GraphQLServiceCollectionExtensions
 
         services
             .AddGraphQLServer()
-            .AddQueryType<Api.GraphQL.Queries.ProductQueries>()
-            .AddTypeExtension<Api.GraphQL.Queries.CategoryQueries>()
-            .AddTypeExtension<Api.GraphQL.Queries.ProductReviewQueries>()
-            .AddMutationType<Api.GraphQL.Mutations.ProductMutations>()
-            .AddTypeExtension<Api.GraphQL.Mutations.ProductReviewMutations>()
-            .AddType<Api.GraphQL.Types.ProductType>()
-            .AddType<Api.GraphQL.Types.ProductReviewType>()
-            .AddDataLoader<Api.GraphQL.DataLoaders.ProductReviewsByProductDataLoader>()
+            .AddQueryType<GraphQL.Queries.ProductQueries>()
+            .AddTypeExtension<GraphQL.Queries.CategoryQueries>()
+            .AddTypeExtension<GraphQL.Queries.ProductReviewQueries>()
+            .AddMutationType<GraphQL.Mutations.ProductMutations>()
+            .AddTypeExtension<GraphQL.Mutations.ProductReviewMutations>()
+            .AddType<GraphQL.Types.ProductType>()
+            .AddType<GraphQL.Types.ProductReviewType>()
+            .AddDataLoader<GraphQL.DataLoaders.ProductReviewsByProductDataLoader>()
             .AddAuthorization()
             .AddInstrumentation()
             .AddDiagnosticEventListener(sp =>

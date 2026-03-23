@@ -11,7 +11,7 @@ Step-by-step guides for the most common workflows in this project:
 | Guide                                                | Description                                                                 |
 | ---------------------------------------------------- | --------------------------------------------------------------------------- |
 | [GraphQL Endpoint](docs/graphql-endpoint.md)         | Add a type, query, mutation, and optional DataLoader                        |
-| [REST Endpoint](docs/rest-endpoint.md)               | Full workflow: entity → DTO → validator → service → controller              |
+| [REST Endpoint](docs/rest-endpoint.md)               | Full workflow: entity → DTO → validator → Wolverine handler → controller    |
 | [EF Core Migration](docs/ef-migration.md)            | Create and apply PostgreSQL schema migrations                               |
 | [MongoDB Migration](docs/mongodb-migration.md)       | Create index and data migrations with Kot.MongoDB.Migrations                |
 | [Transactions](docs/transactions.md)                 | Wrap multiple operations in an atomic Unit of Work transaction              |
@@ -270,9 +270,9 @@ APITemplate.Domain  ←  APITemplate.Application  ←  APITemplate.Infrastructur
 | Project                      | Role                                                                                                                                                | Key rule                                                                                |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `APITemplate.Domain`         | Core business model — entities, enums, domain exceptions, repository interfaces                                                                     | No dependencies on any other project or NuGet package except .NET BCL                   |
-| `APITemplate.Application`    | Use-case layer — MediatR commands/queries/handlers, DTOs, FluentValidation validators, pipeline behaviors, specifications                           | Depends only on Domain; never references EF Core, ASP.NET, or any infrastructure detail |
+| `APITemplate.Application`    | Use-case layer — Wolverine commands/queries/handlers, DTOs, FluentValidation validators, specifications                                              | Depends only on Domain; never references EF Core, ASP.NET, or any infrastructure detail |
 | `APITemplate.Infrastructure` | Technical implementations — EF Core `AppDbContext`, MongoDB context, repository classes, Unit of Work, migrations, security services, observability | Depends on Domain (implements interfaces) and Application (reads options)               |
-| `APITemplate.Api`            | Presentation entry point — REST controllers, GraphQL types/queries/mutations/DataLoaders, middleware, DI composition root, `Program.cs`             | Depends on all other projects; owns `ISender` dispatch and HTTP/GraphQL mapping         |
+| `APITemplate.Api`            | Presentation entry point — REST controllers, GraphQL types/queries/mutations/DataLoaders, middleware, DI composition root, `Program.cs`             | Depends on all other projects; owns `IMessageBus` dispatch and HTTP/GraphQL mapping     |
 | `APITemplate.Tests`          | Test suite — unit tests (Moq), in-memory integration tests (`WebApplicationFactory`), Testcontainers PostgreSQL tests (Respawn)                     | References all production projects; never ships to production                           |
 
 ### Folder layout
@@ -334,7 +334,7 @@ tests/APITemplate.Tests/
 
 - A handler in `APITemplate.Application` calls `IProductRepository` (Domain interface) — it never imports `ProductRepository` (Infrastructure class).
 - `APITemplate.Infrastructure` implements `IProductRepository` and registers it in DI inside `APITemplate.Api`'s composition root.
-- `APITemplate.Api` controllers reference only `ISender` (MediatR) — they have no direct dependency on any Application service or Infrastructure class.
+- `APITemplate.Api` controllers reference only `IMessageBus` (Wolverine) — they have no direct dependency on any Application service or Infrastructure class.
 
 ---
 
@@ -857,136 +857,118 @@ Only the compiled artefacts from Stage 2 are copied into the slim Stage 3 runtim
 | Polymorphic document hierarchies    | MongoDB                       |
 | Media metadata, logs, audit events  | MongoDB                       |
 
-### 14 — Mediator + CQRS Pattern (MediatR)
+### 14 — Message Dispatch + CQRS Pattern (WolverineFx)
 
-All application logic is dispatched through **MediatR**. Controllers and GraphQL resolvers never call services directly — they send a typed command or query object through `ISender`, and MediatR routes it to the correct handler.
+All application logic is dispatched through **WolverineFx**. Controllers and GraphQL resolvers never call services directly — they send a typed command or query object through `IMessageBus`, and Wolverine routes it to the correct handler by convention.
 
 ```
 Controller / GraphQL Resolver
-        │  _sender.Send(new GetProductsQuery(filter))
+        │  bus.InvokeAsync<T>(new GetProductsQuery(filter))
         ▼
-    MediatR pipeline
-        │  ValidationBehavior<TRequest,TResponse>  ← FluentValidation runs here
+    Wolverine pipeline
+        │  FluentValidation middleware (UseFluentValidation())  ← validation runs here
         ▼
-    IRequestHandler (e.g. ProductRequestHandlers)
-        │  calls IProductRepository, IUnitOfWork, IPublisher
+    Handler (static HandleAsync method)
+        │  dependencies injected as method parameters
         ▼
     Response returned to caller
 ```
 
 #### Commands and Queries
 
-Each feature vertical defines its own requests and a single handler class that implements all of them:
+Each feature vertical defines commands/queries as plain records, each with a dedicated handler class containing a static `HandleAsync` method. Dependencies are injected as method parameters:
 
 ```csharp
-// Application/Features/Product/Handlers/ProductRequestHandlers.cs
+// Application/Features/Product/Queries/GetProductsQuery.cs
+public sealed record GetProductsQuery(ProductFilter Filter);
 
-// Queries (read-only, no side-effects)
-public sealed record GetProductsQuery(ProductFilter Filter)      : IRequest<ProductsResponse>;
-public sealed record GetProductByIdQuery(Guid Id)                : IRequest<ProductResponse?>;
+public sealed class GetProductsQueryHandler
+{
+    public static async Task<ProductsResponse> HandleAsync(
+        GetProductsQuery query,
+        IProductRepository repository,
+        CancellationToken ct)
+    {
+        return await repository.GetPagedAsync(
+            new ProductSpecification(query.Filter), query.Filter.PageNumber, query.Filter.PageSize, ct);
+    }
+}
 
-// Commands (write operations)
-public sealed record CreateProductCommand(CreateProductRequest Request) : IRequest<ProductResponse>;
-public sealed record UpdateProductCommand(Guid Id, UpdateProductRequest Request) : IRequest;
-public sealed record DeleteProductCommand(Guid Id)               : IRequest;
+// Application/Features/Product/Commands/CreateProductsCommand.cs
+public sealed record CreateProductsCommand(CreateProductsRequest Request);
 
-public sealed class ProductRequestHandlers :
-    IRequestHandler<GetProductsQuery,    ProductsResponse>,
-    IRequestHandler<GetProductByIdQuery, ProductResponse?>,
-    IRequestHandler<CreateProductCommand, ProductResponse>,
-    IRequestHandler<UpdateProductCommand>,
-    IRequestHandler<DeleteProductCommand>
-{ ... }
+public sealed class CreateProductsCommandHandler
+{
+    public static async Task<BatchResponse> HandleAsync(
+        CreateProductsCommand command,
+        IProductRepository repository,
+        IUnitOfWork unitOfWork,
+        IMessageBus bus,
+        CancellationToken ct)
+    { ... }
+}
 ```
 
-The same pattern applies to `CategoryRequestHandlers`, `ProductReviewRequestHandlers`, `UserRequestHandlers`, and `ProductDataRequestHandlers`.
+The same pattern applies across all features: Products, Categories, ProductReviews, Users, and ProductData.
 
-#### Controller dispatch via ISender
+#### Controller dispatch via IMessageBus
 
-Controllers inject only `ISender` — they have no reference to any service or repository:
+Controllers inject only `IMessageBus` — they have no reference to any service or repository:
 
 ```csharp
-public sealed class ProductsController : ControllerBase
+public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
 {
-    private readonly ISender _sender;
-
     [HttpGet]
     public async Task<ActionResult<ProductsResponse>> GetAll(
         [FromQuery] ProductFilter filter, CancellationToken ct)
-        => Ok(await _sender.Send(new GetProductsQuery(filter), ct));
+        => Ok(await bus.InvokeAsync<ProductsResponse>(new GetProductsQuery(filter), ct));
 
     [HttpPost]
     public async Task<ActionResult<ProductResponse>> Create(
         CreateProductRequest request, CancellationToken ct)
     {
-        var product = await _sender.Send(new CreateProductCommand(request), ct);
+        var product = await bus.InvokeAsync<ProductResponse>(new CreateProductCommand(request), ct);
         return CreatedAtAction(nameof(GetById), new { id = product.Id, version = "1.0" }, product);
     }
 }
 ```
 
-GraphQL resolvers and DataLoaders follow the same pattern using `[Service] ISender sender` parameter injection.
+GraphQL resolvers and DataLoaders follow the same pattern using `[Service] IMessageBus bus` parameter injection.
 
-#### Notifications for cache invalidation
+#### Cache invalidation via IMessageBus
 
-Write handlers publish `INotification` events after a successful mutation. `CacheInvalidationNotificationHandler` listens and evicts the affected output-cache tags — keeping the mutation handler decoupled from any caching concern:
-
-```csharp
-// Application/Common/Events/CacheEvents.cs
-public sealed record ProductsChangedNotification  : INotification;
-public sealed record CategoriesChangedNotification : INotification;
-public sealed record ProductReviewsChangedNotification : INotification;
-
-// Api/Cache/CacheInvalidationNotificationHandler.cs
-public sealed class CacheInvalidationNotificationHandler :
-    INotificationHandler<ProductsChangedNotification>,
-    INotificationHandler<CategoriesChangedNotification>,
-    INotificationHandler<ProductReviewsChangedNotification>
-{
-    public Task Handle(ProductsChangedNotification n, CancellationToken ct)
-        => _outputCacheInvalidationService.EvictAsync(CachePolicyNames.Products, ct);
-    // ...
-}
-```
-
-#### ValidationBehavior pipeline
-
-`ValidationBehavior<TRequest, TResponse>` is registered as an `IPipelineBehavior` and runs before every handler. It collects all `FluentValidation` failures for the request (including nested objects and collection items) and throws a domain `ValidationException` if any fail — so handler code never receives invalid input:
+Write handlers publish cache invalidation events after a successful mutation using `IMessageBus.PublishAsync`. A dedicated handler listens and evicts the affected output-cache tags — keeping the mutation handler decoupled from any caching concern:
 
 ```csharp
-// Application/Common/Behaviors/ValidationBehavior.cs
-public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-{
-    public async Task<TResponse> Handle(
-        TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
-    {
-        var failures = await ValidateAsync(request, _requestValidators, ct);
-        // also validates nested objects and collection items...
+// Application/Common/Events/CacheInvalidationNotification.cs
+public sealed record CacheInvalidationNotification(string CacheTag);
 
-        if (failures.Count > 0)
-            throw new ValidationException(...);
-
-        return await next();   // proceed to the handler
-    }
-}
+// Handler publishes after mutation:
+await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
 ```
+
+#### FluentValidation middleware
+
+Wolverine's `UseFluentValidation()` middleware runs before every handler. It collects all `FluentValidation` failures for the request and throws a domain `ValidationException` if any fail — so handler code never receives invalid input. No manual pipeline behavior registration is needed.
 
 #### DI registration
 
-Handlers and behaviors are registered via assembly scanning — no manual per-handler registration needed:
+Wolverine discovers handlers by convention from registered assemblies — no manual per-handler registration needed:
 
 ```csharp
-services.AddMediatR(cfg =>
+builder.Host.UseWolverine(opts =>
 {
-    cfg.RegisterServicesFromAssemblyContaining<CreateProductCommand>();           // Application handlers
-    cfg.RegisterServicesFromAssemblyContaining<CacheInvalidationNotificationHandler>(); // API notification handlers
-    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));                          // pipeline behavior
+    opts.Discovery.IncludeAssembly(typeof(CreateProductsCommand).Assembly);  // Application handlers
+    opts.Discovery.IncludeAssembly(typeof(Program).Assembly);                // API handlers
+    opts.UseFluentValidation();                                              // validation middleware
+    opts.Durability.Mode = DurabilityMode.MediatorOnly;                      // in-process only
 });
 ```
 
 **Benefits:**
 - Controllers and GraphQL resolvers are free of business logic — they only translate HTTP/GraphQL inputs to commands/queries.
-- Adding a new cross-cutting concern (logging, authorisation checks, timing) requires only a new `IPipelineBehavior` — no changes to any handler.
+- Handlers are simple static methods with no base class or interface ceremony — dependencies arrive as method parameters.
+- Adding a new cross-cutting concern (logging, authorisation checks, timing) requires only a new Wolverine middleware (Before/After conventions) — no changes to any handler.
 - Each command or query is an explicit, named contract; the full request/response shape is visible at a glance.
 - Handler classes are independently unit-testable by directly instantiating them with mocked repositories.
 

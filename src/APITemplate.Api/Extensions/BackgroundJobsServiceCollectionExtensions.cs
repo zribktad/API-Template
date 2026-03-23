@@ -149,9 +149,7 @@ public static class BackgroundJobsServiceCollectionExtensions
                         $"{options.TickerQ.InstanceNamePrefix}-{Environment.MachineName}-{Environment.ProcessId}";
                     scheduler.MaxConcurrency = 1;
                 })
-                .AddTickerQDiscovery<TimeTickerEntity, CronTickerEntity>([
-                    typeof(CleanupRecurringJob).Assembly,
-                ]);
+                .AddTickerQDiscovery([typeof(CleanupRecurringJob).Assembly]);
         });
     }
 

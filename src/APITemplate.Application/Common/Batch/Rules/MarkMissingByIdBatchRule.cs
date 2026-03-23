@@ -1,4 +1,4 @@
-namespace APITemplate.Application.Common.CQRS.Rules;
+namespace APITemplate.Application.Common.Batch.Rules;
 
 internal sealed class MarkMissingByIdBatchRule<TItem>(
     IReadOnlySet<Guid> foundIds,

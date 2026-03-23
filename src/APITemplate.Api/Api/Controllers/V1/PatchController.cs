@@ -1,11 +1,11 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using SystemTextJsonPatch;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -14,7 +14,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that demonstrates JSON Patch (RFC 6902) support
 /// for partial product updates using <c>SystemTextJsonPatch</c>.
 /// </summary>
-public sealed class PatchController : ApiControllerBase
+public sealed class PatchController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>
     /// Applies a JSON Patch document to the specified product by passing an apply-delegate
@@ -25,11 +25,10 @@ public sealed class PatchController : ApiControllerBase
     public async Task<ActionResult<ProductResponse>> PatchProduct(
         Guid id,
         [FromBody] JsonPatchDocument<PatchableProductDto> patchDocument,
-        [FromServices] ICommandHandler<PatchProductCommand, ProductResponse> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(
+        var result = await bus.InvokeAsync<ProductResponse>(
             new PatchProductCommand(id, dto => patchDocument.ApplyTo(dto)),
             ct
         );

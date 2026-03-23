@@ -1,12 +1,11 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -15,7 +14,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that demonstrates Server-Sent Events (SSE) by streaming
 /// notifications as newline-delimited JSON over a persistent HTTP connection.
 /// </summary>
-public sealed class SseController : ApiControllerBase
+public sealed class SseController(IMessageBus bus) : ApiControllerBase
 {
     private const string EventStreamContentType = "text/event-stream";
     private const string NoCacheDirective = "no-cache";
@@ -28,21 +27,16 @@ public sealed class SseController : ApiControllerBase
     /// </summary>
     [HttpGet("stream")]
     [RequirePermission(Permission.Examples.Read)]
-    public async Task Stream(
-        [FromQuery] SseStreamRequest request,
-        [FromServices]
-            IQueryHandler<
-            GetNotificationStreamQuery,
-            IAsyncEnumerable<SseNotificationItem>
-        > handler,
-        CancellationToken ct = default
-    )
+    public async Task Stream([FromQuery] SseStreamRequest request, CancellationToken ct = default)
     {
         Response.ContentType = EventStreamContentType;
         Response.Headers.CacheControl = NoCacheDirective;
         Response.Headers.Connection = KeepAliveConnection;
 
-        var stream = await handler.HandleAsync(new GetNotificationStreamQuery(request), ct);
+        var stream = await bus.InvokeAsync<IAsyncEnumerable<SseNotificationItem>>(
+            new GetNotificationStreamQuery(request),
+            ct
+        );
         await using var writer = new StreamWriter(Response.Body, leaveOpen: true);
 
         await foreach (var item in stream.WithCancellation(ct))

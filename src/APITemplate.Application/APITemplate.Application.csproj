@@ -16,6 +16,7 @@
   <ItemGroup>
     <PackageReference Include="Ardalis.Specification" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="WolverineFx" />
 
 
     <PackageReference Include="Microsoft.EntityFrameworkCore" />

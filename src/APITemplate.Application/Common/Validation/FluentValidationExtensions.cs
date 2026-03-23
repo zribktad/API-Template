@@ -10,7 +10,7 @@ public static class FluentValidationExtensions
 {
     /// <summary>
     /// Validates <paramref name="instance"/> and throws a domain
-    /// <see cref="APITemplate.Domain.Exceptions.ValidationException"/> when validation fails,
+    /// <see cref="Domain.Exceptions.ValidationException"/> when validation fails,
     /// aggregating all error messages into a single semicolon-delimited string.
     /// </summary>
     public static async Task ValidateAndThrowAppAsync<T>(

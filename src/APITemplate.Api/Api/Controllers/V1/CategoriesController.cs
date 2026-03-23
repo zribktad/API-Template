@@ -1,11 +1,11 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -14,7 +14,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that exposes CRUD endpoints for product categories,
 /// including a stored-procedure-backed statistics query.
 /// </summary>
-public sealed class CategoriesController : ApiControllerBase
+public sealed class CategoriesController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>
     /// Returns a paginated, filterable list of categories from the output cache.
@@ -24,11 +24,13 @@ public sealed class CategoriesController : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Categories)]
     public async Task<ActionResult<PagedResponse<CategoryResponse>>> GetAll(
         [FromQuery] CategoryFilter filter,
-        [FromServices] IQueryHandler<GetCategoriesQuery, PagedResponse<CategoryResponse>> handler,
         CancellationToken ct
     )
     {
-        var categories = await handler.HandleAsync(new GetCategoriesQuery(filter), ct);
+        var categories = await bus.InvokeAsync<PagedResponse<CategoryResponse>>(
+            new GetCategoriesQuery(filter),
+            ct
+        );
         return Ok(categories);
     }
 
@@ -36,13 +38,9 @@ public sealed class CategoriesController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Categories.Read)]
     [OutputCache(PolicyName = CacheTags.Categories)]
-    public async Task<ActionResult<CategoryResponse>> GetById(
-        Guid id,
-        [FromServices] IQueryHandler<GetCategoryByIdQuery, CategoryResponse?> handler,
-        CancellationToken ct
-    )
+    public async Task<ActionResult<CategoryResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var category = await handler.HandleAsync(new GetCategoryByIdQuery(id), ct);
+        var category = await bus.InvokeAsync<CategoryResponse?>(new GetCategoryByIdQuery(id), ct);
         return OkOrNotFound(category);
     }
 
@@ -51,11 +49,10 @@ public sealed class CategoriesController : ApiControllerBase
     [RequirePermission(Permission.Categories.Create)]
     public async Task<ActionResult<BatchResponse>> Create(
         CreateCategoriesRequest request,
-        [FromServices] ICommandHandler<CreateCategoriesCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new CreateCategoriesCommand(request), ct);
+        var result = await bus.InvokeAsync<BatchResponse>(new CreateCategoriesCommand(request), ct);
         return OkOrUnprocessable(result);
     }
 
@@ -64,11 +61,10 @@ public sealed class CategoriesController : ApiControllerBase
     [RequirePermission(Permission.Categories.Update)]
     public async Task<ActionResult<BatchResponse>> Update(
         UpdateCategoriesRequest request,
-        [FromServices] ICommandHandler<UpdateCategoriesCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new UpdateCategoriesCommand(request), ct);
+        var result = await bus.InvokeAsync<BatchResponse>(new UpdateCategoriesCommand(request), ct);
         return OkOrUnprocessable(result);
     }
 
@@ -77,11 +73,10 @@ public sealed class CategoriesController : ApiControllerBase
     [RequirePermission(Permission.Categories.Delete)]
     public async Task<ActionResult<BatchResponse>> Delete(
         BatchDeleteRequest request,
-        [FromServices] ICommandHandler<DeleteCategoriesCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new DeleteCategoriesCommand(request), ct);
+        var result = await bus.InvokeAsync<BatchResponse>(new DeleteCategoriesCommand(request), ct);
         return OkOrUnprocessable(result);
     }
 
@@ -94,11 +89,13 @@ public sealed class CategoriesController : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Categories)]
     public async Task<ActionResult<ProductCategoryStatsResponse>> GetStats(
         Guid id,
-        [FromServices] IQueryHandler<GetCategoryStatsQuery, ProductCategoryStatsResponse?> handler,
         CancellationToken ct
     )
     {
-        var stats = await handler.HandleAsync(new GetCategoryStatsQuery(id), ct);
+        var stats = await bus.InvokeAsync<ProductCategoryStatsResponse?>(
+            new GetCategoryStatsQuery(id),
+            ct
+        );
         return OkOrNotFound(stats);
     }
 }

@@ -6,19 +6,19 @@ This guide walks through the full workflow for adding a new versioned REST endpo
 
 ## Overview
 
-The REST layer follows **Clean Architecture** with **CQRS** via MediatR:
+The REST layer follows **Clean Architecture** with **CQRS** via WolverineFx:
 
 ```
 HTTP Request
-  → Controller  (Api/Controllers/V1/)                         ← thin, dispatches via ISender
-  → Handler     (Application/Features/<Feature>/Handlers/)    ← CQRS commands & queries
+  → Controller  (Api/Controllers/V1/)                         ← thin, dispatches via IMessageBus
+  → Handler     (Application/Features/<Feature>/)             ← CQRS commands & queries (static HandleAsync)
   → Repository  (Infrastructure/Repositories/)                ← data access (Ardalis.Specification)
   → Database    (PostgreSQL via EF Core)
 ```
 
 Key boundaries:
 
-- Controllers dispatch MediatR commands/queries — no business logic.
+- Controllers dispatch Wolverine commands/queries via `IMessageBus` — no business logic.
 - Handlers orchestrate business rules, use repositories and `IUnitOfWork` for writes.
 - Specifications encapsulate all query logic (filtering, sorting, paging, projection).
 - Repositories extend `Ardalis.Specification` — command-side writes + specification-based reads.
@@ -121,7 +121,7 @@ public sealed record UpdateOrderRequest(
 
 ## Step 3 – Add the FluentValidation Validators
 
-Validators live in `src/APITemplate.Application/Features/<Feature>/Validation/`. They are auto-discovered and invoked by the `ValidationBehavior<,>` MediatR pipeline before handlers run.
+Validators live in `src/APITemplate.Application/Features/<Feature>/Validation/`. They are auto-discovered and invoked by Wolverine's FluentValidation middleware (`UseFluentValidation()`) before handlers run.
 
 ```csharp
 // Application/Features/Order/Validation/OrderFilterValidator.cs
@@ -303,62 +303,61 @@ public static class OrderSortFields
 
 ---
 
-## Step 7 – Define the MediatR Handlers
+## Step 7 – Define the Wolverine Handlers
 
-All commands, queries, and their handlers live in a single file per feature. Place in `src/APITemplate.Application/Features/<Feature>/Handlers/`:
+Commands, queries, and handlers are placed as separate files per operation in `src/APITemplate.Application/Features/<Feature>/`. Wolverine discovers handlers by convention — each handler is a sealed class with a static `HandleAsync` method. Dependencies are injected as method parameters:
+
+**Query example:**
 
 ```csharp
-// Application/Features/Order/Handlers/OrderRequestHandlers.cs
-using APITemplate.Application.Features.Order.Mappings;
+// Application/Features/Order/Queries/GetOrdersQuery.cs
+using APITemplate.Application.Common.DTOs;
+using APITemplate.Application.Features.Order.DTOs;
 using APITemplate.Application.Features.Order.Specifications;
-using APITemplate.Application.Common.Events;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
-using MediatR;
+
+namespace APITemplate.Application.Features.Order;
+
+public sealed record GetOrdersQuery(OrderFilter Filter);
+
+public sealed class GetOrdersQueryHandler
+{
+    public static async Task<PagedResponse<OrderResponse>> HandleAsync(
+        GetOrdersQuery query,
+        IOrderRepository repository,
+        CancellationToken ct)
+    {
+        return await repository.GetPagedAsync(
+            new OrderSpecification(query.Filter), query.Filter.PageNumber, query.Filter.PageSize, ct);
+    }
+}
+```
+
+**Command example:**
+
+```csharp
+// Application/Features/Order/Commands/CreateOrderCommand.cs
+using APITemplate.Application.Common.Events;
+using APITemplate.Application.Features.Order.DTOs;
+using APITemplate.Application.Features.Order.Mappings;
+using APITemplate.Domain.Interfaces;
+using Wolverine;
 using OrderEntity = APITemplate.Domain.Entities.Order;
 
 namespace APITemplate.Application.Features.Order;
 
-// Queries
-public sealed record GetOrdersQuery(OrderFilter Filter) : IRequest<PagedResponse<OrderResponse>>;
-public sealed record GetOrderByIdQuery(Guid Id) : IRequest<OrderResponse?>;
+public sealed record CreateOrderCommand(CreateOrderRequest Request);
 
-// Commands
-public sealed record CreateOrderCommand(CreateOrderRequest Request) : IRequest<OrderResponse>;
-public sealed record UpdateOrderCommand(Guid Id, UpdateOrderRequest Request) : IRequest;
-public sealed record DeleteOrderCommand(Guid Id) : IRequest;
-
-// Handlers
-public sealed class OrderRequestHandlers :
-    IRequestHandler<GetOrdersQuery, PagedResponse<OrderResponse>>,
-    IRequestHandler<GetOrderByIdQuery, OrderResponse?>,
-    IRequestHandler<CreateOrderCommand, OrderResponse>,
-    IRequestHandler<UpdateOrderCommand>,
-    IRequestHandler<DeleteOrderCommand>
+public sealed class CreateOrderCommandHandler
 {
-    private readonly IOrderRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IPublisher _publisher;
-
-    public OrderRequestHandlers(IOrderRepository repository, IUnitOfWork unitOfWork, IPublisher publisher)
+    public static async Task<OrderResponse> HandleAsync(
+        CreateOrderCommand command,
+        IOrderRepository repository,
+        IUnitOfWork unitOfWork,
+        IMessageBus bus,
+        CancellationToken ct)
     {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
-    }
-
-    public async Task<PagedResponse<OrderResponse>> Handle(GetOrdersQuery request, CancellationToken ct)
-    {
-        return await _repository.GetPagedAsync(
-            new OrderSpecification(request.Filter), request.Filter.PageNumber, request.Filter.PageSize, ct);
-    }
-
-    public async Task<OrderResponse?> Handle(GetOrderByIdQuery request, CancellationToken ct)
-        => await _repository.FirstOrDefaultAsync(new OrderByIdSpecification(request.Id), ct);
-
-    public async Task<OrderResponse> Handle(CreateOrderCommand command, CancellationToken ct)
-    {
-        var order = await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        var order = await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             var entity = new OrderEntity
             {
@@ -367,46 +366,17 @@ public sealed class OrderRequestHandlers :
                 TotalAmount = command.Request.TotalAmount
             };
 
-            await _repository.AddAsync(entity, ct);
+            await repository.AddAsync(entity, ct);
             return entity;
         }, ct);
 
-        await _publisher.Publish(new OrdersChangedNotification(), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Orders));
         return order.ToResponse();
-    }
-
-    public async Task Handle(UpdateOrderCommand command, CancellationToken ct)
-    {
-        var order = await _repository.GetByIdAsync(command.Id, ct)
-            ?? throw new NotFoundException(
-                nameof(OrderEntity),
-                command.Id,
-                ErrorCatalog.Orders.NotFound);
-
-        await _unitOfWork.ExecuteInTransactionAsync(async () =>
-        {
-            order.CustomerName = command.Request.CustomerName;
-            order.TotalAmount = command.Request.TotalAmount;
-
-            await _repository.UpdateAsync(order, ct);
-        }, ct);
-
-        await _publisher.Publish(new OrdersChangedNotification(), ct);
-    }
-
-    public async Task Handle(DeleteOrderCommand command, CancellationToken ct)
-    {
-        await _unitOfWork.ExecuteInTransactionAsync(async () =>
-        {
-            await _repository.DeleteAsync(command.Id, ct, ErrorCatalog.Orders.NotFound);
-        }, ct);
-
-        await _publisher.Publish(new OrdersChangedNotification(), ct);
     }
 }
 ```
 
-> **Note:** Add `OrdersChangedNotification` to `Application/Common/Events/CacheEvents.cs` and register a cache invalidation handler if output caching is used. Add `ErrorCatalog.Orders.NotFound` to `Application/Common/Errors/ErrorCatalog.cs`.
+> **Note:** Add cache tag constant to `CacheTags` and error code to `ErrorCatalog.Orders.NotFound` in `Application/Common/Errors/ErrorCatalog.cs`.
 
 ---
 
@@ -487,48 +457,39 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 
 ## Step 10 – Add the Controller
 
-Controllers live in `src/APITemplate.Api/Api/Controllers/V1/`. They dispatch via MediatR `ISender`:
+Controllers live in `src/APITemplate.Api/Api/Controllers/V1/`. They dispatch via Wolverine `IMessageBus`:
 
 ```csharp
 // Api/Controllers/V1/OrdersController.cs
 using APITemplate.Api.Authorization;
-using APITemplate.Api.Cache;
+using APITemplate.Api.Controllers;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
-public sealed class OrdersController : ControllerBase
+public sealed class OrdersController(IMessageBus bus) : ApiControllerBase
 {
-    private readonly ISender _sender;
-
-    public OrdersController(ISender sender)
-    {
-        _sender = sender;
-    }
-
     [HttpGet]
     [RequirePermission(Permission.Orders.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Orders)]
+    [OutputCache(PolicyName = CacheTags.Orders)]
     public async Task<ActionResult<PagedResponse<OrderResponse>>> GetAll(
         [FromQuery] OrderFilter filter, CancellationToken ct)
     {
-        var orders = await _sender.Send(new GetOrdersQuery(filter), ct);
+        var orders = await bus.InvokeAsync<PagedResponse<OrderResponse>>(new GetOrdersQuery(filter), ct);
         return Ok(orders);
     }
 
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Orders.Read)]
-    [OutputCache(PolicyName = CachePolicyNames.Orders)]
+    [OutputCache(PolicyName = CacheTags.Orders)]
     public async Task<ActionResult<OrderResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var order = await _sender.Send(new GetOrderByIdQuery(id), ct);
+        var order = await bus.InvokeAsync<OrderResponse?>(new GetOrderByIdQuery(id), ct);
         return order is null ? NotFound() : Ok(order);
     }
 
@@ -537,7 +498,7 @@ public sealed class OrdersController : ControllerBase
     public async Task<ActionResult<OrderResponse>> Create(
         CreateOrderRequest request, CancellationToken ct)
     {
-        var order = await _sender.Send(new CreateOrderCommand(request), ct);
+        var order = await bus.InvokeAsync<OrderResponse>(new CreateOrderCommand(request), ct);
         return CreatedAtAction(nameof(GetById), new { id = order.Id, version = "1.0" }, order);
     }
 
@@ -545,7 +506,7 @@ public sealed class OrdersController : ControllerBase
     [RequirePermission(Permission.Orders.Update)]
     public async Task<IActionResult> Update(Guid id, UpdateOrderRequest request, CancellationToken ct)
     {
-        await _sender.Send(new UpdateOrderCommand(id, request), ct);
+        await bus.InvokeAsync(new UpdateOrderCommand(id, request), ct);
         return NoContent();
     }
 
@@ -553,7 +514,7 @@ public sealed class OrdersController : ControllerBase
     [RequirePermission(Permission.Orders.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await _sender.Send(new DeleteOrderCommand(id), ct);
+        await bus.InvokeAsync(new DeleteOrderCommand(id), ct);
         return NoContent();
     }
 }
@@ -590,13 +551,13 @@ public static class Orders
 }
 ```
 
-**Cache event** — add to `Application/Common/Events/CacheEvents.cs`:
+**Cache tag** — add to `Application/Common/Events/CacheTags.cs`:
 
 ```csharp
-public sealed record OrdersChangedNotification : INotification;
+public const string Orders = "Orders";
 ```
 
-> MediatR handlers and FluentValidation validators are auto-discovered from the assembly — no explicit registration needed.
+> Wolverine handlers and FluentValidation validators are auto-discovered from the assembly — no explicit registration needed. Wolverine is configured in `Program.cs` via `UseWolverine()` with `UseFluentValidation()` middleware.
 
 ---
 
@@ -636,8 +597,13 @@ Application/Features/Order/
 │   ├── OrderResponse.cs
 │   ├── CreateOrderRequest.cs
 │   └── UpdateOrderRequest.cs
-├── Handlers/
-│   └── OrderRequestHandlers.cs       ← queries, commands & handlers
+├── Commands/
+│   ├── CreateOrderCommand.cs         ← command record + handler class
+│   ├── UpdateOrderCommand.cs
+│   └── DeleteOrderCommand.cs
+├── Queries/
+│   ├── GetOrdersQuery.cs             ← query record + handler class
+│   └── GetOrderByIdQuery.cs
 ├── Mappings/
 │   └── OrderMappings.cs              ← Expression projections
 ├── Specifications/
@@ -660,7 +626,7 @@ Application/Features/Order/
 - [ ] Expression projection mappings in `Application/Features/<Feature>/Mappings/`
 - [ ] Specifications (list, byId, filter criteria) in `Application/Features/<Feature>/Specifications/`
 - [ ] Sort field map in `Application/Features/<Feature>/`
-- [ ] MediatR queries, commands & handlers in `Application/Features/<Feature>/Handlers/`
+- [ ] Wolverine commands, queries & handlers in `Application/Features/<Feature>/`
 - [ ] Repository interface in `Domain/Interfaces/`
 - [ ] Repository implementation in `Infrastructure/Repositories/`
 - [ ] EF Core entity configuration in `Infrastructure/Persistence/Configurations/`
@@ -668,7 +634,7 @@ Application/Features/Order/
 - [ ] Repository DI registration in `PersistenceServiceCollectionExtensions.cs`
 - [ ] Permissions in `Permission.cs`
 - [ ] Error codes in `ErrorCatalog.cs`
-- [ ] Cache invalidation notification in `CacheEvents.cs`
+- [ ] Cache tag constant in `CacheTags.cs`
 - [ ] EF Core migration (see [ef-migration.md](ef-migration.md))
 
 ---
@@ -677,9 +643,9 @@ Application/Features/Order/
 
 | File | Purpose |
 |------|---------|
-| `Api/Controllers/V1/` | HTTP endpoint definitions (thin, ISender dispatch) |
+| `Api/Controllers/V1/` | HTTP endpoint definitions (thin, IMessageBus dispatch) |
 | `Application/Features/<Feature>/DTOs/` | Filter, request & response contracts |
-| `Application/Features/<Feature>/Handlers/` | MediatR queries, commands & handlers |
+| `Application/Features/<Feature>/` | Wolverine commands, queries & handlers (static HandleAsync) |
 | `Application/Features/<Feature>/Specifications/` | Ardalis.Specification query logic |
 | `Application/Features/<Feature>/Mappings/` | Expression projections (Entity → DTO) |
 | `Application/Features/<Feature>/Validation/` | FluentValidation validators |
@@ -687,7 +653,7 @@ Application/Features/Order/
 | `Application/Common/DTOs/` | `PagedResponse<T>`, `PaginationFilter` |
 | `Application/Common/Security/Permission.cs` | Permission constants |
 | `Application/Common/Errors/ErrorCatalog.cs` | Error code constants |
-| `Application/Common/Events/CacheEvents.cs` | Cache invalidation notifications |
+| `Application/Common/Events/CacheTags.cs` | Cache tag constants for invalidation |
 | `Domain/Entities/` | Domain models (`IAuditableTenantEntity`) |
 | `Domain/Interfaces/` | Repository contracts (`IRepository<T>`) |
 | `Infrastructure/Repositories/` | EF Core repository implementations |

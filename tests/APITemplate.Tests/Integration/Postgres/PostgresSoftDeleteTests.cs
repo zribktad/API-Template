@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
+using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Integration.Postgres;
@@ -300,14 +301,11 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
 
         await using (var deleteContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
         {
-            var handler = new DeleteProductsCommandHandler(
+            await DeleteProductsCommandHandler.HandleAsync(
+                new DeleteProductsCommand(new BatchDeleteRequest([product.Id])),
                 new ProductRepository(deleteContext),
                 CreateUnitOfWork(deleteContext),
-                Mock.Of<IEventPublisher>()
-            );
-
-            await handler.HandleAsync(
-                new DeleteProductsCommand(new BatchDeleteRequest([product.Id])),
+                Mock.Of<IMessageBus>(),
                 ct
             );
         }

@@ -4,6 +4,6 @@ using APITemplate.Application.Features.User.DTOs;
 namespace APITemplate.Application.Features.User.Validation;
 
 /// <summary>
-/// FluentValidation validator for <see cref="DTOs.UpdateUserRequest"/> that enforces data-annotation constraints.
+/// FluentValidation validator for <see cref="UpdateUserRequest"/> that enforces data-annotation constraints.
 /// </summary>
 public sealed class UpdateUserRequestValidator : DataAnnotationsValidator<UpdateUserRequest>;

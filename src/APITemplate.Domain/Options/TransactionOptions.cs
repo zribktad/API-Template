@@ -3,7 +3,7 @@ using System.Data;
 namespace APITemplate.Domain.Options;
 
 /// <summary>
-/// Per-call overrides for the transaction policy applied by <see cref="Interfaces.IUnitOfWork.ExecuteInTransactionAsync(System.Func{System.Threading.Tasks.Task}, System.Threading.CancellationToken, TransactionOptions?)"/>.
+/// Per-call overrides for the transaction policy applied by <see cref="Interfaces.IUnitOfWork.ExecuteInTransactionAsync(Func{Task}, CancellationToken, TransactionOptions?)"/>.
 /// Any <c>null</c> property means "inherit the configured default"; non-null values override that default for the outermost transaction only.
 /// </summary>
 public sealed record TransactionOptions

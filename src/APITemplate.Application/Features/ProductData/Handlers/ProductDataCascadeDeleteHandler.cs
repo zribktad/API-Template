@@ -1,32 +1,21 @@
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Resilience;
-using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using Polly.Registry;
 
 namespace APITemplate.Application.Features.ProductData.Handlers;
 
 public sealed class ProductDataCascadeDeleteHandler
-    : IDomainEventHandler<TenantSoftDeletedNotification>
 {
-    private readonly IProductDataRepository _productDataRepository;
-    private readonly ResiliencePipelineProvider<string> _resiliencePipelineProvider;
-    private readonly ILogger<ProductDataCascadeDeleteHandler> _logger;
-
-    public ProductDataCascadeDeleteHandler(
+    public static async Task HandleAsync(
+        TenantSoftDeletedNotification @event,
         IProductDataRepository productDataRepository,
         ResiliencePipelineProvider<string> resiliencePipelineProvider,
-        ILogger<ProductDataCascadeDeleteHandler> logger
+        ILogger<ProductDataCascadeDeleteHandler> logger,
+        CancellationToken ct
     )
     {
-        _productDataRepository = productDataRepository;
-        _resiliencePipelineProvider = resiliencePipelineProvider;
-        _logger = logger;
-    }
-
-    public async Task HandleAsync(TenantSoftDeletedNotification @event, CancellationToken ct)
-    {
-        var pipeline = _resiliencePipelineProvider.GetPipeline(
+        var pipeline = resiliencePipelineProvider.GetPipeline(
             ResiliencePipelineKeys.MongoProductDataDelete
         );
 
@@ -34,7 +23,7 @@ public sealed class ProductDataCascadeDeleteHandler
         {
             var count = await pipeline.ExecuteAsync(
                 async token =>
-                    await _productDataRepository.SoftDeleteByTenantAsync(
+                    await productDataRepository.SoftDeleteByTenantAsync(
                         @event.TenantId,
                         @event.ActorId,
                         @event.DeletedAtUtc,
@@ -43,7 +32,7 @@ public sealed class ProductDataCascadeDeleteHandler
                 ct
             );
 
-            _logger.LogInformation(
+            logger.LogInformation(
                 "Cascade soft-deleted {Count} ProductData documents for tenant {TenantId}.",
                 count,
                 @event.TenantId
@@ -51,7 +40,7 @@ public sealed class ProductDataCascadeDeleteHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(
+            logger.LogError(
                 ex,
                 "Failed to cascade soft-delete ProductData documents for tenant {TenantId}. EF entities are already soft-deleted.",
                 @event.TenantId

@@ -1,20 +1,17 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Tenant.DTOs;
 using APITemplate.Application.Features.Tenant.Specifications;
+using APITemplate.Domain.Entities.Contracts;
 using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.Tenant;
 
-public sealed record GetTenantByIdQuery(Guid Id) : IQuery<TenantResponse?>, IHasId;
+public sealed record GetTenantByIdQuery(Guid Id) : IHasId;
 
-public sealed class GetTenantByIdQueryHandler : IQueryHandler<GetTenantByIdQuery, TenantResponse?>
+public sealed class GetTenantByIdQueryHandler
 {
-    private readonly ITenantRepository _repository;
-
-    public GetTenantByIdQueryHandler(ITenantRepository repository) => _repository = repository;
-
-    public async Task<TenantResponse?> HandleAsync(
+    public static async Task<TenantResponse?> HandleAsync(
         GetTenantByIdQuery request,
+        ITenantRepository repository,
         CancellationToken ct
-    ) => await _repository.FirstOrDefaultAsync(new TenantByIdSpecification(request.Id), ct);
+    ) => await repository.FirstOrDefaultAsync(new TenantByIdSpecification(request.Id), ct);
 }

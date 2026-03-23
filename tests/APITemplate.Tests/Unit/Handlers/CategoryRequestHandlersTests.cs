@@ -9,6 +9,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using Moq;
 using Shouldly;
+using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Unit.Handlers;
@@ -17,7 +18,7 @@ public class CategoryRequestHandlersTests
 {
     private readonly Mock<ICategoryRepository> _repositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<IEventPublisher> _publisherMock;
+    private readonly Mock<IMessageBus> _busMock;
     private readonly Mock<IValidator<CreateCategoryRequest>> _createValidatorMock;
     private readonly Mock<IValidator<UpdateCategoryItem>> _updateValidatorMock;
 
@@ -25,7 +26,7 @@ public class CategoryRequestHandlersTests
     {
         _repositoryMock = new Mock<ICategoryRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _publisherMock = new Mock<IEventPublisher>();
+        _busMock = new Mock<IMessageBus>();
         _createValidatorMock = new Mock<IValidator<CreateCategoryRequest>>();
         _updateValidatorMock = new Mock<IValidator<UpdateCategoryItem>>();
         _unitOfWorkMock.SetupImmediateTransactionExecution();
@@ -65,8 +66,11 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync(paged);
 
-        var sut = new GetCategoriesQueryHandler(_repositoryMock.Object);
-        var result = await sut.HandleAsync(new GetCategoriesQuery(new CategoryFilter()), ct);
+        var result = await GetCategoriesQueryHandler.HandleAsync(
+            new GetCategoriesQuery(new CategoryFilter()),
+            _repositoryMock.Object,
+            ct
+        );
 
         result.Items.Count().ShouldBe(2);
         result.Items.First().Name.ShouldBe("Electronics");
@@ -90,8 +94,11 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync(paged);
 
-        var sut = new GetCategoriesQueryHandler(_repositoryMock.Object);
-        var result = await sut.HandleAsync(new GetCategoriesQuery(new CategoryFilter()), ct);
+        var result = await GetCategoriesQueryHandler.HandleAsync(
+            new GetCategoriesQuery(new CategoryFilter()),
+            _repositoryMock.Object,
+            ct
+        );
 
         result.Items.ShouldBeEmpty();
     }
@@ -117,8 +124,11 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync(response);
 
-        var sut = new GetCategoryByIdQueryHandler(_repositoryMock.Object);
-        var result = await sut.HandleAsync(new GetCategoryByIdQuery(categoryId), ct);
+        var result = await GetCategoryByIdQueryHandler.HandleAsync(
+            new GetCategoryByIdQuery(categoryId),
+            _repositoryMock.Object,
+            ct
+        );
 
         result.ShouldNotBeNull();
         result!.Id.ShouldBe(categoryId);
@@ -139,8 +149,11 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync((CategoryResponse?)null);
 
-        var sut = new GetCategoryByIdQueryHandler(_repositoryMock.Object);
-        var result = await sut.HandleAsync(new GetCategoryByIdQuery(Guid.NewGuid()), ct);
+        var result = await GetCategoryByIdQueryHandler.HandleAsync(
+            new GetCategoryByIdQuery(Guid.NewGuid()),
+            _repositoryMock.Object,
+            ct
+        );
 
         result.ShouldBeNull();
     }
@@ -159,14 +172,12 @@ public class CategoryRequestHandlersTests
                 (IEnumerable<Category> entities, CancellationToken _) => entities.ToList()
             );
 
-        var sut = new CreateCategoriesCommandHandler(
+        var result = await CreateCategoriesCommandHandler.HandleAsync(
+            new CreateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object,
-            _createValidatorMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new CreateCategoriesCommand(batchRequest),
+            _busMock.Object,
+            _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -204,14 +215,12 @@ public class CategoryRequestHandlersTests
                 (IEnumerable<Category> entities, CancellationToken _) => entities.ToList()
             );
 
-        var sut = new CreateCategoriesCommandHandler(
+        var result = await CreateCategoriesCommandHandler.HandleAsync(
+            new CreateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object,
-            _createValidatorMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new CreateCategoriesCommand(batchRequest),
+            _busMock.Object,
+            _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -234,14 +243,12 @@ public class CategoryRequestHandlersTests
                 new ValidationResult([new ValidationFailure("Name", "Category name is required.")])
             );
 
-        var sut = new CreateCategoriesCommandHandler(
+        var result = await CreateCategoriesCommandHandler.HandleAsync(
+            new CreateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object,
-            _createValidatorMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new CreateCategoriesCommand(batchRequest),
+            _busMock.Object,
+            _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -275,14 +282,12 @@ public class CategoryRequestHandlersTests
                 (IEnumerable<Category> entities, CancellationToken _) => entities.ToList()
             );
 
-        var sut = new CreateCategoriesCommandHandler(
+        var result = await CreateCategoriesCommandHandler.HandleAsync(
+            new CreateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object,
-            _createValidatorMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new CreateCategoriesCommand(batchRequest),
+            _busMock.Object,
+            _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -313,14 +318,12 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync([category]);
 
-        var sut = new UpdateCategoriesCommandHandler(
+        var result = await UpdateCategoriesCommandHandler.HandleAsync(
+            new UpdateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object,
-            _updateValidatorMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new UpdateCategoriesCommand(batchRequest),
+            _busMock.Object,
+            _updateValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -363,14 +366,12 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync(new List<Category>());
 
-        var sut = new UpdateCategoriesCommandHandler(
+        var result = await UpdateCategoriesCommandHandler.HandleAsync(
+            new UpdateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object,
-            _updateValidatorMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new UpdateCategoriesCommand(batchRequest),
+            _busMock.Object,
+            _updateValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -408,14 +409,12 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync([]);
 
-        var sut = new UpdateCategoriesCommandHandler(
+        var result = await UpdateCategoriesCommandHandler.HandleAsync(
+            new UpdateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object,
-            _updateValidatorMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new UpdateCategoriesCommand(batchRequest),
+            _busMock.Object,
+            _updateValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -447,13 +446,11 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync([category]);
 
-        var sut = new DeleteCategoriesCommandHandler(
+        var result = await DeleteCategoriesCommandHandler.HandleAsync(
+            new DeleteCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new DeleteCategoriesCommand(batchRequest),
+            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -492,13 +489,11 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync(new List<Category>());
 
-        var sut = new DeleteCategoriesCommandHandler(
+        var result = await DeleteCategoriesCommandHandler.HandleAsync(
+            new DeleteCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _publisherMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new DeleteCategoriesCommand(batchRequest),
+            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -535,8 +530,11 @@ public class CategoryRequestHandlersTests
             .Setup(r => r.GetStatsByIdAsync(categoryId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(stats);
 
-        var sut = new GetCategoryStatsQueryHandler(_repositoryMock.Object);
-        var result = await sut.HandleAsync(new GetCategoryStatsQuery(categoryId), ct);
+        var result = await GetCategoryStatsQueryHandler.HandleAsync(
+            new GetCategoryStatsQuery(categoryId),
+            _repositoryMock.Object,
+            ct
+        );
 
         result.ShouldNotBeNull();
         result!.CategoryId.ShouldBe(categoryId);
@@ -554,8 +552,11 @@ public class CategoryRequestHandlersTests
             .Setup(r => r.GetStatsByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductCategoryStats?)null);
 
-        var sut = new GetCategoryStatsQueryHandler(_repositoryMock.Object);
-        var result = await sut.HandleAsync(new GetCategoryStatsQuery(Guid.NewGuid()), ct);
+        var result = await GetCategoryStatsQueryHandler.HandleAsync(
+            new GetCategoryStatsQuery(Guid.NewGuid()),
+            _repositoryMock.Object,
+            ct
+        );
 
         result.ShouldBeNull();
     }

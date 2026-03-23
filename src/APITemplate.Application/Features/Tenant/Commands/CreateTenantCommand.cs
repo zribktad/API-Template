@@ -1,42 +1,32 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Tenant.DTOs;
 using APITemplate.Application.Features.Tenant.Mappings;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using Wolverine;
 using TenantEntity = APITemplate.Domain.Entities.Tenant;
 
 namespace APITemplate.Application.Features.Tenant;
 
-public sealed record CreateTenantCommand(CreateTenantRequest Request) : ICommand<TenantResponse>;
+public sealed record CreateTenantCommand(CreateTenantRequest Request);
 
 public sealed class CreateTenantCommandHandler
-    : ICommandHandler<CreateTenantCommand, TenantResponse>
 {
-    private readonly ITenantRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IEventPublisher _publisher;
-
-    public CreateTenantCommandHandler(
+    public static async Task<TenantResponse> HandleAsync(
+        CreateTenantCommand command,
         ITenantRepository repository,
         IUnitOfWork unitOfWork,
-        IEventPublisher publisher
+        IMessageBus bus,
+        CancellationToken ct
     )
     {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
-    }
-
-    public async Task<TenantResponse> HandleAsync(CreateTenantCommand command, CancellationToken ct)
-    {
-        if (await _repository.CodeExistsAsync(command.Request.Code, ct))
+        if (await repository.CodeExistsAsync(command.Request.Code, ct))
             throw new ConflictException(
                 string.Format(ErrorCatalog.Tenants.CodeAlreadyExistsMessage, command.Request.Code),
                 ErrorCatalog.Tenants.CodeAlreadyExists
             );
 
-        var tenant = await _unitOfWork.ExecuteInTransactionAsync(
+        var tenant = await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
                 var id = Guid.NewGuid();
@@ -48,13 +38,13 @@ public sealed class CreateTenantCommandHandler
                     Name = command.Request.Name,
                 };
 
-                await _repository.AddAsync(entity, ct);
+                await repository.AddAsync(entity, ct);
                 return entity;
             },
             ct
         );
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Tenants), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Tenants));
         return tenant.ToResponse();
     }
 }

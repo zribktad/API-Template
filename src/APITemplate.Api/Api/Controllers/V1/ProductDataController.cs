@@ -1,11 +1,11 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -15,7 +15,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that manages product supplementary data (images and videos)
 /// stored in MongoDB, with output-cache integration for read endpoints.
 /// </summary>
-public sealed class ProductDataController : ApiControllerBase
+public sealed class ProductDataController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>Returns all product data documents, optionally filtered by type.</summary>
     [HttpGet]
@@ -23,11 +23,13 @@ public sealed class ProductDataController : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.ProductData)]
     public async Task<ActionResult<List<ProductDataResponse>>> GetAll(
         [FromQuery] string? type,
-        [FromServices] IQueryHandler<GetProductDataQuery, List<ProductDataResponse>> handler,
         CancellationToken ct
     )
     {
-        var items = await handler.HandleAsync(new GetProductDataQuery(type), ct);
+        var items = await bus.InvokeAsync<List<ProductDataResponse>>(
+            new GetProductDataQuery(type),
+            ct
+        );
         return Ok(items);
     }
 
@@ -35,13 +37,9 @@ public sealed class ProductDataController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.ProductData.Read)]
     [OutputCache(PolicyName = CacheTags.ProductData)]
-    public async Task<ActionResult<ProductDataResponse>> GetById(
-        Guid id,
-        [FromServices] IQueryHandler<GetProductDataByIdQuery, ProductDataResponse?> handler,
-        CancellationToken ct
-    )
+    public async Task<ActionResult<ProductDataResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var item = await handler.HandleAsync(new GetProductDataByIdQuery(id), ct);
+        var item = await bus.InvokeAsync<ProductDataResponse?>(new GetProductDataByIdQuery(id), ct);
         return OkOrNotFound(item);
     }
 
@@ -50,11 +48,13 @@ public sealed class ProductDataController : ApiControllerBase
     [RequirePermission(Permission.ProductData.Create)]
     public async Task<ActionResult<ProductDataResponse>> CreateImage(
         CreateImageProductDataRequest request,
-        [FromServices] ICommandHandler<CreateImageProductDataCommand, ProductDataResponse> handler,
         CancellationToken ct
     )
     {
-        var created = await handler.HandleAsync(new CreateImageProductDataCommand(request), ct);
+        var created = await bus.InvokeAsync<ProductDataResponse>(
+            new CreateImageProductDataCommand(request),
+            ct
+        );
         return CreatedAtGetById(created, created.Id);
     }
 
@@ -63,24 +63,22 @@ public sealed class ProductDataController : ApiControllerBase
     [RequirePermission(Permission.ProductData.Create)]
     public async Task<ActionResult<ProductDataResponse>> CreateVideo(
         CreateVideoProductDataRequest request,
-        [FromServices] ICommandHandler<CreateVideoProductDataCommand, ProductDataResponse> handler,
         CancellationToken ct
     )
     {
-        var created = await handler.HandleAsync(new CreateVideoProductDataCommand(request), ct);
+        var created = await bus.InvokeAsync<ProductDataResponse>(
+            new CreateVideoProductDataCommand(request),
+            ct
+        );
         return CreatedAtGetById(created, created.Id);
     }
 
     /// <summary>Deletes a product data document by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.ProductData.Delete)]
-    public async Task<IActionResult> Delete(
-        Guid id,
-        [FromServices] ICommandHandler<DeleteProductDataCommand> handler,
-        CancellationToken ct
-    )
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await handler.HandleAsync(new DeleteProductDataCommand(id), ct);
+        await bus.InvokeAsync(new DeleteProductDataCommand(id), ct);
         return NoContent();
     }
 }

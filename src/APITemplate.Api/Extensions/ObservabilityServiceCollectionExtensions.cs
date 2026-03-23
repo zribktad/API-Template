@@ -77,7 +77,8 @@ public static class ObservabilityServiceCollectionExtensions
                 .AddRedisInstrumentation()
                 .AddNpgsql()
                 .AddSource(ObservabilityConventions.ActivitySourceName)
-                .AddSource(TelemetryActivitySources.MongoDbDriverDiagnosticSources);
+                .AddSource(TelemetryThirdPartySources.MongoDbDriverDiagnosticSources)
+                .AddSource(TelemetryThirdPartySources.Wolverine);
 
             ConfigureTracingExporters(builder, otlpEndpoints, enableConsoleExporter);
         });
@@ -99,7 +100,8 @@ public static class ObservabilityServiceCollectionExtensions
                     TelemetryMeterNames.AspNetCoreDiagnostics,
                     TelemetryMeterNames.AspNetCoreRateLimiting,
                     TelemetryMeterNames.AspNetCoreAuthentication,
-                    TelemetryMeterNames.AspNetCoreAuthorization
+                    TelemetryMeterNames.AspNetCoreAuthorization,
+                    TelemetryThirdPartySources.Wolverine
                 )
                 .AddView(
                     TelemetryInstrumentNames.HttpServerRequestDuration,

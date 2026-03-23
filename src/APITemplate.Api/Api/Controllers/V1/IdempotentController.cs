@@ -1,12 +1,12 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
 using APITemplate.Api.Filters.Idempotency;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -15,7 +15,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that demonstrates idempotent POST semantics using the
 /// <see cref="Idempotent"/> action filter to detect and short-circuit duplicate requests.
 /// </summary>
-public sealed class IdempotentController : ApiControllerBase
+public sealed class IdempotentController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>
     /// Creates a resource idempotently; repeated requests with the same idempotency key
@@ -26,11 +26,13 @@ public sealed class IdempotentController : ApiControllerBase
     [RequirePermission(Permission.Examples.Create)]
     public async Task<ActionResult<IdempotentCreateResponse>> Create(
         IdempotentCreateRequest request,
-        [FromServices] ICommandHandler<IdempotentCreateCommand, IdempotentCreateResponse> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new IdempotentCreateCommand(request), ct);
+        var result = await bus.InvokeAsync<IdempotentCreateResponse>(
+            new IdempotentCreateCommand(request),
+            ct
+        );
         return Created(string.Empty, result);
     }
 }

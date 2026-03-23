@@ -261,9 +261,11 @@ public static class TelemetryHistogramBoundaries
     ];
 }
 
-/// <summary>Activity source names from third-party libraries that should be included in traces.</summary>
-public static class TelemetryActivitySources
+/// <summary>Third-party library names used as OpenTelemetry activity sources and meters.</summary>
+public static class TelemetryThirdPartySources
 {
     public const string MongoDbDriverDiagnosticSources =
         "MongoDB.Driver.Core.Extensions.DiagnosticSources";
+
+    public const string Wolverine = "Wolverine";
 }

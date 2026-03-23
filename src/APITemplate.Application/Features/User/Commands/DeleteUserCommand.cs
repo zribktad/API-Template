@@ -1,56 +1,43 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Common.Security;
 using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using Wolverine;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record DeleteUserCommand(Guid Id) : ICommand, IHasId;
+public sealed record DeleteUserCommand(Guid Id) : IHasId;
 
-public sealed class DeleteUserCommandHandler : ICommandHandler<DeleteUserCommand>
+public sealed class DeleteUserCommandHandler
 {
-    private readonly IUserRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IEventPublisher _publisher;
-    private readonly IKeycloakAdminService _keycloakAdmin;
-    private readonly ILogger<DeleteUserCommandHandler> _logger;
-
-    public DeleteUserCommandHandler(
+    public static async Task HandleAsync(
+        DeleteUserCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
-        IEventPublisher publisher,
+        IMessageBus bus,
         IKeycloakAdminService keycloakAdmin,
-        ILogger<DeleteUserCommandHandler> logger
+        ILogger<DeleteUserCommandHandler> logger,
+        CancellationToken ct
     )
     {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
-        _keycloakAdmin = keycloakAdmin;
-        _logger = logger;
-    }
-
-    public async Task HandleAsync(DeleteUserCommand command, CancellationToken ct)
-    {
-        var user = await _repository.GetByIdOrThrowAsync(
+        var user = await repository.GetByIdOrThrowAsync(
             command.Id,
             ErrorCatalog.Users.NotFound,
             ct
         );
 
         if (user.KeycloakUserId is not null)
-            await _keycloakAdmin.DeleteUserAsync(user.KeycloakUserId, ct);
+            await keycloakAdmin.DeleteUserAsync(user.KeycloakUserId, ct);
 
         try
         {
-            await _repository.DeleteAsync(user, ct);
-            await _unitOfWork.CommitAsync(ct);
+            await repository.DeleteAsync(user, ct);
+            await unitOfWork.CommitAsync(ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogCritical(
+            logger.LogCritical(
                 ex,
                 "DB delete failed after Keycloak user {KeycloakUserId} was already deleted. Manual cleanup required.",
                 user.KeycloakUserId
@@ -58,6 +45,6 @@ public sealed class DeleteUserCommandHandler : ICommandHandler<DeleteUserCommand
             throw;
         }
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Users), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
     }
 }

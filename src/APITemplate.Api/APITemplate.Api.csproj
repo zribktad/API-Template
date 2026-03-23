@@ -15,6 +15,7 @@
     <Compile Remove="obj-codex\**\*.cs" />
     <None Remove="artifacts\**\*" />
     <None Remove="obj-codex\**\*" />
+    <Compile Update="Internal\Generated\**\*.cs" Watch="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -45,8 +46,11 @@
     <PackageReference Include="HotChocolate.AspNetCore" />
     <PackageReference Include="HotChocolate.Data.EntityFramework" />
     <PackageReference Include="HotChocolate.Diagnostics" />
-    <PackageReference Include="Scrutor" />
     <PackageReference Include="SystemTextJsonPatch" />
+
+    <!-- Wolverine -->
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.FluentValidation" />
 
     <!-- EF Core + PostgreSQL -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" />

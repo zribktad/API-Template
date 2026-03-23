@@ -9,6 +9,7 @@ using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
 using Moq;
 using Shouldly;
+using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Unit.Handlers;
@@ -19,7 +20,7 @@ public class ProductReviewRequestHandlersTests
     private readonly Mock<IProductRepository> _productRepoMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IActorProvider> _actorProviderMock;
-    private readonly Mock<IEventPublisher> _publisherMock;
+    private readonly Mock<IMessageBus> _busMock;
     private readonly Guid _currentUserId = Guid.NewGuid();
 
     public ProductReviewRequestHandlersTests()
@@ -28,7 +29,7 @@ public class ProductReviewRequestHandlersTests
         _productRepoMock = new Mock<IProductRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _actorProviderMock = new Mock<IActorProvider>();
-        _publisherMock = new Mock<IEventPublisher>();
+        _busMock = new Mock<IMessageBus>();
         _actorProviderMock.Setup(a => a.ActorId).Returns(_currentUserId);
         _unitOfWorkMock.SetupImmediateTransactionExecution();
         _unitOfWorkMock.SetupImmediateTransactionExecution<ProductReview>();
@@ -57,9 +58,9 @@ public class ProductReviewRequestHandlersTests
             )
             .ReturnsAsync(paged);
 
-        var sut = new GetProductReviewsQueryHandler(_reviewRepoMock.Object);
-        var result = await sut.HandleAsync(
+        var result = await GetProductReviewsQueryHandler.HandleAsync(
             new GetProductReviewsQuery(new ProductReviewFilter()),
+            _reviewRepoMock.Object,
             ct
         );
 
@@ -90,8 +91,11 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(reviewId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
-        var sut = new GetProductReviewByIdQueryHandler(_reviewRepoMock.Object);
-        var result = await sut.HandleAsync(new GetProductReviewByIdQuery(reviewId), ct);
+        var result = await GetProductReviewByIdQueryHandler.HandleAsync(
+            new GetProductReviewByIdQuery(reviewId),
+            _reviewRepoMock.Object,
+            ct
+        );
 
         if (reviewExists)
         {
@@ -125,8 +129,11 @@ public class ProductReviewRequestHandlersTests
             )
             .ReturnsAsync(items);
 
-        var sut = new GetProductReviewsByProductIdQueryHandler(_reviewRepoMock.Object);
-        var result = await sut.HandleAsync(new GetProductReviewsByProductIdQuery(productId), ct);
+        var result = await GetProductReviewsByProductIdQueryHandler.HandleAsync(
+            new GetProductReviewsByProductIdQuery(productId),
+            _reviewRepoMock.Object,
+            ct
+        );
 
         result.Count.ShouldBe(1);
         result[0].ProductId.ShouldBe(productId);
@@ -152,15 +159,13 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductReview rv, CancellationToken _) => rv);
 
-        var sut = new CreateProductReviewCommandHandler(
+        var result = await CreateProductReviewCommandHandler.HandleAsync(
+            new CreateProductReviewCommand(request),
             _reviewRepoMock.Object,
             _productRepoMock.Object,
             _unitOfWorkMock.Object,
             _actorProviderMock.Object,
-            _publisherMock.Object
-        );
-        var result = await sut.HandleAsync(
-            new CreateProductReviewCommand(request),
+            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -193,16 +198,14 @@ public class ProductReviewRequestHandlersTests
 
         var request = new CreateProductReviewRequest(Guid.NewGuid(), null, 3);
 
-        var sut = new CreateProductReviewCommandHandler(
-            _reviewRepoMock.Object,
-            _productRepoMock.Object,
-            _unitOfWorkMock.Object,
-            _actorProviderMock.Object,
-            _publisherMock.Object
-        );
         var act = () =>
-            sut.HandleAsync(
+            CreateProductReviewCommandHandler.HandleAsync(
                 new CreateProductReviewCommand(request),
+                _reviewRepoMock.Object,
+                _productRepoMock.Object,
+                _unitOfWorkMock.Object,
+                _actorProviderMock.Object,
+                _busMock.Object,
                 TestContext.Current.CancellationToken
             );
 
@@ -224,14 +227,12 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(review);
 
-        var sut = new DeleteProductReviewCommandHandler(
+        await DeleteProductReviewCommandHandler.HandleAsync(
+            new DeleteProductReviewCommand(id),
             _reviewRepoMock.Object,
             _unitOfWorkMock.Object,
             _actorProviderMock.Object,
-            _publisherMock.Object
-        );
-        await sut.HandleAsync(
-            new DeleteProductReviewCommand(id),
+            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -265,15 +266,13 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(review);
 
-        var sut = new DeleteProductReviewCommandHandler(
-            _reviewRepoMock.Object,
-            _unitOfWorkMock.Object,
-            _actorProviderMock.Object,
-            _publisherMock.Object
-        );
         var act = () =>
-            sut.HandleAsync(
+            DeleteProductReviewCommandHandler.HandleAsync(
                 new DeleteProductReviewCommand(id),
+                _reviewRepoMock.Object,
+                _unitOfWorkMock.Object,
+                _actorProviderMock.Object,
+                _busMock.Object,
                 TestContext.Current.CancellationToken
             );
 
@@ -294,15 +293,13 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductReview?)null);
 
-        var sut = new DeleteProductReviewCommandHandler(
-            _reviewRepoMock.Object,
-            _unitOfWorkMock.Object,
-            _actorProviderMock.Object,
-            _publisherMock.Object
-        );
         var act = () =>
-            sut.HandleAsync(
+            DeleteProductReviewCommandHandler.HandleAsync(
                 new DeleteProductReviewCommand(id),
+                _reviewRepoMock.Object,
+                _unitOfWorkMock.Object,
+                _actorProviderMock.Object,
+                _busMock.Object,
                 TestContext.Current.CancellationToken
             );
 

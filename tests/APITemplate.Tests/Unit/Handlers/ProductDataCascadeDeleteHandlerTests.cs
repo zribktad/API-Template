@@ -13,21 +13,15 @@ public sealed class ProductDataCascadeDeleteHandlerTests
 {
     private readonly Mock<IProductDataRepository> _productDataRepositoryMock;
     private readonly Mock<ILogger<ProductDataCascadeDeleteHandler>> _loggerMock;
-    private readonly ProductDataCascadeDeleteHandler _sut;
+    private readonly ResiliencePipelineRegistry<string> _registry;
 
     public ProductDataCascadeDeleteHandlerTests()
     {
         _productDataRepositoryMock = new Mock<IProductDataRepository>();
         _loggerMock = new Mock<ILogger<ProductDataCascadeDeleteHandler>>();
 
-        var registry = new ResiliencePipelineRegistry<string>();
-        registry.TryAddBuilder(ResiliencePipelineKeys.MongoProductDataDelete, (builder, _) => { });
-
-        _sut = new ProductDataCascadeDeleteHandler(
-            _productDataRepositoryMock.Object,
-            registry,
-            _loggerMock.Object
-        );
+        _registry = new ResiliencePipelineRegistry<string>();
+        _registry.TryAddBuilder(ResiliencePipelineKeys.MongoProductDataDelete, (builder, _) => { });
     }
 
     [Fact]
@@ -50,7 +44,13 @@ public sealed class ProductDataCascadeDeleteHandlerTests
             )
             .ReturnsAsync(5);
 
-        await _sut.HandleAsync(notification, ct);
+        await ProductDataCascadeDeleteHandler.HandleAsync(
+            notification,
+            _productDataRepositoryMock.Object,
+            _registry,
+            _loggerMock.Object,
+            ct
+        );
 
         _productDataRepositoryMock.Verify(
             r =>
@@ -86,7 +86,13 @@ public sealed class ProductDataCascadeDeleteHandlerTests
             )
             .ReturnsAsync(3);
 
-        await _sut.HandleAsync(notification, ct);
+        await ProductDataCascadeDeleteHandler.HandleAsync(
+            notification,
+            _productDataRepositoryMock.Object,
+            _registry,
+            _loggerMock.Object,
+            ct
+        );
 
         _loggerMock.Verify(
             logger =>
@@ -127,7 +133,15 @@ public sealed class ProductDataCascadeDeleteHandlerTests
             )
             .ThrowsAsync(new InvalidOperationException("MongoDB connection failed"));
 
-        await Should.NotThrowAsync(() => _sut.HandleAsync(notification, ct));
+        await Should.NotThrowAsync(() =>
+            ProductDataCascadeDeleteHandler.HandleAsync(
+                notification,
+                _productDataRepositoryMock.Object,
+                _registry,
+                _loggerMock.Object,
+                ct
+            )
+        );
 
         _loggerMock.Verify(
             logger =>
@@ -166,7 +180,13 @@ public sealed class ProductDataCascadeDeleteHandlerTests
             )
             .ReturnsAsync(0);
 
-        await _sut.HandleAsync(notification, ct);
+        await ProductDataCascadeDeleteHandler.HandleAsync(
+            notification,
+            _productDataRepositoryMock.Object,
+            _registry,
+            _loggerMock.Object,
+            ct
+        );
 
         _productDataRepositoryMock.Verify(
             r =>

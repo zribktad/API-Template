@@ -1,249 +1,400 @@
-# CQRS Architecture
+# WolverineFx Message Bus Architecture
 
-The project uses explicit CQRS (Command Query Responsibility Segregation) with custom abstractions — no third-party dispatcher dependency.
+The project uses [WolverineFx](https://wolverine.netlify.app/) as an in-process message bus/mediator. Wolverine is configured with **balanced durability mode** (`DurabilityMode.Balanced`) and convention-based handler discovery. This repository currently uses Wolverine for in-process dispatch only; no external transport is configured here.
 
 ---
 
-## Core Abstractions
+## Core Concepts
 
-### Commands & Queries (`Application/Common/CQRS/`)
+### Messages
+
+Commands, queries, and events are all **plain C# records** with no marker interfaces:
 
 ```csharp
-// Marker interfaces
-public interface ICommand { }            // void commands
-public interface ICommand<TResult> { }   // commands returning a result
-public interface IQuery<TResult> { }     // queries
+// Command returning a result
+public sealed record CreateProductsCommand(CreateProductsRequest Request);
 
-// Handler interfaces
-public interface ICommandHandler<in TCommand> where TCommand : ICommand
-{
-    Task HandleAsync(TCommand command, CancellationToken ct);
-}
+// Query
+public sealed record GetProductsQuery(ProductFilter Filter);
 
-public interface ICommandHandler<in TCommand, TResult> where TCommand : ICommand<TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct);
-}
+// Void command
+public sealed record DeleteProductReviewCommand(Guid Id);
 
-public interface IQueryHandler<in TQuery, TResult> where TQuery : IQuery<TResult>
+// Event / notification
+public sealed record CacheInvalidationNotification(string CacheTag);
+```
+
+Wolverine does not require `ICommand`, `IRequest`, or any marker interface. The message type _is_ the contract.
+
+### Handlers
+
+Handlers are `sealed class` types with a `static HandleAsync` method. The first parameter is the message; all remaining parameters are resolved from DI (**method injection**):
+
+```csharp
+public sealed class GetProductsQueryHandler
 {
-    Task<TResult> HandleAsync(TQuery query, CancellationToken ct);
+    public static async Task<ProductsResponse> HandleAsync(
+        GetProductsQuery request,
+        IProductRepository repository,
+        CancellationToken ct)
+    {
+        // ...
+    }
 }
 ```
 
-`ICommand` (void) and `ICommand<TResult>` are separate, unrelated types. This is intentional — they serve different handler signatures (`Task` vs `Task<TResult>`) and require separate decorator implementations.
+- **No constructor injection** -- dependencies are injected directly into the method.
+- **No interfaces to implement** -- Wolverine discovers handlers by convention.
+- Return `Task<T>` for queries/commands that produce a result, `Task` for void commands.
 
-### Domain Events (`Application/Common/Events/`)
+### IMessageBus
+
+`IMessageBus` is the single dispatch surface injected into controllers and resolvers:
+
+| Method | Purpose |
+|---|---|
+| `bus.InvokeAsync<T>(message, ct)` | Send a message and await its `T` result |
+| `bus.InvokeAsync(message, ct)` | Send a message with no return value |
+| `bus.PublishAsync(message)` | Publish a notification to all registered handlers |
+
+---
+
+## Handler Discovery
+
+Wolverine finds handlers automatically based on naming conventions:
+
+1. Class name ends with `Handler` (e.g., `CreateProductsCommandHandler`).
+2. Method is named `HandleAsync` (or `Handle`).
+3. First parameter type is the message type.
+
+Assembly scanning is configured in `Program.cs`:
 
 ```csharp
-public interface IDomainEvent { }
-
-public interface IDomainEventHandler<in TEvent> where TEvent : IDomainEvent
+builder.Host.UseWolverine(opts =>
 {
-    Task HandleAsync(TEvent @event, CancellationToken ct);
-}
-
-public interface IEventPublisher
-{
-    Task PublishAsync<TEvent>(TEvent @event, CancellationToken ct)
-        where TEvent : IDomainEvent;
-}
+    opts.Discovery.IncludeAssembly(typeof(CreateProductsCommand).Assembly); // Application
+    opts.Discovery.IncludeAssembly(typeof(Program).Assembly);              // Api
+    opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration);
+    opts.Durability.Mode = DurabilityMode.Balanced;
+});
 ```
 
-`EventPublisher` implementation lives in `Api/Events/` because it uses `IServiceProvider` (service locator) to resolve handlers — infrastructure glue that belongs in the outer layer.
+No manual handler registration is needed.
 
 ---
 
 ## Feature Structure
 
-Each feature follows one-handler-per-class (SRP):
+Each feature follows one-handler-per-file with the message record and handler class co-located:
 
 ```
 Features/{Feature}/
-├── Commands/
-│   ├── Create{Feature}Command.cs       ← record + handler class in same file
-│   ├── Update{Feature}Command.cs
-│   └── Delete{Feature}Command.cs
-├── Queries/
-│   ├── Get{Feature}ByIdQuery.cs        ← record + handler class in same file
-│   └── Get{Feature}sQuery.cs
-├── {Feature}ValidationHelper.cs         ← shared validation methods (if needed)
-├── Specifications/
-├── Repositories/
-├── Mappings/
-├── DTOs/
-└── Validation/
+    Commands/
+        Create{Feature}Command.cs       -- record + handler class
+        Update{Feature}Command.cs
+        Delete{Feature}Command.cs
+    Queries/
+        Get{Feature}ByIdQuery.cs
+        Get{Feature}sQuery.cs
+    {Feature}ValidationHelper.cs         -- shared validation methods
+    Specifications/
+    Repositories/
+    Mappings/
+    DTOs/
+    Validation/
 ```
 
-### Adding a new command
+---
+
+## Adding a New Command
 
 1. Create `Features/{Feature}/Commands/DoSomethingCommand.cs`:
 
 ```csharp
-public sealed record DoSomethingCommand(DoSomethingRequest Request) : ICommand<SomethingResponse>;
+public sealed record DoSomethingCommand(DoSomethingRequest Request);
 
-public sealed class DoSomethingCommandHandler : ICommandHandler<DoSomethingCommand, SomethingResponse>
+public sealed class DoSomethingCommandHandler
 {
-    // inject repositories, IUnitOfWork, IEventPublisher via constructor
-
-    public async Task<SomethingResponse> HandleAsync(DoSomethingCommand command, CancellationToken ct)
+    public static async Task<SomethingResponse> HandleAsync(
+        DoSomethingCommand command,
+        ISomethingRepository repository,
+        IUnitOfWork unitOfWork,
+        IMessageBus bus,
+        CancellationToken ct)
     {
         // business logic
-        var response = new SomethingResponse(/* ... */);
+        var entity = new SomeEntity { /* ... */ };
+        await repository.AddAsync(entity, ct);
+        await unitOfWork.CommitAsync(ct);
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Something), ct);
-        return response;
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Something));
+        return new SomethingResponse(/* ... */);
     }
 }
 ```
 
-2. The handler is **automatically registered** via Scrutor assembly scanning — no manual DI wiring needed.
+2. Add a `FluentValidation` validator for the request DTO if needed and register it in DI.
 
-3. Inject in controller via `[FromServices]`:
+3. Dispatch from controller:
 
 ```csharp
 [HttpPost]
 public async Task<ActionResult<SomethingResponse>> Create(
-    DoSomethingRequest request,
-    [FromServices] ICommandHandler<DoSomethingCommand, SomethingResponse> handler,
-    CancellationToken ct)
+    DoSomethingRequest request, CancellationToken ct)
 {
-    var result = await handler.HandleAsync(new DoSomethingCommand(request), ct);
-    return CreatedAtGetById(result, result.Id);
+    var result = await bus.InvokeAsync<SomethingResponse>(
+        new DoSomethingCommand(request), ct);
+    return Ok(result);
 }
 ```
 
-### Adding a new query
+That is it -- no DI registration, no interface implementation.
 
-Same pattern with `IQuery<TResult>` and `IQueryHandler<TQuery, TResult>`.
+---
 
-### Adding a new domain event
-
-1. Create the event record implementing `IDomainEvent`:
+## Adding a New Query
 
 ```csharp
-public sealed record SomethingHappenedEvent(Guid EntityId) : IDomainEvent;
-```
+public sealed record GetSomethingQuery(SomeFilter Filter);
 
-2. Create a handler implementing `IDomainEventHandler<T>`:
-
-```csharp
-public sealed class SomethingHappenedHandler : IDomainEventHandler<SomethingHappenedEvent>
+public sealed class GetSomethingQueryHandler
 {
-    public async Task HandleAsync(SomethingHappenedEvent @event, CancellationToken ct)
+    public static async Task<SomethingResponse> HandleAsync(
+        GetSomethingQuery request,
+        ISomethingRepository repository,
+        CancellationToken ct)
     {
-        // react to the event
+        return await repository.GetFilteredAsync(request.Filter, ct);
     }
 }
 ```
 
-3. Publish from command handlers:
+Dispatch: `await bus.InvokeAsync<SomethingResponse>(new GetSomethingQuery(filter), ct)`
+
+---
+
+## Adding a New Event
+
+### 1. Define the event record
 
 ```csharp
-await _publisher.PublishAsync(new SomethingHappenedEvent(entity.Id), ct);
+// No marker interface needed
+public sealed record UserRegisteredNotification(Guid UserId, string Email, string Username);
 ```
+
+### 2. Create a handler
+
+```csharp
+public sealed class UserRegisteredEmailHandler
+{
+    public static async Task HandleAsync(
+        UserRegisteredNotification @event,
+        IEmailTemplateRenderer templateRenderer,
+        IEmailQueue emailQueue,
+        IOptions<EmailOptions> options,
+        CancellationToken ct)
+    {
+        var html = await templateRenderer.RenderAsync(
+            EmailTemplateNames.UserRegistration,
+            new { @event.Username, @event.Email, LoginUrl = $"{options.Value.BaseUrl}/login" },
+            ct);
+
+        await emailQueue.EnqueueAsync(
+            new EmailMessage(@event.Email, "Welcome!", html, EmailTemplateNames.UserRegistration),
+            ct);
+    }
+}
+```
+
+### 3. Publish from a command handler
+
+```csharp
+await bus.PublishAsync(new UserRegisteredNotification(user.Id, user.Email, user.Username));
+```
+
+Multiple handlers can subscribe to the same event -- Wolverine invokes all of them.
 
 ---
 
 ## Validation
 
-Command handlers are wrapped with `ValidationCommandHandlerDecorator` via Scrutor's decorator pattern. The decorator:
+Validation operates at two levels:
 
-1. Runs all registered `IValidator<TCommand>` for the command type
-2. Validates nested complex objects (one hop — properties and collection items)
-3. Throws `ValidationException` with aggregated errors if any fail
-4. Delegates to the inner handler on success
+### Wolverine FluentValidation Middleware
 
-**Query handlers are NOT decorated** — queries don't mutate state; filter validation is handled by the FluentValidation action filter.
+`opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration)` registers a Wolverine middleware that runs any explicitly registered `IValidator<TMessage>` **before** the handler executes. If validation fails, a `ValidationException` is thrown and the handler is never called.
 
-Shared validation logic lives in `Application/Common/CQRS/Decorators/CommandValidation.cs` (cached reflection, nested object traversal).
+This covers all messages dispatched through `IMessageBus`.
 
----
+### FluentValidationActionFilter (REST layer)
 
-## DI Registration
+A global `IAsyncActionFilter` validates controller action arguments against registered `IValidator<T>` instances. If validation fails, it short-circuits with HTTP 400 and a `ValidationProblemDetails` body before the action method runs.
 
-All handler registration happens in `ServiceCollectionExtensions.AddCqrsHandlers()`:
+This covers request DTOs bound from `[FromQuery]` / `[FromBody]` that are not wrapped in a command record.
+
+### Batch Validation
+
+Batch operations use `BatchFailureContext<T>` + `IBatchRule<T>` to collect per-item failures without throwing. Rules are applied sequentially and failures accumulate:
 
 ```csharp
-// Scrutor scans Application + Api assemblies for closed generic implementations
-services.Scan(scan => scan
-    .FromAssemblies(applicationAssembly, apiAssembly)
-    .AddClasses(c => c.AssignableTo(typeof(ICommandHandler<,>)))
-    .AsImplementedInterfaces()
-    .WithScopedLifetime());
-// ... same for ICommandHandler<>, IQueryHandler<,>, IDomainEventHandler<>
+var context = new BatchFailureContext<CreateProductRequest>(items);
 
-// Closed generic — open generic would break non-cache events at runtime
-services.AddScoped<IDomainEventHandler<CacheInvalidationNotification>, CacheInvalidationHandler<CacheInvalidationNotification>>();
+await context.ApplyRulesAsync(ct,
+    new FluentValidationBatchRule<CreateProductRequest>(itemValidator));
 
-// Validation decorators wrap all command handlers
-services.Decorate(typeof(ICommandHandler<,>), typeof(ValidationCommandHandlerDecorator<,>));
-services.Decorate(typeof(ICommandHandler<>), typeof(ValidationCommandHandlerDecorator<>));
+// Additional reference checks...
+context.AddFailures(BatchFailureMerge.MergeByIndex(categoryFailures, productDataFailures));
 
-// Event publisher
-services.AddScoped<IEventPublisher, EventPublisher>();
+if (context.HasFailures)
+    return context.ToFailureResponse();
 ```
 
+Batch rules live in `Application/Common/Batch/Rules/` and include `FluentValidationBatchRule`, `MarkMissingByIdBatchRule`, and `MarkMissingIdsBatchRule`.
+
 ---
 
-## Controller Injection Pattern
+## DI / Setup
 
-REST controllers use `[FromServices]` parameter injection per action method:
+Wolverine is configured entirely in `Program.cs` via `UseWolverine()`. There is no `AddCqrsHandlers()` or Scrutor scanning -- Wolverine handles all handler registration internally.
 
 ```csharp
-public sealed class ProductsController : ApiControllerBase
+builder.Host.UseWolverine(opts =>
+{
+    opts.Discovery.IncludeAssembly(typeof(CreateProductsCommand).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
+    opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration);
+    opts.Durability.Mode = DurabilityMode.Balanced;
+});
+```
+
+- **Application assembly** -- contains all command/query handlers and event definitions.
+- **Api assembly** -- contains infrastructure handlers (e.g., `CacheInvalidationHandler`).
+- FluentValidation validators are registered separately in `AddApplicationServices()`.
+
+---
+
+## Controller Dispatch
+
+REST controllers inject `IMessageBus` via primary constructor and dispatch messages in action methods:
+
+```csharp
+public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ProductsResponse>> GetAll(
-        [FromQuery] ProductFilter filter,
-        [FromServices] IQueryHandler<GetProductsQuery, ProductsResponse> handler,
-        CancellationToken ct)
+        [FromQuery] ProductFilter filter, CancellationToken ct)
     {
-        var products = await handler.HandleAsync(new GetProductsQuery(filter), ct);
+        var products = await bus.InvokeAsync<ProductsResponse>(
+            new GetProductsQuery(filter), ct);
         return Ok(products);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<BatchResponse>> Create(
+        CreateProductsRequest request, CancellationToken ct)
+    {
+        var result = await bus.InvokeAsync<BatchResponse>(
+            new CreateProductsCommand(request), ct);
+        return OkOrUnprocessable(result);
     }
 }
 ```
 
-GraphQL uses Hot Chocolate's `[Service]` attribute:
+---
+
+## GraphQL Dispatch
+
+Hot Chocolate resolvers inject `IMessageBus` via the `[Service]` attribute:
 
 ```csharp
-public async Task<ProductResponse> CreateProduct(
-    [Service] ICommandHandler<CreateProductCommand, ProductResponse> handler,
-    CreateProductRequest input, CancellationToken ct)
-    => await handler.HandleAsync(new CreateProductCommand(input), ct);
+public class ProductQueries
+{
+    public async Task<ProductPageResult> GetProducts(
+        ProductQueryInput? input,
+        [Service] IMessageBus bus,
+        CancellationToken ct)
+    {
+        var filter = new ProductFilter(/* map from input */);
+        var page = await bus.InvokeAsync<ProductsResponse>(
+            new GetProductsQuery(filter), ct);
+        return new ProductPageResult(page.Page, page.Facets);
+    }
+}
 ```
+
+Both REST and GraphQL use the same `IMessageBus` dispatch -- handlers are shared.
 
 ---
 
 ## Cache Invalidation
 
-Cache invalidation uses domain events with a generic open handler:
+Cache invalidation uses a simple notification record and a dedicated handler in the Api layer:
 
 ```csharp
-// Marker interface for cache events
-public interface ICacheInvalidationEvent : IDomainEvent
-{
-    string CacheTag { get; }
-}
+// Application layer -- event record
+public sealed record CacheInvalidationNotification(string CacheTag);
 
-// Single generic event — pass a CacheTags constant to specify the region
-public sealed record CacheInvalidationNotification(string CacheTag) : ICacheInvalidationEvent;
-
-// Single generic handler evicts the output cache
-public sealed class CacheInvalidationHandler<TEvent> : IDomainEventHandler<TEvent>
-    where TEvent : ICacheInvalidationEvent
+// Api layer -- handler
+public sealed class CacheInvalidationHandler
 {
-    public Task HandleAsync(TEvent @event, CancellationToken ct) =>
-        _outputCacheInvalidationService.EvictAsync(@event.CacheTag, ct);
+    public static Task HandleAsync(
+        CacheInvalidationNotification @event,
+        IOutputCacheInvalidationService outputCacheInvalidationService,
+        CancellationToken ct)
+        => outputCacheInvalidationService.EvictAsync(@event.CacheTag, ct);
 }
 ```
 
-Command handlers publish these events after successful writes using `CacheTags` constants:
+Command handlers publish after successful writes using `CacheTags` constants:
 
 ```csharp
-await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
+await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
 ```
+
+`CacheTags` (`Application/Common/Events/CacheTags.cs`) centralizes all tag constants: `Products`, `Categories`, `Reviews`, `Users`, etc.
+
+---
+
+## Fire-and-Forget Events
+
+`PublishSafeAsync` is an extension method on `IMessageBus` that swallows non-cancellation exceptions and logs them as warnings. Use it for notification events whose failure must not break the main command flow:
+
+```csharp
+public static async Task PublishSafeAsync<TEvent>(
+    this IMessageBus bus, TEvent @event, ILogger logger)
+{
+    try
+    {
+        await bus.PublishAsync(@event);
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        logger.LogWarning(ex, "Failed to publish {EventType}.", typeof(TEvent).Name);
+    }
+}
+```
+
+Usage in a handler:
+
+```csharp
+await bus.PublishSafeAsync(
+    new UserRegisteredNotification(user.Id, user.Email, user.Username), logger);
+```
+
+---
+
+## Batch Operations
+
+Batch commands (create/update/delete multiple entities) use a domain-level validation pipeline built on:
+
+- **`BatchFailureContext<TItem>`** -- accumulates per-index failures across multiple validation rules.
+- **`IBatchRule<TItem>`** -- interface for a single batch validation step (`FluentValidationBatchRule`, `MarkMissingByIdBatchRule`, `MarkMissingIdsBatchRule`).
+- **`BatchFailureMerge`** -- merges failures from independent checks (e.g., category + product-data reference checks) into a single failure list by index.
+- **`BatchResponse`** -- returned to the caller with success count + per-item failure details.
+
+The batch validation pipeline runs _inside the handler_, not as middleware, because each batch operation has unique reference-check logic.
+
+All batch infrastructure lives in `Application/Common/Batch/`.
 
 ---
 
@@ -251,20 +402,26 @@ await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Produc
 
 | Component | Layer | Why |
 |---|---|---|
-| `ICommand`, `IQuery`, `ICommandHandler`, `IQueryHandler` | Application | CQRS abstractions |
-| `ValidationCommandHandlerDecorator`, `CommandValidation` | Application | Cross-cutting validation concern |
-| `IDomainEvent`, `IDomainEventHandler`, `IEventPublisher` | Application | Event abstractions |
-| `EventPublisher` (implementation) | Api | Uses `IServiceProvider` — infrastructure glue |
-| `CacheInvalidationHandler<T>` | Api | Depends on `IOutputCacheInvalidationService` |
+| Message records (commands, queries, events) | Application | Domain contracts |
 | Command/Query handlers | Application | Business logic |
-| Controllers, GraphQL resolvers | Api | Presentation — inject handlers directly |
+| `BatchFailureContext`, `IBatchRule` | Application | Batch validation domain logic |
+| `IMessageBus` | Application (usage) | Wolverine abstraction, injected where needed |
+| `CacheInvalidationHandler` | Api | Depends on `IOutputCacheInvalidationService` |
+| `UserRegisteredEmailHandler` | Application | Orchestrates email infrastructure |
+| Controllers, GraphQL resolvers | Api | Presentation -- dispatch via `IMessageBus` |
+| `FluentValidationActionFilter` | Api | REST-layer validation filter |
+| Wolverine configuration (`UseWolverine`) | Api (`Program.cs`) | Infrastructure wiring |
 
 ---
 
 ## Key Decisions
 
-- **No dispatcher** — handlers are injected directly, making dependencies explicit and compile-time checked
-- **Scrutor for DI scanning** — auto-registers all handlers by convention, decorators wrap commands only
-- **Separate command/query/event concerns** — CQRS interfaces in `Common/CQRS/`, events in `Common/Events/`
-- **One handler per class** — follows SRP, each file contains the record + handler together
-- **`[FromServices]` injection** — no constructor field needed in controllers, each action declares its dependency
+- **WolverineFx over MediatR** -- convention-based discovery eliminates boilerplate interfaces; method injection removes constructor noise; built-in FluentValidation middleware replaces manual decorator wiring.
+- **Balanced durability mode** -- configured to match `Program.cs` while the current application usage remains in-process dispatch only.
+- **No marker interfaces** -- commands, queries, and events are plain records. Wolverine routes by type, not by interface.
+- **Convention over configuration** -- handler classes are discovered by naming convention (`*Handler` + `HandleAsync`), not by implementing `IRequestHandler<T>` or registering manually.
+- **Static `HandleAsync` with method injection** -- dependencies are parameters, not fields. Handlers have no mutable state and no constructor.
+- **One handler per file** -- message record + handler class co-located in the same file, following SRP.
+- **`IMessageBus` as the single dispatch surface** -- both REST controllers and GraphQL resolvers use the same dispatch mechanism, keeping handlers agnostic of the presentation layer.
+- **`PublishSafeAsync` for non-critical events** -- prevents notification failures (e.g., email) from breaking the main command flow.
+- **Batch validation in handlers, not middleware** -- each batch operation has unique reference-check logic that cannot be generalized into middleware.

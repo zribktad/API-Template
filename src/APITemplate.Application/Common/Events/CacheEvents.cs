@@ -1,7 +1,7 @@
 namespace APITemplate.Application.Common.Events;
 
 /// <summary>
-/// Generic cache invalidation event. Use with a <see cref="CacheTags"/> constant
+/// Cache invalidation event. Use with a <see cref="CacheTags"/> constant
 /// to signal that a specific cache region must be evicted.
 /// </summary>
-public sealed record CacheInvalidationNotification(string CacheTag) : ICacheInvalidationEvent;
+public sealed record CacheInvalidationNotification(string CacheTag);

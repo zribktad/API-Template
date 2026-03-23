@@ -1,4 +1,4 @@
-using APITemplate.Application.Common.CQRS;
+using Wolverine;
 
 namespace APITemplate.Api.GraphQL.DataLoaders;
 
@@ -10,22 +10,16 @@ namespace APITemplate.Api.GraphQL.DataLoaders;
 public sealed class ProductReviewsByProductDataLoader
     : BatchDataLoader<Guid, ProductReviewResponse[]>
 {
-    private readonly IQueryHandler<
-        GetProductReviewsByProductIdsQuery,
-        IReadOnlyDictionary<Guid, ProductReviewResponse[]>
-    > _handler;
+    private readonly IMessageBus _bus;
 
     public ProductReviewsByProductDataLoader(
-        IQueryHandler<
-            GetProductReviewsByProductIdsQuery,
-            IReadOnlyDictionary<Guid, ProductReviewResponse[]>
-        > handler,
+        IMessageBus bus,
         IBatchScheduler batchScheduler,
         DataLoaderOptions options = default!
     )
         : base(batchScheduler, options)
     {
-        _handler = handler;
+        _bus = bus;
     }
 
     /// <summary>
@@ -36,6 +30,9 @@ public sealed class ProductReviewsByProductDataLoader
         IReadOnlyDictionary<Guid, ProductReviewResponse[]>
     > LoadBatchAsync(IReadOnlyList<Guid> productIds, CancellationToken ct)
     {
-        return await _handler.HandleAsync(new GetProductReviewsByProductIdsQuery(productIds), ct);
+        return await _bus.InvokeAsync<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>(
+            new GetProductReviewsByProductIdsQuery(productIds),
+            ct
+        );
     }
 }

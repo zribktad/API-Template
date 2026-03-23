@@ -5,7 +5,7 @@ Step-by-step workflow guides for this API template. Each guide covers a complete
 | Guide | What it covers |
 |-------|----------------|
 | [GraphQL Endpoint](graphql-endpoint.md) | Create a type, query, mutation, and DataLoader with HotChocolate |
-| [REST Endpoint](rest-endpoint.md) | Full workflow: entity → DTO → validator → service → controller |
+| [REST Endpoint](rest-endpoint.md) | Full workflow: entity → DTO → validator → Wolverine handler → controller |
 | [Endpoint Showcases](endpoint-showcase.md) | SSE streaming, file upload/download, async jobs, batch, idempotency, JSON Patch, webhooks |
 | [EF Core Migration](ef-migration.md) | Add and apply PostgreSQL schema migrations with EF Core |
 | [MongoDB Migration](mongodb-migration.md) | Create index and data migrations with Kot.MongoDB.Migrations |

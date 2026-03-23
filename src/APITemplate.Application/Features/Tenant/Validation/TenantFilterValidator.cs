@@ -5,7 +5,7 @@ using FluentValidation;
 namespace APITemplate.Application.Features.Tenant.Validation;
 
 /// <summary>
-/// FluentValidation validator for <see cref="DTOs.TenantFilter"/> that composes pagination and sort-field rules.
+/// FluentValidation validator for <see cref="TenantFilter"/> that composes pagination and sort-field rules.
 /// </summary>
 public sealed class TenantFilterValidator : AbstractValidator<TenantFilter>
 {

@@ -1,4 +1,8 @@
+using JasperFx;
+using JasperFx.CodeGeneration;
 using Serilog;
+using Wolverine;
+using Wolverine.FluentValidation;
 
 try
 {
@@ -31,6 +35,21 @@ try
     builder.Services.AddJobServices(); // Register long-running job queue and background processor.
     builder.Services.AddIncomingWebhookServices(builder.Configuration); // Register webhook HMAC validation, queue, and background processor.
     builder.Services.AddOutgoingWebhookServices(); // Register outgoing webhook queue, signer, and delivery background service.
+
+    builder.Services.CritterStackDefaults(x =>
+    {
+        x.Production.GeneratedCodeMode = TypeLoadMode.Static;
+        x.Production.AssertAllPreGeneratedTypesExist = true;
+        x.Development.GeneratedCodeMode = TypeLoadMode.Dynamic;
+    });
+
+    builder.Host.UseWolverine(opts =>
+    {
+        opts.Durability.Mode = DurabilityMode.Balanced;
+        opts.Discovery.IncludeAssembly(typeof(CreateProductsCommand).Assembly);
+        opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
+        opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration);
+    });
 
     var app = builder.Build(); // Materialize the web app from configured services.
     app.Logger.LogInformation("Starting APITemplate"); // Startup banner for diagnostics after logging pipeline is ready.

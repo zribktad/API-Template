@@ -1,6 +1,6 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using HotChocolate.Authorization;
+using Wolverine;
 
 namespace APITemplate.Api.GraphQL.Mutations;
 
@@ -16,19 +16,19 @@ public class ProductReviewMutations
     [Authorize(Policy = Permission.ProductReviews.Create)]
     public Task<ProductReviewResponse> CreateProductReview(
         CreateProductReviewRequest input,
-        [Service] ICommandHandler<CreateProductReviewCommand, ProductReviewResponse> handler,
+        [Service] IMessageBus bus,
         CancellationToken ct
-    ) => handler.HandleAsync(new CreateProductReviewCommand(input), ct);
+    ) => bus.InvokeAsync<ProductReviewResponse>(new CreateProductReviewCommand(input), ct);
 
     /// <summary>Deletes a product review by its ID and returns <see langword="true"/> on success.</summary>
     [Authorize(Policy = Permission.ProductReviews.Delete)]
     public async Task<bool> DeleteProductReview(
         Guid id,
-        [Service] ICommandHandler<DeleteProductReviewCommand> handler,
+        [Service] IMessageBus bus,
         CancellationToken ct
     )
     {
-        await handler.HandleAsync(new DeleteProductReviewCommand(id), ct);
+        await bus.InvokeAsync(new DeleteProductReviewCommand(id), ct);
         return true;
     }
 }

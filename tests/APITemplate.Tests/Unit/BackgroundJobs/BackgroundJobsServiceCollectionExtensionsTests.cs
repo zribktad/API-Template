@@ -133,9 +133,7 @@ public sealed class BackgroundJobsServiceCollectionExtensionsTests
         services.AddBackgroundJobs(configuration);
         using var provider = services.BuildServiceProvider();
 
-        var options = provider
-            .GetRequiredService<Microsoft.Extensions.Options.IOptions<BackgroundJobsOptions>>()
-            .Value;
+        var options = provider.GetRequiredService<IOptions<BackgroundJobsOptions>>().Value;
 
         options.TickerQ.Enabled.ShouldBeTrue();
         options.TickerQ.FailClosed.ShouldBeTrue();

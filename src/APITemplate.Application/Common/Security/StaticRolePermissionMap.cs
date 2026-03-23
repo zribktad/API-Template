@@ -4,7 +4,7 @@ namespace APITemplate.Application.Common.Security;
 
 /// <summary>
 /// Compile-time implementation of <see cref="IRolePermissionMap"/> that maps each
-/// <see cref="APITemplate.Domain.Enums.UserRole"/> to a fixed set of permission strings.
+/// <see cref="UserRole"/> to a fixed set of permission strings.
 /// The mapping is built once and cached for the lifetime of the application.
 /// </summary>
 public sealed class StaticRolePermissionMap : IRolePermissionMap

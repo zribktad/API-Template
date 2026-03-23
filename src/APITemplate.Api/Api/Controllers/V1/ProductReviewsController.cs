@@ -1,11 +1,11 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -14,7 +14,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that exposes CRUD endpoints for product reviews,
 /// with output-cache support and a dedicated by-product lookup endpoint.
 /// </summary>
-public sealed class ProductReviewsController : ApiControllerBase
+public sealed class ProductReviewsController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>Returns a paginated, filterable list of product reviews.</summary>
     [HttpGet]
@@ -22,12 +22,13 @@ public sealed class ProductReviewsController : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Reviews)]
     public async Task<ActionResult<PagedResponse<ProductReviewResponse>>> GetAll(
         [FromQuery] ProductReviewFilter filter,
-        [FromServices]
-            IQueryHandler<GetProductReviewsQuery, PagedResponse<ProductReviewResponse>> handler,
         CancellationToken ct
     )
     {
-        var reviews = await handler.HandleAsync(new GetProductReviewsQuery(filter), ct);
+        var reviews = await bus.InvokeAsync<PagedResponse<ProductReviewResponse>>(
+            new GetProductReviewsQuery(filter),
+            ct
+        );
         return Ok(reviews);
     }
 
@@ -35,13 +36,12 @@ public sealed class ProductReviewsController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.ProductReviews.Read)]
     [OutputCache(PolicyName = CacheTags.Reviews)]
-    public async Task<ActionResult<ProductReviewResponse>> GetById(
-        Guid id,
-        [FromServices] IQueryHandler<GetProductReviewByIdQuery, ProductReviewResponse?> handler,
-        CancellationToken ct
-    )
+    public async Task<ActionResult<ProductReviewResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var review = await handler.HandleAsync(new GetProductReviewByIdQuery(id), ct);
+        var review = await bus.InvokeAsync<ProductReviewResponse?>(
+            new GetProductReviewByIdQuery(id),
+            ct
+        );
         return OkOrNotFound(review);
     }
 
@@ -51,15 +51,10 @@ public sealed class ProductReviewsController : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Reviews)]
     public async Task<ActionResult<IEnumerable<ProductReviewResponse>>> GetByProductId(
         Guid productId,
-        [FromServices]
-            IQueryHandler<
-            GetProductReviewsByProductIdQuery,
-            IReadOnlyList<ProductReviewResponse>
-        > handler,
         CancellationToken ct
     )
     {
-        var reviews = await handler.HandleAsync(
+        var reviews = await bus.InvokeAsync<IReadOnlyList<ProductReviewResponse>>(
             new GetProductReviewsByProductIdQuery(productId),
             ct
         );
@@ -71,24 +66,22 @@ public sealed class ProductReviewsController : ApiControllerBase
     [RequirePermission(Permission.ProductReviews.Create)]
     public async Task<ActionResult<ProductReviewResponse>> Create(
         CreateProductReviewRequest request,
-        [FromServices] ICommandHandler<CreateProductReviewCommand, ProductReviewResponse> handler,
         CancellationToken ct
     )
     {
-        var review = await handler.HandleAsync(new CreateProductReviewCommand(request), ct);
+        var review = await bus.InvokeAsync<ProductReviewResponse>(
+            new CreateProductReviewCommand(request),
+            ct
+        );
         return CreatedAtGetById(review, review.Id);
     }
 
     /// <summary>Deletes a product review by its identifier.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.ProductReviews.Delete)]
-    public async Task<IActionResult> Delete(
-        Guid id,
-        [FromServices] ICommandHandler<DeleteProductReviewCommand> handler,
-        CancellationToken ct
-    )
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await handler.HandleAsync(new DeleteProductReviewCommand(id), ct);
+        await bus.InvokeAsync(new DeleteProductReviewCommand(id), ct);
         return NoContent();
     }
 }

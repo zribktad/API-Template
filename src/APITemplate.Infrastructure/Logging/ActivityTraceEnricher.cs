@@ -6,7 +6,7 @@ namespace APITemplate.Infrastructure.Logging;
 
 /// <summary>
 /// Serilog <see cref="ILogEventEnricher"/> that appends W3C-format <c>TraceId</c> and <c>SpanId</c>
-/// properties from the current <see cref="System.Diagnostics.Activity"/> to every log event,
+/// properties from the current <see cref="Activity"/> to every log event,
 /// enabling correlation between structured logs and distributed traces.
 /// </summary>
 public sealed class ActivityTraceEnricher : ILogEventEnricher
