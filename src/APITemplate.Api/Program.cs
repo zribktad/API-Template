@@ -1,3 +1,5 @@
+using JasperFx;
+using JasperFx.CodeGeneration;
 using Serilog;
 using Wolverine;
 using Wolverine.FluentValidation;
@@ -33,6 +35,13 @@ try
     builder.Services.AddJobServices(); // Register long-running job queue and background processor.
     builder.Services.AddIncomingWebhookServices(builder.Configuration); // Register webhook HMAC validation, queue, and background processor.
     builder.Services.AddOutgoingWebhookServices(); // Register outgoing webhook queue, signer, and delivery background service.
+
+    builder.Services.CritterStackDefaults(x =>
+    {
+        x.Production.GeneratedCodeMode = TypeLoadMode.Static;
+        x.Production.AssertAllPreGeneratedTypesExist = true;
+        x.Development.GeneratedCodeMode = TypeLoadMode.Dynamic;
+    });
 
     builder.Host.UseWolverine(opts =>
     {

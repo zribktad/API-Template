@@ -15,6 +15,7 @@
     <Compile Remove="obj-codex\**\*.cs" />
     <None Remove="artifacts\**\*" />
     <None Remove="obj-codex\**\*" />
+    <Compile Update="Internal\Generated\**\*.cs" Watch="false" />
   </ItemGroup>
 
   <ItemGroup>
