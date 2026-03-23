@@ -41,7 +41,6 @@ try
         );
         opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
         opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration);
-        opts.Durability.Mode = DurabilityMode.MediatorOnly;
     });
 
     var app = builder.Build(); // Materialize the web app from configured services.
