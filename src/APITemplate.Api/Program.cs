@@ -36,6 +36,7 @@ try
 
     builder.Host.UseWolverine(opts =>
     {
+        opts.Durability.Mode = DurabilityMode.Balanced;
         opts.Discovery.IncludeAssembly(
             typeof(APITemplate.Application.Features.Product.CreateProductsCommand).Assembly
         );
