@@ -1,3 +1,4 @@
+using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Exceptions;
 
@@ -49,6 +50,36 @@ internal static class ProductValidationHelper
         }
 
         return normalizedIds;
+    }
+
+    /// <summary>
+    /// Checks all product references (category and product data) in a single call, merging
+    /// per-item failures from both checks. Items in <paramref name="failedIndices"/> are skipped.
+    /// </summary>
+    internal static async Task<List<BatchResultItem>> CheckProductReferencesAsync<T>(
+        IReadOnlyList<T> items,
+        ICategoryRepository categoryRepository,
+        IProductDataRepository productDataRepository,
+        IReadOnlySet<int> failedIndices,
+        CancellationToken ct
+    )
+        where T : IProductRequest
+    {
+        List<BatchResultItem> categoryFailures = await CheckCategoryReferencesAsync(
+            items,
+            item => item.CategoryId,
+            categoryRepository,
+            failedIndices,
+            ct
+        );
+        List<BatchResultItem> productDataFailures = await CheckProductDataReferencesAsync(
+            items,
+            item => item.ProductDataIds,
+            productDataRepository,
+            failedIndices,
+            ct
+        );
+        return BatchFailureMerge.MergeByIndex(categoryFailures, productDataFailures);
     }
 
     /// <summary>

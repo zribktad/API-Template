@@ -36,22 +36,15 @@ public sealed class CreateProductsCommandHandler
 
         // Step 2–3: Reference checks skip only fluent-validation failures so both category and
         // product-data issues can be reported for the same index (merged into one failure row).
-        var skipForReferenceChecks = context.FailedIndices.ToHashSet();
-        var categoryFailures = await ProductValidationHelper.CheckCategoryReferencesAsync(
-            items,
-            item => item.CategoryId,
-            categoryRepository,
-            skipForReferenceChecks,
-            ct
+        context.AddFailures(
+            await ProductValidationHelper.CheckProductReferencesAsync(
+                items,
+                categoryRepository,
+                productDataRepository,
+                context.FailedIndices,
+                ct
+            )
         );
-        var productDataFailures = await ProductValidationHelper.CheckProductDataReferencesAsync(
-            items,
-            item => item.ProductDataIds,
-            productDataRepository,
-            skipForReferenceChecks,
-            ct
-        );
-        context.AddFailures(BatchFailureMerge.MergeByIndex(categoryFailures, productDataFailures));
 
         if (context.HasFailures)
             return context.ToFailureResponse();
