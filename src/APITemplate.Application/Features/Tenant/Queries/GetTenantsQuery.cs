@@ -1,25 +1,20 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Tenant.DTOs;
 using APITemplate.Application.Features.Tenant.Specifications;
 using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.Tenant;
 
-public sealed record GetTenantsQuery(TenantFilter Filter) : IQuery<PagedResponse<TenantResponse>>;
+public sealed record GetTenantsQuery(TenantFilter Filter);
 
 public sealed class GetTenantsQueryHandler
-    : IQueryHandler<GetTenantsQuery, PagedResponse<TenantResponse>>
 {
-    private readonly ITenantRepository _repository;
-
-    public GetTenantsQueryHandler(ITenantRepository repository) => _repository = repository;
-
-    public async Task<PagedResponse<TenantResponse>> HandleAsync(
+    public static async Task<PagedResponse<TenantResponse>> HandleAsync(
         GetTenantsQuery request,
+        ITenantRepository repository,
         CancellationToken ct
     )
     {
-        return await _repository.GetPagedAsync(
+        return await repository.GetPagedAsync(
             new TenantSpecification(request.Filter),
             request.Filter.PageNumber,
             request.Filter.PageSize,

@@ -1,11 +1,11 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -14,7 +14,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that demonstrates long-running job submission and
 /// asynchronous status polling using a channel-based job queue.
 /// </summary>
-public sealed class JobsController : ApiControllerBase
+public sealed class JobsController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>
     /// Enqueues a new job and returns 202 Accepted with a Location header pointing to the
@@ -22,13 +22,9 @@ public sealed class JobsController : ApiControllerBase
     /// </summary>
     [HttpPost]
     [RequirePermission(Permission.Examples.Execute)]
-    public async Task<IActionResult> Submit(
-        SubmitJobRequest request,
-        [FromServices] ICommandHandler<SubmitJobCommand, JobStatusResponse> handler,
-        CancellationToken ct
-    )
+    public async Task<IActionResult> Submit(SubmitJobRequest request, CancellationToken ct)
     {
-        var result = await handler.HandleAsync(new SubmitJobCommand(request), ct);
+        var result = await bus.InvokeAsync<JobStatusResponse>(new SubmitJobCommand(request), ct);
         return AcceptedAtAction(
             nameof(GetStatus),
             new { id = result.Id, version = this.GetApiVersion() },
@@ -41,11 +37,10 @@ public sealed class JobsController : ApiControllerBase
     [RequirePermission(Permission.Examples.Read)]
     public async Task<ActionResult<JobStatusResponse>> GetStatus(
         [FromRoute] GetJobStatusRequest request,
-        [FromServices] IQueryHandler<GetJobStatusQuery, JobStatusResponse?> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new GetJobStatusQuery(request), ct);
+        var result = await bus.InvokeAsync<JobStatusResponse?>(new GetJobStatusQuery(request), ct);
         return OkOrNotFound(result);
     }
 }

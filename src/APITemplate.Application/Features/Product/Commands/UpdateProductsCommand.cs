@@ -1,48 +1,28 @@
-using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Common.CQRS.Rules;
+using APITemplate.Application.Common.Batch;
+using APITemplate.Application.Common.Batch.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product.Specifications;
 using APITemplate.Domain.Entities;
 using FluentValidation;
+using Wolverine;
 
 namespace APITemplate.Application.Features.Product;
 
 /// <summary>Updates multiple products in a single batch operation.</summary>
-public sealed record UpdateProductsCommand(UpdateProductsRequest Request) : ICommand<BatchResponse>;
+public sealed record UpdateProductsCommand(UpdateProductsRequest Request);
 
 /// <summary>Handles <see cref="UpdateProductsCommand"/> by validating all items, loading products in bulk, and updating in a single transaction.</summary>
 public sealed class UpdateProductsCommandHandler
-    : ICommandHandler<UpdateProductsCommand, BatchResponse>
 {
-    private readonly IProductRepository _repository;
-    private readonly ICategoryRepository _categoryRepository;
-    private readonly IProductDataRepository _productDataRepository;
-    private readonly IProductDataLinkRepository _productDataLinkRepository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IEventPublisher _publisher;
-    private readonly IValidator<UpdateProductItem> _itemValidator;
-
-    public UpdateProductsCommandHandler(
+    public static async Task<BatchResponse> HandleAsync(
+        UpdateProductsCommand command,
         IProductRepository repository,
         ICategoryRepository categoryRepository,
         IProductDataRepository productDataRepository,
         IProductDataLinkRepository productDataLinkRepository,
         IUnitOfWork unitOfWork,
-        IEventPublisher publisher,
-        IValidator<UpdateProductItem> itemValidator
-    )
-    {
-        _repository = repository;
-        _categoryRepository = categoryRepository;
-        _productDataRepository = productDataRepository;
-        _productDataLinkRepository = productDataLinkRepository;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
-        _itemValidator = itemValidator;
-    }
-
-    public async Task<BatchResponse> HandleAsync(
-        UpdateProductsCommand command,
+        IMessageBus bus,
+        IValidator<UpdateProductItem> itemValidator,
         CancellationToken ct
     )
     {
@@ -52,13 +32,13 @@ public sealed class UpdateProductsCommandHandler
         // Step 1: Validate each item (field-level rules — name, price, etc.)
         await context.ApplyRulesAsync(
             ct,
-            new FluentValidationBatchRule<UpdateProductItem>(_itemValidator)
+            new FluentValidationBatchRule<UpdateProductItem>(itemValidator)
         );
 
         // Step 2: Load all target products and mark missing ones as failed
         var requestedIds = items.Select(item => item.Id).ToHashSet();
         var productMap = (
-            await _repository.ListAsync(new ProductsByIdsWithLinksSpecification(requestedIds), ct)
+            await repository.ListAsync(new ProductsByIdsWithLinksSpecification(requestedIds), ct)
         ).ToDictionary(p => p.Id);
 
         await context.ApplyRulesAsync(
@@ -75,14 +55,14 @@ public sealed class UpdateProductsCommandHandler
         var categoryFailures = await ProductValidationHelper.CheckCategoryReferencesAsync(
             items,
             item => item.CategoryId,
-            _categoryRepository,
+            categoryRepository,
             skipForReferenceChecks,
             ct
         );
         var productDataFailures = await ProductValidationHelper.CheckProductDataReferencesAsync(
             items,
             item => item.ProductDataIds,
-            _productDataRepository,
+            productDataRepository,
             skipForReferenceChecks,
             ct
         );
@@ -92,7 +72,7 @@ public sealed class UpdateProductsCommandHandler
             return context.ToFailureResponse();
 
         // Step 5: Apply changes and sync product-data links in a single transaction
-        await _unitOfWork.ExecuteInTransactionAsync(
+        await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
                 for (var i = 0; i < items.Count; i++)
@@ -112,13 +92,13 @@ public sealed class UpdateProductsCommandHandler
                         product.SyncProductDataLinks(targetIds, existingById);
                     }
 
-                    await _repository.UpdateAsync(product, ct);
+                    await repository.UpdateAsync(product, ct);
                 }
             },
             ct
         );
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
         return new BatchResponse([], items.Count, 0);
     }
 }

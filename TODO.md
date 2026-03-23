@@ -81,4 +81,4 @@ Implement real-time notifications and chat using ASP.NET Core SignalR.
 ## Soft delete and Data Retention
 - [x] Hard delete for soft-deleted products after a configurable retention period.
 - [x] Add workflow for permanently deleting soft-deleted products after retention period.
-- [ ] MassTransit Outbox, Wolverine, CAP, or other reliable messaging for eventual consistency in data deletion across related entities.
+- [ ] Wolverine durable outbox or CAP for reliable messaging and eventual consistency in data deletion across related entities. (WolverineFx is now integrated as the in-process mediator; durable outbox mode can be enabled when needed.)

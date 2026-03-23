@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.Contracts;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Features.Examples.DTOs;
@@ -10,49 +9,35 @@ using Microsoft.Extensions.Options;
 
 namespace APITemplate.Application.Features.Examples;
 
-public sealed record UploadFileCommand(UploadFileRequest Request) : ICommand<FileUploadResponse>;
+public sealed record UploadFileCommand(UploadFileRequest Request);
 
 public sealed class UploadFileCommandHandler
-    : ICommandHandler<UploadFileCommand, FileUploadResponse>
 {
-    private readonly IStoredFileRepository _repository;
-    private readonly IFileStorageService _storage;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly FileStorageOptions _options;
-
-    public UploadFileCommandHandler(
+    public static async Task<FileUploadResponse> HandleAsync(
+        UploadFileCommand command,
         IStoredFileRepository repository,
         IFileStorageService storage,
         IUnitOfWork unitOfWork,
-        IOptions<FileStorageOptions> options
-    )
-    {
-        _repository = repository;
-        _storage = storage;
-        _unitOfWork = unitOfWork;
-        _options = options.Value;
-    }
-
-    public async Task<FileUploadResponse> HandleAsync(
-        UploadFileCommand command,
+        IOptions<FileStorageOptions> options,
         CancellationToken ct
     )
     {
         var req = command.Request;
+        var opts = options.Value;
         var extension = Path.GetExtension(req.FileName)?.ToLowerInvariant();
-        if (string.IsNullOrEmpty(extension) || !_options.AllowedExtensions.Contains(extension))
+        if (string.IsNullOrEmpty(extension) || !opts.AllowedExtensions.Contains(extension))
             throw new ValidationException(
                 $"File type '{extension}' is not allowed.",
                 ErrorCatalog.Examples.InvalidFileType
             );
 
-        if (req.SizeBytes > _options.MaxFileSizeBytes)
+        if (req.SizeBytes > opts.MaxFileSizeBytes)
             throw new ValidationException(
-                $"File size exceeds the maximum allowed size of {_options.MaxFileSizeBytes} bytes.",
+                $"File size exceeds the maximum allowed size of {opts.MaxFileSizeBytes} bytes.",
                 ErrorCatalog.Examples.FileTooLarge
             );
 
-        var storageResult = await _storage.SaveAsync(req.FileStream, req.FileName, ct);
+        var storageResult = await storage.SaveAsync(req.FileStream, req.FileName, ct);
 
         try
         {
@@ -66,10 +51,10 @@ public sealed class UploadFileCommandHandler
                 Description = req.Description,
             };
 
-            await _unitOfWork.ExecuteInTransactionAsync(
+            await unitOfWork.ExecuteInTransactionAsync(
                 async () =>
                 {
-                    await _repository.AddAsync(entity, ct);
+                    await repository.AddAsync(entity, ct);
                 },
                 ct
             );
@@ -85,7 +70,7 @@ public sealed class UploadFileCommandHandler
         }
         catch
         {
-            await _storage.DeleteAsync(storageResult.StoragePath, CancellationToken.None);
+            await storage.DeleteAsync(storageResult.StoragePath, CancellationToken.None);
             throw;
         }
     }

@@ -1,10 +1,4 @@
-using APITemplate.Api.Cache;
-using APITemplate.Api.Events;
 using APITemplate.Application.Common.Context;
-using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Common.CQRS.Decorators;
-using APITemplate.Application.Common.Events;
-using APITemplate.Application.Features.Product;
 using APITemplate.Application.Features.Product.Validation;
 using APITemplate.Infrastructure.Security;
 using Asp.Versioning;
@@ -13,8 +7,9 @@ using FluentValidation;
 namespace APITemplate.Api.Extensions;
 
 /// <summary>
-/// Presentation-layer extension class that registers application services (CQRS handlers, validators,
+/// Presentation-layer extension class that registers application services (validators,
 /// tenant/actor context providers) and API versioning configuration.
+/// Wolverine handles handler discovery and validation middleware automatically via UseWolverine().
 /// </summary>
 public static class ServiceCollectionExtensions
 {
@@ -28,50 +23,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITenantProvider, HttpTenantProvider>();
         services.AddScoped<IActorProvider, HttpActorProvider>();
 
-        services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
-
-        services.AddCqrsHandlers();
-
-        return services;
-    }
-
-    /// <summary>
-    /// Registers all CQRS command/query/event handlers via Scrutor assembly scanning,
-    /// wraps command handlers with validation decorators, and registers the event publisher.
-    /// </summary>
-    private static void AddCqrsHandlers(this IServiceCollection services)
-    {
-        var applicationAssembly = typeof(CreateProductsCommand).Assembly;
-        var apiAssembly = typeof(CacheInvalidationHandler<>).Assembly;
-
-        services.Scan(scan =>
-            scan.FromAssemblies(applicationAssembly, apiAssembly)
-                .AddClasses(c => c.AssignableTo(typeof(ICommandHandler<,>)))
-                .AsImplementedInterfaces()
-                .WithScopedLifetime()
-                .AddClasses(c => c.AssignableTo(typeof(ICommandHandler<>)))
-                .AsImplementedInterfaces()
-                .WithScopedLifetime()
-                .AddClasses(c => c.AssignableTo(typeof(IQueryHandler<,>)))
-                .AsImplementedInterfaces()
-                .WithScopedLifetime()
-                .AddClasses(c => c.AssignableTo(typeof(IDomainEventHandler<>)))
-                .AsImplementedInterfaces()
-                .WithScopedLifetime()
+        services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>(
+            filter: result => !result.ValidatorType.IsGenericTypeDefinition
         );
 
-        // Closed generic — open generic registration would break non-cache events at runtime
-        services.AddScoped<
-            IDomainEventHandler<CacheInvalidationNotification>,
-            CacheInvalidationHandler<CacheInvalidationNotification>
-        >();
-
-        // Validation decorators for command handlers
-        services.Decorate(typeof(ICommandHandler<,>), typeof(ValidationCommandHandlerDecorator<,>));
-        services.Decorate(typeof(ICommandHandler<>), typeof(ValidationCommandHandlerDecorator<>));
-
-        // Event publisher
-        services.AddScoped<IEventPublisher, EventPublisher>();
+        return services;
     }
 
     /// <summary>

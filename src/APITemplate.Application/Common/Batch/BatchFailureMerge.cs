@@ -1,6 +1,6 @@
 using APITemplate.Application.Common.DTOs;
 
-namespace APITemplate.Application.Common.CQRS;
+namespace APITemplate.Application.Common.Batch;
 
 /// <summary>
 /// Merges per-item batch failures that share the same index (e.g. missing category and missing product data).

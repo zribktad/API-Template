@@ -1,27 +1,20 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.TenantInvitation.DTOs;
 using APITemplate.Application.Features.TenantInvitation.Specifications;
 using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.TenantInvitation;
 
-public sealed record GetTenantInvitationsQuery(TenantInvitationFilter Filter)
-    : IQuery<PagedResponse<TenantInvitationResponse>>;
+public sealed record GetTenantInvitationsQuery(TenantInvitationFilter Filter);
 
 public sealed class GetTenantInvitationsQueryHandler
-    : IQueryHandler<GetTenantInvitationsQuery, PagedResponse<TenantInvitationResponse>>
 {
-    private readonly ITenantInvitationRepository _invitationRepository;
-
-    public GetTenantInvitationsQueryHandler(ITenantInvitationRepository invitationRepository) =>
-        _invitationRepository = invitationRepository;
-
-    public async Task<PagedResponse<TenantInvitationResponse>> HandleAsync(
+    public static async Task<PagedResponse<TenantInvitationResponse>> HandleAsync(
         GetTenantInvitationsQuery request,
+        ITenantInvitationRepository invitationRepository,
         CancellationToken ct
     )
     {
-        return await _invitationRepository.GetPagedAsync(
+        return await invitationRepository.GetPagedAsync(
             new TenantInvitationFilterSpecification(request.Filter),
             request.Filter.PageNumber,
             request.Filter.PageSize,

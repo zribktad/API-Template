@@ -1,12 +1,12 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
 using APITemplate.Api.Requests;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -15,7 +15,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that demonstrates multipart file upload and streamed download
 /// using local file storage, limited to 10 MB per upload request.
 /// </summary>
-public sealed class FilesController : ApiControllerBase
+public sealed class FilesController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>
     /// Accepts a multipart form upload, streams the file to local storage via the application
@@ -26,12 +26,11 @@ public sealed class FilesController : ApiControllerBase
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<ActionResult<FileUploadResponse>> Upload(
         [FromForm] FileUploadRequest request,
-        [FromServices] ICommandHandler<UploadFileCommand, FileUploadResponse> handler,
         CancellationToken ct
     )
     {
         await using var stream = request.File.OpenReadStream();
-        var result = await handler.HandleAsync(
+        var result = await bus.InvokeAsync<FileUploadResponse>(
             new UploadFileCommand(
                 new UploadFileRequest(
                     stream,
@@ -58,11 +57,10 @@ public sealed class FilesController : ApiControllerBase
     [RequirePermission(Permission.Examples.Download)]
     public async Task<IActionResult> Download(
         [FromRoute] DownloadFileRequest request,
-        [FromServices] IQueryHandler<DownloadFileQuery, FileDownloadResult> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new DownloadFileQuery(request), ct);
+        var result = await bus.InvokeAsync<FileDownloadResult>(new DownloadFileQuery(request), ct);
         try
         {
             return File(result.FileStream, result.ContentType, result.FileName);

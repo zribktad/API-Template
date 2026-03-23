@@ -1,40 +1,29 @@
 using APITemplate.Application.Common.Context;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using Wolverine;
 
 namespace APITemplate.Application.Features.ProductReview;
 
 /// <summary>Deletes the product review with the given identifier; only the review's author may delete it.</summary>
-public sealed record DeleteProductReviewCommand(Guid Id) : ICommand, IHasId;
+public sealed record DeleteProductReviewCommand(Guid Id) : IHasId;
 
 /// <summary>Handles <see cref="DeleteProductReviewCommand"/>.</summary>
-public sealed class DeleteProductReviewCommandHandler : ICommandHandler<DeleteProductReviewCommand>
+public sealed class DeleteProductReviewCommandHandler
 {
-    private readonly IProductReviewRepository _reviewRepository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IActorProvider _actorProvider;
-    private readonly IEventPublisher _publisher;
-
-    public DeleteProductReviewCommandHandler(
+    public static async Task HandleAsync(
+        DeleteProductReviewCommand command,
         IProductReviewRepository reviewRepository,
         IUnitOfWork unitOfWork,
         IActorProvider actorProvider,
-        IEventPublisher publisher
+        IMessageBus bus,
+        CancellationToken ct
     )
     {
-        _reviewRepository = reviewRepository;
-        _unitOfWork = unitOfWork;
-        _actorProvider = actorProvider;
-        _publisher = publisher;
-    }
-
-    public async Task HandleAsync(DeleteProductReviewCommand command, CancellationToken ct)
-    {
-        var userId = _actorProvider.ActorId;
-        var review = await _reviewRepository.GetByIdOrThrowAsync(
+        var userId = actorProvider.ActorId;
+        var review = await reviewRepository.GetByIdOrThrowAsync(
             command.Id,
             ErrorCatalog.Reviews.ReviewNotFound,
             ct
@@ -48,10 +37,10 @@ public sealed class DeleteProductReviewCommandHandler : ICommandHandler<DeletePr
             );
         }
 
-        await _unitOfWork.ExecuteInTransactionAsync(
+        await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
-                await _reviewRepository.DeleteAsync(
+                await reviewRepository.DeleteAsync(
                     command.Id,
                     ct,
                     ErrorCatalog.Reviews.ReviewNotFound
@@ -60,6 +49,6 @@ public sealed class DeleteProductReviewCommandHandler : ICommandHandler<DeletePr
             ct
         );
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews));
     }
 }

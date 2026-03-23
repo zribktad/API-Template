@@ -1,39 +1,26 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.User.DTOs;
 using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using Wolverine;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record ChangeUserRoleCommand(Guid Id, ChangeUserRoleRequest Request)
-    : ICommand,
-        IHasId;
+public sealed record ChangeUserRoleCommand(Guid Id, ChangeUserRoleRequest Request) : IHasId;
 
-public sealed class ChangeUserRoleCommandHandler : ICommandHandler<ChangeUserRoleCommand>
+public sealed class ChangeUserRoleCommandHandler
 {
-    private readonly IUserRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IEventPublisher _publisher;
-    private readonly ILogger<ChangeUserRoleCommandHandler> _logger;
-
-    public ChangeUserRoleCommandHandler(
+    public static async Task HandleAsync(
+        ChangeUserRoleCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
-        IEventPublisher publisher,
-        ILogger<ChangeUserRoleCommandHandler> logger
+        IMessageBus bus,
+        ILogger<ChangeUserRoleCommandHandler> logger,
+        CancellationToken ct
     )
     {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
-        _logger = logger;
-    }
-
-    public async Task HandleAsync(ChangeUserRoleCommand command, CancellationToken ct)
-    {
-        var user = await _repository.GetByIdOrThrowAsync(
+        var user = await repository.GetByIdOrThrowAsync(
             command.Id,
             ErrorCatalog.Users.NotFound,
             ct
@@ -41,10 +28,10 @@ public sealed class ChangeUserRoleCommandHandler : ICommandHandler<ChangeUserRol
         var oldRole = user.Role.ToString();
 
         user.Role = command.Request.Role;
-        await _repository.UpdateAsync(user, ct);
-        await _unitOfWork.CommitAsync(ct);
+        await repository.UpdateAsync(user, ct);
+        await unitOfWork.CommitAsync(ct);
 
-        await _publisher.PublishSafeAsync(
+        await bus.PublishSafeAsync(
             new UserRoleChangedNotification(
                 user.Id,
                 user.Email,
@@ -52,10 +39,9 @@ public sealed class ChangeUserRoleCommandHandler : ICommandHandler<ChangeUserRol
                 oldRole,
                 command.Request.Role.ToString()
             ),
-            _logger,
-            ct
+            logger
         );
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Users), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
     }
 }

@@ -1,11 +1,11 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -14,7 +14,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that exposes CRUD endpoints for tenant management,
 /// restricted to platform-level permissions with tenant-isolated output caching.
 /// </summary>
-public sealed class TenantsController : ApiControllerBase
+public sealed class TenantsController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>Returns a paginated, filterable list of tenants.</summary>
     [HttpGet]
@@ -22,11 +22,13 @@ public sealed class TenantsController : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Tenants)]
     public async Task<ActionResult<PagedResponse<TenantResponse>>> GetAll(
         [FromQuery] TenantFilter filter,
-        [FromServices] IQueryHandler<GetTenantsQuery, PagedResponse<TenantResponse>> handler,
         CancellationToken ct
     )
     {
-        var tenants = await handler.HandleAsync(new GetTenantsQuery(filter), ct);
+        var tenants = await bus.InvokeAsync<PagedResponse<TenantResponse>>(
+            new GetTenantsQuery(filter),
+            ct
+        );
         return Ok(tenants);
     }
 
@@ -34,13 +36,9 @@ public sealed class TenantsController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Tenants.Read)]
     [OutputCache(PolicyName = CacheTags.Tenants)]
-    public async Task<ActionResult<TenantResponse>> GetById(
-        Guid id,
-        [FromServices] IQueryHandler<GetTenantByIdQuery, TenantResponse?> handler,
-        CancellationToken ct
-    )
+    public async Task<ActionResult<TenantResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var tenant = await handler.HandleAsync(new GetTenantByIdQuery(id), ct);
+        var tenant = await bus.InvokeAsync<TenantResponse?>(new GetTenantByIdQuery(id), ct);
         return OkOrNotFound(tenant);
     }
 
@@ -49,24 +47,19 @@ public sealed class TenantsController : ApiControllerBase
     [RequirePermission(Permission.Tenants.Create)]
     public async Task<ActionResult<TenantResponse>> Create(
         CreateTenantRequest request,
-        [FromServices] ICommandHandler<CreateTenantCommand, TenantResponse> handler,
         CancellationToken ct
     )
     {
-        var tenant = await handler.HandleAsync(new CreateTenantCommand(request), ct);
+        var tenant = await bus.InvokeAsync<TenantResponse>(new CreateTenantCommand(request), ct);
         return CreatedAtGetById(tenant, tenant.Id);
     }
 
     /// <summary>Soft-deletes a tenant and cascades the deletion to its child entities.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.Tenants.Delete)]
-    public async Task<IActionResult> Delete(
-        Guid id,
-        [FromServices] ICommandHandler<DeleteTenantCommand> handler,
-        CancellationToken ct
-    )
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await handler.HandleAsync(new DeleteTenantCommand(id), ct);
+        await bus.InvokeAsync(new DeleteTenantCommand(id), ct);
         return NoContent();
     }
 }

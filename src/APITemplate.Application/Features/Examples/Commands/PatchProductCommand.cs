@@ -1,4 +1,3 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Examples.DTOs;
@@ -7,43 +6,27 @@ using APITemplate.Application.Features.Product.Mappings;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Domain.Interfaces;
 using FluentValidation;
+using Wolverine;
 using DomainNotFoundException = APITemplate.Domain.Exceptions.NotFoundException;
 using DomainValidationException = APITemplate.Domain.Exceptions.ValidationException;
 
 namespace APITemplate.Application.Features.Examples;
 
-public sealed record PatchProductCommand(Guid Id, Action<PatchableProductDto> ApplyPatch)
-    : ICommand<ProductResponse>,
-        IHasId;
+public sealed record PatchProductCommand(Guid Id, Action<PatchableProductDto> ApplyPatch) : IHasId;
 
 public sealed class PatchProductCommandHandler
-    : ICommandHandler<PatchProductCommand, ProductResponse>
 {
-    private readonly IProductRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IValidator<PatchableProductDto> _validator;
-    private readonly IEventPublisher _publisher;
-
-    public PatchProductCommandHandler(
+    public static async Task<ProductResponse> HandleAsync(
+        PatchProductCommand command,
         IProductRepository repository,
         IUnitOfWork unitOfWork,
         IValidator<PatchableProductDto> validator,
-        IEventPublisher publisher
-    )
-    {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _validator = validator;
-        _publisher = publisher;
-    }
-
-    public async Task<ProductResponse> HandleAsync(
-        PatchProductCommand command,
+        IMessageBus bus,
         CancellationToken ct
     )
     {
         var product =
-            await _repository.GetByIdAsync(command.Id, ct)
+            await repository.GetByIdAsync(command.Id, ct)
             ?? throw new DomainNotFoundException(
                 ErrorCatalog.Products.EntityName,
                 command.Id,
@@ -60,7 +43,7 @@ public sealed class PatchProductCommandHandler
 
         command.ApplyPatch(dto);
 
-        var validationResult = await _validator.ValidateAsync(dto, ct);
+        var validationResult = await validator.ValidateAsync(dto, ct);
         if (!validationResult.IsValid)
             throw new DomainValidationException(
                 string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage)),
@@ -69,15 +52,15 @@ public sealed class PatchProductCommandHandler
 
         product.UpdateDetails(dto.Name, dto.Description, dto.Price, dto.CategoryId);
 
-        await _unitOfWork.ExecuteInTransactionAsync(
+        await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
-                await _repository.UpdateAsync(product, ct);
+                await repository.UpdateAsync(product, ct);
             },
             ct
         );
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
 
         return product.ToResponse();
     }

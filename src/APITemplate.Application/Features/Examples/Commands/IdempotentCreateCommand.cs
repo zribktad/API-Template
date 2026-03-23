@@ -1,4 +1,3 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Domain.Interfaces;
@@ -6,23 +5,14 @@ using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Examples;
 
-public sealed record IdempotentCreateCommand(IdempotentCreateRequest Request)
-    : ICommand<IdempotentCreateResponse>;
+public sealed record IdempotentCreateCommand(IdempotentCreateRequest Request);
 
 public sealed class IdempotentCreateCommandHandler
-    : ICommandHandler<IdempotentCreateCommand, IdempotentCreateResponse>
 {
-    private readonly IProductRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-
-    public IdempotentCreateCommandHandler(IProductRepository repository, IUnitOfWork unitOfWork)
-    {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-    }
-
-    public async Task<IdempotentCreateResponse> HandleAsync(
+    public static async Task<IdempotentCreateResponse> HandleAsync(
         IdempotentCreateCommand command,
+        IProductRepository repository,
+        IUnitOfWork unitOfWork,
         CancellationToken ct
     )
     {
@@ -34,10 +24,10 @@ public sealed class IdempotentCreateCommandHandler
             Price = 0,
         };
 
-        await _unitOfWork.ExecuteInTransactionAsync(
+        await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
-                await _repository.AddAsync(entity, ct);
+                await repository.AddAsync(entity, ct);
             },
             ct
         );

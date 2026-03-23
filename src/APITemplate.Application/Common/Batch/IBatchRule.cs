@@ -1,4 +1,4 @@
-namespace APITemplate.Application.Common.CQRS;
+namespace APITemplate.Application.Common.Batch;
 
 internal interface IBatchRule<TItem>
 {

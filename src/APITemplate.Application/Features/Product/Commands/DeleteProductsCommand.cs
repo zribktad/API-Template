@@ -1,34 +1,22 @@
-using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Common.CQRS.Rules;
+using APITemplate.Application.Common.Batch;
+using APITemplate.Application.Common.Batch.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product.Specifications;
+using Wolverine;
 
 namespace APITemplate.Application.Features.Product;
 
 /// <summary>Soft-deletes multiple products and their associated data links in a single batch operation.</summary>
-public sealed record DeleteProductsCommand(BatchDeleteRequest Request) : ICommand<BatchResponse>;
+public sealed record DeleteProductsCommand(BatchDeleteRequest Request);
 
 /// <summary>Handles <see cref="DeleteProductsCommand"/> by loading all products, soft-deleting links and products in a single transaction.</summary>
 public sealed class DeleteProductsCommandHandler
-    : ICommandHandler<DeleteProductsCommand, BatchResponse>
 {
-    private readonly IProductRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IEventPublisher _publisher;
-
-    public DeleteProductsCommandHandler(
+    public static async Task<BatchResponse> HandleAsync(
+        DeleteProductsCommand command,
         IProductRepository repository,
         IUnitOfWork unitOfWork,
-        IEventPublisher publisher
-    )
-    {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
-    }
-
-    public async Task<BatchResponse> HandleAsync(
-        DeleteProductsCommand command,
+        IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -36,7 +24,7 @@ public sealed class DeleteProductsCommandHandler
         var context = new BatchFailureContext<Guid>(ids);
 
         // Step 1: Load all target products and mark missing ones as failed
-        var products = await _repository.ListAsync(
+        var products = await repository.ListAsync(
             new ProductsByIdsWithLinksSpecification(ids.ToHashSet()),
             ct
         );
@@ -53,19 +41,19 @@ public sealed class DeleteProductsCommandHandler
             return context.ToFailureResponse();
 
         // Step 2: Soft-delete product-data links and remove products in a single transaction
-        await _unitOfWork.ExecuteInTransactionAsync(
+        await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
                 foreach (var product in products)
                     product.SoftDeleteProductDataLinks();
 
-                await _repository.DeleteRangeAsync(products, ct);
+                await repository.DeleteRangeAsync(products, ct);
             },
             ct
         );
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Products), ct);
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews));
 
         return new BatchResponse([], ids.Count, 0);
     }

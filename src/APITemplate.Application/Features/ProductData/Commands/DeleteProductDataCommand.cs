@@ -1,57 +1,36 @@
 using APITemplate.Application.Common.Context;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using Polly.Registry;
+using Wolverine;
 
 namespace APITemplate.Application.Features.ProductData;
 
-public sealed record DeleteProductDataCommand(Guid Id) : ICommand, IHasId;
+public sealed record DeleteProductDataCommand(Guid Id) : IHasId;
 
-public sealed class DeleteProductDataCommandHandler : ICommandHandler<DeleteProductDataCommand>
+public sealed class DeleteProductDataCommandHandler
 {
-    private readonly IProductDataRepository _repository;
-    private readonly IProductDataLinkRepository _productDataLinkRepository;
-    private readonly ITenantProvider _tenantProvider;
-    private readonly IActorProvider _actorProvider;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IEventPublisher _publisher;
-    private readonly TimeProvider _timeProvider;
-    private readonly ResiliencePipelineProvider<string> _resiliencePipelineProvider;
-    private readonly ILogger<DeleteProductDataCommandHandler> _logger;
-
-    public DeleteProductDataCommandHandler(
+    public static async Task HandleAsync(
+        DeleteProductDataCommand command,
         IProductDataRepository repository,
         IProductDataLinkRepository productDataLinkRepository,
         ITenantProvider tenantProvider,
         IActorProvider actorProvider,
         IUnitOfWork unitOfWork,
-        IEventPublisher publisher,
+        IMessageBus bus,
         TimeProvider timeProvider,
         ResiliencePipelineProvider<string> resiliencePipelineProvider,
-        ILogger<DeleteProductDataCommandHandler> logger
+        ILogger<DeleteProductDataCommandHandler> logger,
+        CancellationToken ct
     )
     {
-        _repository = repository;
-        _productDataLinkRepository = productDataLinkRepository;
-        _tenantProvider = tenantProvider;
-        _actorProvider = actorProvider;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
-        _timeProvider = timeProvider;
-        _resiliencePipelineProvider = resiliencePipelineProvider;
-        _logger = logger;
-    }
-
-    public async Task HandleAsync(DeleteProductDataCommand command, CancellationToken ct)
-    {
-        var tenantId = _tenantProvider.TenantId;
+        var tenantId = tenantProvider.TenantId;
 
         var data =
-            await _repository.GetByIdAsync(command.Id, ct)
+            await repository.GetByIdAsync(command.Id, ct)
             ?? throw new NotFoundException(
                 nameof(Domain.Entities.ProductData),
                 command.Id,
@@ -65,13 +44,13 @@ public sealed class DeleteProductDataCommandHandler : ICommandHandler<DeleteProd
                 ErrorCatalog.ProductData.NotFound
             );
 
-        var deletedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
-        var actorId = _actorProvider.ActorId;
+        var deletedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
+        var actorId = actorProvider.ActorId;
 
-        await _unitOfWork.ExecuteInTransactionAsync(
+        await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
-                await _productDataLinkRepository.SoftDeleteActiveLinksForProductDataAsync(
+                await productDataLinkRepository.SoftDeleteActiveLinksForProductDataAsync(
                     command.Id,
                     ct
                 );
@@ -79,7 +58,7 @@ public sealed class DeleteProductDataCommandHandler : ICommandHandler<DeleteProd
             ct
         );
 
-        var pipeline = _resiliencePipelineProvider.GetPipeline(
+        var pipeline = resiliencePipelineProvider.GetPipeline(
             ResiliencePipelineKeys.MongoProductDataDelete
         );
 
@@ -87,13 +66,13 @@ public sealed class DeleteProductDataCommandHandler : ICommandHandler<DeleteProd
         {
             await pipeline.ExecuteAsync(
                 async token =>
-                    await _repository.SoftDeleteAsync(data.Id, actorId, deletedAtUtc, token),
+                    await repository.SoftDeleteAsync(data.Id, actorId, deletedAtUtc, token),
                 ct
             );
         }
         catch (Exception ex)
         {
-            _logger.LogError(
+            logger.LogError(
                 ex,
                 "Failed to soft-delete ProductData document {ProductDataId} for tenant {TenantId}. Related ProductDataLinks may already be soft-deleted in PostgreSQL.",
                 data.Id,
@@ -102,6 +81,6 @@ public sealed class DeleteProductDataCommandHandler : ICommandHandler<DeleteProd
             throw;
         }
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.ProductData), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.ProductData));
     }
 }

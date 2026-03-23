@@ -1,6 +1,6 @@
 using APITemplate.Api.GraphQL.Models;
-using APITemplate.Application.Common.CQRS;
 using HotChocolate.Authorization;
+using Wolverine;
 
 namespace APITemplate.Api.GraphQL.Queries;
 
@@ -14,11 +14,11 @@ public sealed class CategoryQueries
 {
     /// <summary>
     /// Returns a paginated category list, mapping the GraphQL input to the application-layer
-    /// filter before dispatching via the query handler.
+    /// filter before dispatching via the message bus.
     /// </summary>
     public async Task<CategoryPageResult> GetCategories(
         CategoryQueryInput? input,
-        [Service] IQueryHandler<GetCategoriesQuery, PagedResponse<CategoryResponse>> handler,
+        [Service] IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -30,14 +30,17 @@ public sealed class CategoryQueries
             input?.PageSize ?? PaginationFilter.DefaultPageSize
         );
 
-        var page = await handler.HandleAsync(new GetCategoriesQuery(filter), ct);
+        var page = await bus.InvokeAsync<PagedResponse<CategoryResponse>>(
+            new GetCategoriesQuery(filter),
+            ct
+        );
         return new CategoryPageResult(page);
     }
 
     /// <summary>Returns a single category by ID, or <see langword="null"/> if not found.</summary>
     public async Task<CategoryResponse?> GetCategoryById(
         Guid id,
-        [Service] IQueryHandler<GetCategoryByIdQuery, CategoryResponse?> handler,
+        [Service] IMessageBus bus,
         CancellationToken ct
-    ) => await handler.HandleAsync(new GetCategoryByIdQuery(id), ct);
+    ) => await bus.InvokeAsync<CategoryResponse?>(new GetCategoryByIdQuery(id), ct);
 }

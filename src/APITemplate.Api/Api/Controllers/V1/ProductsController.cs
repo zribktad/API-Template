@@ -1,11 +1,11 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
@@ -14,7 +14,7 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that exposes full CRUD endpoints for the product catalog,
 /// with permission-based authorization and tenant-aware output caching.
 /// </summary>
-public sealed class ProductsController : ApiControllerBase
+public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>Returns a filtered, paginated product list including search facets.</summary>
     [HttpGet]
@@ -22,11 +22,10 @@ public sealed class ProductsController : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Products)]
     public async Task<ActionResult<ProductsResponse>> GetAll(
         [FromQuery] ProductFilter filter,
-        [FromServices] IQueryHandler<GetProductsQuery, ProductsResponse> handler,
         CancellationToken ct
     )
     {
-        var products = await handler.HandleAsync(new GetProductsQuery(filter), ct);
+        var products = await bus.InvokeAsync<ProductsResponse>(new GetProductsQuery(filter), ct);
         return Ok(products);
     }
 
@@ -34,13 +33,9 @@ public sealed class ProductsController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Products.Read)]
     [OutputCache(PolicyName = CacheTags.Products)]
-    public async Task<ActionResult<ProductResponse>> GetById(
-        Guid id,
-        [FromServices] IQueryHandler<GetProductByIdQuery, ProductResponse?> handler,
-        CancellationToken ct
-    )
+    public async Task<ActionResult<ProductResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var product = await handler.HandleAsync(new GetProductByIdQuery(id), ct);
+        var product = await bus.InvokeAsync<ProductResponse?>(new GetProductByIdQuery(id), ct);
         return OkOrNotFound(product);
     }
 
@@ -49,11 +44,10 @@ public sealed class ProductsController : ApiControllerBase
     [RequirePermission(Permission.Products.Create)]
     public async Task<ActionResult<BatchResponse>> Create(
         CreateProductsRequest request,
-        [FromServices] ICommandHandler<CreateProductsCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new CreateProductsCommand(request), ct);
+        var result = await bus.InvokeAsync<BatchResponse>(new CreateProductsCommand(request), ct);
         return OkOrUnprocessable(result);
     }
 
@@ -62,11 +56,10 @@ public sealed class ProductsController : ApiControllerBase
     [RequirePermission(Permission.Products.Update)]
     public async Task<ActionResult<BatchResponse>> Update(
         UpdateProductsRequest request,
-        [FromServices] ICommandHandler<UpdateProductsCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new UpdateProductsCommand(request), ct);
+        var result = await bus.InvokeAsync<BatchResponse>(new UpdateProductsCommand(request), ct);
         return OkOrUnprocessable(result);
     }
 
@@ -75,11 +68,10 @@ public sealed class ProductsController : ApiControllerBase
     [RequirePermission(Permission.Products.Delete)]
     public async Task<ActionResult<BatchResponse>> Delete(
         BatchDeleteRequest request,
-        [FromServices] ICommandHandler<DeleteProductsCommand, BatchResponse> handler,
         CancellationToken ct
     )
     {
-        var result = await handler.HandleAsync(new DeleteProductsCommand(request), ct);
+        var result = await bus.InvokeAsync<BatchResponse>(new DeleteProductsCommand(request), ct);
         return OkOrUnprocessable(result);
     }
 }

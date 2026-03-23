@@ -1,23 +1,19 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.User.Specifications;
 using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record GetUsersQuery(UserFilter Filter) : IQuery<PagedResponse<UserResponse>>;
+public sealed record GetUsersQuery(UserFilter Filter);
 
-public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedResponse<UserResponse>>
+public sealed class GetUsersQueryHandler
 {
-    private readonly IUserRepository _repository;
-
-    public GetUsersQueryHandler(IUserRepository repository) => _repository = repository;
-
-    public async Task<PagedResponse<UserResponse>> HandleAsync(
+    public static async Task<PagedResponse<UserResponse>> HandleAsync(
         GetUsersQuery request,
+        IUserRepository repository,
         CancellationToken ct
     )
     {
-        return await _repository.GetPagedAsync(
+        return await repository.GetPagedAsync(
             new UserFilterSpecification(request.Filter),
             request.Filter.PageNumber,
             request.Filter.PageSize,

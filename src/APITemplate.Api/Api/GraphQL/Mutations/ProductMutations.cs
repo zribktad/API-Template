@@ -1,6 +1,6 @@
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Common.Security;
 using HotChocolate.Authorization;
+using Wolverine;
 
 namespace APITemplate.Api.GraphQL.Mutations;
 
@@ -15,19 +15,15 @@ public class ProductMutations
     [Authorize(Policy = Permission.Products.Create)]
     public Task<BatchResponse> CreateProducts(
         CreateProductsRequest input,
-        [Service] ICommandHandler<CreateProductsCommand, BatchResponse> commandHandler,
+        [Service] IMessageBus bus,
         CancellationToken ct
-    ) => commandHandler.HandleAsync(new CreateProductsCommand(input), ct);
+    ) => bus.InvokeAsync<BatchResponse>(new CreateProductsCommand(input), ct);
 
     /// <summary>Deletes a single product by ID and returns <see langword="true"/> on success.</summary>
     [Authorize(Policy = Permission.Products.Delete)]
-    public async Task<bool> DeleteProduct(
-        Guid id,
-        [Service] ICommandHandler<DeleteProductsCommand, BatchResponse> handler,
-        CancellationToken ct
-    )
+    public async Task<bool> DeleteProduct(Guid id, [Service] IMessageBus bus, CancellationToken ct)
     {
-        var result = await handler.HandleAsync(
+        var result = await bus.InvokeAsync<BatchResponse>(
             new DeleteProductsCommand(new BatchDeleteRequest([id])),
             ct
         );
@@ -41,7 +37,7 @@ public class ProductMutations
     [Authorize(Policy = Permission.Products.Delete)]
     public Task<BatchResponse> DeleteProducts(
         BatchDeleteRequest input,
-        [Service] ICommandHandler<DeleteProductsCommand, BatchResponse> handler,
+        [Service] IMessageBus bus,
         CancellationToken ct
-    ) => handler.HandleAsync(new DeleteProductsCommand(input), ct);
+    ) => bus.InvokeAsync<BatchResponse>(new DeleteProductsCommand(input), ct);
 }

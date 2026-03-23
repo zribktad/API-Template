@@ -1,39 +1,24 @@
-using APITemplate.Application.Common.CQRS;
-using APITemplate.Application.Common.CQRS.Rules;
+using APITemplate.Application.Common.Batch;
+using APITemplate.Application.Common.Batch.Rules;
 using APITemplate.Application.Common.Events;
 using FluentValidation;
+using Wolverine;
 using CategoryEntity = APITemplate.Domain.Entities.Category;
 
 namespace APITemplate.Application.Features.Category;
 
 /// <summary>Creates multiple categories in a single batch operation.</summary>
-public sealed record CreateCategoriesCommand(CreateCategoriesRequest Request)
-    : ICommand<BatchResponse>;
+public sealed record CreateCategoriesCommand(CreateCategoriesRequest Request);
 
 /// <summary>Handles <see cref="CreateCategoriesCommand"/> by validating all items and persisting in a single transaction.</summary>
 public sealed class CreateCategoriesCommandHandler
-    : ICommandHandler<CreateCategoriesCommand, BatchResponse>
 {
-    private readonly ICategoryRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IEventPublisher _publisher;
-    private readonly IValidator<CreateCategoryRequest> _itemValidator;
-
-    public CreateCategoriesCommandHandler(
+    public static async Task<BatchResponse> HandleAsync(
+        CreateCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,
-        IEventPublisher publisher,
-        IValidator<CreateCategoryRequest> itemValidator
-    )
-    {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
-        _itemValidator = itemValidator;
-    }
-
-    public async Task<BatchResponse> HandleAsync(
-        CreateCategoriesCommand command,
+        IMessageBus bus,
+        IValidator<CreateCategoryRequest> itemValidator,
         CancellationToken ct
     )
     {
@@ -42,7 +27,7 @@ public sealed class CreateCategoriesCommandHandler
 
         await context.ApplyRulesAsync(
             ct,
-            new FluentValidationBatchRule<CreateCategoryRequest>(_itemValidator)
+            new FluentValidationBatchRule<CreateCategoryRequest>(itemValidator)
         );
 
         if (context.HasFailures)
@@ -57,15 +42,15 @@ public sealed class CreateCategoriesCommandHandler
             })
             .ToList();
 
-        await _unitOfWork.ExecuteInTransactionAsync(
+        await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
-                await _repository.AddRangeAsync(entities, ct);
+                await repository.AddRangeAsync(entities, ct);
             },
             ct
         );
 
-        await _publisher.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories), ct);
+        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories));
         return new BatchResponse([], items.Count, 0);
     }
 }

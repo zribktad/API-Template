@@ -9,9 +9,10 @@ Step-by-step guide for adding a new REST API endpoint to this project. Uses **Pr
 ```
 HTTP Request
   → Controller (Api)
-    → Service (Application)
-      → Repository (Infrastructure)
-        → Database (PostgreSQL)
+    → Wolverine IMessageBus (dispatch)
+      → Command/Query Handler (Application)
+        → Repository (Infrastructure)
+          → Database (PostgreSQL)
 ```
 
 Layers follow **Clean Architecture** — dependencies point inward:
@@ -20,23 +21,26 @@ Layers follow **Clean Architecture** — dependencies point inward:
 Domain  ←  Application  ←  Infrastructure  ←  Api
 ```
 
+**WolverineFx** runs in mediator-only mode — no service layer interfaces. Handlers ARE the service layer. The controller dispatches messages via `IMessageBus`, and Wolverine routes them to the matching handler by naming convention.
+
 ---
 
 ## File Structure per Feature
 
 ```
 Application/Features/{Feature}/
+├── Commands/
+│   ├── Create{Feature}sCommand.cs    # Command message + handler (write)
+│   ├── Update{Feature}sCommand.cs    # Command message + handler (write)
+│   └── Delete{Feature}sCommand.cs    # Command message + handler (write)
+├── Queries/
+│   ├── Get{Feature}sQuery.cs         # Query message + handler (list)
+│   └── Get{Feature}ByIdQuery.cs      # Query message + handler (single)
 ├── DTOs/
 │   ├── Create{Feature}Request.cs     # Input DTO (create)
 │   ├── Update{Feature}Request.cs     # Input DTO (update)
 │   ├── {Feature}Response.cs          # Output DTO
 │   └── {Feature}Filter.cs            # Query/filter parameters
-├── Interfaces/
-│   ├── I{Feature}Service.cs          # Write operations contract
-│   └── I{Feature}QueryService.cs     # Read operations contract
-├── Services/
-│   ├── {Feature}Service.cs           # Write operations
-│   └── {Feature}QueryService.cs      # Read operations
 ├── Specifications/
 │   ├── {Feature}Specification.cs     # Filtered/sorted/projected query (no pagination)
 │   └── {Feature}FilterCriteria.cs    # Reusable filter logic
@@ -58,7 +62,7 @@ Infrastructure/Repositories/{Feature}Repository.cs        # Repository implement
 Infrastructure/Persistence/Configurations/{Feature}Configuration.cs  # EF Core config
 Api/Controllers/V1/{Feature}sController.cs                # REST controller
 Application/Common/Errors/ErrorCatalog.cs                 # Error codes (add section)
-Extensions/ServiceCollectionExtensions.cs                 # DI registration
+Extensions/ServiceCollectionExtensions.cs                 # DI registration (repository only)
 ```
 
 ---
@@ -430,153 +434,131 @@ public sealed class ProductFilterValidator : AbstractValidator<ProductFilter>
 
 ---
 
-### 9. Service Layer
+### 9. Command & Query Handlers
 
-Services are split into **write** (commands) and **read** (queries).
+Handlers replace the old service layer. There are no service interfaces — handlers ARE the service layer. Each handler is a `sealed class` with a `static HandleAsync` method. Wolverine auto-discovers handlers by naming convention (`{Message}Handler` class with a `HandleAsync` method).
 
-**Interfaces** — `Application/Features/{Feature}/Interfaces/`:
+Dependencies are injected as method parameters (method injection), not via constructor.
+
+#### Query Handler (read operations)
+
+`Application/Features/{Feature}/Queries/Get{Feature}sQuery.cs`:
 
 ```csharp
-namespace APITemplate.Application.Features.Product.Interfaces;
+using APITemplate.Domain.Interfaces;
 
-public interface IProductService
-{
-    Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default);
-    Task<PagedResponse<ProductResponse>> GetAllAsync(ProductFilter filter, CancellationToken ct = default);
-    Task<ProductResponse> CreateAsync(CreateProductRequest request, CancellationToken ct = default);
-    Task UpdateAsync(Guid id, UpdateProductRequest request, CancellationToken ct = default);
-    Task DeleteAsync(Guid id, CancellationToken ct = default);
-}
+namespace APITemplate.Application.Features.Product;
 
-public interface IProductQueryService
+/// <summary>Retrieves a filtered, sorted, and paged list of products.</summary>
+public sealed record GetProductsQuery(ProductFilter Filter);
+
+public sealed class GetProductsQueryHandler
 {
-    Task<PagedResponse<ProductResponse>> GetPagedAsync(ProductFilter filter, CancellationToken ct = default);
-    Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    public static async Task<ProductsResponse> HandleAsync(
+        GetProductsQuery request,
+        IProductRepository repository,
+        CancellationToken ct
+    )
+    {
+        var page = await repository.GetPagedAsync(request.Filter, ct);
+        return new ProductsResponse(page);
+    }
 }
 ```
 
-**Query service** — reads via Specifications:
+`Application/Features/{Feature}/Queries/Get{Feature}ByIdQuery.cs`:
 
 ```csharp
 using APITemplate.Application.Features.Product.Mappings;
-using APITemplate.Application.Features.Product.Specifications;
 using APITemplate.Domain.Interfaces;
 
-namespace APITemplate.Application.Features.Product.Services;
+namespace APITemplate.Application.Features.Product;
 
-public sealed class ProductQueryService : IProductQueryService
+/// <summary>Retrieves a single product by its identifier.</summary>
+public sealed record GetProductByIdQuery(Guid Id);
+
+public sealed class GetProductByIdQueryHandler
 {
-    private readonly IProductRepository _repository;
-
-    public ProductQueryService(IProductRepository repository) => _repository = repository;
-
-    public async Task<PagedResponse<ProductResponse>> GetPagedAsync(
-        ProductFilter filter, CancellationToken ct = default)
+    public static async Task<ProductResponse?> HandleAsync(
+        GetProductByIdQuery request,
+        IProductRepository repository,
+        CancellationToken ct
+    )
     {
-        return await _repository.GetPagedAsync(
-            new ProductSpecification(filter), filter.PageNumber, filter.PageSize, ct);
-    }
-
-    public async Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
-    {
-        var item = await _repository.GetByIdAsync(id, ct);
+        var item = await repository.GetByIdAsync(request.Id, ct);
         return item?.ToResponse();
     }
 }
 ```
 
-**Write service** — orchestrates domain operations + UnitOfWork:
+> **Pattern**: The message (record) and its handler live in the same file. The first parameter of `HandleAsync` is always the message type. All other parameters are method-injected by Wolverine from DI.
+
+#### Command Handler (write operations)
+
+`Application/Features/{Feature}/Commands/Create{Feature}sCommand.cs`:
 
 ```csharp
-using APITemplate.Application.Features.Product.Mappings;
-using ProductEntity = APITemplate.Domain.Entities.Product;
-using APITemplate.Domain.Exceptions;
+using APITemplate.Application.Common.Batch;
 using APITemplate.Domain.Interfaces;
+using FluentValidation;
+using Wolverine;
+using ProductEntity = APITemplate.Domain.Entities.Product;
 
-namespace APITemplate.Application.Features.Product.Services;
+namespace APITemplate.Application.Features.Product;
 
-public sealed class ProductService : IProductService
+/// <summary>Creates one or more products in a single batch operation.</summary>
+public sealed record CreateProductsCommand(CreateProductsRequest Request);
+
+public sealed class CreateProductsCommandHandler
 {
-    private readonly IProductRepository _repository;
-    private readonly IProductQueryService _queryService;
-    private readonly ICategoryRepository _categoryRepository;
-    private readonly IUnitOfWork _unitOfWork;
-
-    public ProductService(
+    public static async Task<BatchResponse> HandleAsync(
+        CreateProductsCommand command,
         IProductRepository repository,
-        IProductQueryService queryService,
         ICategoryRepository categoryRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IMessageBus bus,
+        IValidator<CreateProductRequest> itemValidator,
+        CancellationToken ct
+    )
     {
-        _repository = repository;
-        _queryService = queryService;
-        _categoryRepository = categoryRepository;
-        _unitOfWork = unitOfWork;
-    }
+        var items = command.Request.Items;
+        var context = new BatchFailureContext<CreateProductRequest>(items);
 
-    public Task<ProductResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
-        => _queryService.GetByIdAsync(id, ct);
+        // Step 1: Validate each item
+        await context.ApplyRulesAsync(
+            ct,
+            new FluentValidationBatchRule<CreateProductRequest>(itemValidator)
+        );
 
-    public Task<PagedResponse<ProductResponse>> GetAllAsync(
-        ProductFilter filter, CancellationToken ct = default)
-        => _queryService.GetPagedAsync(filter, ct);
+        if (context.HasFailures)
+            return context.ToFailureResponse();
 
-    public async Task<ProductResponse> CreateAsync(
-        CreateProductRequest request, CancellationToken ct = default)
-    {
-        await ValidateCategoryExistsAsync(request.CategoryId, ct);
+        // Step 2: Build entities and persist
+        var entities = items
+            .Select(item => new ProductEntity
+            {
+                Id = Guid.NewGuid(),
+                Name = item.Name,
+                Description = item.Description,
+                Price = item.Price,
+                CategoryId = item.CategoryId,
+            })
+            .ToList();
 
-        var product = new ProductEntity
-        {
-            Id = Guid.NewGuid(),
-            Name = request.Name,
-            Description = request.Description,
-            Price = request.Price,
-            CategoryId = request.CategoryId
-        };
+        await unitOfWork.ExecuteInTransactionAsync(
+            async () => await repository.AddRangeAsync(entities, ct),
+            ct
+        );
 
-        await _repository.AddAsync(product, ct);
-        await _unitOfWork.CommitAsync(ct);
-        return product.ToResponse();
-    }
-
-    public async Task UpdateAsync(
-        Guid id, UpdateProductRequest request, CancellationToken ct = default)
-    {
-        var product = await _repository.GetByIdAsync(id, ct)
-            ?? throw new NotFoundException(
-                nameof(ProductEntity), id, ErrorCatalog.Products.NotFound);
-
-        await ValidateCategoryExistsAsync(request.CategoryId, ct);
-
-        product.Name = request.Name;
-        product.Description = request.Description;
-        product.Price = request.Price;
-        product.CategoryId = request.CategoryId;
-
-        await _repository.UpdateAsync(product, ct);
-        await _unitOfWork.CommitAsync(ct);
-    }
-
-    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
-    {
-        await _repository.DeleteAsync(id, ct, ErrorCatalog.Products.NotFound);
-        await _unitOfWork.CommitAsync(ct);
-    }
-
-    private async Task ValidateCategoryExistsAsync(Guid? categoryId, CancellationToken ct)
-    {
-        if (!categoryId.HasValue) return;
-
-        _ = await _categoryRepository.GetByIdAsync(categoryId.Value, ct)
-            ?? throw new NotFoundException(
-                nameof(Domain.Entities.Category), categoryId.Value,
-                ErrorCatalog.Categories.NotFound);
+        return new BatchResponse([], items.Count, 0);
     }
 }
 ```
 
-> **Key pattern**: Repository tracks changes, `IUnitOfWork.CommitAsync()` persists them. Never call `SaveChangesAsync` in repositories.
+> **Key patterns**:
+> - Repository tracks changes, `IUnitOfWork` persists them. Never call `SaveChangesAsync` in repositories.
+> - `IValidator<T>` is method-injected for per-item validation inside batch commands.
+> - `IMessageBus` can be injected to publish domain events (e.g., cache invalidation).
 
 ---
 
@@ -599,68 +581,83 @@ public static class Products
 
 `Api/Controllers/V1/{Feature}sController.cs`:
 
+Controllers use `IMessageBus` via primary constructor to dispatch commands and queries to Wolverine handlers. They inherit from `ApiControllerBase` which provides the versioned route template and helper methods.
+
 ```csharp
+using APITemplate.Api.Controllers;
+using APITemplate.Application.Common.Security;
 using Asp.Versioning;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
-[Authorize]
-public sealed class ProductsController : ControllerBase
+public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
 {
-    private readonly IProductService _productService;
-
-    public ProductsController(IProductService productService)
-        => _productService = productService;
-
     [HttpGet]
-    public async Task<ActionResult<PagedResponse<ProductResponse>>> GetAll(
-        [FromQuery] ProductFilter filter, CancellationToken ct)
+    [RequirePermission(Permission.Products.Read)]
+    public async Task<ActionResult<ProductsResponse>> GetAll(
+        [FromQuery] ProductFilter filter,
+        CancellationToken ct
+    )
     {
-        var products = await _productService.GetAllAsync(filter, ct);
+        var products = await bus.InvokeAsync<ProductsResponse>(new GetProductsQuery(filter), ct);
         return Ok(products);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<ProductResponse>> GetById(Guid id, CancellationToken ct)
+    [RequirePermission(Permission.Products.Read)]
+    public async Task<ActionResult<ProductResponse>> GetById(
+        Guid id,
+        CancellationToken ct
+    )
     {
-        var product = await _productService.GetByIdAsync(id, ct);
-        return product is null ? NotFound() : Ok(product);
+        var product = await bus.InvokeAsync<ProductResponse?>(new GetProductByIdQuery(id), ct);
+        return OkOrNotFound(product);
     }
 
     [HttpPost]
-    public async Task<ActionResult<ProductResponse>> Create(
-        CreateProductRequest request, CancellationToken ct)
+    [RequirePermission(Permission.Products.Create)]
+    public async Task<ActionResult<BatchResponse>> Create(
+        CreateProductsRequest request,
+        CancellationToken ct
+    )
     {
-        var product = await _productService.CreateAsync(request, ct);
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = product.Id, version = "1.0" },
-            product);
+        var result = await bus.InvokeAsync<BatchResponse>(new CreateProductsCommand(request), ct);
+        return OkOrUnprocessable(result);
     }
 
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(
-        Guid id, UpdateProductRequest request, CancellationToken ct)
+    [HttpPut]
+    [RequirePermission(Permission.Products.Update)]
+    public async Task<ActionResult<BatchResponse>> Update(
+        UpdateProductsRequest request,
+        CancellationToken ct
+    )
     {
-        await _productService.UpdateAsync(id, request, ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<BatchResponse>(new UpdateProductsCommand(request), ct);
+        return OkOrUnprocessable(result);
     }
 
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    [HttpDelete]
+    [RequirePermission(Permission.Products.Delete)]
+    public async Task<ActionResult<BatchResponse>> Delete(
+        BatchDeleteRequest request,
+        CancellationToken ct
+    )
     {
-        await _productService.DeleteAsync(id, ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<BatchResponse>(new DeleteProductsCommand(request), ct);
+        return OkOrUnprocessable(result);
     }
 }
 ```
 
-> Controllers depend only on service interfaces. Validation is automatic via `FluentValidationActionFilter`. Exceptions are caught by `ApiExceptionHandler` and converted to RFC 7807 ProblemDetails.
+> **Key differences from the old pattern**:
+> - No service interface injection — only `IMessageBus bus` via primary constructor.
+> - `bus.InvokeAsync<TResponse>(message, ct)` dispatches to the matching handler and returns the result.
+> - `ApiControllerBase` provides the `[ApiController]` attribute, versioned route template, and helper methods (`OkOrNotFound`, `OkOrUnprocessable`, `CreatedAtGetById`).
+> - Authorization uses `[RequirePermission(...)]` instead of `[Authorize]`.
+> - Validation of controller DTOs is handled automatically by `FluentValidationActionFilter`.
 
 ---
 
@@ -673,13 +670,9 @@ In `Extensions/ServiceCollectionExtensions.cs`:
 services.AddScoped<IProductRepository, ProductRepository>();
 ```
 
-**`AddApplicationServices` method** — add services:
-```csharp
-services.AddScoped<IProductService, ProductService>();
-services.AddScoped<IProductQueryService, ProductQueryService>();
-```
+That's it. **No handler or service registration needed** — Wolverine auto-discovers all handlers by naming convention (`{Message}Handler` with `HandleAsync`). Validators are auto-registered via `AddValidatorsFromAssemblyContaining<>()`.
 
-> Validators are auto-registered via `AddValidatorsFromAssemblyContaining<>()` — no manual registration needed.
+> If your feature adds a new repository, that is the only DI registration you need to add. Wolverine and FluentValidation handle everything else.
 
 ---
 
@@ -703,10 +696,11 @@ dotnet ef migrations add Add{Feature} --project src/APITemplate
 - [ ] Specifications: main (filtered + sorted + projected — no Skip/Take)
 - [ ] Filter criteria: reusable filter logic
 - [ ] Validators: request validators, filter validator
-- [ ] Service interface and implementation (write + query)
+- [ ] Query handlers: `sealed class` + `static HandleAsync`, message record in same file
+- [ ] Command handlers: `sealed class` + `static HandleAsync`, message record in same file
 - [ ] Error codes in `ErrorCatalog`
-- [ ] Controller with `[ApiVersion]`, `[Authorize]`, versioned route
-- [ ] DI registration in `ServiceCollectionExtensions`
+- [ ] Controller inheriting `ApiControllerBase`, using `IMessageBus` primary constructor
+- [ ] Repository DI registration in `ServiceCollectionExtensions` (handlers auto-discovered)
 - [ ] EF migration
 
 ---
@@ -719,9 +713,11 @@ dotnet ef migrations add Add{Feature} --project src/APITemplate
 | **Soft delete** | `Remove()` → sets `IsDeleted = true` | `AppDbContext.SaveChangesAsync` |
 | **Audit trail** | Auto-stamps `CreatedAtUtc`, `CreatedBy`, `UpdatedAtUtc`, `UpdatedBy` | `AppDbContext.SaveChangesAsync` |
 | **Concurrency** | PostgreSQL `xmin` system column as concurrency token → HTTP 409 on conflict | `ApiExceptionHandler` |
-| **Validation** | Data Annotations + FluentValidation via action filter | MVC action filter |
+| **Command validation** | FluentValidation via Wolverine's `UseFluentValidation()` middleware | Wolverine pipeline |
+| **Controller DTO validation** | Data Annotations + FluentValidation via action filter | `FluentValidationActionFilter` |
 | **Error handling** | `AppException` hierarchy → RFC 7807 ProblemDetails | `ApiExceptionHandler` |
-| **JWT auth** | `[Authorize]` + tenant claim validation | Middleware |
+| **Handler discovery** | Wolverine auto-discovers `{Message}Handler` classes | `UseWolverine()` in host setup |
+| **JWT auth** | `[RequirePermission]` + tenant claim validation | Authorization middleware |
 
 ---
 
@@ -732,11 +728,13 @@ HTTP Request
   → Exception Handler Middleware
     → Request Context Middleware (extracts tenant/actor from JWT)
       → Authentication Middleware (validates JWT)
-        → Authorization Middleware (checks [Authorize])
-          → FluentValidationActionFilter (validates DTOs)
+        → Authorization Middleware (checks [RequirePermission])
+          → FluentValidationActionFilter (validates controller DTOs)
             → Controller action
-              → Service (business logic)
-                → Repository (data access via Specification)
-                  → AppDbContext (auditing, tenancy, soft-delete)
-                    → PostgreSQL
+              → IMessageBus.InvokeAsync (Wolverine dispatch)
+                → Wolverine middleware (FluentValidation for commands)
+                  → Handler.HandleAsync (business logic)
+                    → Repository (data access via Specification)
+                      → AppDbContext (auditing, tenancy, soft-delete)
+                        → PostgreSQL
 ```

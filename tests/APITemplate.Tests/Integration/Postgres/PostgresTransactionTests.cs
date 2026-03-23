@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
+using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Integration.Postgres;
@@ -114,19 +115,17 @@ public sealed class PostgresTransactionTests(SharedPostgresContainer postgres)
                     }
                 );
             var unitOfWork = CreateUnitOfWork(transactionContext);
-            var handler = new CreateProductReviewCommandHandler(
-                failingReviewRepository.Object,
-                productRepository,
-                unitOfWork,
-                new TestActorProvider(actorId),
-                Mock.Of<IEventPublisher>()
-            );
 
             var ex = await Should.ThrowAsync<InvalidOperationException>(() =>
-                handler.HandleAsync(
+                CreateProductReviewCommandHandler.HandleAsync(
                     new CreateProductReviewCommand(
                         new CreateProductReviewRequest(product.Id, "rollback", 4)
                     ),
+                    failingReviewRepository.Object,
+                    productRepository,
+                    unitOfWork,
+                    new TestActorProvider(actorId),
+                    Mock.Of<IMessageBus>(),
                     ct
                 )
             );

@@ -1,30 +1,24 @@
 using System.Runtime.CompilerServices;
-using APITemplate.Application.Common.CQRS;
 using APITemplate.Application.Features.Examples.DTOs;
 
 namespace APITemplate.Application.Features.Examples;
 
-public sealed record GetNotificationStreamQuery(SseStreamRequest Request)
-    : IQuery<IAsyncEnumerable<SseNotificationItem>>;
+public sealed record GetNotificationStreamQuery(SseStreamRequest Request);
 
 public sealed class GetNotificationStreamQueryHandler
-    : IQueryHandler<GetNotificationStreamQuery, IAsyncEnumerable<SseNotificationItem>>
 {
-    private readonly TimeProvider _timeProvider;
-
-    public GetNotificationStreamQueryHandler(TimeProvider timeProvider) =>
-        _timeProvider = timeProvider;
-
-    public Task<IAsyncEnumerable<SseNotificationItem>> HandleAsync(
+    public static Task<IAsyncEnumerable<SseNotificationItem>> HandleAsync(
         GetNotificationStreamQuery request,
+        TimeProvider timeProvider,
         CancellationToken ct
     )
     {
-        return Task.FromResult(StreamNotifications(request.Request.Count, ct));
+        return Task.FromResult(StreamNotifications(request.Request.Count, timeProvider, ct));
     }
 
-    private async IAsyncEnumerable<SseNotificationItem> StreamNotifications(
+    private static async IAsyncEnumerable<SseNotificationItem> StreamNotifications(
         int count,
+        TimeProvider timeProvider,
         [EnumeratorCancellation] CancellationToken ct
     )
     {
@@ -35,7 +29,7 @@ public sealed class GetNotificationStreamQueryHandler
             yield return new SseNotificationItem(
                 i,
                 $"Event {i} of {count}",
-                _timeProvider.GetUtcNow().UtcDateTime
+                timeProvider.GetUtcNow().UtcDateTime
             );
         }
     }

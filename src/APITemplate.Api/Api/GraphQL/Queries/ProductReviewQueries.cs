@@ -1,6 +1,6 @@
 using APITemplate.Api.GraphQL.Models;
-using APITemplate.Application.Common.CQRS;
 using HotChocolate.Authorization;
+using Wolverine;
 
 namespace APITemplate.Api.GraphQL.Queries;
 
@@ -15,12 +15,11 @@ public class ProductReviewQueries
 {
     /// <summary>
     /// Returns a paginated review list, mapping the GraphQL input to the application-layer
-    /// filter before dispatching via the query handler.
+    /// filter before dispatching via the message bus.
     /// </summary>
     public async Task<ProductReviewPageResult> GetReviews(
         ProductReviewQueryInput? input,
-        [Service]
-            IQueryHandler<GetProductReviewsQuery, PagedResponse<ProductReviewResponse>> handler,
+        [Service] IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -37,24 +36,26 @@ public class ProductReviewQueries
             input?.PageSize ?? 20
         );
 
-        var page = await handler.HandleAsync(new GetProductReviewsQuery(filter), ct);
+        var page = await bus.InvokeAsync<PagedResponse<ProductReviewResponse>>(
+            new GetProductReviewsQuery(filter),
+            ct
+        );
         return new ProductReviewPageResult(page);
     }
 
     /// <summary>Returns a single review by ID, or <see langword="null"/> if not found.</summary>
     public async Task<ProductReviewResponse?> GetReviewById(
         Guid id,
-        [Service] IQueryHandler<GetProductReviewByIdQuery, ProductReviewResponse?> handler,
+        [Service] IMessageBus bus,
         CancellationToken ct
-    ) => await handler.HandleAsync(new GetProductReviewByIdQuery(id), ct);
+    ) => await bus.InvokeAsync<ProductReviewResponse?>(new GetProductReviewByIdQuery(id), ct);
 
     /// <summary>Returns a paginated list of reviews scoped to a specific product.</summary>
     public async Task<ProductReviewPageResult> GetReviewsByProductId(
         Guid productId,
         int pageNumber,
         int pageSize,
-        [Service]
-            IQueryHandler<GetProductReviewsQuery, PagedResponse<ProductReviewResponse>> handler,
+        [Service] IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -63,7 +64,10 @@ public class ProductReviewQueries
             PageNumber: pageNumber,
             PageSize: pageSize
         );
-        var page = await handler.HandleAsync(new GetProductReviewsQuery(filter), ct);
+        var page = await bus.InvokeAsync<PagedResponse<ProductReviewResponse>>(
+            new GetProductReviewsQuery(filter),
+            ct
+        );
         return new ProductReviewPageResult(page);
     }
 }

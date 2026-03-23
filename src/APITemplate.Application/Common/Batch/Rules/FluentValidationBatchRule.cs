@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace APITemplate.Application.Common.CQRS.Rules;
+namespace APITemplate.Application.Common.Batch.Rules;
 
 internal sealed class FluentValidationBatchRule<TItem>(IValidator<TItem> validator)
     : IBatchRule<TItem>

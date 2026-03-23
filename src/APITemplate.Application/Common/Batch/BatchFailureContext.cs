@@ -1,4 +1,4 @@
-namespace APITemplate.Application.Common.CQRS;
+namespace APITemplate.Application.Common.Batch;
 
 /// <summary>
 /// Holds batch items and collects per-item failures across validation rules.
