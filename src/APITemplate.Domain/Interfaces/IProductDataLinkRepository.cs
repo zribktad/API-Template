@@ -17,6 +17,15 @@ public interface IProductDataLinkRepository
     );
 
     /// <summary>
+    /// Returns links for the specified product IDs in a single query, optionally including soft-deleted records.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<ProductDataLink>>> ListByProductIdsAsync(
+        IReadOnlyCollection<Guid> productIds,
+        bool includeDeleted = false,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
     /// Returns <c>true</c> if at least one non-deleted link references the given product-data document.
     /// </summary>
     Task<bool> HasActiveLinksForProductDataAsync(

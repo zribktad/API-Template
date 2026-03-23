@@ -8,7 +8,7 @@ namespace APITemplate.Domain.Entities.ProductData;
 /// </summary>
 [BsonDiscriminator(RootClass = true)]
 [BsonKnownTypes(typeof(ImageProductData), typeof(VideoProductData))]
-public abstract class ProductData
+public abstract class ProductData : IHasId
 {
     [BsonId]
     public Guid Id { get; set; } = Guid.NewGuid();

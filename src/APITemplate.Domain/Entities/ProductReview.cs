@@ -3,7 +3,7 @@ namespace APITemplate.Domain.Entities;
 /// <summary>
 /// Domain entity representing a user's review of a product, including a 1–5 star rating and an optional comment.
 /// </summary>
-public sealed class ProductReview : IAuditableTenantEntity
+public sealed class ProductReview : IAuditableTenantEntity, IHasId
 {
     public Guid Id { get; set; }
     public Guid ProductId { get; set; }

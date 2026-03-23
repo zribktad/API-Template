@@ -5,7 +5,7 @@ using APITemplate.Application.Features.Product.Specifications;
 namespace APITemplate.Application.Features.Product;
 
 /// <summary>Retrieves a single product by its unique identifier.</summary>
-public sealed record GetProductByIdQuery(Guid Id) : IQuery<ProductResponse?>;
+public sealed record GetProductByIdQuery(Guid Id) : IQuery<ProductResponse?>, IHasId;
 
 /// <summary>Handles <see cref="GetProductByIdQuery"/> by fetching from the product repository.</summary>
 public sealed class GetProductByIdQueryHandler

@@ -5,7 +5,7 @@ using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.ProductData;
 
-public sealed record GetProductDataByIdQuery(Guid Id) : IQuery<ProductDataResponse?>;
+public sealed record GetProductDataByIdQuery(Guid Id) : IQuery<ProductDataResponse?>, IHasId;
 
 public sealed class GetProductDataByIdQueryHandler
     : IQueryHandler<GetProductDataByIdQuery, ProductDataResponse?>

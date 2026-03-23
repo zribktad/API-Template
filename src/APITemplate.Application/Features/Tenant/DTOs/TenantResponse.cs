@@ -9,4 +9,4 @@ public sealed record TenantResponse(
     string Name,
     bool IsActive,
     DateTime CreatedAtUtc
-);
+) : IHasId;

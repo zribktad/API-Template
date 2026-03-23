@@ -4,7 +4,7 @@ namespace APITemplate.Domain.Entities;
 /// Represents an email that could not be delivered and is queued for retry.
 /// Supports pessimistic concurrency via claim fields to prevent duplicate processing across workers.
 /// </summary>
-public sealed class FailedEmail
+public sealed class FailedEmail : IHasId
 {
     /// <summary>Maximum character length stored for the <see cref="LastError"/> field.</summary>
     public const int LastErrorMaxLength = 2000;

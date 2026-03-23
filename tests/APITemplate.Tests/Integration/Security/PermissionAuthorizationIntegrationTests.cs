@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
@@ -36,8 +37,20 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
 
         var response = await client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "Forbidden", Description = "Should fail", Price = 1.00 },
-            ct);
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Forbidden",
+                        Description = "Should fail",
+                        Price = 1.00,
+                    },
+                },
+            },
+            ct
+        );
 
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
@@ -51,10 +64,22 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
 
         var response = await client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "TenantAdmin Product", Description = "Should succeed", Price = 10.00 },
-            ct);
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "TenantAdmin Product",
+                        Description = "Should succeed",
+                        Price = 10.00,
+                    },
+                },
+            },
+            ct
+        );
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -66,8 +91,14 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
 
         var response = await client.PostAsJsonAsync(
             "/api/v1/users",
-            new { Username = "newuser", Email = "new@example.com", Password = "P@ssw0rd123!" },
-            ct);
+            new
+            {
+                Username = "newuser",
+                Email = "new@example.com",
+                Password = "P@ssw0rd123!",
+            },
+            ct
+        );
 
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
@@ -81,10 +112,22 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
 
         var response = await client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "Admin Product", Description = "Should succeed", Price = 20.00 },
-            ct);
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Admin Product",
+                        Description = "Should succeed",
+                        Price = 20.00,
+                    },
+                },
+            },
+            ct
+        );
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -106,7 +149,11 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
         var client = _factory.CreateClient();
         IntegrationAuthHelper.AuthenticateAsUser(client);
 
-        var response = await client.DeleteAsync($"/api/v1/products/{Guid.NewGuid()}", ct);
+        var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/products")
+        {
+            Content = JsonContent.Create(new { Ids = new[] { Guid.NewGuid() } }),
+        };
+        var response = await client.SendAsync(deleteRequest, ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
@@ -133,21 +180,68 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
         // First create a product as PlatformAdmin
         var adminClient = _factory.CreateClient();
         IntegrationAuthHelper.Authenticate(adminClient);
+        var productName = $"Review Target-{Guid.NewGuid():N}";
         var productResponse = await adminClient.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "Review Target", Description = "For review", Price = 5.00 },
-            ct);
-        productResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var product = await productResponse.Content.ReadFromJsonAsync<ProductResponse>(
-            TestJsonOptions.CaseInsensitive, ct);
-        product.ShouldNotBeNull();
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = productName,
+                        Description = "For review",
+                        Price = 5.00,
+                    },
+                },
+            },
+            ct
+        );
+        var productBody = await productResponse.Content.ReadAsStringAsync(ct);
+        productResponse.StatusCode.ShouldBe(HttpStatusCode.OK, productBody);
+        var productBatch = JsonSerializer.Deserialize<BatchResponse>(
+            productBody,
+            TestJsonOptions.CaseInsensitive
+        );
+        productBatch.ShouldNotBeNull();
+        productBatch!.Failures.ShouldBeEmpty();
+        var productId = await ResolveProductIdAsync(adminClient, productName, 5.00m, ct);
 
         // Then create a review as User
         var response = await client.PostAsJsonAsync(
             "/api/v1/productreviews",
-            new { ProductId = product.Id, Rating = 5, Comment = "Great!" },
-            ct);
+            new
+            {
+                ProductId = productId,
+                Rating = 5,
+                Comment = "Great!",
+            },
+            ct
+        );
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
+    }
+
+    private static async Task<Guid> ResolveProductIdAsync(
+        HttpClient client,
+        string name,
+        decimal price,
+        CancellationToken ct
+    )
+    {
+        var response = await client.GetAsync(
+            $"/api/v1/products?name={Uri.EscapeDataString(name)}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Page.Items.FirstOrDefault(p => p.Name == name && p.Price == price);
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }

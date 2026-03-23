@@ -41,6 +41,34 @@ public sealed class ProductDataLinkRepository : IProductDataLinkRepository
         return await query.ToListAsync(ct);
     }
 
+    public async Task<
+        IReadOnlyDictionary<Guid, IReadOnlyList<ProductDataLink>>
+    > ListByProductIdsAsync(
+        IReadOnlyCollection<Guid> productIds,
+        bool includeDeleted = false,
+        CancellationToken ct = default
+    )
+    {
+        if (productIds.Count == 0)
+            return new Dictionary<Guid, IReadOnlyList<ProductDataLink>>();
+
+        var query = includeDeleted
+            ? _dbContext
+                .ProductDataLinks.IgnoreQueryFilters()
+                .Where(link =>
+                    link.TenantId == _tenantProvider.TenantId && productIds.Contains(link.ProductId)
+                )
+            : _dbContext.ProductDataLinks.Where(link => productIds.Contains(link.ProductId));
+
+        var links = await query.ToListAsync(ct);
+        return links
+            .GroupBy(link => link.ProductId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<ProductDataLink>)group.ToList()
+            );
+    }
+
     /// <summary>Returns <c>true</c> when at least one active link references the specified product data document.</summary>
     public Task<bool> HasActiveLinksForProductDataAsync(
         Guid productDataId,

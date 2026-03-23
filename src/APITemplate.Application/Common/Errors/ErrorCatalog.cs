@@ -29,7 +29,11 @@ public static class ErrorCatalog
     {
         public const string EntityName = "Product";
         public const string NotFound = "PRD-0404";
+        public const string NotFoundMessage = "Product '{0}' not found.";
         public const string ProductDataNotFound = "PRD-2404";
+        public const string AlreadyExistsMessage = "Product '{0}' already exists.";
+        public const string DuplicateIdMessage =
+            "Duplicate product ID '{0}' appears multiple times in the request.";
     }
 
     /// <summary>Error codes specific to the ProductData domain.</summary>
@@ -42,7 +46,12 @@ public static class ErrorCatalog
     /// <summary>Error codes specific to the Categories domain.</summary>
     public static class Categories
     {
+        public const string EntityName = "Category";
         public const string NotFound = "CAT-0404";
+        public const string NotFoundMessage = "Category '{0}' not found.";
+        public const string AlreadyExistsMessage = "Category '{0}' already exists.";
+        public const string DuplicateIdMessage =
+            "Duplicate category ID '{0}' appears multiple times in the request.";
     }
 
     /// <summary>Error codes specific to the Reviews domain.</summary>

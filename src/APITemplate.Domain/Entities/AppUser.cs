@@ -6,7 +6,7 @@ namespace APITemplate.Domain.Entities;
 /// Domain entity representing an application user belonging to a tenant.
 /// Tracks identity information, Keycloak linkage, role, and soft-delete state.
 /// </summary>
-public sealed class AppUser : IAuditableTenantEntity
+public sealed class AppUser : IAuditableTenantEntity, IHasId
 {
     public Guid Id { get; set; }
 

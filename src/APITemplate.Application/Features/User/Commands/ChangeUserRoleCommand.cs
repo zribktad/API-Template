@@ -7,7 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record ChangeUserRoleCommand(Guid Id, ChangeUserRoleRequest Request) : ICommand;
+public sealed record ChangeUserRoleCommand(Guid Id, ChangeUserRoleRequest Request)
+    : ICommand,
+        IHasId;
 
 public sealed class ChangeUserRoleCommandHandler : ICommandHandler<ChangeUserRoleCommand>
 {

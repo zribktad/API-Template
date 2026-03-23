@@ -4,7 +4,7 @@ using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record GetUserByIdQuery(Guid Id) : IQuery<UserResponse?>;
+public sealed record GetUserByIdQuery(Guid Id) : IQuery<UserResponse?>, IHasId;
 
 public sealed class GetUserByIdQueryHandler : IQueryHandler<GetUserByIdQuery, UserResponse?>
 {

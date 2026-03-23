@@ -25,22 +25,27 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         // Create a product first
+        var productName = $"Patch Original-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
             {
-                Name = "Patch Original",
-                Description = "Keep this",
-                Price = 50.00m,
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = productName,
+                        Description = "Keep this",
+                        Price = 50.00m,
+                    },
+                },
             },
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        createResponse.StatusCode.ShouldBe(HttpStatusCode.Created, createBody);
-        var created = JsonSerializer.Deserialize<ProductResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        )!;
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var productId = await ResolveProductIdAsync(productName, 50.00m, ct);
+        var created = new { Id = productId };
 
         // Patch name only
         var patchJson = """[{"op": "replace", "path": "/name", "value": "Patch Updated"}]""";
@@ -72,21 +77,27 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
+        var productName = $"Multi Patch-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
             {
-                Name = "Multi Patch",
-                Description = "Original",
-                Price = 25.00m,
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = productName,
+                        Description = "Original",
+                        Price = 25.00m,
+                    },
+                },
             },
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        var created = JsonSerializer.Deserialize<ProductResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        )!;
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var productId = await ResolveProductIdAsync(productName, 25.00m, ct);
+        var created = new { Id = productId };
 
         var patchJson =
             """[{"op": "replace", "path": "/name", "value": "Multi Updated"}, {"op": "replace", "path": "/price", "value": 99.99}]""";
@@ -117,21 +128,27 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
+        var productName = $"Negative Patch-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
             {
-                Name = "Negative Patch",
-                Description = "Test",
-                Price = 50.00m,
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = productName,
+                        Description = "Test",
+                        Price = 50.00m,
+                    },
+                },
             },
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        var created = JsonSerializer.Deserialize<ProductResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        )!;
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var productId = await ResolveProductIdAsync(productName, 50.00m, ct);
+        var created = new { Id = productId };
 
         var patchJson = """[{"op": "replace", "path": "/price", "value": -1}]""";
         var patchContent = new StringContent(
@@ -175,21 +192,27 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
+        var productName = $"Remove Desc-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
             {
-                Name = "Remove Desc",
-                Description = "To be removed",
-                Price = 10.00m,
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = productName,
+                        Description = "To be removed",
+                        Price = 10.00m,
+                    },
+                },
             },
             ct
         );
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        var created = JsonSerializer.Deserialize<ProductResponse>(
-            createBody,
-            TestJsonOptions.CaseInsensitive
-        )!;
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var productId = await ResolveProductIdAsync(productName, 10.00m, ct);
+        var created = new { Id = productId };
 
         var patchJson = """[{"op": "remove", "path": "/description"}]""";
         var patchContent = new StringContent(
@@ -210,5 +233,23 @@ public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             TestJsonOptions.CaseInsensitive
         )!;
         patched.Description.ShouldBeNull();
+    }
+
+    private async Task<Guid> ResolveProductIdAsync(string name, decimal price, CancellationToken ct)
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/products?name={Uri.EscapeDataString(name)}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Page.Items.FirstOrDefault(p => p.Name == name && p.Price == price);
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }

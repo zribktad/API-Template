@@ -5,7 +5,7 @@ using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.Tenant;
 
-public sealed record GetTenantByIdQuery(Guid Id) : IQuery<TenantResponse?>;
+public sealed record GetTenantByIdQuery(Guid Id) : IQuery<TenantResponse?>, IHasId;
 
 public sealed class GetTenantByIdQueryHandler : IQueryHandler<GetTenantByIdQuery, TenantResponse?>
 {

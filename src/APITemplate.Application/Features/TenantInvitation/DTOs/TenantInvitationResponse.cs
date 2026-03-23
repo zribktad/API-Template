@@ -11,4 +11,4 @@ public sealed record TenantInvitationResponse(
     InvitationStatus Status,
     DateTime ExpiresAtUtc,
     DateTime CreatedAtUtc
-);
+) : IHasId;

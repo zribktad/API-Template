@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record DeleteUserCommand(Guid Id) : ICommand;
+public sealed record DeleteUserCommand(Guid Id) : ICommand, IHasId;
 
 public sealed class DeleteUserCommandHandler : ICommandHandler<DeleteUserCommand>
 {

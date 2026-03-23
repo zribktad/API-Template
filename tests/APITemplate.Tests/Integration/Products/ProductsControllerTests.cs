@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Tests.Integration.Helpers;
@@ -19,7 +18,9 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     public ProductsControllerTests(CustomWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
-        _productDataRepositoryMock = factory.Services.GetRequiredService<Mock<IProductDataRepository>>();
+        _productDataRepositoryMock = factory.Services.GetRequiredService<
+            Mock<IProductDataRepository>
+        >();
         _productDataRepositoryMock.Reset();
     }
 
@@ -32,7 +33,10 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var response = await _client.GetAsync("/api/v1/products", ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         payload.ShouldNotBeNull();
         payload!.Page.Items.ShouldNotBeNull();
         payload.Facets.ShouldNotBeNull();
@@ -46,31 +50,43 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         IntegrationAuthHelper.Authenticate(_client);
 
         _productDataRepositoryMock
-            .Setup(r => r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync([new ImageProductData { Id = productDataId, Title = "Image" }]);
 
+        var productName = $"Product with data-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
             {
-                name = "Product with data",
-                description = "Test product",
-                price = 25,
-                productDataIds = new[] { productDataId, productDataId }
+                Items = new[]
+                {
+                    new
+                    {
+                        name = productName,
+                        description = "Test product",
+                        price = 25,
+                        productDataIds = new[] { productDataId, productDataId },
+                    },
+                },
             },
-            ct);
+            ct
+        );
 
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        createResponse.StatusCode.ShouldBe(HttpStatusCode.Created, createBody);
-        var created = JsonSerializer.Deserialize<ProductResponse>(createBody, TestJsonOptions.CaseInsensitive);
-        created.ShouldNotBeNull();
-        created!.ProductDataIds.ShouldBe([productDataId]);
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var createdId = await ResolveProductIdAsync(productName, 25m, null, ct);
 
-        var getResponse = await _client.GetAsync($"/api/v1/products/{created.Id}", ct);
+        var getResponse = await _client.GetAsync($"/api/v1/products/{createdId}", ct);
         getResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var fetched = await getResponse.Content.ReadFromJsonAsync<ProductResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var fetched = await getResponse.Content.ReadFromJsonAsync<ProductResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         fetched.ShouldNotBeNull();
         fetched!.ProductDataIds.ShouldBe([productDataId]);
+        fetched.Name.ShouldBe(productName);
     }
 
     [Fact]
@@ -83,11 +99,18 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             "/api/v1/products",
             new
             {
-                name = "Invalid product data",
-                price = 25,
-                productDataIds = new[] { "bad-id" }
+                Items = new[]
+                {
+                    new
+                    {
+                        name = "Invalid product data",
+                        price = 25,
+                        productDataIds = new[] { "bad-id" },
+                    },
+                },
             },
-            ct);
+            ct
+        );
 
         var body = await response.Content.ReadAsStringAsync(ct);
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
@@ -101,41 +124,61 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         IntegrationAuthHelper.Authenticate(_client);
 
         _productDataRepositoryMock
-            .Setup(r => r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync([new ImageProductData { Id = productDataId, Title = "Image" }]);
 
+        var productName = $"Product with data-{Guid.NewGuid():N}";
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
             {
-                name = "Product with data",
-                description = "Test product",
-                price = 25,
-                productDataIds = new[] { productDataId }
+                Items = new[]
+                {
+                    new
+                    {
+                        name = productName,
+                        description = "Test product",
+                        price = 25,
+                        productDataIds = new[] { productDataId },
+                    },
+                },
             },
-            ct);
+            ct
+        );
 
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        createResponse.StatusCode.ShouldBe(HttpStatusCode.Created, createBody);
-        var created = JsonSerializer.Deserialize<ProductResponse>(createBody, TestJsonOptions.CaseInsensitive);
-        created.ShouldNotBeNull();
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
+        var createdId = await ResolveProductIdAsync(productName, 25m, null, ct);
 
         var updateResponse = await _client.PutAsJsonAsync(
-            $"/api/v1/products/{created!.Id}",
+            "/api/v1/products",
             new
             {
-                name = "Renamed product",
-                description = "Updated",
-                price = 30
+                Items = new[]
+                {
+                    new
+                    {
+                        Id = createdId,
+                        name = "Renamed product",
+                        description = "Updated",
+                        price = 30,
+                    },
+                },
             },
-            ct);
+            ct
+        );
 
         var updateBody = await updateResponse.Content.ReadAsStringAsync(ct);
-        updateResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent, updateBody);
+        updateResponse.StatusCode.ShouldBe(HttpStatusCode.OK, updateBody);
 
-        var getResponse = await _client.GetAsync($"/api/v1/products/{created.Id}", ct);
+        var getResponse = await _client.GetAsync($"/api/v1/products/{createdId}", ct);
         getResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var fetched = await getResponse.Content.ReadFromJsonAsync<ProductResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var fetched = await getResponse.Content.ReadFromJsonAsync<ProductResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         fetched.ShouldNotBeNull();
         fetched!.ProductDataIds.ShouldBe([productDataId]);
     }
@@ -146,45 +189,98 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
+        var electronicsName = $"Electronics-{Guid.NewGuid():N}";
+        var booksName = $"Books-{Guid.NewGuid():N}";
+
         var electronicsResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
-            new { Name = "Electronics", Description = "Devices and accessories" },
-            ct);
+            new
+            {
+                Items = new[]
+                {
+                    new { Name = electronicsName, Description = "Devices and accessories" },
+                },
+            },
+            ct
+        );
         var booksResponse = await _client.PostAsJsonAsync(
             "/api/v1/categories",
-            new { Name = "Books", Description = "Printed books" },
-            ct);
+            new { Items = new[] { new { Name = booksName, Description = "Printed books" } } },
+            ct
+        );
 
-        var electronics = await electronicsResponse.Content.ReadFromJsonAsync<CategoryResponse>(TestJsonOptions.CaseInsensitive, ct);
-        var books = await booksResponse.Content.ReadFromJsonAsync<CategoryResponse>(TestJsonOptions.CaseInsensitive, ct);
-        electronics.ShouldNotBeNull();
-        books.ShouldNotBeNull();
-        var electronicsId = electronics!.Id;
-        var booksId = books!.Id;
+        electronicsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        booksResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var electronicsId = await ResolveCategoryIdAsync(electronicsName, ct);
+        var booksId = await ResolveCategoryIdAsync(booksName, ct);
 
         await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "Wireless Mouse", Description = "Comfortable office mouse", Price = 30, CategoryId = electronicsId },
-            ct);
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Wireless Mouse",
+                        Description = "Comfortable office mouse",
+                        Price = 30,
+                        CategoryId = electronicsId,
+                    },
+                },
+            },
+            ct
+        );
         await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "Wireless Keyboard", Description = "Mechanical office keyboard", Price = 80, CategoryId = electronicsId },
-            ct);
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Wireless Keyboard",
+                        Description = "Mechanical office keyboard",
+                        Price = 80,
+                        CategoryId = electronicsId,
+                    },
+                },
+            },
+            ct
+        );
         await _client.PostAsJsonAsync(
             "/api/v1/products",
-            new { Name = "Fantasy Novel", Description = "Epic dragon story", Price = 15, CategoryId = booksId },
-            ct);
+            new
+            {
+                Items = new[]
+                {
+                    new
+                    {
+                        Name = "Fantasy Novel",
+                        Description = "Epic dragon story",
+                        Price = 15,
+                        CategoryId = booksId,
+                    },
+                },
+            },
+            ct
+        );
 
         var response = await _client.GetAsync($"/api/v1/products?categoryIds={electronicsId}", ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         payload.ShouldNotBeNull();
 
         payload!.Page.Items.Count().ShouldBe(2);
-        payload.Page.Items.Select(item => item.Name).ShouldBe(["Wireless Mouse", "Wireless Keyboard"], ignoreOrder: true);
+        payload
+            .Page.Items.Select(item => item.Name)
+            .ShouldBe(["Wireless Mouse", "Wireless Keyboard"], ignoreOrder: true);
         payload.Facets.Categories.Count.ShouldBeGreaterThanOrEqualTo(2);
-        var electronicsFacet = payload.Facets.Categories.Single(c => c.CategoryName == "Electronics");
+        var electronicsFacet = payload.Facets.Categories.Single(c => c.CategoryId == electronicsId);
         electronicsFacet.Count.ShouldBe(2);
         payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "0 - 50").Count.ShouldBe(1);
         payload.Facets.PriceBuckets.Single(bucket => bucket.Label == "50 - 100").Count.ShouldBe(1);
@@ -198,26 +294,83 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var initialResponse = await _client.GetAsync("/api/v1/products", ct);
         initialResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var initialPayload = await initialResponse.Content.ReadFromJsonAsync<ProductsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var initialPayload = await initialResponse.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         initialPayload.ShouldNotBeNull();
 
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/products",
             new
             {
-                name = "Cached product",
-                description = "Created while cache is warm",
-                price = 10
+                Items = new[]
+                {
+                    new
+                    {
+                        name = "Cached product",
+                        description = "Created while cache is warm",
+                        price = 10,
+                    },
+                },
             },
-            ct);
+            ct
+        );
 
         var createBody = await createResponse.Content.ReadAsStringAsync(ct);
-        createResponse.StatusCode.ShouldBe(HttpStatusCode.Created, createBody);
+        createResponse.StatusCode.ShouldBe(HttpStatusCode.OK, createBody);
 
         var secondResponse = await _client.GetAsync("/api/v1/products", ct);
         secondResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var secondPayload = await secondResponse.Content.ReadFromJsonAsync<ProductsResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var secondPayload = await secondResponse.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
         secondPayload.ShouldNotBeNull();
         secondPayload!.Page.Items.ShouldContain(p => p.Name == "Cached product");
+    }
+
+    private async Task<Guid> ResolveProductIdAsync(
+        string name,
+        decimal price,
+        Guid? categoryId,
+        CancellationToken ct
+    )
+    {
+        var url = $"/api/v1/products?name={Uri.EscapeDataString(name)}";
+        if (categoryId.HasValue)
+            url += $"&categoryIds={categoryId.Value}";
+
+        var response = await _client.GetAsync(url, ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ProductsResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Page.Items.FirstOrDefault(p =>
+            p.Name == name && p.Price == price && p.CategoryId == categoryId
+        );
+        item.ShouldNotBeNull();
+        return item!.Id;
+    }
+
+    private async Task<Guid> ResolveCategoryIdAsync(string name, CancellationToken ct)
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/categories?name={Uri.EscapeDataString(name)}",
+            ct
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponse<CategoryResponse>>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        payload.ShouldNotBeNull();
+        var item = payload!.Items.FirstOrDefault(c => c.Name == name);
+        item.ShouldNotBeNull();
+        return item!.Id;
     }
 }

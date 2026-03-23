@@ -7,7 +7,7 @@ using APITemplate.Domain.Interfaces;
 
 namespace APITemplate.Application.Features.User;
 
-public sealed record UpdateUserCommand(Guid Id, UpdateUserRequest Request) : ICommand;
+public sealed record UpdateUserCommand(Guid Id, UpdateUserRequest Request) : ICommand, IHasId;
 
 public sealed class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand>
 {

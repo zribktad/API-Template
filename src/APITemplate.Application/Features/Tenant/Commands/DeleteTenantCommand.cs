@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Application.Features.Tenant;
 
-public sealed record DeleteTenantCommand(Guid Id) : ICommand;
+public sealed record DeleteTenantCommand(Guid Id) : ICommand, IHasId;
 
 public sealed class DeleteTenantCommandHandler : ICommandHandler<DeleteTenantCommand>
 {

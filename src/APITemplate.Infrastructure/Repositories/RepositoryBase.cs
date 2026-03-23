@@ -93,10 +93,47 @@ public abstract class RepositoryBase<T>
         return Task.FromResult(entity);
     }
 
+    /// <summary>Tracks multiple entities for insertion without flushing to the database.</summary>
+    public override Task<IEnumerable<T>> AddRangeAsync(
+        IEnumerable<T> entities,
+        CancellationToken ct = default
+    )
+    {
+        DbContext.Set<T>().AddRange(entities);
+        return Task.FromResult(entities);
+    }
+
     /// <summary>Marks <paramref name="entity"/> as modified without flushing to the database.</summary>
     public override Task<int> UpdateAsync(T entity, CancellationToken ct = default)
     {
         DbContext.Set<T>().Update(entity);
+        return Task.FromResult(0);
+    }
+
+    /// <summary>Marks multiple entities as modified without flushing to the database.</summary>
+    public override Task<int> UpdateRangeAsync(
+        IEnumerable<T> entities,
+        CancellationToken ct = default
+    )
+    {
+        DbContext.Set<T>().UpdateRange(entities);
+        return Task.FromResult(0);
+    }
+
+    /// <summary>Marks <paramref name="entity"/> for deletion without flushing to the database.</summary>
+    public override Task<int> DeleteAsync(T entity, CancellationToken ct = default)
+    {
+        DbContext.Set<T>().Remove(entity);
+        return Task.FromResult(0);
+    }
+
+    /// <summary>Marks multiple entities for deletion without flushing to the database.</summary>
+    public override Task<int> DeleteRangeAsync(
+        IEnumerable<T> entities,
+        CancellationToken ct = default
+    )
+    {
+        DbContext.Set<T>().RemoveRange(entities);
         return Task.FromResult(0);
     }
 

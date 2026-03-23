@@ -12,4 +12,4 @@ public sealed record UserResponse(
     bool IsActive,
     UserRole Role,
     DateTime CreatedAtUtc
-);
+) : IHasId;

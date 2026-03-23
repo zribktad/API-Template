@@ -10,4 +10,4 @@ public sealed record FileUploadResponse(
     long SizeBytes,
     string? Description,
     DateTime CreatedAtUtc
-);
+) : IHasId;

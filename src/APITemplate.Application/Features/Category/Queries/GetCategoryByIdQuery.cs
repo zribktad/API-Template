@@ -5,7 +5,7 @@ using APITemplate.Domain.Interfaces;
 namespace APITemplate.Application.Features.Category;
 
 /// <summary>Returns a single category by its unique identifier, or <see langword="null"/> if not found.</summary>
-public sealed record GetCategoryByIdQuery(Guid Id) : IQuery<CategoryResponse?>;
+public sealed record GetCategoryByIdQuery(Guid Id) : IQuery<CategoryResponse?>, IHasId;
 
 /// <summary>Handles <see cref="GetCategoryByIdQuery"/>.</summary>
 public sealed class GetCategoryByIdQueryHandler

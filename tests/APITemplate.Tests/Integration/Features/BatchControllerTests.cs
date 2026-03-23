@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using APITemplate.Application.Features.Examples.DTOs;
+using APITemplate.Application.Common.DTOs;
 using APITemplate.Tests.Integration.Helpers;
 using Shouldly;
 using Xunit;
@@ -48,19 +48,18 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             },
         };
 
-        var response = await _client.PostAsJsonAsync("/api/v1/batch/products", request, ct);
+        var response = await _client.PostAsJsonAsync("/api/v1/products", request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
 
-        var result = JsonSerializer.Deserialize<BatchCreateProductsResponse>(
+        var result = JsonSerializer.Deserialize<BatchResponse>(
             body,
             TestJsonOptions.CaseInsensitive
         );
         result.ShouldNotBeNull();
         result!.SuccessCount.ShouldBe(3);
         result.FailureCount.ShouldBe(0);
-        result.Results.Count.ShouldBe(3);
-        result.Results.ShouldAllBe(r => r.Success && r.Id.HasValue);
+        result.Failures.ShouldBeEmpty();
     }
 
     [Fact]
@@ -96,19 +95,18 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
             },
         };
 
-        var response = await _client.PostAsJsonAsync("/api/v1/batch/products", request, ct);
+        var response = await _client.PostAsJsonAsync("/api/v1/products", request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity, body);
 
-        var result = JsonSerializer.Deserialize<BatchCreateProductsResponse>(
+        var result = JsonSerializer.Deserialize<BatchResponse>(
             body,
             TestJsonOptions.CaseInsensitive
         );
         result.ShouldNotBeNull();
         result!.FailureCount.ShouldBeGreaterThan(0);
-        result.Results[1].Success.ShouldBeFalse();
-        result.Results[1].Errors.ShouldNotBeNull();
-        result.Results[1].Errors!.Count.ShouldBeGreaterThan(0);
+        result.Failures.ShouldContain(f => f.Index == 1);
+        result.Failures.First(f => f.Index == 1).Errors.Count.ShouldBeGreaterThan(0);
     }
 
     [Fact]
@@ -118,7 +116,7 @@ public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
         IntegrationAuthHelper.Authenticate(_client);
 
         var request = new { Items = Array.Empty<object>() };
-        var response = await _client.PostAsJsonAsync("/api/v1/batch/products", request, ct);
+        var response = await _client.PostAsJsonAsync("/api/v1/products", request, ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }

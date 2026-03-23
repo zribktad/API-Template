@@ -41,7 +41,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     private static void AddCqrsHandlers(this IServiceCollection services)
     {
-        var applicationAssembly = typeof(CreateProductCommand).Assembly;
+        var applicationAssembly = typeof(CreateProductsCommand).Assembly;
         var apiAssembly = typeof(CacheInvalidationHandler<>).Assembly;
 
         services.Scan(scan =>
