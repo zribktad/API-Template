@@ -1,57 +1,10 @@
 using APITemplate.Application.Common.Batch;
-using APITemplate.Application.Common.Extensions;
-using APITemplate.Domain.Exceptions;
 
 namespace APITemplate.Application.Features.Product;
 
 /// <summary>Shared validation methods for product commands.</summary>
 internal static class ProductValidationHelper
 {
-    internal static async Task ValidateCategoryExistsAsync(
-        ICategoryRepository categoryRepository,
-        Guid? categoryId,
-        CancellationToken ct
-    )
-    {
-        if (!categoryId.HasValue)
-            return;
-
-        await categoryRepository.GetByIdOrThrowAsync(
-            categoryId.Value,
-            ErrorCatalog.Categories.NotFound,
-            ct
-        );
-    }
-
-    internal static async Task<IReadOnlyCollection<Guid>> ValidateAndNormalizeProductDataIdsAsync(
-        IProductDataRepository productDataRepository,
-        IReadOnlyCollection<Guid> productDataIds,
-        CancellationToken ct
-    )
-    {
-        var normalizedIds = productDataIds.Distinct().ToArray();
-
-        if (normalizedIds.Length == 0)
-            return normalizedIds;
-
-        var existingIds = (await productDataRepository.GetByIdsAsync(normalizedIds, ct))
-            .Select(productData => productData.Id)
-            .ToHashSet();
-
-        var missingIds = normalizedIds.Where(id => !existingIds.Contains(id)).ToArray();
-
-        if (missingIds.Length > 0)
-        {
-            throw new NotFoundException(
-                nameof(ProductData),
-                string.Join(", ", missingIds),
-                ErrorCatalog.Products.ProductDataNotFound
-            );
-        }
-
-        return normalizedIds;
-    }
-
     /// <summary>
     /// Checks all product references (category and product data) in a single call, merging
     /// per-item failures from both checks. Items in <paramref name="failedIndices"/> are skipped.
@@ -65,21 +18,24 @@ internal static class ProductValidationHelper
     )
         where T : IProductRequest
     {
-        List<BatchResultItem> categoryFailures = await CheckCategoryReferencesAsync(
+        // Category (EF Core / PostgreSQL) and product-data (MongoDB) checks use independent
+        // connections, so they can safely run in parallel.
+        Task<List<BatchResultItem>> categoryTask = CheckCategoryReferencesAsync(
             items,
             item => item.CategoryId,
             categoryRepository,
             failedIndices,
             ct
         );
-        List<BatchResultItem> productDataFailures = await CheckProductDataReferencesAsync(
+        Task<List<BatchResultItem>> productDataTask = CheckProductDataReferencesAsync(
             items,
             item => item.ProductDataIds,
             productDataRepository,
             failedIndices,
             ct
         );
-        return BatchFailureMerge.MergeByIndex(categoryFailures, productDataFailures);
+        await Task.WhenAll(categoryTask, productDataTask);
+        return BatchFailureMerge.MergeByIndex(categoryTask.Result, productDataTask.Result);
     }
 
     /// <summary>
@@ -184,7 +140,12 @@ internal static class ProductValidationHelper
                     new BatchResultItem(
                         i,
                         failureId,
-                        [$"Product data not found: {string.Join(", ", missing)}"]
+                        [
+                            string.Format(
+                                ErrorCatalog.ProductData.NotFoundMessage,
+                                string.Join(", ", missing)
+                            ),
+                        ]
                     )
                 );
             }

@@ -23,7 +23,7 @@ public sealed class DeleteProductsCommandHandler
         var ids = command.Request.Ids;
         var context = new BatchFailureContext<Guid>(ids);
 
-        // Step 1: Load all target products and mark missing ones as failed
+        // Load all target products and mark missing ones as failed
         var products = await repository.ListAsync(
             new ProductsByIdsWithLinksSpecification(ids.ToHashSet()),
             ct
@@ -31,7 +31,8 @@ public sealed class DeleteProductsCommandHandler
 
         await context.ApplyRulesAsync(
             ct,
-            new MarkMissingIdsBatchRule(
+            new MarkMissingByIdBatchRule<Guid>(
+                id => id,
                 products.Select(product => product.Id).ToHashSet(),
                 ErrorCatalog.Products.NotFoundMessage
             )
@@ -40,7 +41,7 @@ public sealed class DeleteProductsCommandHandler
         if (context.HasFailures)
             return context.ToFailureResponse();
 
-        // Step 2: Soft-delete product-data links and remove products in a single transaction
+        // Soft-delete product-data links and remove products in a single transaction
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {

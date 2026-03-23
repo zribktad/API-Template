@@ -40,6 +40,7 @@ public static class ErrorCatalog
     public static class ProductData
     {
         public const string NotFound = "PDT-0404";
+        public const string NotFoundMessage = "Product data not found: {0}";
         public const string InUse = "PDT-0409";
     }
 

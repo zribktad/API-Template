@@ -1,14 +1,11 @@
 namespace APITemplate.Application.Common.Batch.Rules;
 
 internal sealed class MarkMissingByIdBatchRule<TItem>(
+    Func<TItem, Guid> idSelector,
     IReadOnlySet<Guid> foundIds,
     string notFoundMessageTemplate
 ) : IBatchRule<TItem>
-    where TItem : IHasId
 {
-    private readonly IReadOnlySet<Guid> _foundIds = foundIds;
-    private readonly string _notFoundMessageTemplate = notFoundMessageTemplate;
-
     public Task ApplyAsync(BatchFailureContext<TItem> context, CancellationToken ct)
     {
         for (var i = 0; i < context.Items.Count; i++)
@@ -16,9 +13,9 @@ internal sealed class MarkMissingByIdBatchRule<TItem>(
             if (context.IsFailed(i))
                 continue;
 
-            var id = context.Items[i].Id;
-            if (!_foundIds.Contains(id))
-                context.AddFailure(i, id, string.Format(_notFoundMessageTemplate, id));
+            Guid id = idSelector(context.Items[i]);
+            if (!foundIds.Contains(id))
+                context.AddFailure(i, id, string.Format(notFoundMessageTemplate, id));
         }
 
         return Task.CompletedTask;

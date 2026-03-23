@@ -28,14 +28,17 @@ internal static class UpdateProductsValidator
         IReadOnlyList<UpdateProductItem> items = command.Request.Items;
         BatchFailureContext<UpdateProductItem> context = new(items);
 
-        // Step 1: Validate each item (field-level rules — name, price, etc.)
+        // Validate each item (field-level rules — name, price, etc.)
         await context.ApplyRulesAsync(
             ct,
             new FluentValidationBatchRule<UpdateProductItem>(itemValidator)
         );
 
-        // Step 2: Load all target products and mark missing ones as failed
-        HashSet<Guid> requestedIds = items.Select(item => item.Id).ToHashSet();
+        // Load all target products and mark missing ones as failed
+        HashSet<Guid> requestedIds = items
+            .Where((_, i) => !context.IsFailed(i))
+            .Select(item => item.Id)
+            .ToHashSet();
         Dictionary<Guid, ProductEntity> productMap = (
             await repository.ListAsync(new ProductsByIdsWithLinksSpecification(requestedIds), ct)
         ).ToDictionary(p => p.Id);
@@ -43,12 +46,13 @@ internal static class UpdateProductsValidator
         await context.ApplyRulesAsync(
             ct,
             new MarkMissingByIdBatchRule<UpdateProductItem>(
+                item => item.Id,
                 productMap.Keys.ToHashSet(),
                 ErrorCatalog.Products.NotFoundMessage
             )
         );
 
-        // Step 3–4: Reference checks skip only earlier failures (validation + missing entity) so
+        // Reference checks skip only earlier failures (validation + missing entity) so
         // category and product-data issues on the same row are merged into one failure.
         context.AddFailures(
             await ProductValidationHelper.CheckProductReferencesAsync(

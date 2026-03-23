@@ -5,6 +5,7 @@ using APITemplate.Api.Filters.Idempotency;
 using APITemplate.Api.Filters.Webhooks;
 using APITemplate.Api.OpenApi;
 using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Http;
 using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Health;
 using APITemplate.Infrastructure.Observability;
@@ -104,7 +105,7 @@ public static class ApiServiceCollectionExtensions
             {
                 var endpoint = HttpRouteResolver.Resolve(context.HttpContext);
                 ApiMetrics.RecordRateLimitRejection(
-                    CacheTags.RateLimitPolicy,
+                    RateLimitPolicies.Fixed,
                     context.HttpContext.Request.Method,
                     endpoint
                 );
@@ -117,7 +118,7 @@ public static class ApiServiceCollectionExtensions
             var rateLimitOpts = sp.GetRequiredService<IOptions<RateLimitingOptions>>().Value;
             return new ConfigureOptions<RateLimiterOptions>(o =>
                 o.AddPolicy(
-                    CacheTags.RateLimitPolicy,
+                    RateLimitPolicies.Fixed,
                     httpContext =>
                         RateLimitPartition.GetFixedWindowLimiter(
                             partitionKey: httpContext.User.Identity?.Name

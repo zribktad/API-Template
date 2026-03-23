@@ -23,7 +23,7 @@ public sealed class DeleteCategoriesCommandHandler
         var ids = command.Request.Ids;
         var context = new BatchFailureContext<Guid>(ids);
 
-        // Step 1: Load all target categories and mark missing ones as failed
+        // Load all target categories and mark missing ones as failed
         var categories = await repository.ListAsync(
             new CategoriesByIdsSpecification(ids.ToHashSet()),
             ct
@@ -31,7 +31,8 @@ public sealed class DeleteCategoriesCommandHandler
 
         await context.ApplyRulesAsync(
             ct,
-            new MarkMissingIdsBatchRule(
+            new MarkMissingByIdBatchRule<Guid>(
+                id => id,
                 categories.Select(category => category.Id).ToHashSet(),
                 ErrorCatalog.Categories.NotFoundMessage
             )
@@ -40,7 +41,7 @@ public sealed class DeleteCategoriesCommandHandler
         if (context.HasFailures)
             return context.ToFailureResponse();
 
-        // Step 2: Remove categories in a single transaction
+        // Remove categories in a single transaction
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {

@@ -23,7 +23,6 @@ public class ProductRequestHandlersTests
     private readonly Mock<IProductRepository> _repositoryMock;
     private readonly Mock<ICategoryRepository> _categoryRepositoryMock;
     private readonly Mock<IProductDataRepository> _productDataRepositoryMock;
-    private readonly Mock<IProductDataLinkRepository> _productDataLinkRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IMessageBus> _busMock;
     private readonly Mock<IValidator<CreateProductRequest>> _createValidatorMock;
@@ -34,7 +33,6 @@ public class ProductRequestHandlersTests
         _repositoryMock = new Mock<IProductRepository>();
         _categoryRepositoryMock = new Mock<ICategoryRepository>();
         _productDataRepositoryMock = new Mock<IProductDataRepository>();
-        _productDataLinkRepositoryMock = new Mock<IProductDataLinkRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _busMock = new Mock<IMessageBus>();
         _createValidatorMock = new Mock<IValidator<CreateProductRequest>>();

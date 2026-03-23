@@ -29,8 +29,11 @@ public sealed class UpdateCategoriesCommandHandler
             new FluentValidationBatchRule<UpdateCategoryItem>(itemValidator)
         );
 
-        // Step 2: Load all target categories and mark missing ones as failed
-        var requestedIds = items.Select(item => item.Id).ToHashSet();
+        // Load all target categories and mark missing ones as failed
+        var requestedIds = items
+            .Where((_, i) => !context.IsFailed(i))
+            .Select(item => item.Id)
+            .ToHashSet();
         var categoryMap = (
             await repository.ListAsync(new CategoriesByIdsSpecification(requestedIds), ct)
         ).ToDictionary(c => c.Id);
@@ -38,6 +41,7 @@ public sealed class UpdateCategoriesCommandHandler
         await context.ApplyRulesAsync(
             ct,
             new MarkMissingByIdBatchRule<UpdateCategoryItem>(
+                item => item.Id,
                 categoryMap.Keys.ToHashSet(),
                 ErrorCatalog.Categories.NotFoundMessage
             )
@@ -46,7 +50,7 @@ public sealed class UpdateCategoriesCommandHandler
         if (context.HasFailures)
             return context.ToFailureResponse();
 
-        // Step 3: Apply changes in a single transaction
+        // Apply changes in a single transaction
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
