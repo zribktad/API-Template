@@ -77,7 +77,8 @@ public static class ObservabilityServiceCollectionExtensions
                 .AddRedisInstrumentation()
                 .AddNpgsql()
                 .AddSource(ObservabilityConventions.ActivitySourceName)
-                .AddSource(TelemetryActivitySources.MongoDbDriverDiagnosticSources);
+                .AddSource(TelemetryActivitySources.MongoDbDriverDiagnosticSources)
+                .AddSource(TelemetryActivitySources.Wolverine);
 
             ConfigureTracingExporters(builder, otlpEndpoints, enableConsoleExporter);
         });

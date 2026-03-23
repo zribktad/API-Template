@@ -266,4 +266,6 @@ public static class TelemetryActivitySources
 {
     public const string MongoDbDriverDiagnosticSources =
         "MongoDB.Driver.Core.Extensions.DiagnosticSources";
+
+    public const string Wolverine = "Wolverine";
 }
