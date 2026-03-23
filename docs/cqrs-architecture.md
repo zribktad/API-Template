@@ -1,6 +1,6 @@
 # WolverineFx Message Bus Architecture
 
-The project uses [WolverineFx](https://wolverine.netlify.app/) as an in-process message bus/mediator. Wolverine runs in **mediator-only mode** (`DurabilityMode.MediatorOnly`) -- no external transport, no durable outbox, just fast in-memory dispatch with convention-based handler discovery.
+The project uses [WolverineFx](https://wolverine.netlify.app/) as an in-process message bus/mediator. Wolverine is configured with **balanced durability mode** (`DurabilityMode.Balanced`) and convention-based handler discovery. This repository currently uses Wolverine for in-process dispatch only; no external transport is configured here.
 
 ---
 
@@ -74,8 +74,8 @@ builder.Host.UseWolverine(opts =>
 {
     opts.Discovery.IncludeAssembly(typeof(CreateProductsCommand).Assembly); // Application
     opts.Discovery.IncludeAssembly(typeof(Program).Assembly);              // Api
-    opts.UseFluentValidation();
-    opts.Durability.Mode = DurabilityMode.MediatorOnly;
+    opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration);
+    opts.Durability.Mode = DurabilityMode.Balanced;
 });
 ```
 
@@ -133,7 +133,7 @@ public sealed class DoSomethingCommandHandler
 }
 ```
 
-2. Add a `FluentValidation` validator for the request DTO if needed (auto-discovered).
+2. Add a `FluentValidation` validator for the request DTO if needed and register it in DI.
 
 3. Dispatch from controller:
 
@@ -222,7 +222,7 @@ Validation operates at two levels:
 
 ### Wolverine FluentValidation Middleware
 
-`opts.UseFluentValidation()` registers a Wolverine middleware that automatically runs any registered `IValidator<TMessage>` **before** the handler executes. If validation fails, a `ValidationException` is thrown and the handler is never called.
+`opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration)` registers a Wolverine middleware that runs any explicitly registered `IValidator<TMessage>` **before** the handler executes. If validation fails, a `ValidationException` is thrown and the handler is never called.
 
 This covers all messages dispatched through `IMessageBus`.
 
@@ -262,8 +262,8 @@ builder.Host.UseWolverine(opts =>
 {
     opts.Discovery.IncludeAssembly(typeof(CreateProductsCommand).Assembly);
     opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
-    opts.UseFluentValidation();
-    opts.Durability.Mode = DurabilityMode.MediatorOnly;
+    opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration);
+    opts.Durability.Mode = DurabilityMode.Balanced;
 });
 ```
 
@@ -417,7 +417,7 @@ All batch infrastructure lives in `Application/Common/Batch/`.
 ## Key Decisions
 
 - **WolverineFx over MediatR** -- convention-based discovery eliminates boilerplate interfaces; method injection removes constructor noise; built-in FluentValidation middleware replaces manual decorator wiring.
-- **Mediator-only mode** -- no external transport overhead. The bus is purely in-process dispatch.
+- **Balanced durability mode** -- configured to match `Program.cs` while the current application usage remains in-process dispatch only.
 - **No marker interfaces** -- commands, queries, and events are plain records. Wolverine routes by type, not by interface.
 - **Convention over configuration** -- handler classes are discovered by naming convention (`*Handler` + `HandleAsync`), not by implementing `IRequestHandler<T>` or registering manually.
 - **Static `HandleAsync` with method injection** -- dependencies are parameters, not fields. Handlers have no mutable state and no constructor.
