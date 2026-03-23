@@ -5,7 +5,7 @@ using FluentValidation;
 namespace APITemplate.Application.Features.User.Validation;
 
 /// <summary>
-/// FluentValidation validator for <see cref="DTOs.ChangeUserRoleRequest"/> that ensures the role value is a valid <see cref="UserRole"/> enum member.
+/// FluentValidation validator for <see cref="ChangeUserRoleRequest"/> that ensures the role value is a valid <see cref="UserRole"/> enum member.
 /// </summary>
 public sealed class ChangeUserRoleRequestValidator : AbstractValidator<ChangeUserRoleRequest>
 {

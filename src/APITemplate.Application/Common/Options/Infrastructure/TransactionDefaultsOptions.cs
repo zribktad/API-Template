@@ -5,7 +5,7 @@ namespace APITemplate.Application.Common.Options.Infrastructure;
 
 /// <summary>
 /// Application-level defaults for database transaction settings that can be overridden per call site.
-/// Consumed by infrastructure components to build consistent <see cref="APITemplate.Domain.Options.TransactionOptions"/> instances.
+/// Consumed by infrastructure components to build consistent <see cref="TransactionOptions"/> instances.
 /// </summary>
 public sealed class TransactionDefaultsOptions
 {

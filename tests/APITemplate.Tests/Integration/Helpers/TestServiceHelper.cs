@@ -161,7 +161,7 @@ internal static class TestServiceHelper
         || descriptor.ServiceType == typeof(IDistributedJobCoordinator)
         || (
             descriptor.ServiceType
-                == typeof(APITemplate.Application.Common.BackgroundJobs.IRecurringBackgroundJobRegistration)
+                == typeof(Application.Common.BackgroundJobs.IRecurringBackgroundJobRegistration)
             && IsTickerQRuntimeType(descriptor.ImplementationType)
         );
 

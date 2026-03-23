@@ -6,7 +6,7 @@ using FluentValidation;
 namespace APITemplate.Application.Features.User.Validation;
 
 /// <summary>
-/// FluentValidation validator for <see cref="DTOs.UserFilter"/> that composes sort-field rules and validates the optional role enum.
+/// FluentValidation validator for <see cref="UserFilter"/> that composes sort-field rules and validates the optional role enum.
 /// </summary>
 public sealed class UserFilterValidator : DataAnnotationsValidator<UserFilter>
 {

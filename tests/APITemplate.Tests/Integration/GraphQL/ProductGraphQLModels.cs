@@ -68,10 +68,10 @@ public sealed record CategoryPage(CategoryResultsPage Page);
 
 public sealed record CategoriesData(CategoryPage Categories);
 
-/// <summary>GraphQL shape of <see cref="APITemplate.Application.Common.DTOs.BatchResultItem"/> (camelCase JSON).</summary>
+/// <summary>GraphQL shape of <see cref="BatchResultItem"/> (camelCase JSON).</summary>
 public sealed record GraphQLBatchFailure(int Index, Guid? Id, List<string> Errors);
 
-/// <summary>GraphQL shape of <see cref="APITemplate.Application.Common.DTOs.BatchResponse"/>.</summary>
+/// <summary>GraphQL shape of <see cref="BatchResponse"/>.</summary>
 public sealed record GraphQLBatchResult(
     List<GraphQLBatchFailure> Failures,
     int SuccessCount,
