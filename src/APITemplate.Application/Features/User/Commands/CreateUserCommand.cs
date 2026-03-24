@@ -24,11 +24,13 @@ public sealed class CreateUserCommandHandler
         CancellationToken ct
     )
     {
-        await UserValidationHelper.ValidateEmailUniqueAsync(repository, command.Request.Email, ct);
-        await UserValidationHelper.ValidateUsernameUniqueAsync(
-            repository,
-            command.Request.Username,
-            ct
+        await Task.WhenAll(
+            UserValidationHelper.ValidateEmailUniqueAsync(repository, command.Request.Email, ct),
+            UserValidationHelper.ValidateUsernameUniqueAsync(
+                repository,
+                command.Request.Username,
+                ct
+            )
         );
 
         var keycloakUserId = await keycloakAdmin.CreateUserAsync(

@@ -351,7 +351,7 @@ public class ProductRequestHandlersTests
     }
 
     [Fact]
-    public async Task LoadAsync_WhenValidationFails_ReturnsStop()
+    public async Task LoadAsync_WhenProductNotFound_ReturnsStop()
     {
         var productId = Guid.NewGuid();
         var item = new UpdateProductItem(productId, "Name", null, 10m);
