@@ -1,5 +1,5 @@
 using APITemplate.Api.Middleware;
-using APITemplate.Application.Common.Events;
+using APITemplate.Application.Common.Http;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Common.Security;
@@ -315,8 +315,8 @@ public static class ApplicationBuilderExtensions
     /// <summary>Maps REST controllers, the GraphQL endpoint, Nitro UI, and health checks.</summary>
     public static WebApplication MapApplicationEndpoints(this WebApplication app)
     {
-        app.MapControllers().RequireRateLimiting(CacheTags.RateLimitPolicy);
-        app.MapGraphQL().RequireRateLimiting(CacheTags.RateLimitPolicy);
+        app.MapControllers().RequireRateLimiting(RateLimitPolicies.Fixed);
+        app.MapGraphQL().RequireRateLimiting(RateLimitPolicies.Fixed);
         app.MapNitroApp("/graphql/ui");
         app.UseHealthChecks();
 

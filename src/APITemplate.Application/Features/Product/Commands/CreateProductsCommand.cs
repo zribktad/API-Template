@@ -28,41 +28,31 @@ public sealed class CreateProductsCommandHandler
         var items = command.Request.Items;
         var context = new BatchFailureContext<CreateProductRequest>(items);
 
-        // Step 1: Validate request shape.
         await context.ApplyRulesAsync(
             ct,
             new FluentValidationBatchRule<CreateProductRequest>(itemValidator)
         );
 
-        // Step 2–3: Reference checks skip only fluent-validation failures so both category and
+        // Reference checks skip only fluent-validation failures so both category and
         // product-data issues can be reported for the same index (merged into one failure row).
-        var skipForReferenceChecks = context.FailedIndices.ToHashSet();
-        var categoryFailures = await ProductValidationHelper.CheckCategoryReferencesAsync(
-            items,
-            item => item.CategoryId,
-            categoryRepository,
-            skipForReferenceChecks,
-            ct
+        context.AddFailures(
+            await ProductValidationHelper.CheckProductReferencesAsync(
+                items,
+                categoryRepository,
+                productDataRepository,
+                context.FailedIndices,
+                ct
+            )
         );
-        var productDataFailures = await ProductValidationHelper.CheckProductDataReferencesAsync(
-            items,
-            item => item.ProductDataIds,
-            productDataRepository,
-            skipForReferenceChecks,
-            ct
-        );
-        context.AddFailures(BatchFailureMerge.MergeByIndex(categoryFailures, productDataFailures));
 
         if (context.HasFailures)
             return context.ToFailureResponse();
 
-        // Step 6: Build entities and persist in a single transaction
+        // Build entities and persist in a single transaction
         var entities = items
             .Select(item =>
             {
                 var productId = Guid.NewGuid();
-                var productDataIds = (item.ProductDataIds ?? []).Distinct().ToList();
-
                 return new ProductEntity
                 {
                     Id = productId,
@@ -70,7 +60,8 @@ public sealed class CreateProductsCommandHandler
                     Description = item.Description,
                     Price = item.Price,
                     CategoryId = item.CategoryId,
-                    ProductDataLinks = productDataIds
+                    ProductDataLinks = (item.ProductDataIds ?? [])
+                        .Distinct()
                         .Select(pdId => ProductDataLink.Create(productId, pdId))
                         .ToList(),
                 };

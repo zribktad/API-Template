@@ -1,54 +1,41 @@
-using APITemplate.Application.Common.Extensions;
-using APITemplate.Domain.Exceptions;
+using APITemplate.Application.Common.Batch;
 
 namespace APITemplate.Application.Features.Product;
 
 /// <summary>Shared validation methods for product commands.</summary>
 internal static class ProductValidationHelper
 {
-    internal static async Task ValidateCategoryExistsAsync(
+    /// <summary>
+    /// Checks all product references (category and product data) in a single call, merging
+    /// per-item failures from both checks. Items in <paramref name="failedIndices"/> are skipped.
+    /// </summary>
+    internal static async Task<List<BatchResultItem>> CheckProductReferencesAsync<T>(
+        IReadOnlyList<T> items,
         ICategoryRepository categoryRepository,
-        Guid? categoryId,
+        IProductDataRepository productDataRepository,
+        IReadOnlySet<int> failedIndices,
         CancellationToken ct
     )
+        where T : IProductRequest
     {
-        if (!categoryId.HasValue)
-            return;
-
-        await categoryRepository.GetByIdOrThrowAsync(
-            categoryId.Value,
-            ErrorCatalog.Categories.NotFound,
+        // Category (EF Core / PostgreSQL) and product-data (MongoDB) checks use independent
+        // connections, so they can safely run in parallel.
+        Task<List<BatchResultItem>> categoryTask = CheckCategoryReferencesAsync(
+            items,
+            item => item.CategoryId,
+            categoryRepository,
+            failedIndices,
             ct
         );
-    }
-
-    internal static async Task<IReadOnlyCollection<Guid>> ValidateAndNormalizeProductDataIdsAsync(
-        IProductDataRepository productDataRepository,
-        IReadOnlyCollection<Guid> productDataIds,
-        CancellationToken ct
-    )
-    {
-        var normalizedIds = productDataIds.Distinct().ToArray();
-
-        if (normalizedIds.Length == 0)
-            return normalizedIds;
-
-        var existingIds = (await productDataRepository.GetByIdsAsync(normalizedIds, ct))
-            .Select(productData => productData.Id)
-            .ToHashSet();
-
-        var missingIds = normalizedIds.Where(id => !existingIds.Contains(id)).ToArray();
-
-        if (missingIds.Length > 0)
-        {
-            throw new NotFoundException(
-                nameof(ProductData),
-                string.Join(", ", missingIds),
-                ErrorCatalog.Products.ProductDataNotFound
-            );
-        }
-
-        return normalizedIds;
+        Task<List<BatchResultItem>> productDataTask = CheckProductDataReferencesAsync(
+            items,
+            item => item.ProductDataIds,
+            productDataRepository,
+            failedIndices,
+            ct
+        );
+        await Task.WhenAll(categoryTask, productDataTask);
+        return BatchFailureMerge.MergeByIndex(categoryTask.Result, productDataTask.Result);
     }
 
     /// <summary>
@@ -153,7 +140,12 @@ internal static class ProductValidationHelper
                     new BatchResultItem(
                         i,
                         failureId,
-                        [$"Product data not found: {string.Join(", ", missing)}"]
+                        [
+                            string.Format(
+                                ErrorCatalog.ProductData.NotFoundMessage,
+                                string.Join(", ", missing)
+                            ),
+                        ]
                     )
                 );
             }
