@@ -15,11 +15,10 @@ public sealed record CreateUserCommand(CreateUserRequest Request);
 
 public sealed class CreateUserCommandHandler
 {
-    public static async Task<ErrorOr<UserResponse>> HandleAsync(
+    public static async Task<(ErrorOr<UserResponse>, OutgoingMessages)> HandleAsync(
         CreateUserCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         ILogger<CreateUserCommandHandler> logger,
         IKeycloakAdminService keycloakAdmin,
         CancellationToken ct
@@ -31,7 +30,7 @@ public sealed class CreateUserCommandHandler
             ct
         );
         if (emailResult.IsError)
-            return emailResult.Errors;
+            return (emailResult.Errors, []);
 
         var usernameResult = await UserValidationHelper.ValidateUsernameUniqueAsync(
             repository,
@@ -39,7 +38,7 @@ public sealed class CreateUserCommandHandler
             ct
         );
         if (usernameResult.IsError)
-            return usernameResult.Errors;
+            return (usernameResult.Errors, []);
 
         var keycloakUserId = await keycloakAdmin.CreateUserAsync(
             command.Request.Username,
@@ -60,13 +59,13 @@ public sealed class CreateUserCommandHandler
             await repository.AddAsync(user, ct);
             await unitOfWork.CommitAsync(ct);
 
-            await bus.PublishSafeAsync(
-                new UserRegisteredNotification(user.Id, user.Email, user.Username),
-                logger
+            return (
+                user.ToResponse(),
+                [
+                    new UserRegisteredNotification(user.Id, user.Email, user.Username),
+                    new CacheInvalidationNotification(CacheTags.Users),
+                ]
             );
-
-            await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
-            return user.ToResponse();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -10,7 +10,6 @@ using FluentValidation;
 using FluentValidation.Results;
 using Moq;
 using Shouldly;
-using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Unit.Handlers;
@@ -19,7 +18,6 @@ public class CategoryRequestHandlersTests
 {
     private readonly Mock<ICategoryRepository> _repositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<IMessageBus> _busMock;
     private readonly Mock<IValidator<CreateCategoryRequest>> _createValidatorMock;
     private readonly Mock<IValidator<UpdateCategoryItem>> _updateValidatorMock;
 
@@ -27,7 +25,6 @@ public class CategoryRequestHandlersTests
     {
         _repositoryMock = new Mock<ICategoryRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _busMock = new Mock<IMessageBus>();
         _createValidatorMock = new Mock<IValidator<CreateCategoryRequest>>();
         _updateValidatorMock = new Mock<IValidator<UpdateCategoryItem>>();
         _unitOfWorkMock.SetupImmediateTransactionExecution();
@@ -176,11 +173,10 @@ public class CategoryRequestHandlersTests
                 (IEnumerable<Category> entities, CancellationToken _) => entities.ToList()
             );
 
-        var result = await CreateCategoriesCommandHandler.HandleAsync(
+        var (result, messages) = await CreateCategoriesCommandHandler.HandleAsync(
             new CreateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -219,11 +215,10 @@ public class CategoryRequestHandlersTests
                 (IEnumerable<Category> entities, CancellationToken _) => entities.ToList()
             );
 
-        var result = await CreateCategoriesCommandHandler.HandleAsync(
+        var (result, messages) = await CreateCategoriesCommandHandler.HandleAsync(
             new CreateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -248,11 +243,10 @@ public class CategoryRequestHandlersTests
                 new ValidationResult([new ValidationFailure("Name", "Category name is required.")])
             );
 
-        var result = await CreateCategoriesCommandHandler.HandleAsync(
+        var (result, messages) = await CreateCategoriesCommandHandler.HandleAsync(
             new CreateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -288,11 +282,10 @@ public class CategoryRequestHandlersTests
                 (IEnumerable<Category> entities, CancellationToken _) => entities.ToList()
             );
 
-        var result = await CreateCategoriesCommandHandler.HandleAsync(
+        var (result, messages) = await CreateCategoriesCommandHandler.HandleAsync(
             new CreateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -325,11 +318,10 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync([category]);
 
-        var result = await UpdateCategoriesCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateCategoriesCommandHandler.HandleAsync(
             new UpdateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _updateValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -374,11 +366,10 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync(new List<Category>());
 
-        var result = await UpdateCategoriesCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateCategoriesCommandHandler.HandleAsync(
             new UpdateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _updateValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -418,11 +409,10 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync([]);
 
-        var result = await UpdateCategoriesCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateCategoriesCommandHandler.HandleAsync(
             new UpdateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _updateValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -456,11 +446,10 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync([category]);
 
-        var result = await DeleteCategoriesCommandHandler.HandleAsync(
+        var (result, messages) = await DeleteCategoriesCommandHandler.HandleAsync(
             new DeleteCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -500,11 +489,10 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync(new List<Category>());
 
-        var result = await DeleteCategoriesCommandHandler.HandleAsync(
+        var (result, messages) = await DeleteCategoriesCommandHandler.HandleAsync(
             new DeleteCategoriesCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 

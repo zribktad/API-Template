@@ -350,11 +350,10 @@ public sealed record CreateOrderCommand(CreateOrderRequest Request);
 
 public sealed class CreateOrderCommandHandler
 {
-    public static async Task<OrderResponse> HandleAsync(
+    public static async Task<(ErrorOr<OrderResponse>, OutgoingMessages)> HandleAsync(
         CreateOrderCommand command,
         IOrderRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         CancellationToken ct)
     {
         var order = await unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -370,8 +369,7 @@ public sealed class CreateOrderCommandHandler
             return entity;
         }, ct);
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Orders));
-        return order.ToResponse();
+        return (order.ToResponse(), [new CacheInvalidationNotification(CacheTags.Orders)]);
     }
 }
 ```

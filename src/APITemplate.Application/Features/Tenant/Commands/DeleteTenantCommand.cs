@@ -4,7 +4,6 @@ using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
-using Microsoft.Extensions.Logging;
 using Wolverine;
 
 namespace APITemplate.Application.Features.Tenant;
@@ -13,14 +12,12 @@ public sealed record DeleteTenantCommand(Guid Id) : IHasId;
 
 public sealed class DeleteTenantCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         DeleteTenantCommand command,
         ITenantRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         IActorProvider actorProvider,
         TimeProvider timeProvider,
-        ILogger<DeleteTenantCommandHandler> logger,
         CancellationToken ct
     )
     {
@@ -30,7 +27,7 @@ public sealed class DeleteTenantCommandHandler
             ct
         );
         if (tenantResult.IsError)
-            return tenantResult.Errors;
+            return (tenantResult.Errors, []);
 
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -40,16 +37,16 @@ public sealed class DeleteTenantCommandHandler
             ct
         );
 
-        await bus.PublishSafeAsync(
-            new TenantSoftDeletedNotification(
-                command.Id,
-                actorProvider.ActorId,
-                timeProvider.GetUtcNow().UtcDateTime
-            ),
-            logger
+        return (
+            Result.Success,
+            [
+                new TenantSoftDeletedNotification(
+                    command.Id,
+                    actorProvider.ActorId,
+                    timeProvider.GetUtcNow().UtcDateTime
+                ),
+                new CacheInvalidationNotification(CacheTags.Tenants),
+            ]
         );
-
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Tenants));
-        return Result.Success;
     }
 }

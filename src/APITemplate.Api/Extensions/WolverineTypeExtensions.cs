@@ -16,8 +16,20 @@ internal static class WolverineTypeExtensions
         if (genericTypeDefinition == typeof(Task<>) || genericTypeDefinition == typeof(ValueTask<>))
             return returnType.GetGenericArguments()[0].IsErrorOrReturnType();
 
-        return genericTypeDefinition == typeof(ErrorOr<>);
+        if (genericTypeDefinition == typeof(ErrorOr<>))
+            return true;
+
+        // Support cascading message tuples like (ErrorOr<T>, OutgoingMessages).
+        if (returnType.IsValueTupleType())
+            return returnType.GetGenericArguments().Any(arg => arg.IsErrorOrReturnType());
+
+        return false;
     }
+
+    private static bool IsValueTupleType(this Type type) =>
+        type.IsGenericType
+        && type.FullName is { } name
+        && name.StartsWith("System.ValueTuple`", StringComparison.Ordinal);
 
     internal static bool HasValidatorIn(this Type messageType, Assembly assembly)
     {

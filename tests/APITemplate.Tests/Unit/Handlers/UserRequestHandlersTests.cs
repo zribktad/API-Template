@@ -20,14 +20,12 @@ public class UserRequestHandlersTests
 {
     private readonly Mock<IUserRepository> _repositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<IMessageBus> _busMock;
     private readonly Mock<IKeycloakAdminService> _keycloakAdminMock;
 
     public UserRequestHandlersTests()
     {
         _repositoryMock = new Mock<IUserRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _busMock = new Mock<IMessageBus>();
         _keycloakAdminMock = new Mock<IKeycloakAdminService>();
     }
 
@@ -158,11 +156,10 @@ public class UserRequestHandlersTests
             .ReturnsAsync((AppUser u, CancellationToken _) => u);
 
         var loggerMock = new Mock<ILogger<CreateUserCommandHandler>>();
-        var result = await CreateUserCommandHandler.HandleAsync(
+        var (result, messages) = await CreateUserCommandHandler.HandleAsync(
             new CreateUserCommand(request),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             loggerMock.Object,
             _keycloakAdminMock.Object,
             ct
@@ -184,8 +181,6 @@ public class UserRequestHandlersTests
             Times.Once
         );
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<UserRegisteredNotification>()), Times.Once);
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -208,12 +203,11 @@ public class UserRequestHandlersTests
 
         var loggerMock = new Mock<ILogger<CreateUserCommandHandler>>();
 
-        await Should.ThrowAsync<HttpRequestException>(() =>
-            CreateUserCommandHandler.HandleAsync(
+        await Should.ThrowAsync<HttpRequestException>(async () =>
+            await CreateUserCommandHandler.HandleAsync(
                 new CreateUserCommand(request),
                 _repositoryMock.Object,
                 _unitOfWorkMock.Object,
-                _busMock.Object,
                 loggerMock.Object,
                 _keycloakAdminMock.Object,
                 ct
@@ -235,11 +229,10 @@ public class UserRequestHandlersTests
             .ReturnsAsync(true);
 
         var loggerMock = new Mock<ILogger<CreateUserCommandHandler>>();
-        var result = await CreateUserCommandHandler.HandleAsync(
+        var (result, _) = await CreateUserCommandHandler.HandleAsync(
             new CreateUserCommand(new CreateUserRequest("user", "existing@test.com")),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             loggerMock.Object,
             _keycloakAdminMock.Object,
             TestContext.Current.CancellationToken
@@ -261,11 +254,10 @@ public class UserRequestHandlersTests
             .ReturnsAsync(true);
 
         var loggerMock = new Mock<ILogger<CreateUserCommandHandler>>();
-        var result = await CreateUserCommandHandler.HandleAsync(
+        var (result, _) = await CreateUserCommandHandler.HandleAsync(
             new CreateUserCommand(new CreateUserRequest("existinguser", "new@test.com")),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             loggerMock.Object,
             _keycloakAdminMock.Object,
             TestContext.Current.CancellationToken
@@ -294,14 +286,13 @@ public class UserRequestHandlersTests
             .Setup(r => r.ExistsByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        var result = await UpdateUserCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateUserCommandHandler.HandleAsync(
             new UpdateUserCommand(
                 user.Id,
                 new UpdateUserRequest("updateduser", "updated@test.com")
             ),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             ct
         );
 
@@ -310,7 +301,6 @@ public class UserRequestHandlersTests
         user.Email.ShouldBe("updated@test.com");
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -322,11 +312,10 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var result = await UpdateUserCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateUserCommandHandler.HandleAsync(
             new UpdateUserCommand(user.Id, new UpdateUserRequest(user.Username, user.Email)),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -339,7 +328,6 @@ public class UserRequestHandlersTests
             r => r.ExistsByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -349,11 +337,10 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AppUser?)null);
 
-        var result = await UpdateUserCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateUserCommandHandler.HandleAsync(
             new UpdateUserCommand(Guid.NewGuid(), new UpdateUserRequest("name", "e@e.com")),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -372,11 +359,10 @@ public class UserRequestHandlersTests
             .Setup(r => r.ExistsByEmailAsync("taken@test.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var result = await UpdateUserCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateUserCommandHandler.HandleAsync(
             new UpdateUserCommand(user.Id, new UpdateUserRequest(user.Username, "taken@test.com")),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -395,11 +381,10 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var result = await SetUserActiveCommandHandler.HandleAsync(
+        var (result, messages) = await SetUserActiveCommandHandler.HandleAsync(
             new SetUserActiveCommand(user.Id, IsActive: true),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _keycloakAdminMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -408,7 +393,6 @@ public class UserRequestHandlersTests
         user.IsActive.ShouldBeTrue();
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -419,11 +403,10 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var result = await SetUserActiveCommandHandler.HandleAsync(
+        var (result, messages) = await SetUserActiveCommandHandler.HandleAsync(
             new SetUserActiveCommand(user.Id, IsActive: false),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _keycloakAdminMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -432,7 +415,6 @@ public class UserRequestHandlersTests
         user.IsActive.ShouldBeFalse();
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -442,11 +424,10 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AppUser?)null);
 
-        var result = await SetUserActiveCommandHandler.HandleAsync(
+        var (result, messages) = await SetUserActiveCommandHandler.HandleAsync(
             new SetUserActiveCommand(Guid.NewGuid(), IsActive: true),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _keycloakAdminMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -465,13 +446,10 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var loggerMock = new Mock<ILogger<ChangeUserRoleCommandHandler>>();
-        var result = await ChangeUserRoleCommandHandler.HandleAsync(
+        var (result, messages) = await ChangeUserRoleCommandHandler.HandleAsync(
             new ChangeUserRoleCommand(user.Id, new ChangeUserRoleRequest(UserRole.PlatformAdmin)),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
-            loggerMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -479,8 +457,6 @@ public class UserRequestHandlersTests
         user.Role.ShouldBe(UserRole.PlatformAdmin);
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<UserRoleChangedNotification>()), Times.Once);
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -490,16 +466,13 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AppUser?)null);
 
-        var loggerMock = new Mock<ILogger<ChangeUserRoleCommandHandler>>();
-        var result = await ChangeUserRoleCommandHandler.HandleAsync(
+        var (result, _) = await ChangeUserRoleCommandHandler.HandleAsync(
             new ChangeUserRoleCommand(
                 Guid.NewGuid(),
                 new ChangeUserRoleRequest(UserRole.PlatformAdmin)
             ),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
-            loggerMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -517,11 +490,10 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var result = await DeleteUserCommandHandler.HandleAsync(
+        var (result, messages) = await DeleteUserCommandHandler.HandleAsync(
             new DeleteUserCommand(user.Id),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _keycloakAdminMock.Object,
             new Mock<ILogger<DeleteUserCommandHandler>>().Object,
             TestContext.Current.CancellationToken
@@ -530,7 +502,6 @@ public class UserRequestHandlersTests
         result.IsError.ShouldBeFalse();
         _repositoryMock.Verify(r => r.DeleteAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -540,11 +511,10 @@ public class UserRequestHandlersTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AppUser?)null);
 
-        var result = await DeleteUserCommandHandler.HandleAsync(
+        var (result, messages) = await DeleteUserCommandHandler.HandleAsync(
             new DeleteUserCommand(Guid.NewGuid()),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _keycloakAdminMock.Object,
             new Mock<ILogger<DeleteUserCommandHandler>>().Object,
             TestContext.Current.CancellationToken

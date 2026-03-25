@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using APITemplate.Application.Common.DTOs;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.ProductReview;
@@ -15,7 +14,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
-using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Integration.Postgres;
@@ -301,11 +299,10 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
 
         await using (var deleteContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
         {
-            await DeleteProductsCommandHandler.HandleAsync(
+            var (_, messages) = await DeleteProductsCommandHandler.HandleAsync(
                 new DeleteProductsCommand(new BatchDeleteRequest([product.Id])),
                 new ProductRepository(deleteContext),
                 CreateUnitOfWork(deleteContext),
-                Mock.Of<IMessageBus>(),
                 ct
             );
         }

@@ -4,7 +4,6 @@ using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.User.DTOs;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
-using Microsoft.Extensions.Logging;
 using Wolverine;
 
 namespace APITemplate.Application.Features.User;
@@ -13,12 +12,10 @@ public sealed record ChangeUserRoleCommand(Guid Id, ChangeUserRoleRequest Reques
 
 public sealed class ChangeUserRoleCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         ChangeUserRoleCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
-        ILogger<ChangeUserRoleCommandHandler> logger,
         CancellationToken ct
     )
     {
@@ -28,7 +25,7 @@ public sealed class ChangeUserRoleCommandHandler
             ct
         );
         if (userResult.IsError)
-            return userResult.Errors;
+            return (userResult.Errors, []);
         var user = userResult.Value;
 
         var oldRole = user.Role.ToString();
@@ -37,18 +34,18 @@ public sealed class ChangeUserRoleCommandHandler
         await repository.UpdateAsync(user, ct);
         await unitOfWork.CommitAsync(ct);
 
-        await bus.PublishSafeAsync(
-            new UserRoleChangedNotification(
-                user.Id,
-                user.Email,
-                user.Username,
-                oldRole,
-                command.Request.Role.ToString()
-            ),
-            logger
+        return (
+            Result.Success,
+            [
+                new UserRoleChangedNotification(
+                    user.Id,
+                    user.Email,
+                    user.Username,
+                    oldRole,
+                    command.Request.Role.ToString()
+                ),
+                new CacheInvalidationNotification(CacheTags.Users),
+            ]
         );
-
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
-        return Result.Success;
     }
 }

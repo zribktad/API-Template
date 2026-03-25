@@ -6,7 +6,6 @@ using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Enums;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
-using Microsoft.Extensions.Logging;
 using Wolverine;
 
 namespace APITemplate.Application.Features.TenantInvitation;
@@ -15,16 +14,14 @@ public sealed record ResendTenantInvitationCommand(Guid InvitationId);
 
 public sealed class ResendTenantInvitationCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         ResendTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
         IUnitOfWork unitOfWork,
         ISecureTokenGenerator tokenGenerator,
-        IMessageBus bus,
         ITenantProvider tenantProvider,
         TimeProvider timeProvider,
-        ILogger<ResendTenantInvitationCommandHandler> logger,
         CancellationToken ct
     )
     {
@@ -34,15 +31,15 @@ public sealed class ResendTenantInvitationCommandHandler
             ct
         );
         if (invitationResult.IsError)
-            return invitationResult.Errors;
+            return (invitationResult.Errors, []);
         var invitation = invitationResult.Value;
 
         if (invitation.Status != InvitationStatus.Pending)
-            return DomainErrors.Invitations.NotPending();
+            return (DomainErrors.Invitations.NotPending(), []);
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
         if (invitation.ExpiresAtUtc < now)
-            return DomainErrors.Invitations.ExpiredCreateNew();
+            return (DomainErrors.Invitations.ExpiredCreateNew(), []);
 
         var tenantResult = await tenantRepository.GetByIdOrError(
             tenantProvider.TenantId,
@@ -50,7 +47,7 @@ public sealed class ResendTenantInvitationCommandHandler
             ct
         );
         if (tenantResult.IsError)
-            return tenantResult.Errors;
+            return (tenantResult.Errors, []);
         var tenant = tenantResult.Value;
 
         var rawToken = tokenGenerator.GenerateToken();
@@ -59,17 +56,17 @@ public sealed class ResendTenantInvitationCommandHandler
         await invitationRepository.UpdateAsync(invitation, ct);
         await unitOfWork.CommitAsync(ct);
 
-        await bus.PublishSafeAsync(
-            new TenantInvitationCreatedNotification(
-                invitation.Id,
-                invitation.Email,
-                tenant.Name,
-                rawToken
-            ),
-            logger
+        return (
+            Result.Success,
+            [
+                new TenantInvitationCreatedNotification(
+                    invitation.Id,
+                    invitation.Email,
+                    tenant.Name,
+                    rawToken
+                ),
+                new CacheInvalidationNotification(CacheTags.TenantInvitations),
+            ]
         );
-
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.TenantInvitations));
-        return Result.Success;
     }
 }

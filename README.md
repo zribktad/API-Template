@@ -937,14 +937,14 @@ GraphQL resolvers and DataLoaders follow the same pattern using `[Service] IMess
 
 #### Cache invalidation via IMessageBus
 
-Write handlers publish cache invalidation events after a successful mutation using `IMessageBus.PublishAsync`. A dedicated handler listens and evicts the affected output-cache tags — keeping the mutation handler decoupled from any caching concern:
+Write handlers return cache invalidation events as **cascading messages** after a successful mutation. Wolverine publishes them automatically after the handler succeeds. A dedicated handler listens and evicts the affected output-cache tags — keeping the mutation handler decoupled from any caching concern:
 
 ```csharp
 // Application/Common/Events/CacheInvalidationNotification.cs
 public sealed record CacheInvalidationNotification(string CacheTag);
 
-// Handler publishes after mutation:
-await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
+// Handler returns cache invalidation as a cascading message:
+return (result, [new CacheInvalidationNotification(CacheTags.Products)]);
 ```
 
 #### FluentValidation middleware

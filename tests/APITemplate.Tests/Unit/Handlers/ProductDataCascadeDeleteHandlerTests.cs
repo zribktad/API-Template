@@ -112,7 +112,7 @@ public sealed class ProductDataCascadeDeleteHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenRepositoryThrows_LogsErrorAndDoesNotRethrow()
+    public async Task Handle_WhenRepositoryThrows_PropagatesExceptionForWolverineRetry()
     {
         var ct = TestContext.Current.CancellationToken;
         var tenantId = Guid.NewGuid();
@@ -133,7 +133,7 @@ public sealed class ProductDataCascadeDeleteHandlerTests
             )
             .ThrowsAsync(new InvalidOperationException("MongoDB connection failed"));
 
-        await Should.NotThrowAsync(() =>
+        await Should.ThrowAsync<InvalidOperationException>(() =>
             ProductDataCascadeDeleteHandler.HandleAsync(
                 notification,
                 _productDataRepositoryMock.Object,
@@ -141,20 +141,6 @@ public sealed class ProductDataCascadeDeleteHandlerTests
                 _loggerMock.Object,
                 ct
             )
-        );
-
-        _loggerMock.Verify(
-            logger =>
-                logger.Log(
-                    LogLevel.Error,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>(
-                        (state, _) => state.ToString()!.Contains(tenantId.ToString())
-                    ),
-                    It.IsAny<InvalidOperationException>(),
-                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()
-                ),
-            Times.Once
         );
     }
 

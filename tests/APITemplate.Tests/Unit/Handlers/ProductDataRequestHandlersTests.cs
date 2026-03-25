@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.Context;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Features.ProductData;
 using APITemplate.Domain.Entities;
@@ -11,7 +10,6 @@ using Moq;
 using Polly;
 using Polly.Registry;
 using Shouldly;
-using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Unit.Handlers;
@@ -23,7 +21,6 @@ public class ProductDataRequestHandlersTests
     private readonly Mock<ITenantProvider> _tenantProviderMock;
     private readonly Mock<IActorProvider> _actorProviderMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<IMessageBus> _busMock;
     private readonly Mock<ILogger<DeleteProductDataCommandHandler>> _loggerMock;
     private readonly ResiliencePipelineRegistry<string> _registry;
     private readonly Guid _tenantId = Guid.NewGuid();
@@ -35,7 +32,6 @@ public class ProductDataRequestHandlersTests
         _tenantProviderMock = new Mock<ITenantProvider>();
         _actorProviderMock = new Mock<IActorProvider>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _busMock = new Mock<IMessageBus>();
         _loggerMock = new Mock<ILogger<DeleteProductDataCommandHandler>>();
         _tenantProviderMock.SetupGet(x => x.TenantId).Returns(_tenantId);
         _actorProviderMock.SetupGet(x => x.ActorId).Returns(Guid.NewGuid());
@@ -205,11 +201,10 @@ public class ProductDataRequestHandlersTests
             .Setup(r => r.CreateAsync(It.IsAny<ImageProductData>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductData d, CancellationToken _) => d);
 
-        var result = await CreateImageProductDataCommandHandler.HandleAsync(
+        var (result, messages) = await CreateImageProductDataCommandHandler.HandleAsync(
             new CreateImageProductDataCommand(request),
             _repositoryMock.Object,
             _tenantProviderMock.Object,
-            _busMock.Object,
             TimeProvider.System,
             ct
         );
@@ -232,7 +227,6 @@ public class ProductDataRequestHandlersTests
                 ),
             Times.Once
         );
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -252,11 +246,10 @@ public class ProductDataRequestHandlersTests
             .Setup(r => r.CreateAsync(It.IsAny<VideoProductData>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductData d, CancellationToken _) => d);
 
-        var result = await CreateVideoProductDataCommandHandler.HandleAsync(
+        var (result, messages) = await CreateVideoProductDataCommandHandler.HandleAsync(
             new CreateVideoProductDataCommand(request),
             _repositoryMock.Object,
             _tenantProviderMock.Object,
-            _busMock.Object,
             TimeProvider.System,
             ct
         );
@@ -279,7 +272,6 @@ public class ProductDataRequestHandlersTests
                 ),
             Times.Once
         );
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -289,14 +281,13 @@ public class ProductDataRequestHandlersTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductData?)null);
 
-        var result = await DeleteProductDataCommandHandler.HandleAsync(
+        var (result, messages) = await DeleteProductDataCommandHandler.HandleAsync(
             new DeleteProductDataCommand(Guid.NewGuid()),
             _repositoryMock.Object,
             _productDataLinkRepositoryMock.Object,
             _tenantProviderMock.Object,
             _actorProviderMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TimeProvider.System,
             _registry,
             _loggerMock.Object,
@@ -329,7 +320,6 @@ public class ProductDataRequestHandlersTests
             _tenantProviderMock.Object,
             _actorProviderMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TimeProvider.System,
             _registry,
             _loggerMock.Object,
@@ -359,7 +349,6 @@ public class ProductDataRequestHandlersTests
                 ),
             Times.Once
         );
-        _busMock.Verify(p => p.PublishAsync(It.IsAny<CacheInvalidationNotification>()), Times.Once);
     }
 
     [Fact]
@@ -395,7 +384,6 @@ public class ProductDataRequestHandlersTests
                 _tenantProviderMock.Object,
                 _actorProviderMock.Object,
                 _unitOfWorkMock.Object,
-                _busMock.Object,
                 TimeProvider.System,
                 _registry,
                 _loggerMock.Object,

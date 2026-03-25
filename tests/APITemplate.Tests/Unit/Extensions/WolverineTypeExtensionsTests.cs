@@ -2,6 +2,7 @@ using APITemplate.Api.Extensions;
 using ErrorOr;
 using FluentValidation;
 using Shouldly;
+using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Unit.Extensions;
@@ -42,5 +43,29 @@ public class WolverineTypeExtensionsTests
     public void IsErrorOrReturnType_WhenTaskWrapsErrorOr_ReturnsTrue()
     {
         typeof(Task<ErrorOr<string>>).IsErrorOrReturnType().ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsErrorOrReturnType_WhenTaskWrapsTupleWithErrorOr_ReturnsTrue()
+    {
+        typeof(Task<(ErrorOr<string>, OutgoingMessages)>).IsErrorOrReturnType().ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsErrorOrReturnType_WhenTaskWrapsTupleWithoutErrorOr_ReturnsFalse()
+    {
+        typeof(Task<(string, OutgoingMessages)>).IsErrorOrReturnType().ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IsErrorOrReturnType_WhenBareErrorOr_ReturnsTrue()
+    {
+        typeof(ErrorOr<int>).IsErrorOrReturnType().ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsErrorOrReturnType_WhenPlainTask_ReturnsFalse()
+    {
+        typeof(Task<string>).IsErrorOrReturnType().ShouldBeFalse();
     }
 }

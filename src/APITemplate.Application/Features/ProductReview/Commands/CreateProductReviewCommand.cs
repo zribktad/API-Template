@@ -17,13 +17,12 @@ public sealed record CreateProductReviewCommand(CreateProductReviewRequest Reque
 /// <summary>Handles <see cref="CreateProductReviewCommand"/>.</summary>
 public sealed class CreateProductReviewCommandHandler
 {
-    public static async Task<ErrorOr<ProductReviewResponse>> HandleAsync(
+    public static async Task<(ErrorOr<ProductReviewResponse>, OutgoingMessages)> HandleAsync(
         CreateProductReviewCommand command,
         IProductReviewRepository reviewRepository,
         IProductRepository productRepository,
         IUnitOfWork unitOfWork,
         IActorProvider actorProvider,
-        IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -34,7 +33,7 @@ public sealed class CreateProductReviewCommandHandler
             ct
         );
         if (productResult.IsError)
-            return productResult.Errors;
+            return (productResult.Errors, []);
 
         var review = await unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -54,7 +53,6 @@ public sealed class CreateProductReviewCommandHandler
             ct
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews));
-        return review.ToResponse();
+        return (review.ToResponse(), [new CacheInvalidationNotification(CacheTags.Reviews)]);
     }
 }

@@ -9,7 +9,6 @@ using APITemplate.Application.Features.TenantInvitation.Mappings;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Wolverine;
 using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
@@ -20,17 +19,15 @@ public sealed record CreateTenantInvitationCommand(CreateTenantInvitationRequest
 
 public sealed class CreateTenantInvitationCommandHandler
 {
-    public static async Task<ErrorOr<TenantInvitationResponse>> HandleAsync(
+    public static async Task<(ErrorOr<TenantInvitationResponse>, OutgoingMessages)> HandleAsync(
         CreateTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
         IUnitOfWork unitOfWork,
         ISecureTokenGenerator tokenGenerator,
-        IMessageBus bus,
         ITenantProvider tenantProvider,
         TimeProvider timeProvider,
         IOptions<EmailOptions> emailOptions,
-        ILogger<CreateTenantInvitationCommandHandler> logger,
         CancellationToken ct
     )
     {
@@ -38,7 +35,7 @@ public sealed class CreateTenantInvitationCommandHandler
         var normalizedEmail = AppUser.NormalizeEmail(command.Request.Email);
 
         if (await invitationRepository.HasPendingInvitationAsync(normalizedEmail, ct))
-            return DomainErrors.Invitations.AlreadyPending(command.Request.Email);
+            return (DomainErrors.Invitations.AlreadyPending(command.Request.Email), []);
 
         var tenantResult = await tenantRepository.GetByIdOrError(
             tenantProvider.TenantId,
@@ -46,7 +43,7 @@ public sealed class CreateTenantInvitationCommandHandler
             ct
         );
         if (tenantResult.IsError)
-            return tenantResult.Errors;
+            return (tenantResult.Errors, []);
         var tenant = tenantResult.Value;
 
         var rawToken = tokenGenerator.GenerateToken();
@@ -66,17 +63,17 @@ public sealed class CreateTenantInvitationCommandHandler
         await invitationRepository.AddAsync(invitation, ct);
         await unitOfWork.CommitAsync(ct);
 
-        await bus.PublishSafeAsync(
-            new TenantInvitationCreatedNotification(
-                invitation.Id,
-                invitation.Email,
-                tenant.Name,
-                rawToken
-            ),
-            logger
+        return (
+            invitation.ToResponse(),
+            [
+                new TenantInvitationCreatedNotification(
+                    invitation.Id,
+                    invitation.Email,
+                    tenant.Name,
+                    rawToken
+                ),
+                new CacheInvalidationNotification(CacheTags.TenantInvitations),
+            ]
         );
-
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.TenantInvitations));
-        return invitation.ToResponse();
     }
 }

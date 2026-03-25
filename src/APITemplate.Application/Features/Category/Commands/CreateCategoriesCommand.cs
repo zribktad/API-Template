@@ -14,11 +14,10 @@ public sealed record CreateCategoriesCommand(CreateCategoriesRequest Request);
 /// <summary>Handles <see cref="CreateCategoriesCommand"/> by validating all items and persisting in a single transaction.</summary>
 public sealed class CreateCategoriesCommandHandler
 {
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         CreateCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         IValidator<CreateCategoryRequest> itemValidator,
         CancellationToken ct
     )
@@ -32,7 +31,7 @@ public sealed class CreateCategoriesCommandHandler
         );
 
         if (context.HasFailures)
-            return context.ToFailureResponse();
+            return (context.ToFailureResponse(), []);
 
         var entities = items
             .Select(item => new CategoryEntity
@@ -51,7 +50,9 @@ public sealed class CreateCategoriesCommandHandler
             ct
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories));
-        return new BatchResponse([], items.Count, 0);
+        return (
+            new BatchResponse([], items.Count, 0),
+            [new CacheInvalidationNotification(CacheTags.Categories)]
+        );
     }
 }

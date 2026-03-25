@@ -1,8 +1,10 @@
 using APITemplate.Application.Common.Middleware;
 using JasperFx;
 using JasperFx.CodeGeneration;
+using JasperFx.Core;
 using Serilog;
 using Wolverine;
+using Wolverine.ErrorHandling;
 
 try
 {
@@ -55,6 +57,21 @@ try
             typeof(ErrorOrValidationMiddleware),
             chain => chain.ShouldApplyErrorOrValidation(typeof(CreateProductsCommand).Assembly)
         );
+
+        // Global error policies for transient infrastructure failures.
+        // Handlers that throw these exceptions are retried with exponential backoff
+        // before being moved to the error queue for manual inspection.
+        opts.Policies.OnException<TimeoutException>()
+            .RetryWithCooldown(100.Milliseconds(), 250.Milliseconds(), 500.Milliseconds())
+            .Then.MoveToErrorQueue();
+
+        opts.Policies.OnException<IOException>()
+            .RetryWithCooldown(100.Milliseconds(), 250.Milliseconds(), 500.Milliseconds())
+            .Then.MoveToErrorQueue();
+
+        opts.Policies.OnException<HttpRequestException>()
+            .RetryWithCooldown(200.Milliseconds(), 500.Milliseconds(), 1.Seconds())
+            .Then.MoveToErrorQueue();
     });
 
     var app = builder.Build(); // Materialize the web app from configured services.

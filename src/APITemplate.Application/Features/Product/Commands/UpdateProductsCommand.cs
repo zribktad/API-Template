@@ -57,12 +57,11 @@ public sealed class UpdateProductsCommandHandler
     }
 
     /// <summary>Applies changes and syncs product-data links in a single transaction.</summary>
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         UpdateProductsCommand command,
         EntityLookup<ProductEntity> lookup,
         IProductRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -93,7 +92,9 @@ public sealed class UpdateProductsCommandHandler
             ct
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
-        return new BatchResponse([], items.Count, 0);
+        return (
+            new BatchResponse([], items.Count, 0),
+            [new CacheInvalidationNotification(CacheTags.Products)]
+        );
     }
 }

@@ -25,7 +25,6 @@ public class ProductRequestHandlersTests
     private readonly Mock<ICategoryRepository> _categoryRepositoryMock;
     private readonly Mock<IProductDataRepository> _productDataRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<IMessageBus> _busMock;
     private readonly Mock<IValidator<CreateProductRequest>> _createValidatorMock;
     private readonly Mock<IValidator<UpdateProductItem>> _updateValidatorMock;
 
@@ -35,7 +34,6 @@ public class ProductRequestHandlersTests
         _categoryRepositoryMock = new Mock<ICategoryRepository>();
         _productDataRepositoryMock = new Mock<IProductDataRepository>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _busMock = new Mock<IMessageBus>();
         _createValidatorMock = new Mock<IValidator<CreateProductRequest>>();
         _updateValidatorMock = new Mock<IValidator<UpdateProductItem>>();
         _unitOfWorkMock.SetupImmediateTransactionExecution();
@@ -107,13 +105,12 @@ public class ProductRequestHandlersTests
         var request = new CreateProductRequest("New Product", "Description", 19.99m);
         var batchRequest = new CreateProductsRequest([request]);
 
-        var result = await CreateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await CreateProductsCommandHandler.HandleAsync(
             new CreateProductsCommand(batchRequest),
             _repositoryMock.Object,
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -161,13 +158,12 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([new ImageProductData { Id = productDataId, Title = "Image" }]);
 
-        var result = await CreateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await CreateProductsCommandHandler.HandleAsync(
             new CreateProductsCommand(batchRequest),
             _repositoryMock.Object,
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -206,13 +202,12 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([category]);
 
-        var result = await CreateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await CreateProductsCommandHandler.HandleAsync(
             new CreateProductsCommand(batchRequest),
             _repositoryMock.Object,
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -238,13 +233,12 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([]);
 
-        var result = await CreateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await CreateProductsCommandHandler.HandleAsync(
             new CreateProductsCommand(batchRequest),
             _repositoryMock.Object,
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -273,13 +267,12 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([]);
 
-        var result = await CreateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await CreateProductsCommandHandler.HandleAsync(
             new CreateProductsCommand(batchRequest),
             _repositoryMock.Object,
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -309,13 +302,12 @@ public class ProductRequestHandlersTests
                 (IEnumerable<Product> entities, CancellationToken _) => entities.ToList()
             );
 
-        var result = await CreateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await CreateProductsCommandHandler.HandleAsync(
             new CreateProductsCommand(request),
             _repositoryMock.Object,
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -459,11 +451,10 @@ public class ProductRequestHandlersTests
 
         var batchRequest = new BatchDeleteRequest([product.Id]);
 
-        var result = await DeleteProductsCommandHandler.HandleAsync(
+        var (result, messages) = await DeleteProductsCommandHandler.HandleAsync(
             new DeleteProductsCommand(batchRequest),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -511,12 +502,11 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        var result = await UpdateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -564,12 +554,11 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        var result = await UpdateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -597,12 +586,11 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        var result = await UpdateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -631,12 +619,11 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        var result = await UpdateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -668,12 +655,11 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        var result = await UpdateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 
@@ -716,13 +702,12 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([]);
 
-        var result = await CreateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await CreateProductsCommandHandler.HandleAsync(
             new CreateProductsCommand(request),
             _repositoryMock.Object,
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -764,13 +749,12 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([]);
 
-        var result = await CreateProductsCommandHandler.HandleAsync(
+        var (result, messages) = await CreateProductsCommandHandler.HandleAsync(
             new CreateProductsCommand(request),
             _repositoryMock.Object,
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             _createValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
@@ -943,11 +927,10 @@ public class ProductRequestHandlersTests
             )
             .ReturnsAsync([existingProduct]);
 
-        var result = await DeleteProductsCommandHandler.HandleAsync(
+        var (result, messages) = await DeleteProductsCommandHandler.HandleAsync(
             new DeleteProductsCommand(new BatchDeleteRequest([existingProduct.Id, missingId])),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _busMock.Object,
             TestContext.Current.CancellationToken
         );
 

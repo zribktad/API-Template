@@ -14,14 +14,13 @@ public sealed record DeleteProductDataCommand(Guid Id) : IHasId;
 
 public sealed class DeleteProductDataCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         DeleteProductDataCommand command,
         IProductDataRepository repository,
         IProductDataLinkRepository productDataLinkRepository,
         ITenantProvider tenantProvider,
         IActorProvider actorProvider,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         TimeProvider timeProvider,
         ResiliencePipelineProvider<string> resiliencePipelineProvider,
         ILogger<DeleteProductDataCommandHandler> logger,
@@ -33,7 +32,7 @@ public sealed class DeleteProductDataCommandHandler
         var data = await repository.GetByIdAsync(command.Id, ct);
 
         if (data is null || data.TenantId != tenantId)
-            return DomainErrors.ProductData.NotFound(command.Id);
+            return (DomainErrors.ProductData.NotFound(command.Id), []);
 
         var deletedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
         var actorId = actorProvider.ActorId;
@@ -72,7 +71,6 @@ public sealed class DeleteProductDataCommandHandler
             throw;
         }
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.ProductData));
-        return Result.Success;
+        return (Result.Success, [new CacheInvalidationNotification(CacheTags.ProductData)]);
     }
 }

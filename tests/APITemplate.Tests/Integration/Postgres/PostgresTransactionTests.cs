@@ -1,4 +1,3 @@
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Features.ProductReview;
 using APITemplate.Domain.Entities;
@@ -11,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
-using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Integration.Postgres;
@@ -125,7 +123,6 @@ public sealed class PostgresTransactionTests(SharedPostgresContainer postgres)
                     productRepository,
                     unitOfWork,
                     new TestActorProvider(actorId),
-                    Mock.Of<IMessageBus>(),
                     ct
                 )
             );

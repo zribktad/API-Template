@@ -55,7 +55,7 @@ public sealed class GetProductsQueryHandler
 |---|---|
 | `bus.InvokeAsync<T>(message, ct)` | Send a message and await its `T` result |
 | `bus.InvokeAsync(message, ct)` | Send a message with no return value |
-| `bus.PublishAsync(message)` | Publish a notification to all registered handlers |
+| `bus.PublishAsync(message)` | Publish a notification to all registered handlers (prefer cascading messages from handlers) |
 
 ---
 
@@ -115,11 +115,10 @@ public sealed record DoSomethingCommand(DoSomethingRequest Request);
 
 public sealed class DoSomethingCommandHandler
 {
-    public static async Task<SomethingResponse> HandleAsync(
+    public static async Task<(ErrorOr<SomethingResponse>, OutgoingMessages)> HandleAsync(
         DoSomethingCommand command,
         ISomethingRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         CancellationToken ct)
     {
         // business logic
@@ -127,8 +126,10 @@ public sealed class DoSomethingCommandHandler
         await repository.AddAsync(entity, ct);
         await unitOfWork.CommitAsync(ct);
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Something));
-        return new SomethingResponse(/* ... */);
+        return (
+            new SomethingResponse(/* ... */),
+            [new CacheInvalidationNotification(CacheTags.Something)]
+        );
     }
 }
 ```
@@ -206,10 +207,17 @@ public sealed class UserRegisteredEmailHandler
 }
 ```
 
-### 3. Publish from a command handler
+### 3. Cascading messages from a command handler
 
 ```csharp
-await bus.PublishAsync(new UserRegisteredNotification(user.Id, user.Email, user.Username));
+// Return notifications as cascading messages -- Wolverine publishes them after handler success.
+return (
+    user.ToResponse(),
+    [
+        new UserRegisteredNotification(user.Id, user.Email, user.Username),
+        new CacheInvalidationNotification(CacheTags.Users),
+    ]
+);
 ```
 
 Multiple handlers can subscribe to the same event -- Wolverine invokes all of them.
@@ -345,41 +353,31 @@ public sealed class CacheInvalidationHandler
 }
 ```
 
-Command handlers publish after successful writes using `CacheTags` constants:
+Command handlers return cache invalidation as cascading messages using `CacheTags` constants:
 
 ```csharp
-await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
+return (result, [new CacheInvalidationNotification(CacheTags.Products)]);
 ```
 
 `CacheTags` (`Application/Common/Events/CacheTags.cs`) centralizes all tag constants: `Products`, `Categories`, `Reviews`, `Users`, etc.
 
 ---
 
-## Fire-and-Forget Events
+## Cascading Messages for Notifications
 
-`PublishSafeAsync` is an extension method on `IMessageBus` that swallows non-cancellation exceptions and logs them as warnings. Use it for notification events whose failure must not break the main command flow:
-
-```csharp
-public static async Task PublishSafeAsync<TEvent>(
-    this IMessageBus bus, TEvent @event, ILogger logger)
-{
-    try
-    {
-        await bus.PublishAsync(@event);
-    }
-    catch (Exception ex) when (ex is not OperationCanceledException)
-    {
-        logger.LogWarning(ex, "Failed to publish {EventType}.", typeof(TEvent).Name);
-    }
-}
-```
-
-Usage in a handler:
+Notification events (email triggers, cascade deletes) are returned as **cascading messages** from command handlers via `OutgoingMessages`. Wolverine publishes them only after the handler completes successfully. If a downstream notification handler fails, Wolverine's error policies handle retry and dead-letter -- the command handler is never affected.
 
 ```csharp
-await bus.PublishSafeAsync(
-    new UserRegisteredNotification(user.Id, user.Email, user.Username), logger);
+return (
+    user.ToResponse(),
+    [
+        new UserRegisteredNotification(user.Id, user.Email, user.Username),
+        new CacheInvalidationNotification(CacheTags.Users),
+    ]
+);
 ```
+
+This replaces the previous `PublishSafeAsync` pattern which swallowed exceptions silently.
 
 ---
 
@@ -423,5 +421,5 @@ All batch infrastructure lives in `Application/Common/Batch/`.
 - **Static `HandleAsync` with method injection** -- dependencies are parameters, not fields. Handlers have no mutable state and no constructor.
 - **One handler per file** -- message record + handler class co-located in the same file, following SRP.
 - **`IMessageBus` as the single dispatch surface** -- both REST controllers and GraphQL resolvers use the same dispatch mechanism, keeping handlers agnostic of the presentation layer.
-- **`PublishSafeAsync` for non-critical events** -- prevents notification failures (e.g., email) from breaking the main command flow.
+- **Cascading messages for notifications** -- follow-up events (email, cache invalidation) are returned as `OutgoingMessages` from handlers, keeping side effects declarative and transparent. Wolverine error policies handle downstream failures.
 - **Batch validation in handlers, not middleware** -- each batch operation has unique reference-check logic that cannot be generalized into middleware.
