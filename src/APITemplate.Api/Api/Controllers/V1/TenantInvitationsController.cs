@@ -73,9 +73,7 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
             new AcceptTenantInvitationCommand(request.Token),
             ct
         );
-        if (result.IsError)
-            return result.ToErrorResult(this);
-        return Ok();
+        return result.ToOkResult(this);
     }
 
     /// <summary>Marks an outstanding invitation as revoked so the token can no longer be accepted.</summary>
@@ -99,8 +97,6 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
             new ResendTenantInvitationCommand(id),
             ct
         );
-        if (result.IsError)
-            return result.ToErrorResult(this);
-        return Ok();
+        return result.ToOkResult(this);
     }
 }

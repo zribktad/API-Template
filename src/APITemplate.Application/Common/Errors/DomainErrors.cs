@@ -11,15 +11,6 @@ public static class DomainErrors
 {
     public static class General
     {
-        public static Error Validation(string message) =>
-            Error.Validation(code: ErrorCatalog.General.ValidationFailed, description: message);
-
-        public static Error PageOutOfRange(int pageNumber, int totalPages) =>
-            Error.Validation(
-                code: ErrorCatalog.General.PageOutOfRange,
-                description: $"PageNumber {pageNumber} exceeds total pages ({totalPages})."
-            );
-
         public static Error NotFound(string entityName, Guid id) =>
             Error.NotFound(
                 code: ErrorCatalog.General.NotFound,
@@ -29,9 +20,6 @@ public static class DomainErrors
 
     public static class Auth
     {
-        public static Error Forbidden(string message) =>
-            Error.Forbidden(code: ErrorCatalog.Auth.Forbidden, description: message);
-
         public static Error ForbiddenOwnReviewsOnly() =>
             Error.Forbidden(
                 code: ErrorCatalog.Auth.Forbidden,
@@ -46,24 +34,6 @@ public static class DomainErrors
                 code: ErrorCatalog.Products.NotFound,
                 description: string.Format(ErrorCatalog.Products.NotFoundMessage, id)
             );
-
-        public static Error ProductDataNotFound(Guid id) =>
-            Error.NotFound(
-                code: ErrorCatalog.Products.ProductDataNotFound,
-                description: string.Format(ErrorCatalog.Products.NotFoundMessage, id)
-            );
-
-        public static Error AlreadyExists(string name) =>
-            Error.Conflict(
-                code: ErrorCatalog.General.Conflict,
-                description: string.Format(ErrorCatalog.Products.AlreadyExistsMessage, name)
-            );
-
-        public static Error DuplicateId(Guid id) =>
-            Error.Validation(
-                code: ErrorCatalog.General.ValidationFailed,
-                description: string.Format(ErrorCatalog.Products.DuplicateIdMessage, id)
-            );
     }
 
     public static class ProductData
@@ -73,12 +43,6 @@ public static class DomainErrors
                 code: ErrorCatalog.ProductData.NotFound,
                 description: string.Format(ErrorCatalog.ProductData.NotFoundMessage, id)
             );
-
-        public static Error InUse(Guid id) =>
-            Error.Conflict(
-                code: ErrorCatalog.ProductData.InUse,
-                description: $"Product data '{id}' is still in use."
-            );
     }
 
     public static class Categories
@@ -87,18 +51,6 @@ public static class DomainErrors
             Error.NotFound(
                 code: ErrorCatalog.Categories.NotFound,
                 description: string.Format(ErrorCatalog.Categories.NotFoundMessage, id)
-            );
-
-        public static Error AlreadyExists(string name) =>
-            Error.Conflict(
-                code: ErrorCatalog.General.Conflict,
-                description: string.Format(ErrorCatalog.Categories.AlreadyExistsMessage, name)
-            );
-
-        public static Error DuplicateId(Guid id) =>
-            Error.Validation(
-                code: ErrorCatalog.General.ValidationFailed,
-                description: string.Format(ErrorCatalog.Categories.DuplicateIdMessage, id)
             );
     }
 

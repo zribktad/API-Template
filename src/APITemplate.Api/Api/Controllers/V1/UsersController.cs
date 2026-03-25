@@ -163,8 +163,6 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
             new KeycloakPasswordResetCommand(request),
             ct
         );
-        if (result.IsError)
-            return result.ToErrorResult(this);
-        return Ok();
+        return result.ToOkResult(this);
     }
 }

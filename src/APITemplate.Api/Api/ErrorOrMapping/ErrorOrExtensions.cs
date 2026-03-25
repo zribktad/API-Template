@@ -48,7 +48,7 @@ public static class ErrorOrExtensions
         if (!result.IsError)
             return controller.NoContent();
 
-        return ToProblemResult(result.Errors, controller);
+        return ToProblemDetails(result.Errors, controller);
     }
 
     /// <summary>
@@ -66,25 +66,30 @@ public static class ErrorOrExtensions
         return ToProblemResult<BatchResponse>(result.Errors, controller);
     }
 
+    /// <summary>Maps a successful void result to 200 OK, or errors to ProblemDetails.</summary>
+    public static IActionResult ToOkResult(this ErrorOr<Success> result, ControllerBase controller)
+    {
+        if (!result.IsError)
+            return controller.Ok();
+
+        return ToProblemDetails(result.Errors, controller);
+    }
+
     /// <summary>
     /// Returns ProblemDetails for the error case of any <see cref="ErrorOr{T}"/> result.
     /// Use when the success case is handled separately by the caller.
     /// </summary>
     public static IActionResult ToErrorResult<T>(this ErrorOr<T> result, ControllerBase controller)
     {
-        return ToProblemResult(result.Errors, controller);
+        return ToProblemDetails(result.Errors, controller);
     }
 
     private static ActionResult<T> ToProblemResult<T>(
         List<ErrorOr.Error> errors,
         ControllerBase controller
-    )
-    {
-        var problemDetails = BuildProblemDetails(errors, controller);
-        return new ObjectResult(problemDetails) { StatusCode = problemDetails.Status };
-    }
+    ) => ToProblemDetails(errors, controller);
 
-    private static ObjectResult ToProblemResult(
+    private static ObjectResult ToProblemDetails(
         List<ErrorOr.Error> errors,
         ControllerBase controller
     )
@@ -104,7 +109,6 @@ public static class ErrorOrExtensions
         var errorCode = firstError.Code;
         var detail = firstError.Description;
 
-        // Aggregate multiple validation errors into a single detail string.
         if (errors.Count > 1 && firstError.Type == ErrorType.Validation)
             detail = string.Join(" ", errors.Select(e => e.Description));
 
@@ -120,7 +124,6 @@ public static class ErrorOrExtensions
         problemDetails.Extensions["errorCode"] = errorCode;
         problemDetails.Extensions["traceId"] = controller.HttpContext.TraceIdentifier;
 
-        // Include metadata from error if present.
         if (firstError.Metadata is { Count: > 0 })
             problemDetails.Extensions["metadata"] = firstError.Metadata;
 
