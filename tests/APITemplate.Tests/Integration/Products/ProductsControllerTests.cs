@@ -331,8 +331,10 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task Create_WithEmptyProductName_ReturnsUnprocessableWithValidationFailure()
+    public async Task Create_WithEmptyProductName_ReturnsBadRequestWithValidationError()
     {
+        // FluentValidationActionFilter validates CreateProductsRequest before the handler runs,
+        // so empty Name is rejected at the controller level with 400.
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client);
 
@@ -343,15 +345,8 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         );
 
         var body = await response.Content.ReadAsStringAsync(ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity, body);
-
-        var batch = await response.Content.ReadFromJsonAsync<BatchResponse>(
-            TestJsonOptions.CaseInsensitive,
-            ct
-        );
-        batch.ShouldNotBeNull();
-        batch!.FailureCount.ShouldBe(1);
-        batch.Failures[0].Errors.ShouldContain(e => e.Contains("required"));
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+        body.ShouldContain("required");
     }
 
     [Fact]

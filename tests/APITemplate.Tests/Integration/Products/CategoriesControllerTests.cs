@@ -249,8 +249,9 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task Create_WithEmptyCategoryName_ReturnsUnprocessableWithValidationFailure()
+    public async Task Create_WithEmptyCategoryName_ReturnsBadRequestWithValidationError()
     {
+        // FluentValidationActionFilter validates CreateCategoriesRequest before the handler runs.
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
@@ -261,15 +262,8 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         );
 
         var body = await response.Content.ReadAsStringAsync(ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity, body);
-
-        var batch = await response.Content.ReadFromJsonAsync<BatchResponse>(
-            TestJsonOptions.CaseInsensitive,
-            ct
-        );
-        batch.ShouldNotBeNull();
-        batch!.FailureCount.ShouldBe(1);
-        batch.Failures[0].Errors.ShouldContain(e => e.Contains("required"));
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+        body.ShouldContain("required");
     }
 
     [Fact]

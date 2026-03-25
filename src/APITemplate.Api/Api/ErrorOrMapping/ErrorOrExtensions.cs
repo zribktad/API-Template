@@ -118,6 +118,7 @@ public static class ErrorOrExtensions
         };
 
         problemDetails.Extensions["errorCode"] = errorCode;
+        problemDetails.Extensions["traceId"] = controller.HttpContext.TraceIdentifier;
 
         // Include metadata from error if present.
         if (firstError.Metadata is { Count: > 0 })

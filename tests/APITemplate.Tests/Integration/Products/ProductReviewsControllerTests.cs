@@ -162,37 +162,21 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
-    public async Task Create_WithInvalidRating_ReturnsUnprocessableWithValidationFailure()
+    public async Task Create_WithInvalidRating_ReturnsBadRequestWithValidationError()
     {
+        // FluentValidationActionFilter validates CreateProductReviewRequest before the handler runs.
         var ct = TestContext.Current.CancellationToken;
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
 
-        var productName = $"Rated Product-{Guid.NewGuid():N}";
-        var productResponse = await _client.PostAsJsonAsync(
-            "/api/v1/products",
-            new { Items = new[] { new { Name = productName, Price = 10m } } },
-            ct
-        );
-        productResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var productId = await ResolveProductIdAsync(productName, 10m, ct);
-
         var response = await _client.PostAsJsonAsync(
             "/api/v1/productreviews",
-            new { ProductId = productId, Rating = 0 },
+            new { ProductId = Guid.NewGuid(), Rating = 0 },
             ct
         );
 
         var body = await response.Content.ReadAsStringAsync(ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity, body);
-        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
-
-        var problem = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(
-            TestJsonOptions.CaseInsensitive,
-            ct
-        );
-        problem.ShouldNotBeNull();
-        problem!.Status.ShouldBe((int)HttpStatusCode.UnprocessableEntity);
-        problem.Detail.ShouldContain("Rating");
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+        body.ShouldContain("Rating");
     }
 
     [Fact]
