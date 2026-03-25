@@ -299,9 +299,19 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
 
         await using (var deleteContext = await CreateDbContextAsync(true, tenantId, actorId, ct))
         {
+            var repository = new ProductRepository(deleteContext);
+            var command = new DeleteProductsCommand(new BatchDeleteRequest([product.Id]));
+
+            var (continuation, products, _) = await DeleteProductsCommandHandler.LoadAsync(
+                command,
+                repository,
+                ct
+            );
+
             var (_, messages) = await DeleteProductsCommandHandler.HandleAsync(
-                new DeleteProductsCommand(new BatchDeleteRequest([product.Id])),
-                new ProductRepository(deleteContext),
+                command,
+                products!,
+                repository,
                 CreateUnitOfWork(deleteContext),
                 ct
             );

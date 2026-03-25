@@ -5,6 +5,7 @@ using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using Wolverine;
+using TenantEntity = APITemplate.Domain.Entities.Tenant;
 
 namespace APITemplate.Application.Features.Tenant;
 
@@ -12,12 +13,9 @@ public sealed record DeleteTenantCommand(Guid Id) : IHasId;
 
 public sealed class DeleteTenantCommandHandler
 {
-    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+    public static async Task<(HandlerContinuation, TenantEntity?, OutgoingMessages)> LoadAsync(
         DeleteTenantCommand command,
         ITenantRepository repository,
-        IUnitOfWork unitOfWork,
-        IActorProvider actorProvider,
-        TimeProvider timeProvider,
         CancellationToken ct
     )
     {
@@ -26,13 +24,32 @@ public sealed class DeleteTenantCommandHandler
             DomainErrors.Tenants.NotFound(command.Id),
             ct
         );
-        if (tenantResult.IsError)
-            return (tenantResult.Errors, []);
 
+        OutgoingMessages messages = new();
+
+        if (tenantResult.IsError)
+        {
+            messages.RespondToSender((ErrorOr<Success>)tenantResult.Errors);
+            return (HandlerContinuation.Stop, null, messages);
+        }
+
+        return (HandlerContinuation.Continue, tenantResult.Value, messages);
+    }
+
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+        DeleteTenantCommand command,
+        TenantEntity tenant,
+        ITenantRepository repository,
+        IUnitOfWork unitOfWork,
+        IActorProvider actorProvider,
+        TimeProvider timeProvider,
+        CancellationToken ct
+    )
+    {
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
-                await repository.DeleteAsync(tenantResult.Value, ct);
+                await repository.DeleteAsync(tenant, ct);
             },
             ct
         );

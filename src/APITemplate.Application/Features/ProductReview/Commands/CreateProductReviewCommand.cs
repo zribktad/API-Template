@@ -17,23 +17,38 @@ public sealed record CreateProductReviewCommand(CreateProductReviewRequest Reque
 /// <summary>Handles <see cref="CreateProductReviewCommand"/>.</summary>
 public sealed class CreateProductReviewCommandHandler
 {
+    public static async Task<(HandlerContinuation, OutgoingMessages)> LoadAsync(
+        CreateProductReviewCommand command,
+        IProductRepository productRepository,
+        CancellationToken ct
+    )
+    {
+        var productResult = await productRepository.GetByIdOrError(
+            command.Request.ProductId,
+            DomainErrors.Reviews.ProductNotFoundForReview(command.Request.ProductId),
+            ct
+        );
+
+        OutgoingMessages messages = new();
+
+        if (productResult.IsError)
+        {
+            messages.RespondToSender((ErrorOr<ProductReviewResponse>)productResult.Errors);
+            return (HandlerContinuation.Stop, messages);
+        }
+
+        return (HandlerContinuation.Continue, messages);
+    }
+
     public static async Task<(ErrorOr<ProductReviewResponse>, OutgoingMessages)> HandleAsync(
         CreateProductReviewCommand command,
         IProductReviewRepository reviewRepository,
-        IProductRepository productRepository,
         IUnitOfWork unitOfWork,
         IActorProvider actorProvider,
         CancellationToken ct
     )
     {
         var userId = actorProvider.ActorId;
-        var productResult = await productRepository.GetByIdOrError(
-            command.Request.ProductId,
-            DomainErrors.Reviews.ProductNotFoundForReview(command.Request.ProductId),
-            ct
-        );
-        if (productResult.IsError)
-            return (productResult.Errors, []);
 
         var review = await unitOfWork.ExecuteInTransactionAsync(
             async () =>

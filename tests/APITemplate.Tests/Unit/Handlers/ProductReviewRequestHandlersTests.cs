@@ -9,6 +9,7 @@ using APITemplate.Domain.Options;
 using ErrorOr;
 using Moq;
 using Shouldly;
+using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Unit.Handlers;
@@ -159,13 +160,23 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductReview rv, CancellationToken _) => rv);
 
-        var (result, messages) = await CreateProductReviewCommandHandler.HandleAsync(
-            new CreateProductReviewCommand(request),
-            _reviewRepoMock.Object,
+        var command = new CreateProductReviewCommand(request);
+        var ct = TestContext.Current.CancellationToken;
+
+        var (continuation, loadMessages) = await CreateProductReviewCommandHandler.LoadAsync(
+            command,
             _productRepoMock.Object,
+            ct
+        );
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+
+        var (result, messages) = await CreateProductReviewCommandHandler.HandleAsync(
+            command,
+            _reviewRepoMock.Object,
             _unitOfWorkMock.Object,
             _actorProviderMock.Object,
-            TestContext.Current.CancellationToken
+            ct
         );
 
         result.IsError.ShouldBeFalse();
@@ -202,18 +213,14 @@ public class ProductReviewRequestHandlersTests
 
         var request = new CreateProductReviewRequest(Guid.NewGuid(), null, 3);
 
-        var (result, messages) = await CreateProductReviewCommandHandler.HandleAsync(
+        var (continuation, messages) = await CreateProductReviewCommandHandler.LoadAsync(
             new CreateProductReviewCommand(request),
-            _reviewRepoMock.Object,
             _productRepoMock.Object,
-            _unitOfWorkMock.Object,
-            _actorProviderMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeTrue();
-        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        messages.ShouldNotBeEmpty();
     }
 
     [Fact]
@@ -231,12 +238,26 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(review);
 
+        var command = new DeleteProductReviewCommand(id);
+        var ct = TestContext.Current.CancellationToken;
+
+        var (continuation, loadedReview, loadMessages) =
+            await DeleteProductReviewCommandHandler.LoadAsync(
+                command,
+                _reviewRepoMock.Object,
+                _actorProviderMock.Object,
+                ct
+            );
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        loadedReview.ShouldNotBeNull();
+
         var (result, messages) = await DeleteProductReviewCommandHandler.HandleAsync(
-            new DeleteProductReviewCommand(id),
+            command,
+            loadedReview!,
             _reviewRepoMock.Object,
             _unitOfWorkMock.Object,
-            _actorProviderMock.Object,
-            TestContext.Current.CancellationToken
+            ct
         );
 
         result.IsError.ShouldBeFalse();
@@ -274,17 +295,15 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(review);
 
-        var (result, messages) = await DeleteProductReviewCommandHandler.HandleAsync(
+        var (continuation, _, messages) = await DeleteProductReviewCommandHandler.LoadAsync(
             new DeleteProductReviewCommand(id),
             _reviewRepoMock.Object,
-            _unitOfWorkMock.Object,
             _actorProviderMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeTrue();
-        result.FirstError.Type.ShouldBe(ErrorType.Forbidden);
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        messages.ShouldNotBeEmpty();
         _reviewRepoMock.Verify(
             r => r.DeleteAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()),
             Times.Never
@@ -300,16 +319,14 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductReview?)null);
 
-        var (result, messages) = await DeleteProductReviewCommandHandler.HandleAsync(
+        var (continuation, _, messages) = await DeleteProductReviewCommandHandler.LoadAsync(
             new DeleteProductReviewCommand(id),
             _reviewRepoMock.Object,
-            _unitOfWorkMock.Object,
             _actorProviderMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeTrue();
-        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        messages.ShouldNotBeEmpty();
     }
 }

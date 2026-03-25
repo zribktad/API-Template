@@ -4,6 +4,7 @@ using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Category.Specifications;
 using ErrorOr;
 using Wolverine;
+using CategoryEntity = APITemplate.Domain.Entities.Category;
 
 namespace APITemplate.Application.Features.Category;
 
@@ -13,10 +14,17 @@ public sealed record DeleteCategoriesCommand(BatchDeleteRequest Request);
 /// <summary>Handles <see cref="DeleteCategoriesCommand"/> by loading all categories and deleting in a single transaction.</summary>
 public sealed class DeleteCategoriesCommandHandler
 {
-    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
+    /// <summary>
+    /// Wolverine compound-handler load step: loads categories and marks missing ones,
+    /// short-circuiting the handler pipeline with a failure response when any ID is not found.
+    /// </summary>
+    public static async Task<(
+        HandlerContinuation,
+        List<CategoryEntity>?,
+        OutgoingMessages
+    )> LoadAsync(
         DeleteCategoriesCommand command,
         ICategoryRepository repository,
-        IUnitOfWork unitOfWork,
         CancellationToken ct
     )
     {
@@ -38,10 +46,28 @@ public sealed class DeleteCategoriesCommandHandler
             )
         );
 
-        if (context.HasFailures)
-            return (context.ToFailureResponse(), []);
+        OutgoingMessages messages = new();
 
-        // Remove categories in a single transaction
+        if (context.HasFailures)
+        {
+            messages.RespondToSender(context.ToFailureResponse());
+            return (HandlerContinuation.Stop, null, messages);
+        }
+
+        return (HandlerContinuation.Continue, categories, messages);
+    }
+
+    /// <summary>Removes categories in a single transaction.</summary>
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
+        DeleteCategoriesCommand command,
+        List<CategoryEntity> categories,
+        ICategoryRepository repository,
+        IUnitOfWork unitOfWork,
+        CancellationToken ct
+    )
+    {
+        var ids = command.Request.Ids;
+
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {

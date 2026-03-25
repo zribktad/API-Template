@@ -7,6 +7,7 @@ using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Polly.Registry;
 using Wolverine;
+using ProductDataEntity = APITemplate.Domain.Entities.ProductData.ProductData;
 
 namespace APITemplate.Application.Features.ProductData;
 
@@ -14,11 +15,37 @@ public sealed record DeleteProductDataCommand(Guid Id) : IHasId;
 
 public sealed class DeleteProductDataCommandHandler
 {
-    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+    /// <summary>
+    /// Wolverine compound-handler load step: loads the product-data document and verifies
+    /// tenant ownership, short-circuiting the handler pipeline when not found.
+    /// </summary>
+    public static async Task<(HandlerContinuation, ProductDataEntity?, OutgoingMessages)> LoadAsync(
         DeleteProductDataCommand command,
         IProductDataRepository repository,
-        IProductDataLinkRepository productDataLinkRepository,
         ITenantProvider tenantProvider,
+        CancellationToken ct
+    )
+    {
+        var tenantId = tenantProvider.TenantId;
+        var data = await repository.GetByIdAsync(command.Id, ct);
+
+        OutgoingMessages messages = new();
+
+        if (data is null || data.TenantId != tenantId)
+        {
+            messages.RespondToSender(DomainErrors.ProductData.NotFound(command.Id));
+            return (HandlerContinuation.Stop, null, messages);
+        }
+
+        return (HandlerContinuation.Continue, data, messages);
+    }
+
+    /// <summary>Soft-deletes product-data links in PostgreSQL and the document in MongoDB with resilience.</summary>
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+        DeleteProductDataCommand command,
+        ProductDataEntity data,
+        IProductDataRepository repository,
+        IProductDataLinkRepository productDataLinkRepository,
         IActorProvider actorProvider,
         IUnitOfWork unitOfWork,
         TimeProvider timeProvider,
@@ -27,13 +54,6 @@ public sealed class DeleteProductDataCommandHandler
         CancellationToken ct
     )
     {
-        var tenantId = tenantProvider.TenantId;
-
-        var data = await repository.GetByIdAsync(command.Id, ct);
-
-        if (data is null || data.TenantId != tenantId)
-            return (DomainErrors.ProductData.NotFound(command.Id), []);
-
         var deletedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
         var actorId = actorProvider.ActorId;
 
@@ -66,7 +86,7 @@ public sealed class DeleteProductDataCommandHandler
                 ex,
                 "Failed to soft-delete ProductData document {ProductDataId} for tenant {TenantId}. Related ProductDataLinks may already be soft-deleted in PostgreSQL.",
                 data.Id,
-                tenantId
+                data.TenantId
             );
             throw;
         }

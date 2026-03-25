@@ -11,6 +11,7 @@ using Moq;
 using Polly;
 using Polly.Registry;
 using Shouldly;
+using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Unit.Handlers;
@@ -292,22 +293,15 @@ public class ProductDataRequestHandlersTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductData?)null);
 
-        var (result, messages) = await DeleteProductDataCommandHandler.HandleAsync(
+        var (continuation, _, messages) = await DeleteProductDataCommandHandler.LoadAsync(
             new DeleteProductDataCommand(Guid.NewGuid()),
             _repositoryMock.Object,
-            _productDataLinkRepositoryMock.Object,
             _tenantProviderMock.Object,
-            _actorProviderMock.Object,
-            _unitOfWorkMock.Object,
-            TimeProvider.System,
-            _registry,
-            _loggerMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeTrue();
-        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        messages.ShouldNotBeEmpty();
     }
 
     [Fact]
@@ -325,17 +319,30 @@ public class ProductDataRequestHandlersTests
                 }
             );
 
+        var command = new DeleteProductDataCommand(id);
+        var ct = TestContext.Current.CancellationToken;
+
+        var (continuation, data, _) = await DeleteProductDataCommandHandler.LoadAsync(
+            command,
+            _repositoryMock.Object,
+            _tenantProviderMock.Object,
+            ct
+        );
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        data.ShouldNotBeNull();
+
         await DeleteProductDataCommandHandler.HandleAsync(
-            new DeleteProductDataCommand(id),
+            command,
+            data!,
             _repositoryMock.Object,
             _productDataLinkRepositoryMock.Object,
-            _tenantProviderMock.Object,
             _actorProviderMock.Object,
             _unitOfWorkMock.Object,
             TimeProvider.System,
             _registry,
             _loggerMock.Object,
-            TestContext.Current.CancellationToken
+            ct
         );
 
         _productDataLinkRepositoryMock.Verify(
@@ -388,18 +395,31 @@ public class ProductDataRequestHandlersTests
             )
             .ThrowsAsync(new InvalidOperationException("mongo failed"));
 
+        var command = new DeleteProductDataCommand(id);
+        var ct = TestContext.Current.CancellationToken;
+
+        var (continuation, data, _) = await DeleteProductDataCommandHandler.LoadAsync(
+            command,
+            _repositoryMock.Object,
+            _tenantProviderMock.Object,
+            ct
+        );
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        data.ShouldNotBeNull();
+
         var act = () =>
             DeleteProductDataCommandHandler.HandleAsync(
-                new DeleteProductDataCommand(id),
+                command,
+                data!,
                 _repositoryMock.Object,
                 _productDataLinkRepositoryMock.Object,
-                _tenantProviderMock.Object,
                 _actorProviderMock.Object,
                 _unitOfWorkMock.Object,
                 TimeProvider.System,
                 _registry,
                 _loggerMock.Object,
-                TestContext.Current.CancellationToken
+                ct
             );
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(act);

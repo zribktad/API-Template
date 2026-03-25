@@ -1,3 +1,4 @@
+using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Category;
 using APITemplate.Application.Features.Category.Mappings;
@@ -10,6 +11,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using Moq;
 using Shouldly;
+using Wolverine;
 using Xunit;
 
 namespace APITemplate.Tests.Unit.Handlers;
@@ -331,12 +333,25 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync([category]);
 
+        var command = new UpdateCategoriesCommand(batchRequest);
+        var ct = TestContext.Current.CancellationToken;
+
+        var (continuation, lookup, loadMessages) = await UpdateCategoriesCommandHandler.LoadAsync(
+            command,
+            _repositoryMock.Object,
+            _updateValidatorMock.Object,
+            ct
+        );
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        lookup.ShouldNotBeNull();
+
         var (result, messages) = await UpdateCategoriesCommandHandler.HandleAsync(
-            new UpdateCategoriesCommand(batchRequest),
+            command,
+            lookup!,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _updateValidatorMock.Object,
-            TestContext.Current.CancellationToken
+            ct
         );
 
         result.IsError.ShouldBeFalse();
@@ -383,19 +398,16 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync(new List<Category>());
 
-        var (result, messages) = await UpdateCategoriesCommandHandler.HandleAsync(
+        var (continuation, lookup, messages) = await UpdateCategoriesCommandHandler.LoadAsync(
             new UpdateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
-            _unitOfWorkMock.Object,
             _updateValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeFalse();
-        result.Value.SuccessCount.ShouldBe(0);
-        result.Value.FailureCount.ShouldBe(1);
-        result.Value.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        lookup.ShouldBeNull();
+        messages.ShouldNotBeEmpty();
 
         _unitOfWorkMock.Verify(
             u =>
@@ -427,19 +439,16 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync([]);
 
-        var (result, messages) = await UpdateCategoriesCommandHandler.HandleAsync(
+        var (continuation, lookup, messages) = await UpdateCategoriesCommandHandler.LoadAsync(
             new UpdateCategoriesCommand(batchRequest),
             _repositoryMock.Object,
-            _unitOfWorkMock.Object,
             _updateValidatorMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeFalse();
-        result.Value.SuccessCount.ShouldBe(0);
-        result.Value.FailureCount.ShouldBe(1);
-        result.Value.Failures[0].Errors.ShouldContain("Category name is required.");
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        lookup.ShouldBeNull();
+        messages.ShouldNotBeEmpty();
 
         _unitOfWorkMock.Verify(
             u =>
@@ -465,11 +474,21 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync([category]);
 
+        var command = new DeleteCategoriesCommand(batchRequest);
+        var ct = TestContext.Current.CancellationToken;
+
+        var (continuation, categories, loadMessages) =
+            await DeleteCategoriesCommandHandler.LoadAsync(command, _repositoryMock.Object, ct);
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        categories.ShouldNotBeNull();
+
         var (result, messages) = await DeleteCategoriesCommandHandler.HandleAsync(
-            new DeleteCategoriesCommand(batchRequest),
+            command,
+            categories!,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            TestContext.Current.CancellationToken
+            ct
         );
 
         result.IsError.ShouldBeFalse();
@@ -512,18 +531,15 @@ public class CategoryRequestHandlersTests
             )
             .ReturnsAsync(new List<Category>());
 
-        var (result, messages) = await DeleteCategoriesCommandHandler.HandleAsync(
+        var (continuation, categories, messages) = await DeleteCategoriesCommandHandler.LoadAsync(
             new DeleteCategoriesCommand(batchRequest),
             _repositoryMock.Object,
-            _unitOfWorkMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeFalse();
-        result.Value.SuccessCount.ShouldBe(0);
-        result.Value.FailureCount.ShouldBe(1);
-        result.Value.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        categories.ShouldBeNull();
+        messages.ShouldNotBeEmpty();
 
         _unitOfWorkMock.Verify(
             u =>

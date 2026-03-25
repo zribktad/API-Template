@@ -5,6 +5,7 @@ using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using Wolverine;
+using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
 namespace APITemplate.Application.Features.ProductReview;
 
@@ -14,10 +15,13 @@ public sealed record DeleteProductReviewCommand(Guid Id) : IHasId;
 /// <summary>Handles <see cref="DeleteProductReviewCommand"/>.</summary>
 public sealed class DeleteProductReviewCommandHandler
 {
-    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+    public static async Task<(
+        HandlerContinuation,
+        ProductReviewEntity?,
+        OutgoingMessages
+    )> LoadAsync(
         DeleteProductReviewCommand command,
         IProductReviewRepository reviewRepository,
-        IUnitOfWork unitOfWork,
         IActorProvider actorProvider,
         CancellationToken ct
     )
@@ -28,13 +32,34 @@ public sealed class DeleteProductReviewCommandHandler
             DomainErrors.Reviews.NotFound(command.Id),
             ct
         );
+
+        OutgoingMessages messages = new();
+
         if (reviewResult.IsError)
-            return (reviewResult.Errors, []);
+        {
+            messages.RespondToSender((ErrorOr<Success>)reviewResult.Errors);
+            return (HandlerContinuation.Stop, null, messages);
+        }
+
         var review = reviewResult.Value;
 
         if (review.UserId != userId)
-            return (DomainErrors.Auth.ForbiddenOwnReviewsOnly(), []);
+        {
+            messages.RespondToSender((ErrorOr<Success>)DomainErrors.Auth.ForbiddenOwnReviewsOnly());
+            return (HandlerContinuation.Stop, null, messages);
+        }
 
+        return (HandlerContinuation.Continue, review, messages);
+    }
+
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+        DeleteProductReviewCommand command,
+        ProductReviewEntity review,
+        IProductReviewRepository reviewRepository,
+        IUnitOfWork unitOfWork,
+        CancellationToken ct
+    )
+    {
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {

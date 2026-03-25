@@ -120,7 +120,6 @@ public sealed class PostgresTransactionTests(SharedPostgresContainer postgres)
                         new CreateProductReviewRequest(product.Id, "rollback", 4)
                     ),
                     failingReviewRepository.Object,
-                    productRepository,
                     unitOfWork,
                     new TestActorProvider(actorId),
                     ct

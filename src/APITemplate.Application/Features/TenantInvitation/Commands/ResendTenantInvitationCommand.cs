@@ -7,6 +7,8 @@ using APITemplate.Domain.Enums;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using Wolverine;
+using TenantEntity = APITemplate.Domain.Entities.Tenant;
+using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
 
 namespace APITemplate.Application.Features.TenantInvitation;
 
@@ -14,12 +16,15 @@ public sealed record ResendTenantInvitationCommand(Guid InvitationId);
 
 public sealed class ResendTenantInvitationCommandHandler
 {
-    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+    public static async Task<(
+        HandlerContinuation,
+        TenantInvitationEntity?,
+        TenantEntity?,
+        OutgoingMessages
+    )> LoadAsync(
         ResendTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
-        IUnitOfWork unitOfWork,
-        ISecureTokenGenerator tokenGenerator,
         ITenantProvider tenantProvider,
         TimeProvider timeProvider,
         CancellationToken ct
@@ -30,26 +35,55 @@ public sealed class ResendTenantInvitationCommandHandler
             DomainErrors.Invitations.NotFound(command.InvitationId),
             ct
         );
+
+        OutgoingMessages messages = new();
+
         if (invitationResult.IsError)
-            return (invitationResult.Errors, []);
+        {
+            messages.RespondToSender((ErrorOr<Success>)invitationResult.Errors);
+            return (HandlerContinuation.Stop, null, null, messages);
+        }
+
         var invitation = invitationResult.Value;
 
         if (invitation.Status != InvitationStatus.Pending)
-            return (DomainErrors.Invitations.NotPending(), []);
+        {
+            messages.RespondToSender((ErrorOr<Success>)DomainErrors.Invitations.NotPending());
+            return (HandlerContinuation.Stop, null, null, messages);
+        }
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
         if (invitation.ExpiresAtUtc < now)
-            return (DomainErrors.Invitations.ExpiredCreateNew(), []);
+        {
+            messages.RespondToSender((ErrorOr<Success>)DomainErrors.Invitations.ExpiredCreateNew());
+            return (HandlerContinuation.Stop, null, null, messages);
+        }
 
         var tenantResult = await tenantRepository.GetByIdOrError(
             tenantProvider.TenantId,
             DomainErrors.Tenants.NotFound(tenantProvider.TenantId),
             ct
         );
-        if (tenantResult.IsError)
-            return (tenantResult.Errors, []);
-        var tenant = tenantResult.Value;
 
+        if (tenantResult.IsError)
+        {
+            messages.RespondToSender((ErrorOr<Success>)tenantResult.Errors);
+            return (HandlerContinuation.Stop, null, null, messages);
+        }
+
+        return (HandlerContinuation.Continue, invitation, tenantResult.Value, messages);
+    }
+
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+        ResendTenantInvitationCommand command,
+        TenantInvitationEntity invitation,
+        TenantEntity tenant,
+        ITenantInvitationRepository invitationRepository,
+        IUnitOfWork unitOfWork,
+        ISecureTokenGenerator tokenGenerator,
+        CancellationToken ct
+    )
+    {
         var rawToken = tokenGenerator.GenerateToken();
         invitation.TokenHash = tokenGenerator.HashToken(rawToken);
 

@@ -8,6 +8,7 @@ using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using FluentValidation;
 using Wolverine;
+using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Examples;
 
@@ -15,18 +16,36 @@ public sealed record PatchProductCommand(Guid Id, Action<PatchableProductDto> Ap
 
 public sealed class PatchProductCommandHandler
 {
+    public static async Task<(HandlerContinuation, ProductEntity?, OutgoingMessages)> LoadAsync(
+        PatchProductCommand command,
+        IProductRepository repository,
+        CancellationToken ct
+    )
+    {
+        var product = await repository.GetByIdAsync(command.Id, ct);
+
+        OutgoingMessages messages = new();
+
+        if (product is null)
+        {
+            messages.RespondToSender(
+                (ErrorOr<ProductResponse>)DomainErrors.Products.NotFound(command.Id)
+            );
+            return (HandlerContinuation.Stop, null, messages);
+        }
+
+        return (HandlerContinuation.Continue, product, messages);
+    }
+
     public static async Task<(ErrorOr<ProductResponse>, OutgoingMessages)> HandleAsync(
         PatchProductCommand command,
+        ProductEntity product,
         IProductRepository repository,
         IUnitOfWork unitOfWork,
         IValidator<PatchableProductDto> validator,
         CancellationToken ct
     )
     {
-        var product = await repository.GetByIdAsync(command.Id, ct);
-        if (product is null)
-            return (DomainErrors.Products.NotFound(command.Id), []);
-
         var dto = new PatchableProductDto
         {
             Name = product.Name,

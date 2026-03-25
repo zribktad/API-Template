@@ -15,12 +15,14 @@ public sealed record CreateProductsCommand(CreateProductsRequest Request);
 /// <summary>Handles <see cref="CreateProductsCommand"/> by validating all items, bulk-validating references, and persisting in a single transaction.</summary>
 public sealed class CreateProductsCommandHandler
 {
-    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
+    /// <summary>
+    /// Wolverine compound-handler load step: validates items and checks references,
+    /// short-circuiting the handler pipeline with a failure response when any rule fails.
+    /// </summary>
+    public static async Task<(HandlerContinuation, OutgoingMessages)> LoadAsync(
         CreateProductsCommand command,
-        IProductRepository repository,
         ICategoryRepository categoryRepository,
         IProductDataRepository productDataRepository,
-        IUnitOfWork unitOfWork,
         IValidator<CreateProductRequest> itemValidator,
         CancellationToken ct
     )
@@ -45,10 +47,27 @@ public sealed class CreateProductsCommandHandler
             )
         );
 
-        if (context.HasFailures)
-            return (context.ToFailureResponse(), []);
+        OutgoingMessages messages = new();
 
-        // Build entities and persist in a single transaction
+        if (context.HasFailures)
+        {
+            messages.RespondToSender(context.ToFailureResponse());
+            return (HandlerContinuation.Stop, messages);
+        }
+
+        return (HandlerContinuation.Continue, messages);
+    }
+
+    /// <summary>Builds product entities and persists them in a single transaction.</summary>
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
+        CreateProductsCommand command,
+        IProductRepository repository,
+        IUnitOfWork unitOfWork,
+        CancellationToken ct
+    )
+    {
+        var items = command.Request.Items;
+
         var entities = items
             .Select(item =>
             {
