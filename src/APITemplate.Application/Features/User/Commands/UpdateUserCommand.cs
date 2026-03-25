@@ -13,10 +13,9 @@ public sealed record UpdateUserCommand(Guid Id, UpdateUserRequest Request) : IHa
 
 public sealed class UpdateUserCommandHandler
 {
-    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+    public static async Task<(HandlerContinuation, AppUser?, OutgoingMessages)> LoadAsync(
         UpdateUserCommand command,
         IUserRepository repository,
-        IUnitOfWork unitOfWork,
         CancellationToken ct
     )
     {
@@ -25,8 +24,15 @@ public sealed class UpdateUserCommandHandler
             DomainErrors.Users.NotFound(command.Id),
             ct
         );
+
+        OutgoingMessages messages = new();
+
         if (userResult.IsError)
-            return (userResult.Errors, []);
+        {
+            messages.RespondToSender((ErrorOr<Success>)userResult.Errors);
+            return (HandlerContinuation.Stop, null, messages);
+        }
+
         var user = userResult.Value;
 
         if (!string.Equals(user.Email, command.Request.Email, StringComparison.OrdinalIgnoreCase))
@@ -37,7 +43,10 @@ public sealed class UpdateUserCommandHandler
                 ct
             );
             if (emailResult.IsError)
-                return (emailResult.Errors, []);
+            {
+                messages.RespondToSender((ErrorOr<Success>)emailResult.Errors);
+                return (HandlerContinuation.Stop, null, messages);
+            }
         }
 
         var normalizedNew = AppUser.NormalizeUsername(command.Request.Username);
@@ -49,9 +58,23 @@ public sealed class UpdateUserCommandHandler
                 ct
             );
             if (usernameResult.IsError)
-                return (usernameResult.Errors, []);
+            {
+                messages.RespondToSender((ErrorOr<Success>)usernameResult.Errors);
+                return (HandlerContinuation.Stop, null, messages);
+            }
         }
 
+        return (HandlerContinuation.Continue, user, messages);
+    }
+
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+        UpdateUserCommand command,
+        AppUser user,
+        IUserRepository repository,
+        IUnitOfWork unitOfWork,
+        CancellationToken ct
+    )
+    {
         user.Username = command.Request.Username;
         user.Email = command.Request.Email;
 

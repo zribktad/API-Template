@@ -2,6 +2,7 @@ using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.User.DTOs;
+using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using Wolverine;
@@ -12,10 +13,9 @@ public sealed record ChangeUserRoleCommand(Guid Id, ChangeUserRoleRequest Reques
 
 public sealed class ChangeUserRoleCommandHandler
 {
-    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+    public static async Task<(HandlerContinuation, AppUser?, OutgoingMessages)> LoadAsync(
         ChangeUserRoleCommand command,
         IUserRepository repository,
-        IUnitOfWork unitOfWork,
         CancellationToken ct
     )
     {
@@ -24,10 +24,26 @@ public sealed class ChangeUserRoleCommandHandler
             DomainErrors.Users.NotFound(command.Id),
             ct
         );
-        if (userResult.IsError)
-            return (userResult.Errors, []);
-        var user = userResult.Value;
 
+        OutgoingMessages messages = new();
+
+        if (userResult.IsError)
+        {
+            messages.RespondToSender((ErrorOr<Success>)userResult.Errors);
+            return (HandlerContinuation.Stop, null, messages);
+        }
+
+        return (HandlerContinuation.Continue, userResult.Value, messages);
+    }
+
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
+        ChangeUserRoleCommand command,
+        AppUser user,
+        IUserRepository repository,
+        IUnitOfWork unitOfWork,
+        CancellationToken ct
+    )
+    {
         var oldRole = user.Role.ToString();
 
         user.Role = command.Request.Role;

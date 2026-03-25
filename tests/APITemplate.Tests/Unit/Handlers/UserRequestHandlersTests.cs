@@ -281,6 +281,10 @@ public class UserRequestHandlersTests
     {
         var ct = TestContext.Current.CancellationToken;
         var user = CreateTestUser();
+        var command = new UpdateUserCommand(
+            user.Id,
+            new UpdateUserRequest("updateduser", "updated@test.com")
+        );
 
         _repositoryMock
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
@@ -292,11 +296,18 @@ public class UserRequestHandlersTests
             .Setup(r => r.ExistsByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
+        var (continuation, loaded, _) = await UpdateUserCommandHandler.LoadAsync(
+            command,
+            _repositoryMock.Object,
+            ct
+        );
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        loaded.ShouldNotBeNull();
+
         var (result, messages) = await UpdateUserCommandHandler.HandleAsync(
-            new UpdateUserCommand(
-                user.Id,
-                new UpdateUserRequest("updateduser", "updated@test.com")
-            ),
+            command,
+            loaded,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             ct
@@ -317,19 +328,23 @@ public class UserRequestHandlersTests
     public async Task UpdateAsync_WhenSameEmailAndUsername_SkipsUniquenessCheck()
     {
         var user = CreateTestUser();
+        var command = new UpdateUserCommand(
+            user.Id,
+            new UpdateUserRequest(user.Username, user.Email)
+        );
 
         _repositoryMock
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var (result, messages) = await UpdateUserCommandHandler.HandleAsync(
-            new UpdateUserCommand(user.Id, new UpdateUserRequest(user.Username, user.Email)),
+        var (continuation, loaded, _) = await UpdateUserCommandHandler.LoadAsync(
+            command,
             _repositoryMock.Object,
-            _unitOfWorkMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeFalse();
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        loaded.ShouldNotBeNull();
         _repositoryMock.Verify(
             r => r.ExistsByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never
@@ -341,26 +356,24 @@ public class UserRequestHandlersTests
     }
 
     [Fact]
-    public async Task UpdateAsync_WhenUserNotFound_ReturnsNotFoundError()
+    public async Task UpdateAsync_WhenUserNotFound_LoadReturnsStop()
     {
         _repositoryMock
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AppUser?)null);
 
-        var (result, messages) = await UpdateUserCommandHandler.HandleAsync(
+        var (continuation, loaded, _) = await UpdateUserCommandHandler.LoadAsync(
             new UpdateUserCommand(Guid.NewGuid(), new UpdateUserRequest("name", "e@e.com")),
             _repositoryMock.Object,
-            _unitOfWorkMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeTrue();
-        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        loaded.ShouldBeNull();
     }
 
     [Fact]
-    public async Task UpdateAsync_WhenNewEmailExists_ReturnsConflictError()
+    public async Task UpdateAsync_WhenNewEmailExists_LoadReturnsStop()
     {
         var user = CreateTestUser();
         _repositoryMock
@@ -370,17 +383,14 @@ public class UserRequestHandlersTests
             .Setup(r => r.ExistsByEmailAsync("taken@test.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var (result, messages) = await UpdateUserCommandHandler.HandleAsync(
+        var (continuation, loaded, _) = await UpdateUserCommandHandler.LoadAsync(
             new UpdateUserCommand(user.Id, new UpdateUserRequest(user.Username, "taken@test.com")),
             _repositoryMock.Object,
-            _unitOfWorkMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeTrue();
-        result.FirstError.Type.ShouldBe(ErrorType.Conflict);
-        result.FirstError.Code.ShouldBe(ErrorCatalog.Users.EmailAlreadyExists);
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        loaded.ShouldBeNull();
     }
 
     // --- ActivateAsync / DeactivateAsync ---
@@ -388,17 +398,30 @@ public class UserRequestHandlersTests
     [Fact]
     public async Task ActivateAsync_SetsIsActiveToTrue()
     {
+        var ct = TestContext.Current.CancellationToken;
         var user = CreateTestUser(isActive: false);
+        var command = new SetUserActiveCommand(user.Id, IsActive: true);
+
         _repositoryMock
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
+        var (continuation, loaded, _) = await SetUserActiveCommandHandler.LoadAsync(
+            command,
+            _repositoryMock.Object,
+            ct
+        );
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        loaded.ShouldNotBeNull();
+
         var (result, messages) = await SetUserActiveCommandHandler.HandleAsync(
-            new SetUserActiveCommand(user.Id, IsActive: true),
+            command,
+            loaded,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             _keycloakAdminMock.Object,
-            TestContext.Current.CancellationToken
+            ct
         );
 
         result.IsError.ShouldBeFalse();
@@ -414,17 +437,30 @@ public class UserRequestHandlersTests
     [Fact]
     public async Task DeactivateAsync_SetsIsActiveToFalse()
     {
+        var ct = TestContext.Current.CancellationToken;
         var user = CreateTestUser(isActive: true);
+        var command = new SetUserActiveCommand(user.Id, IsActive: false);
+
         _repositoryMock
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
+        var (continuation, loaded, _) = await SetUserActiveCommandHandler.LoadAsync(
+            command,
+            _repositoryMock.Object,
+            ct
+        );
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        loaded.ShouldNotBeNull();
+
         var (result, messages) = await SetUserActiveCommandHandler.HandleAsync(
-            new SetUserActiveCommand(user.Id, IsActive: false),
+            command,
+            loaded,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             _keycloakAdminMock.Object,
-            TestContext.Current.CancellationToken
+            ct
         );
 
         result.IsError.ShouldBeFalse();
@@ -438,23 +474,20 @@ public class UserRequestHandlersTests
     }
 
     [Fact]
-    public async Task ActivateAsync_WhenUserNotFound_ReturnsNotFoundError()
+    public async Task ActivateAsync_WhenUserNotFound_LoadReturnsStop()
     {
         _repositoryMock
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AppUser?)null);
 
-        var (result, messages) = await SetUserActiveCommandHandler.HandleAsync(
+        var (continuation, loaded, _) = await SetUserActiveCommandHandler.LoadAsync(
             new SetUserActiveCommand(Guid.NewGuid(), IsActive: true),
             _repositoryMock.Object,
-            _unitOfWorkMock.Object,
-            _keycloakAdminMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeTrue();
-        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
-        messages.ShouldBeEmpty();
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        loaded.ShouldBeNull();
     }
 
     // --- ChangeRoleAsync ---
@@ -462,16 +495,32 @@ public class UserRequestHandlersTests
     [Fact]
     public async Task ChangeRoleAsync_ChangesUserRole()
     {
+        var ct = TestContext.Current.CancellationToken;
         var user = CreateTestUser();
+        var command = new ChangeUserRoleCommand(
+            user.Id,
+            new ChangeUserRoleRequest(UserRole.PlatformAdmin)
+        );
+
         _repositoryMock
             .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
+        var (continuation, loaded, _) = await ChangeUserRoleCommandHandler.LoadAsync(
+            command,
+            _repositoryMock.Object,
+            ct
+        );
+
+        continuation.ShouldBe(HandlerContinuation.Continue);
+        loaded.ShouldNotBeNull();
+
         var (result, messages) = await ChangeUserRoleCommandHandler.HandleAsync(
-            new ChangeUserRoleCommand(user.Id, new ChangeUserRoleRequest(UserRole.PlatformAdmin)),
+            command,
+            loaded,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            TestContext.Current.CancellationToken
+            ct
         );
 
         result.IsError.ShouldBeFalse();
@@ -487,24 +536,23 @@ public class UserRequestHandlersTests
     }
 
     [Fact]
-    public async Task ChangeRoleAsync_WhenUserNotFound_ReturnsNotFoundError()
+    public async Task ChangeRoleAsync_WhenUserNotFound_LoadReturnsStop()
     {
         _repositoryMock
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AppUser?)null);
 
-        var (result, _) = await ChangeUserRoleCommandHandler.HandleAsync(
+        var (continuation, loaded, _) = await ChangeUserRoleCommandHandler.LoadAsync(
             new ChangeUserRoleCommand(
                 Guid.NewGuid(),
                 new ChangeUserRoleRequest(UserRole.PlatformAdmin)
             ),
             _repositoryMock.Object,
-            _unitOfWorkMock.Object,
             TestContext.Current.CancellationToken
         );
 
-        result.IsError.ShouldBeTrue();
-        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
+        continuation.ShouldBe(HandlerContinuation.Stop);
+        loaded.ShouldBeNull();
     }
 
     // --- DeleteAsync ---

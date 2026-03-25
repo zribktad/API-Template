@@ -11,6 +11,7 @@ using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using Microsoft.Extensions.Options;
 using Wolverine;
+using TenantEntity = APITemplate.Domain.Entities.Tenant;
 using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
 
 namespace APITemplate.Application.Features.TenantInvitation;
@@ -19,23 +20,25 @@ public sealed record CreateTenantInvitationCommand(CreateTenantInvitationRequest
 
 public sealed class CreateTenantInvitationCommandHandler
 {
-    public static async Task<(ErrorOr<TenantInvitationResponse>, OutgoingMessages)> HandleAsync(
+    public static async Task<(HandlerContinuation, TenantEntity?, OutgoingMessages)> LoadAsync(
         CreateTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
-        IUnitOfWork unitOfWork,
-        ISecureTokenGenerator tokenGenerator,
         ITenantProvider tenantProvider,
-        TimeProvider timeProvider,
-        IOptions<EmailOptions> emailOptions,
         CancellationToken ct
     )
     {
-        var emailOpts = emailOptions.Value;
+        OutgoingMessages messages = new();
         var normalizedEmail = AppUser.NormalizeEmail(command.Request.Email);
 
         if (await invitationRepository.HasPendingInvitationAsync(normalizedEmail, ct))
-            return (DomainErrors.Invitations.AlreadyPending(command.Request.Email), []);
+        {
+            messages.RespondToSender(
+                (ErrorOr<TenantInvitationResponse>)
+                    DomainErrors.Invitations.AlreadyPending(command.Request.Email)
+            );
+            return (HandlerContinuation.Stop, null, messages);
+        }
 
         var tenantResult = await tenantRepository.GetByIdOrError(
             tenantProvider.TenantId,
@@ -43,8 +46,26 @@ public sealed class CreateTenantInvitationCommandHandler
             ct
         );
         if (tenantResult.IsError)
-            return (tenantResult.Errors, []);
-        var tenant = tenantResult.Value;
+        {
+            messages.RespondToSender((ErrorOr<TenantInvitationResponse>)tenantResult.Errors);
+            return (HandlerContinuation.Stop, null, messages);
+        }
+
+        return (HandlerContinuation.Continue, tenantResult.Value, messages);
+    }
+
+    public static async Task<(ErrorOr<TenantInvitationResponse>, OutgoingMessages)> HandleAsync(
+        CreateTenantInvitationCommand command,
+        TenantEntity tenant,
+        ITenantInvitationRepository invitationRepository,
+        IUnitOfWork unitOfWork,
+        ISecureTokenGenerator tokenGenerator,
+        TimeProvider timeProvider,
+        IOptions<EmailOptions> emailOptions,
+        CancellationToken ct
+    )
+    {
+        var emailOpts = emailOptions.Value;
 
         var rawToken = tokenGenerator.GenerateToken();
         var tokenHash = tokenGenerator.HashToken(rawToken);
@@ -53,7 +74,7 @@ public sealed class CreateTenantInvitationCommandHandler
         {
             Id = Guid.NewGuid(),
             Email = command.Request.Email.Trim(),
-            NormalizedEmail = normalizedEmail,
+            NormalizedEmail = AppUser.NormalizeEmail(command.Request.Email),
             TokenHash = tokenHash,
             ExpiresAtUtc = timeProvider
                 .GetUtcNow()
