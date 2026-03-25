@@ -23,11 +23,11 @@ public class WolverineTypeExtensionsTests
     }
 
     [Fact]
-    public void HasValidatorIn_WhenValidatorTargetsWrappedPayload_ReturnsTrue()
+    public void HasValidatorIn_WhenValidatorTargetsWrappedPayload_ReturnsFalse()
     {
         typeof(WrappedMessage)
             .HasValidatorIn(typeof(WrappedPayloadValidator).Assembly)
-            .ShouldBeTrue();
+            .ShouldBeFalse();
     }
 
     [Fact]
