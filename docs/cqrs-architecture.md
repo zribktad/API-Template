@@ -377,8 +377,6 @@ return (
 );
 ```
 
-This replaces the previous `PublishSafeAsync` pattern which swallowed exceptions silently.
-
 ---
 
 ## Batch Operations

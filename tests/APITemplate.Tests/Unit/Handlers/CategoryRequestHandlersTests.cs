@@ -185,6 +185,10 @@ public class CategoryRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(1);
         result.Value.FailureCount.ShouldBe(0);
         result.Value.Failures.ShouldBeEmpty();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Categories);
 
         _repositoryMock.Verify(
             r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
@@ -227,6 +231,10 @@ public class CategoryRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(1);
         result.Value.FailureCount.ShouldBe(0);
         result.Value.Failures.ShouldBeEmpty();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Categories);
     }
 
     [Fact]
@@ -255,6 +263,7 @@ public class CategoryRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(0);
         result.Value.FailureCount.ShouldBe(1);
         result.Value.Failures[0].Errors.ShouldContain("Category name is required.");
+        messages.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
@@ -296,6 +305,10 @@ public class CategoryRequestHandlersTests
         captured.ShouldNotBeNull();
         captured!.All(x => x.Id != Guid.Empty).ShouldBeTrue();
         captured.Select(x => x.Id).Distinct().Count().ShouldBe(2);
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Categories);
     }
 
     [Fact]
@@ -330,6 +343,10 @@ public class CategoryRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(1);
         result.Value.FailureCount.ShouldBe(0);
         result.Value.Failures.ShouldBeEmpty();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Categories);
 
         _repositoryMock.Verify(
             r =>
@@ -378,6 +395,7 @@ public class CategoryRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(0);
         result.Value.FailureCount.ShouldBe(1);
         result.Value.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
+        messages.ShouldBeEmpty();
 
         _unitOfWorkMock.Verify(
             u =>
@@ -421,6 +439,7 @@ public class CategoryRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(0);
         result.Value.FailureCount.ShouldBe(1);
         result.Value.Failures[0].Errors.ShouldContain("Category name is required.");
+        messages.ShouldBeEmpty();
 
         _unitOfWorkMock.Verify(
             u =>
@@ -457,6 +476,10 @@ public class CategoryRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(1);
         result.Value.FailureCount.ShouldBe(0);
         result.Value.Failures.ShouldBeEmpty();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Categories);
 
         _repositoryMock.Verify(
             r =>
@@ -500,6 +523,7 @@ public class CategoryRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(0);
         result.Value.FailureCount.ShouldBe(1);
         result.Value.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
+        messages.ShouldBeEmpty();
 
         _unitOfWorkMock.Verify(
             u =>

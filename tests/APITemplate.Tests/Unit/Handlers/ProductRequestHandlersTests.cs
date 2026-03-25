@@ -119,6 +119,10 @@ public class ProductRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(1);
         result.Value.FailureCount.ShouldBe(0);
         result.Value.Failures.ShouldBeEmpty();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Products);
 
         _repositoryMock.Verify(
             r =>
@@ -318,6 +322,10 @@ public class ProductRequestHandlersTests
         captured.ShouldNotBeNull();
         captured!.All(x => x.Id != Guid.Empty).ShouldBeTrue();
         captured.Select(x => x.Id).Distinct().Count().ShouldBe(2);
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Products);
     }
 
     [Fact]
@@ -462,6 +470,11 @@ public class ProductRequestHandlersTests
         result.Value.SuccessCount.ShouldBe(1);
         result.Value.FailureCount.ShouldBe(0);
         result.Value.Failures.ShouldBeEmpty();
+        messages.OfType<CacheInvalidationNotification>().Count().ShouldBe(2);
+        messages
+            .OfType<CacheInvalidationNotification>()
+            .Select(n => n.CacheTag)
+            .ShouldBe([CacheTags.Products, CacheTags.Reviews], ignoreOrder: true);
 
         _repositoryMock.Verify(
             r =>
@@ -513,6 +526,10 @@ public class ProductRequestHandlersTests
         result.IsError.ShouldBeFalse();
         result.Value.SuccessCount.ShouldBe(1);
         result.Value.Failures.ShouldBeEmpty();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Products);
 
         product.Name.ShouldBe("New Name");
         product.Description.ShouldBe("New Desc");

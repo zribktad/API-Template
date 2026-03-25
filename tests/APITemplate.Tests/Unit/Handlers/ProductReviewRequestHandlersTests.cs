@@ -173,6 +173,10 @@ public class ProductReviewRequestHandlersTests
         result.Value.Rating.ShouldBe(5);
         result.Value.ProductId.ShouldBe(product.Id);
         result.Value.Id.ShouldNotBe(Guid.Empty);
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Reviews);
 
         _reviewRepoMock.Verify(
             r => r.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()),
@@ -209,6 +213,7 @@ public class ProductReviewRequestHandlersTests
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Type.ShouldBe(ErrorType.NotFound);
+        messages.ShouldBeEmpty();
     }
 
     [Fact]
@@ -235,6 +240,10 @@ public class ProductReviewRequestHandlersTests
         );
 
         result.IsError.ShouldBeFalse();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Reviews);
         _reviewRepoMock.Verify(
             r => r.DeleteAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()),
             Times.Once
@@ -275,6 +284,7 @@ public class ProductReviewRequestHandlersTests
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Type.ShouldBe(ErrorType.Forbidden);
+        messages.ShouldBeEmpty();
         _reviewRepoMock.Verify(
             r => r.DeleteAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()),
             Times.Never
@@ -300,5 +310,6 @@ public class ProductReviewRequestHandlersTests
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Type.ShouldBe(ErrorType.NotFound);
+        messages.ShouldBeEmpty();
     }
 }

@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Features.ProductData;
 using APITemplate.Domain.Entities;
@@ -219,6 +220,11 @@ public class ProductDataRequestHandlersTests
         imageResult.Format.ShouldBe("jpg");
         imageResult.FileSizeBytes.ShouldBe(500000);
 
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.ProductData);
+
         _repositoryMock.Verify(
             r =>
                 r.CreateAsync(
@@ -264,6 +270,11 @@ public class ProductDataRequestHandlersTests
         videoResult.Format.ShouldBe("mp4");
         videoResult.FileSizeBytes.ShouldBe(10000000);
 
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.ProductData);
+
         _repositoryMock.Verify(
             r =>
                 r.CreateAsync(
@@ -296,6 +307,7 @@ public class ProductDataRequestHandlersTests
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Type.ShouldBe(ErrorType.NotFound);
+        messages.ShouldBeEmpty();
     }
 
     [Fact]

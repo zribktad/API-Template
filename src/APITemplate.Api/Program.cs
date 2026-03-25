@@ -61,12 +61,19 @@ try
         // Global error policies for transient infrastructure failures.
         // Handlers that throw these exceptions are retried with exponential backoff
         // before being moved to the error queue for manual inspection.
+        TimeSpan[] transientCooldowns =
+        [
+            100.Milliseconds(),
+            250.Milliseconds(),
+            500.Milliseconds(),
+        ];
+
         opts.Policies.OnException<TimeoutException>()
-            .RetryWithCooldown(100.Milliseconds(), 250.Milliseconds(), 500.Milliseconds())
+            .RetryWithCooldown(transientCooldowns)
             .Then.MoveToErrorQueue();
 
         opts.Policies.OnException<IOException>()
-            .RetryWithCooldown(100.Milliseconds(), 250.Milliseconds(), 500.Milliseconds())
+            .RetryWithCooldown(transientCooldowns)
             .Then.MoveToErrorQueue();
 
         opts.Policies.OnException<HttpRequestException>()

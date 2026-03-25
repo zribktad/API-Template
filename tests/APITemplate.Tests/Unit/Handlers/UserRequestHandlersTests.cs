@@ -171,6 +171,12 @@ public class UserRequestHandlersTests
         result.Value.Id.ShouldNotBe(Guid.Empty);
         result.Value.IsActive.ShouldBeTrue();
         result.Value.Role.ShouldBe(UserRole.User);
+        messages.Count.ShouldBe(2);
+        messages.OfType<UserRegisteredNotification>().ShouldHaveSingleItem();
+        messages
+            .OfType<CacheInvalidationNotification>()
+            .ShouldHaveSingleItem()
+            .CacheTag.ShouldBe(CacheTags.Users);
 
         _keycloakAdminMock.Verify(
             k => k.CreateUserAsync(request.Username, request.Email, It.IsAny<CancellationToken>()),
@@ -299,6 +305,10 @@ public class UserRequestHandlersTests
         result.IsError.ShouldBeFalse();
         user.Username.ShouldBe("updateduser");
         user.Email.ShouldBe("updated@test.com");
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Users);
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -346,6 +356,7 @@ public class UserRequestHandlersTests
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Type.ShouldBe(ErrorType.NotFound);
+        messages.ShouldBeEmpty();
     }
 
     [Fact]
@@ -369,6 +380,7 @@ public class UserRequestHandlersTests
         result.IsError.ShouldBeTrue();
         result.FirstError.Type.ShouldBe(ErrorType.Conflict);
         result.FirstError.Code.ShouldBe(ErrorCatalog.Users.EmailAlreadyExists);
+        messages.ShouldBeEmpty();
     }
 
     // --- ActivateAsync / DeactivateAsync ---
@@ -391,6 +403,10 @@ public class UserRequestHandlersTests
 
         result.IsError.ShouldBeFalse();
         user.IsActive.ShouldBeTrue();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Users);
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -413,6 +429,10 @@ public class UserRequestHandlersTests
 
         result.IsError.ShouldBeFalse();
         user.IsActive.ShouldBeFalse();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Users);
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -434,6 +454,7 @@ public class UserRequestHandlersTests
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Type.ShouldBe(ErrorType.NotFound);
+        messages.ShouldBeEmpty();
     }
 
     // --- ChangeRoleAsync ---
@@ -455,6 +476,12 @@ public class UserRequestHandlersTests
 
         result.IsError.ShouldBeFalse();
         user.Role.ShouldBe(UserRole.PlatformAdmin);
+        messages.Count.ShouldBe(2);
+        messages.OfType<UserRoleChangedNotification>().ShouldHaveSingleItem();
+        messages
+            .OfType<CacheInvalidationNotification>()
+            .ShouldHaveSingleItem()
+            .CacheTag.ShouldBe(CacheTags.Users);
         _repositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -500,6 +527,10 @@ public class UserRequestHandlersTests
         );
 
         result.IsError.ShouldBeFalse();
+        messages
+            .ShouldHaveSingleItem()
+            .ShouldBeOfType<CacheInvalidationNotification>()
+            .CacheTag.ShouldBe(CacheTags.Users);
         _repositoryMock.Verify(r => r.DeleteAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -522,6 +553,7 @@ public class UserRequestHandlersTests
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Type.ShouldBe(ErrorType.NotFound);
+        messages.ShouldBeEmpty();
     }
 
     // --- Helpers ---
