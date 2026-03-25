@@ -9,6 +9,7 @@ using APITemplate.Domain.Entities;
 using APITemplate.Domain.Entities.ProductData;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
+using ErrorOr;
 using FluentValidation;
 using FluentValidation.Results;
 using Moq;
@@ -89,13 +90,14 @@ public class ProductRequestHandlersTests
 
         if (productExists)
         {
-            result.ShouldNotBeNull();
-            result!.Name.ShouldBe("Test Product");
-            result.Price.ShouldBe(9.99m);
+            result.IsError.ShouldBeFalse();
+            result.Value.Name.ShouldBe("Test Product");
+            result.Value.Price.ShouldBe(9.99m);
         }
         else
         {
-            result.ShouldBeNull();
+            result.IsError.ShouldBeTrue();
+            result.FirstError.Type.ShouldBe(ErrorType.NotFound);
         }
     }
 
@@ -116,9 +118,10 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
-        result.FailureCount.ShouldBe(0);
-        result.Failures.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
+        result.Value.FailureCount.ShouldBe(0);
+        result.Value.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -169,8 +172,9 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
-        result.Failures.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
+        result.Value.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -213,8 +217,9 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
-        result.Failures.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
+        result.Value.Failures.ShouldBeEmpty();
     }
 
     [Fact]
@@ -244,8 +249,9 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.FailureCount.ShouldBe(1);
-        result.Failures[0].Errors.ShouldContain(e => e.Contains("Category"));
+        result.IsError.ShouldBeFalse();
+        result.Value.FailureCount.ShouldBe(1);
+        result.Value.Failures[0].Errors.ShouldContain(e => e.Contains("Category"));
     }
 
     [Fact]
@@ -278,8 +284,9 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.FailureCount.ShouldBe(1);
-        result.Failures[0].Errors.ShouldContain(e => e.Contains("Product data not found"));
+        result.IsError.ShouldBeFalse();
+        result.Value.FailureCount.ShouldBe(1);
+        result.Value.Failures[0].Errors.ShouldContain(e => e.Contains("Product data not found"));
     }
 
     [Fact]
@@ -313,8 +320,9 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(2);
-        result.FailureCount.ShouldBe(0);
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(2);
+        result.Value.FailureCount.ShouldBe(0);
         captured.ShouldNotBeNull();
         captured!.All(x => x.Id != Guid.Empty).ShouldBeTrue();
         captured.Select(x => x.Id).Distinct().Count().ShouldBe(2);
@@ -459,9 +467,10 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
-        result.FailureCount.ShouldBe(0);
-        result.Failures.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
+        result.Value.FailureCount.ShouldBe(0);
+        result.Value.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -502,7 +511,7 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        BatchResponse result = await UpdateProductsCommandHandler.HandleAsync(
+        var result = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
@@ -511,8 +520,9 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
-        result.Failures.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
+        result.Value.Failures.ShouldBeEmpty();
 
         product.Name.ShouldBe("New Name");
         product.Description.ShouldBe("New Desc");
@@ -554,7 +564,7 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        BatchResponse result = await UpdateProductsCommandHandler.HandleAsync(
+        var result = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
@@ -563,7 +573,8 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
         product.ProductDataLinks.Select(x => x.ProductDataId).ShouldBe([newId]);
     }
 
@@ -586,7 +597,7 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        BatchResponse result = await UpdateProductsCommandHandler.HandleAsync(
+        var result = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
@@ -595,7 +606,8 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
         product.ProductDataLinks.ShouldBeEmpty();
     }
 
@@ -619,7 +631,7 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        BatchResponse result = await UpdateProductsCommandHandler.HandleAsync(
+        var result = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
@@ -628,7 +640,8 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
         product.ProductDataLinks.Select(x => x.ProductDataId).ShouldBe([existingId]);
     }
 
@@ -655,7 +668,7 @@ public class ProductRequestHandlersTests
             new Dictionary<Guid, Product> { [product.Id] = product }
         );
 
-        BatchResponse result = await UpdateProductsCommandHandler.HandleAsync(
+        var result = await UpdateProductsCommandHandler.HandleAsync(
             new UpdateProductsCommand(batchRequest),
             lookup,
             _repositoryMock.Object,
@@ -664,7 +677,8 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
         product.ProductDataLinks.Select(x => x.ProductDataId).ShouldBe([restoredId]);
         product.ProductDataLinks.Single().IsDeleted.ShouldBeFalse();
     }
@@ -713,11 +727,12 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.FailureCount.ShouldBe(2);
-        result.SuccessCount.ShouldBe(0);
-        result.Failures.Count.ShouldBe(2);
-        result.Failures.ShouldContain(f => f.Index == 0);
-        result.Failures.ShouldContain(f => f.Index == 1);
+        result.IsError.ShouldBeFalse();
+        result.Value.FailureCount.ShouldBe(2);
+        result.Value.SuccessCount.ShouldBe(0);
+        result.Value.Failures.Count.ShouldBe(2);
+        result.Value.Failures.ShouldContain(f => f.Index == 0);
+        result.Value.Failures.ShouldContain(f => f.Index == 1);
 
         _repositoryMock.Verify(
             r => r.AddRangeAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<CancellationToken>()),
@@ -760,14 +775,15 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.FailureCount.ShouldBe(1);
-        result.Failures.Count.ShouldBe(1);
-        result.Failures[0].Index.ShouldBe(0);
-        result.Failures[0].Errors.Count.ShouldBe(2);
+        result.IsError.ShouldBeFalse();
+        result.Value.FailureCount.ShouldBe(1);
+        result.Value.Failures.Count.ShouldBe(1);
+        result.Value.Failures[0].Index.ShouldBe(0);
+        result.Value.Failures[0].Errors.Count.ShouldBe(2);
         result
-            .Failures[0]
+            .Value.Failures[0]
             .Errors.ShouldContain(e => e.Contains("Category", StringComparison.Ordinal));
-        result.Failures[0].Errors.ShouldContain(e => e.Contains("Product data not found"));
+        result.Value.Failures[0].Errors.ShouldContain(e => e.Contains("Product data not found"));
 
         _repositoryMock.Verify(
             r => r.AddRangeAsync(It.IsAny<IEnumerable<Product>>(), It.IsAny<CancellationToken>()),
@@ -935,11 +951,12 @@ public class ProductRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.FailureCount.ShouldBe(1);
-        result.SuccessCount.ShouldBe(0);
-        result.Failures.ShouldHaveSingleItem();
-        result.Failures[0].Index.ShouldBe(1);
-        result.Failures[0].Id.ShouldBe(missingId);
+        result.IsError.ShouldBeFalse();
+        result.Value.FailureCount.ShouldBe(1);
+        result.Value.SuccessCount.ShouldBe(0);
+        result.Value.Failures.ShouldHaveSingleItem();
+        result.Value.Failures[0].Index.ShouldBe(1);
+        result.Value.Failures[0].Id.ShouldBe(missingId);
 
         _repositoryMock.Verify(
             r =>
@@ -997,7 +1014,8 @@ public class ProductRequestHandlersTests
             ct
         );
 
-        result.Page.Items.Count().ShouldBe(2);
-        result.Page.TotalCount.ShouldBe(2);
+        result.IsError.ShouldBeFalse();
+        result.Value.Page.Items.Count().ShouldBe(2);
+        result.Value.Page.TotalCount.ShouldBe(2);
     }
 }

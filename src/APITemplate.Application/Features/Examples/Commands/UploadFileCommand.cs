@@ -3,8 +3,8 @@ using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Entities;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Microsoft.Extensions.Options;
 
 namespace APITemplate.Application.Features.Examples;
@@ -13,7 +13,7 @@ public sealed record UploadFileCommand(UploadFileRequest Request);
 
 public sealed class UploadFileCommandHandler
 {
-    public static async Task<FileUploadResponse> HandleAsync(
+    public static async Task<ErrorOr<FileUploadResponse>> HandleAsync(
         UploadFileCommand command,
         IStoredFileRepository repository,
         IFileStorageService storage,
@@ -26,16 +26,10 @@ public sealed class UploadFileCommandHandler
         var opts = options.Value;
         var extension = Path.GetExtension(req.FileName)?.ToLowerInvariant();
         if (string.IsNullOrEmpty(extension) || !opts.AllowedExtensions.Contains(extension))
-            throw new ValidationException(
-                $"File type '{extension}' is not allowed.",
-                ErrorCatalog.Examples.InvalidFileType
-            );
+            return DomainErrors.Examples.InvalidFileType(extension ?? "none");
 
         if (req.SizeBytes > opts.MaxFileSizeBytes)
-            throw new ValidationException(
-                $"File size exceeds the maximum allowed size of {opts.MaxFileSizeBytes} bytes.",
-                ErrorCatalog.Examples.FileTooLarge
-            );
+            return DomainErrors.Examples.FileTooLarge(opts.MaxFileSizeBytes);
 
         var storageResult = await storage.SaveAsync(req.FileStream, req.FileName, ct);
 

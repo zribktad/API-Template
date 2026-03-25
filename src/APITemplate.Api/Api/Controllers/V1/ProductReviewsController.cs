@@ -1,8 +1,10 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Wolverine;
@@ -25,11 +27,11 @@ public sealed class ProductReviewsController(IMessageBus bus) : ApiControllerBas
         CancellationToken ct
     )
     {
-        var reviews = await bus.InvokeAsync<PagedResponse<ProductReviewResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<PagedResponse<ProductReviewResponse>>>(
             new GetProductReviewsQuery(filter),
             ct
         );
-        return Ok(reviews);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Returns a single product review by its identifier, or 404 if not found.</summary>
@@ -38,27 +40,27 @@ public sealed class ProductReviewsController(IMessageBus bus) : ApiControllerBas
     [OutputCache(PolicyName = CacheTags.Reviews)]
     public async Task<ActionResult<ProductReviewResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var review = await bus.InvokeAsync<ProductReviewResponse?>(
+        var result = await bus.InvokeAsync<ErrorOr<ProductReviewResponse>>(
             new GetProductReviewByIdQuery(id),
             ct
         );
-        return OkOrNotFound(review);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Returns all reviews for the specified product.</summary>
     [HttpGet("by-product/{productId:guid}")]
     [RequirePermission(Permission.ProductReviews.Read)]
     [OutputCache(PolicyName = CacheTags.Reviews)]
-    public async Task<ActionResult<IEnumerable<ProductReviewResponse>>> GetByProductId(
+    public async Task<ActionResult<IReadOnlyList<ProductReviewResponse>>> GetByProductId(
         Guid productId,
         CancellationToken ct
     )
     {
-        var reviews = await bus.InvokeAsync<IReadOnlyList<ProductReviewResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<ProductReviewResponse>>>(
             new GetProductReviewsByProductIdQuery(productId),
             ct
         );
-        return Ok(reviews);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Creates a new product review and returns it with a 201 Location header.</summary>
@@ -69,11 +71,11 @@ public sealed class ProductReviewsController(IMessageBus bus) : ApiControllerBas
         CancellationToken ct
     )
     {
-        var review = await bus.InvokeAsync<ProductReviewResponse>(
+        var result = await bus.InvokeAsync<ErrorOr<ProductReviewResponse>>(
             new CreateProductReviewCommand(request),
             ct
         );
-        return CreatedAtGetById(review, review.Id);
+        return result.ToCreatedResult(this, v => new { id = v.Id, version = this.GetApiVersion() });
     }
 
     /// <summary>Deletes a product review by its identifier.</summary>
@@ -81,7 +83,10 @@ public sealed class ProductReviewsController(IMessageBus bus) : ApiControllerBas
     [RequirePermission(Permission.ProductReviews.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await bus.InvokeAsync(new DeleteProductReviewCommand(id), ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new DeleteProductReviewCommand(id),
+            ct
+        );
+        return result.ToNoContentResult(this);
     }
 }

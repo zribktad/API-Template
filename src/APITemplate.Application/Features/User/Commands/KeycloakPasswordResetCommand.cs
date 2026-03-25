@@ -1,6 +1,7 @@
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.User.DTOs;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Microsoft.Extensions.Logging;
 
 namespace APITemplate.Application.Features.User;
@@ -9,7 +10,7 @@ public sealed record KeycloakPasswordResetCommand(RequestPasswordResetRequest Re
 
 public sealed class KeycloakPasswordResetCommandHandler
 {
-    public static async Task HandleAsync(
+    public static async Task<ErrorOr<Success>> HandleAsync(
         KeycloakPasswordResetCommand command,
         IUserRepository repository,
         IKeycloakAdminService keycloakAdmin,
@@ -20,7 +21,7 @@ public sealed class KeycloakPasswordResetCommandHandler
         var user = await repository.FindByEmailAsync(command.Request.Email, ct);
 
         if (user is null || user.KeycloakUserId is null)
-            return;
+            return Result.Success;
 
         try
         {
@@ -34,5 +35,7 @@ public sealed class KeycloakPasswordResetCommandHandler
                 user.Id
             );
         }
+
+        return Result.Success;
     }
 }

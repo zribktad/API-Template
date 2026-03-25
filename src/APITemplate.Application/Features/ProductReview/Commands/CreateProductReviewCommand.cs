@@ -1,10 +1,11 @@
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.ProductReview.Mappings;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Wolverine;
 using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
@@ -16,7 +17,7 @@ public sealed record CreateProductReviewCommand(CreateProductReviewRequest Reque
 /// <summary>Handles <see cref="CreateProductReviewCommand"/>.</summary>
 public sealed class CreateProductReviewCommandHandler
 {
-    public static async Task<ProductReviewResponse> HandleAsync(
+    public static async Task<ErrorOr<ProductReviewResponse>> HandleAsync(
         CreateProductReviewCommand command,
         IProductReviewRepository reviewRepository,
         IProductRepository productRepository,
@@ -27,11 +28,13 @@ public sealed class CreateProductReviewCommandHandler
     )
     {
         var userId = actorProvider.ActorId;
-        await productRepository.GetByIdOrThrowAsync(
+        var productResult = await productRepository.GetByIdOrError(
             command.Request.ProductId,
-            ErrorCatalog.Reviews.ProductNotFoundForReview,
+            DomainErrors.Reviews.ProductNotFoundForReview(command.Request.ProductId),
             ct
         );
+        if (productResult.IsError)
+            return productResult.Errors;
 
         var review = await unitOfWork.ExecuteInTransactionAsync(
             async () =>

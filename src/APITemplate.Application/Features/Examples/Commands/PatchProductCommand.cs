@@ -5,10 +5,9 @@ using APITemplate.Application.Features.Product;
 using APITemplate.Application.Features.Product.Mappings;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using FluentValidation;
 using Wolverine;
-using DomainNotFoundException = APITemplate.Domain.Exceptions.NotFoundException;
-using DomainValidationException = APITemplate.Domain.Exceptions.ValidationException;
 
 namespace APITemplate.Application.Features.Examples;
 
@@ -16,7 +15,7 @@ public sealed record PatchProductCommand(Guid Id, Action<PatchableProductDto> Ap
 
 public sealed class PatchProductCommandHandler
 {
-    public static async Task<ProductResponse> HandleAsync(
+    public static async Task<ErrorOr<ProductResponse>> HandleAsync(
         PatchProductCommand command,
         IProductRepository repository,
         IUnitOfWork unitOfWork,
@@ -25,13 +24,9 @@ public sealed class PatchProductCommandHandler
         CancellationToken ct
     )
     {
-        var product =
-            await repository.GetByIdAsync(command.Id, ct)
-            ?? throw new DomainNotFoundException(
-                ErrorCatalog.Products.EntityName,
-                command.Id,
-                ErrorCatalog.Products.NotFound
-            );
+        var product = await repository.GetByIdAsync(command.Id, ct);
+        if (product is null)
+            return DomainErrors.Products.NotFound(command.Id);
 
         var dto = new PatchableProductDto
         {
@@ -45,9 +40,8 @@ public sealed class PatchProductCommandHandler
 
         var validationResult = await validator.ValidateAsync(dto, ct);
         if (!validationResult.IsValid)
-            throw new DomainValidationException(
-                string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage)),
-                ErrorCatalog.Examples.InvalidPatchDocument
+            return DomainErrors.Examples.InvalidPatchDocument(
+                string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage))
             );
 
         product.UpdateDetails(dto.Name, dto.Description, dto.Price, dto.CategoryId);

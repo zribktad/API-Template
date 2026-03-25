@@ -6,12 +6,6 @@ namespace APITemplate.Api.Controllers;
 [Route("api/v{version:apiVersion}/[controller]")]
 public abstract class ApiControllerBase : ControllerBase
 {
-    protected ActionResult<T> OkOrNotFound<T>(T? value)
-        where T : class => value is null ? NotFound() : Ok(value);
-
-    protected CreatedAtActionResult CreatedAtGetById<T>(T entity, Guid id) =>
-        CreatedAtAction("GetById", new { id, version = this.GetApiVersion() }, entity);
-
-    protected ActionResult<BatchResponse> OkOrUnprocessable(BatchResponse response) =>
+    internal ActionResult<BatchResponse> OkOrUnprocessable(BatchResponse response) =>
         response.FailureCount > 0 ? UnprocessableEntity(response) : Ok(response);
 }

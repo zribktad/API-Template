@@ -1,5 +1,7 @@
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Features.Category.Mappings;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 
 namespace APITemplate.Application.Features.Category;
 
@@ -9,13 +11,17 @@ public sealed record GetCategoryStatsQuery(Guid Id) : IHasId;
 /// <summary>Handles <see cref="GetCategoryStatsQuery"/>.</summary>
 public sealed class GetCategoryStatsQueryHandler
 {
-    public static async Task<ProductCategoryStatsResponse?> HandleAsync(
+    public static async Task<ErrorOr<ProductCategoryStatsResponse>> HandleAsync(
         GetCategoryStatsQuery request,
         ICategoryRepository repository,
         CancellationToken ct
     )
     {
         var stats = await repository.GetStatsByIdAsync(request.Id, ct);
-        return stats?.ToResponse();
+
+        if (stats is null)
+            return DomainErrors.Categories.NotFound(request.Id);
+
+        return stats.ToResponse();
     }
 }

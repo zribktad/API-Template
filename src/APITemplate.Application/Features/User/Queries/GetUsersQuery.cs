@@ -1,5 +1,6 @@
 using APITemplate.Application.Features.User.Specifications;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 
 namespace APITemplate.Application.Features.User;
 
@@ -7,7 +8,7 @@ public sealed record GetUsersQuery(UserFilter Filter);
 
 public sealed class GetUsersQueryHandler
 {
-    public static async Task<PagedResponse<UserResponse>> HandleAsync(
+    public static async Task<ErrorOr<PagedResponse<UserResponse>>> HandleAsync(
         GetUsersQuery request,
         IUserRepository repository,
         CancellationToken ct

@@ -1,4 +1,5 @@
 using APITemplate.Api.GraphQL.Models;
+using ErrorOr;
 using HotChocolate.Authorization;
 using Wolverine;
 
@@ -30,11 +31,11 @@ public sealed class CategoryQueries
             input?.PageSize ?? PaginationFilter.DefaultPageSize
         );
 
-        var page = await bus.InvokeAsync<PagedResponse<CategoryResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<PagedResponse<CategoryResponse>>>(
             new GetCategoriesQuery(filter),
             ct
         );
-        return new CategoryPageResult(page);
+        return new CategoryPageResult(result.ToGraphQLResult());
     }
 
     /// <summary>Returns a single category by ID, or <see langword="null"/> if not found.</summary>
@@ -42,5 +43,12 @@ public sealed class CategoryQueries
         Guid id,
         [Service] IMessageBus bus,
         CancellationToken ct
-    ) => await bus.InvokeAsync<CategoryResponse?>(new GetCategoryByIdQuery(id), ct);
+    )
+    {
+        var result = await bus.InvokeAsync<ErrorOr<CategoryResponse>>(
+            new GetCategoryByIdQuery(id),
+            ct
+        );
+        return result.ToGraphQLNullableResult();
+    }
 }

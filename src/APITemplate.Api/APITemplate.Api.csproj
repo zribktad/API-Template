@@ -50,7 +50,6 @@
 
     <!-- Wolverine -->
     <PackageReference Include="WolverineFx" />
-    <PackageReference Include="WolverineFx.FluentValidation" />
 
     <!-- EF Core + PostgreSQL -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" />

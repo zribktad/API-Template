@@ -1,11 +1,13 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Application.Common.DTOs;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.TenantInvitation;
 using APITemplate.Application.Features.TenantInvitation.DTOs;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
@@ -30,11 +32,11 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<PagedResponse<TenantInvitationResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<PagedResponse<TenantInvitationResponse>>>(
             new GetTenantInvitationsQuery(filter),
             ct
         );
-        return Ok(result);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Creates a new tenant invitation and sends the invite email.</summary>
@@ -45,11 +47,18 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
         CancellationToken ct
     )
     {
-        var invitation = await bus.InvokeAsync<TenantInvitationResponse>(
+        var result = await bus.InvokeAsync<ErrorOr<TenantInvitationResponse>>(
             new CreateTenantInvitationCommand(request),
             ct
         );
-        return CreatedAtAction(nameof(GetAll), new { version = this.GetApiVersion() }, invitation);
+        if (result.IsError)
+            return result.ToActionResult(this);
+
+        return CreatedAtAction(
+            nameof(GetAll),
+            new { version = this.GetApiVersion() },
+            result.Value
+        );
     }
 
     /// <summary>Accepts a pending invitation using the one-time token from the invite email; allows anonymous callers.</summary>
@@ -60,7 +69,12 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
         CancellationToken ct
     )
     {
-        await bus.InvokeAsync(new AcceptTenantInvitationCommand(request.Token), ct);
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new AcceptTenantInvitationCommand(request.Token),
+            ct
+        );
+        if (result.IsError)
+            return result.ToErrorResult(this);
         return Ok();
     }
 
@@ -69,8 +83,11 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
     [RequirePermission(Permission.Invitations.Revoke)]
     public async Task<IActionResult> Revoke(Guid id, CancellationToken ct)
     {
-        await bus.InvokeAsync(new RevokeTenantInvitationCommand(id), ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new RevokeTenantInvitationCommand(id),
+            ct
+        );
+        return result.ToNoContentResult(this);
     }
 
     /// <summary>Re-sends the invitation email for a pending invitation that has not yet been accepted or revoked.</summary>
@@ -78,7 +95,12 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
     [RequirePermission(Permission.Invitations.Create)]
     public async Task<IActionResult> Resend(Guid id, CancellationToken ct)
     {
-        await bus.InvokeAsync(new ResendTenantInvitationCommand(id), ct);
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new ResendTenantInvitationCommand(id),
+            ct
+        );
+        if (result.IsError)
+            return result.ToErrorResult(this);
         return Ok();
     }
 }

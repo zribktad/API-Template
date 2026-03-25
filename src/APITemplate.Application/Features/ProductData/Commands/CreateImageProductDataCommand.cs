@@ -3,6 +3,7 @@ using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.ProductData.Mappings;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Wolverine;
 
 namespace APITemplate.Application.Features.ProductData;
@@ -11,7 +12,7 @@ public sealed record CreateImageProductDataCommand(CreateImageProductDataRequest
 
 public sealed class CreateImageProductDataCommandHandler
 {
-    public static async Task<ProductDataResponse> HandleAsync(
+    public static async Task<ErrorOr<ProductDataResponse>> HandleAsync(
         CreateImageProductDataCommand command,
         IProductDataRepository repository,
         ITenantProvider tenantProvider,

@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Security;
+using ErrorOr;
 using HotChocolate.Authorization;
 using Wolverine;
 
@@ -14,11 +15,18 @@ public class ProductReviewMutations
 {
     /// <summary>Creates a new product review and returns the persisted review.</summary>
     [Authorize(Policy = Permission.ProductReviews.Create)]
-    public Task<ProductReviewResponse> CreateProductReview(
+    public async Task<ProductReviewResponse> CreateProductReview(
         CreateProductReviewRequest input,
         [Service] IMessageBus bus,
         CancellationToken ct
-    ) => bus.InvokeAsync<ProductReviewResponse>(new CreateProductReviewCommand(input), ct);
+    )
+    {
+        var result = await bus.InvokeAsync<ErrorOr<ProductReviewResponse>>(
+            new CreateProductReviewCommand(input),
+            ct
+        );
+        return result.ToGraphQLResult();
+    }
 
     /// <summary>Deletes a product review by its ID and returns <see langword="true"/> on success.</summary>
     [Authorize(Policy = Permission.ProductReviews.Delete)]
@@ -28,7 +36,11 @@ public class ProductReviewMutations
         CancellationToken ct
     )
     {
-        await bus.InvokeAsync(new DeleteProductReviewCommand(id), ct);
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new DeleteProductReviewCommand(id),
+            ct
+        );
+        result.ToGraphQLResult();
         return true;
     }
 }

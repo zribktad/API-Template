@@ -1,8 +1,9 @@
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Tenant.DTOs;
 using APITemplate.Application.Features.Tenant.Mappings;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Wolverine;
 using TenantEntity = APITemplate.Domain.Entities.Tenant;
 
@@ -12,7 +13,7 @@ public sealed record CreateTenantCommand(CreateTenantRequest Request);
 
 public sealed class CreateTenantCommandHandler
 {
-    public static async Task<TenantResponse> HandleAsync(
+    public static async Task<ErrorOr<TenantResponse>> HandleAsync(
         CreateTenantCommand command,
         ITenantRepository repository,
         IUnitOfWork unitOfWork,
@@ -21,10 +22,7 @@ public sealed class CreateTenantCommandHandler
     )
     {
         if (await repository.CodeExistsAsync(command.Request.Code, ct))
-            throw new ConflictException(
-                string.Format(ErrorCatalog.Tenants.CodeAlreadyExistsMessage, command.Request.Code),
-                ErrorCatalog.Tenants.CodeAlreadyExists
-            );
+            return DomainErrors.Tenants.CodeAlreadyExists(command.Request.Code);
 
         var tenant = await unitOfWork.ExecuteInTransactionAsync(
             async () =>

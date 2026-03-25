@@ -2,6 +2,7 @@ using APITemplate.Application.Common.BackgroundJobs;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 
 namespace APITemplate.Application.Features.Examples;
 
@@ -9,7 +10,7 @@ public sealed record SubmitJobCommand(SubmitJobRequest Request);
 
 public sealed class SubmitJobCommandHandler
 {
-    public static async Task<JobStatusResponse> HandleAsync(
+    public static async Task<ErrorOr<JobStatusResponse>> HandleAsync(
         SubmitJobCommand command,
         IJobExecutionRepository repository,
         IJobQueue jobQueue,

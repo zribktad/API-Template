@@ -2,6 +2,7 @@ using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Batch.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Category.Specifications;
+using ErrorOr;
 using FluentValidation;
 using Wolverine;
 
@@ -13,7 +14,7 @@ public sealed record UpdateCategoriesCommand(UpdateCategoriesRequest Request);
 /// <summary>Handles <see cref="UpdateCategoriesCommand"/> by validating all items, loading categories in bulk, and updating in a single transaction.</summary>
 public sealed class UpdateCategoriesCommandHandler
 {
-    public static async Task<BatchResponse> HandleAsync(
+    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
         UpdateCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,

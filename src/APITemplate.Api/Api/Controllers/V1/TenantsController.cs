@@ -1,8 +1,10 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Wolverine;
@@ -25,11 +27,11 @@ public sealed class TenantsController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var tenants = await bus.InvokeAsync<PagedResponse<TenantResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<PagedResponse<TenantResponse>>>(
             new GetTenantsQuery(filter),
             ct
         );
-        return Ok(tenants);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Returns a single tenant by its identifier, or 404 if not found.</summary>
@@ -38,8 +40,8 @@ public sealed class TenantsController(IMessageBus bus) : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Tenants)]
     public async Task<ActionResult<TenantResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var tenant = await bus.InvokeAsync<TenantResponse?>(new GetTenantByIdQuery(id), ct);
-        return OkOrNotFound(tenant);
+        var result = await bus.InvokeAsync<ErrorOr<TenantResponse>>(new GetTenantByIdQuery(id), ct);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Creates a new tenant and returns it with a 201 Location header.</summary>
@@ -50,8 +52,11 @@ public sealed class TenantsController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var tenant = await bus.InvokeAsync<TenantResponse>(new CreateTenantCommand(request), ct);
-        return CreatedAtGetById(tenant, tenant.Id);
+        var result = await bus.InvokeAsync<ErrorOr<TenantResponse>>(
+            new CreateTenantCommand(request),
+            ct
+        );
+        return result.ToCreatedResult(this, v => new { id = v.Id, version = this.GetApiVersion() });
     }
 
     /// <summary>Soft-deletes a tenant and cascades the deletion to its child entities.</summary>
@@ -59,7 +64,7 @@ public sealed class TenantsController(IMessageBus bus) : ApiControllerBase
     [RequirePermission(Permission.Tenants.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await bus.InvokeAsync(new DeleteTenantCommand(id), ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(new DeleteTenantCommand(id), ct);
+        return result.ToNoContentResult(this);
     }
 }

@@ -1,7 +1,9 @@
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
-using APITemplate.Domain.Exceptions;
+using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Wolverine;
 
@@ -11,7 +13,7 @@ public sealed record DeleteTenantCommand(Guid Id) : IHasId;
 
 public sealed class DeleteTenantCommandHandler
 {
-    public static async Task HandleAsync(
+    public static async Task<ErrorOr<Success>> HandleAsync(
         DeleteTenantCommand command,
         ITenantRepository repository,
         IUnitOfWork unitOfWork,
@@ -22,10 +24,18 @@ public sealed class DeleteTenantCommandHandler
         CancellationToken ct
     )
     {
+        var tenantResult = await repository.GetByIdOrError(
+            command.Id,
+            DomainErrors.Tenants.NotFound(command.Id),
+            ct
+        );
+        if (tenantResult.IsError)
+            return tenantResult.Errors;
+
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
-                await repository.DeleteAsync(command.Id, ct, ErrorCatalog.Tenants.NotFound);
+                await repository.DeleteAsync(tenantResult.Value, ct);
             },
             ct
         );
@@ -40,5 +50,6 @@ public sealed class DeleteTenantCommandHandler
         );
 
         await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Tenants));
+        return Result.Success;
     }
 }

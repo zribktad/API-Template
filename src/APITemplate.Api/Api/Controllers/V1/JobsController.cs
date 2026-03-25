@@ -1,9 +1,11 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
 
@@ -24,11 +26,17 @@ public sealed class JobsController(IMessageBus bus) : ApiControllerBase
     [RequirePermission(Permission.Examples.Execute)]
     public async Task<IActionResult> Submit(SubmitJobRequest request, CancellationToken ct)
     {
-        var result = await bus.InvokeAsync<JobStatusResponse>(new SubmitJobCommand(request), ct);
+        var result = await bus.InvokeAsync<ErrorOr<JobStatusResponse>>(
+            new SubmitJobCommand(request),
+            ct
+        );
+        if (result.IsError)
+            return result.ToErrorResult(this);
+
         return AcceptedAtAction(
             nameof(GetStatus),
-            new { id = result.Id, version = this.GetApiVersion() },
-            result
+            new { id = result.Value.Id, version = this.GetApiVersion() },
+            result.Value
         );
     }
 
@@ -40,7 +48,10 @@ public sealed class JobsController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<JobStatusResponse?>(new GetJobStatusQuery(request), ct);
-        return OkOrNotFound(result);
+        var result = await bus.InvokeAsync<ErrorOr<JobStatusResponse>>(
+            new GetJobStatusQuery(request),
+            ct
+        );
+        return result.ToActionResult(this);
     }
 }

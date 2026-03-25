@@ -1,8 +1,9 @@
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Resilience;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Polly.Registry;
 using Wolverine;
@@ -13,7 +14,7 @@ public sealed record DeleteProductDataCommand(Guid Id) : IHasId;
 
 public sealed class DeleteProductDataCommandHandler
 {
-    public static async Task HandleAsync(
+    public static async Task<ErrorOr<Success>> HandleAsync(
         DeleteProductDataCommand command,
         IProductDataRepository repository,
         IProductDataLinkRepository productDataLinkRepository,
@@ -29,20 +30,10 @@ public sealed class DeleteProductDataCommandHandler
     {
         var tenantId = tenantProvider.TenantId;
 
-        var data =
-            await repository.GetByIdAsync(command.Id, ct)
-            ?? throw new NotFoundException(
-                nameof(Domain.Entities.ProductData),
-                command.Id,
-                ErrorCatalog.ProductData.NotFound
-            );
+        var data = await repository.GetByIdAsync(command.Id, ct);
 
-        if (data.TenantId != tenantId)
-            throw new NotFoundException(
-                nameof(Domain.Entities.ProductData),
-                command.Id,
-                ErrorCatalog.ProductData.NotFound
-            );
+        if (data is null || data.TenantId != tenantId)
+            return DomainErrors.ProductData.NotFound(command.Id);
 
         var deletedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
         var actorId = actorProvider.ActorId;
@@ -82,5 +73,6 @@ public sealed class DeleteProductDataCommandHandler
         }
 
         await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.ProductData));
+        return Result.Success;
     }
 }

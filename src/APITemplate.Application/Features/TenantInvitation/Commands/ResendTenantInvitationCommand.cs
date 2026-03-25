@@ -1,10 +1,11 @@
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Email;
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Enums;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Wolverine;
 
@@ -14,7 +15,7 @@ public sealed record ResendTenantInvitationCommand(Guid InvitationId);
 
 public sealed class ResendTenantInvitationCommandHandler
 {
-    public static async Task HandleAsync(
+    public static async Task<ErrorOr<Success>> HandleAsync(
         ResendTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
@@ -27,30 +28,30 @@ public sealed class ResendTenantInvitationCommandHandler
         CancellationToken ct
     )
     {
-        var invitation = await invitationRepository.GetByIdOrThrowAsync(
+        var invitationResult = await invitationRepository.GetByIdOrError(
             command.InvitationId,
-            ErrorCatalog.Invitations.NotFound,
+            DomainErrors.Invitations.NotFound(command.InvitationId),
             ct
         );
+        if (invitationResult.IsError)
+            return invitationResult.Errors;
+        var invitation = invitationResult.Value;
 
         if (invitation.Status != InvitationStatus.Pending)
-            throw new ConflictException(
-                ErrorCatalog.Invitations.NotPendingMessage,
-                ErrorCatalog.Invitations.NotPending
-            );
+            return DomainErrors.Invitations.NotPending();
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
         if (invitation.ExpiresAtUtc < now)
-            throw new ConflictException(
-                ErrorCatalog.Invitations.ExpiredCreateNewMessage,
-                ErrorCatalog.Invitations.Expired
-            );
+            return DomainErrors.Invitations.ExpiredCreateNew();
 
-        var tenant = await tenantRepository.GetByIdOrThrowAsync(
+        var tenantResult = await tenantRepository.GetByIdOrError(
             tenantProvider.TenantId,
-            ErrorCatalog.Tenants.NotFound,
+            DomainErrors.Tenants.NotFound(tenantProvider.TenantId),
             ct
         );
+        if (tenantResult.IsError)
+            return tenantResult.Errors;
+        var tenant = tenantResult.Value;
 
         var rawToken = tokenGenerator.GenerateToken();
         invitation.TokenHash = tokenGenerator.HashToken(rawToken);
@@ -69,5 +70,6 @@ public sealed class ResendTenantInvitationCommandHandler
         );
 
         await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.TenantInvitations));
+        return Result.Success;
     }
 }

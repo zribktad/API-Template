@@ -5,6 +5,7 @@ using APITemplate.Application.Features.Category.Specifications;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
+using ErrorOr;
 using FluentValidation;
 using FluentValidation.Results;
 using Moq;
@@ -72,10 +73,11 @@ public class CategoryRequestHandlersTests
             ct
         );
 
-        result.Items.Count().ShouldBe(2);
-        result.Items.First().Name.ShouldBe("Electronics");
-        result.Items.Last().Name.ShouldBe("Books");
-        result.Items.Last().Description.ShouldBe("All books");
+        result.IsError.ShouldBeFalse();
+        result.Value.Items.Count().ShouldBe(2);
+        result.Value.Items.First().Name.ShouldBe("Electronics");
+        result.Value.Items.Last().Name.ShouldBe("Books");
+        result.Value.Items.Last().Description.ShouldBe("All books");
     }
 
     [Fact]
@@ -100,7 +102,8 @@ public class CategoryRequestHandlersTests
             ct
         );
 
-        result.Items.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.Items.ShouldBeEmpty();
     }
 
     [Fact]
@@ -130,10 +133,10 @@ public class CategoryRequestHandlersTests
             ct
         );
 
-        result.ShouldNotBeNull();
-        result!.Id.ShouldBe(categoryId);
-        result.Name.ShouldBe("Electronics");
-        result.Description.ShouldBe("Electronic devices");
+        result.IsError.ShouldBeFalse();
+        result.Value.Id.ShouldBe(categoryId);
+        result.Value.Name.ShouldBe("Electronics");
+        result.Value.Description.ShouldBe("Electronic devices");
     }
 
     [Fact]
@@ -155,7 +158,8 @@ public class CategoryRequestHandlersTests
             ct
         );
 
-        result.ShouldBeNull();
+        result.IsError.ShouldBeTrue();
+        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
     }
 
     [Fact]
@@ -181,10 +185,10 @@ public class CategoryRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.ShouldNotBeNull();
-        result.SuccessCount.ShouldBe(1);
-        result.FailureCount.ShouldBe(0);
-        result.Failures.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
+        result.Value.FailureCount.ShouldBe(0);
+        result.Value.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
@@ -224,9 +228,10 @@ public class CategoryRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
-        result.FailureCount.ShouldBe(0);
-        result.Failures.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
+        result.Value.FailureCount.ShouldBe(0);
+        result.Value.Failures.ShouldBeEmpty();
     }
 
     [Fact]
@@ -252,9 +257,10 @@ public class CategoryRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(0);
-        result.FailureCount.ShouldBe(1);
-        result.Failures[0].Errors.ShouldContain("Category name is required.");
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(0);
+        result.Value.FailureCount.ShouldBe(1);
+        result.Value.Failures[0].Errors.ShouldContain("Category name is required.");
 
         _repositoryMock.Verify(
             r => r.AddRangeAsync(It.IsAny<IEnumerable<Category>>(), It.IsAny<CancellationToken>()),
@@ -291,8 +297,9 @@ public class CategoryRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(2);
-        result.FailureCount.ShouldBe(0);
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(2);
+        result.Value.FailureCount.ShouldBe(0);
         captured.ShouldNotBeNull();
         captured!.All(x => x.Id != Guid.Empty).ShouldBeTrue();
         captured.Select(x => x.Id).Distinct().Count().ShouldBe(2);
@@ -327,9 +334,10 @@ public class CategoryRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
-        result.FailureCount.ShouldBe(0);
-        result.Failures.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
+        result.Value.FailureCount.ShouldBe(0);
+        result.Value.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -375,9 +383,10 @@ public class CategoryRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(0);
-        result.FailureCount.ShouldBe(1);
-        result.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(0);
+        result.Value.FailureCount.ShouldBe(1);
+        result.Value.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
 
         _unitOfWorkMock.Verify(
             u =>
@@ -418,9 +427,10 @@ public class CategoryRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(0);
-        result.FailureCount.ShouldBe(1);
-        result.Failures[0].Errors.ShouldContain("Category name is required.");
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(0);
+        result.Value.FailureCount.ShouldBe(1);
+        result.Value.Failures[0].Errors.ShouldContain("Category name is required.");
 
         _unitOfWorkMock.Verify(
             u =>
@@ -454,9 +464,10 @@ public class CategoryRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(1);
-        result.FailureCount.ShouldBe(0);
-        result.Failures.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(1);
+        result.Value.FailureCount.ShouldBe(0);
+        result.Value.Failures.ShouldBeEmpty();
 
         _repositoryMock.Verify(
             r =>
@@ -497,9 +508,10 @@ public class CategoryRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.SuccessCount.ShouldBe(0);
-        result.FailureCount.ShouldBe(1);
-        result.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(0);
+        result.Value.FailureCount.ShouldBe(1);
+        result.Value.Failures[0].Errors.ShouldContain(e => e.Contains("not found"));
 
         _unitOfWorkMock.Verify(
             u =>
@@ -536,12 +548,12 @@ public class CategoryRequestHandlersTests
             ct
         );
 
-        result.ShouldNotBeNull();
-        result!.CategoryId.ShouldBe(categoryId);
-        result.CategoryName.ShouldBe("Electronics");
-        result.ProductCount.ShouldBe(5);
-        result.AveragePrice.ShouldBe(199.99m);
-        result.TotalReviews.ShouldBe(42);
+        result.IsError.ShouldBeFalse();
+        result.Value.CategoryId.ShouldBe(categoryId);
+        result.Value.CategoryName.ShouldBe("Electronics");
+        result.Value.ProductCount.ShouldBe(5);
+        result.Value.AveragePrice.ShouldBe(199.99m);
+        result.Value.TotalReviews.ShouldBe(42);
     }
 
     [Fact]
@@ -558,6 +570,7 @@ public class CategoryRequestHandlersTests
             ct
         );
 
-        result.ShouldBeNull();
+        result.IsError.ShouldBeTrue();
+        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
     }
 }

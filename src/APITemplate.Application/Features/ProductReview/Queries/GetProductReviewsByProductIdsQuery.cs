@@ -1,5 +1,6 @@
 using APITemplate.Application.Features.ProductReview.Specifications;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 
 namespace APITemplate.Application.Features.ProductReview;
 
@@ -9,14 +10,17 @@ public sealed record GetProductReviewsByProductIdsQuery(IReadOnlyCollection<Guid
 /// <summary>Handles <see cref="GetProductReviewsByProductIdsQuery"/>.</summary>
 public sealed class GetProductReviewsByProductIdsQueryHandler
 {
-    public static async Task<IReadOnlyDictionary<Guid, ProductReviewResponse[]>> HandleAsync(
+    public static async Task<
+        ErrorOr<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>
+    > HandleAsync(
         GetProductReviewsByProductIdsQuery request,
         IProductReviewRepository reviewRepository,
         CancellationToken ct
     )
     {
         if (request.ProductIds.Count == 0)
-            return new Dictionary<Guid, ProductReviewResponse[]>();
+            return (ErrorOr<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>)
+                new Dictionary<Guid, ProductReviewResponse[]>();
 
         var reviews = await reviewRepository.ListAsync(
             new ProductReviewByProductIdsSpecification(request.ProductIds),
@@ -24,6 +28,7 @@ public sealed class GetProductReviewsByProductIdsQueryHandler
         );
         var lookup = reviews.ToLookup(review => review.ProductId);
 
-        return request.ProductIds.Distinct().ToDictionary(id => id, id => lookup[id].ToArray());
+        return (ErrorOr<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>)
+            request.ProductIds.Distinct().ToDictionary(id => id, id => lookup[id].ToArray());
     }
 }

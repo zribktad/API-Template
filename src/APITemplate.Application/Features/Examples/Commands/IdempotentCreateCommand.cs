@@ -1,6 +1,7 @@
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Examples;
@@ -9,7 +10,7 @@ public sealed record IdempotentCreateCommand(IdempotentCreateRequest Request);
 
 public sealed class IdempotentCreateCommandHandler
 {
-    public static async Task<IdempotentCreateResponse> HandleAsync(
+    public static async Task<ErrorOr<IdempotentCreateResponse>> HandleAsync(
         IdempotentCreateCommand command,
         IProductRepository repository,
         IUnitOfWork unitOfWork,

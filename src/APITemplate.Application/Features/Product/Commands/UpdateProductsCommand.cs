@@ -1,6 +1,7 @@
 using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Events;
 using APITemplate.Domain.Entities;
+using ErrorOr;
 using FluentValidation;
 using Wolverine;
 using ProductEntity = APITemplate.Domain.Entities.Product;
@@ -56,7 +57,7 @@ public sealed class UpdateProductsCommandHandler
     }
 
     /// <summary>Applies changes and syncs product-data links in a single transaction.</summary>
-    public static async Task<BatchResponse> HandleAsync(
+    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
         UpdateProductsCommand command,
         EntityLookup<ProductEntity> lookup,
         IProductRepository repository,
