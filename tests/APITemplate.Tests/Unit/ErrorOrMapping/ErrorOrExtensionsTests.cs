@@ -43,7 +43,15 @@ public class ErrorOrExtensionsTests
         string expectedTitle
     )
     {
-        var error = Error.Custom((int)errorType, "Error.Code", "Error description.");
+        var error = errorType switch
+        {
+            ErrorType.NotFound => Error.NotFound("Error.Code", "Error description."),
+            ErrorType.Validation => Error.Validation("Error.Code", "Error description."),
+            ErrorType.Conflict => Error.Conflict("Error.Code", "Error description."),
+            ErrorType.Forbidden => Error.Forbidden("Error.Code", "Error description."),
+            ErrorType.Unauthorized => Error.Unauthorized("Error.Code", "Error description."),
+            _ => Error.Failure("Error.Code", "Error description."),
+        };
         ErrorOr<string> result = error;
 
         var actionResult = result.ToActionResult(CreateController());
@@ -94,6 +102,7 @@ public class ErrorOrExtensionsTests
         var actionResult = result.ToActionResult(CreateController());
 
         var problem = ((ObjectResult)actionResult.Result!).Value.ShouldBeOfType<ProblemDetails>();
+        problem.Detail.ShouldNotBeNull();
         problem.Detail.ShouldContain("Name is required.");
         problem.Detail.ShouldContain("Price must be greater than zero.");
     }

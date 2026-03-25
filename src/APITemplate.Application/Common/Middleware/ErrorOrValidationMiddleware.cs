@@ -1,3 +1,4 @@
+using APITemplate.Application.Common.Errors;
 using ErrorOr;
 using FluentValidation;
 using Wolverine;
@@ -19,18 +20,29 @@ public static class ErrorOrValidationMiddleware
     public static async Task<(HandlerContinuation, ErrorOr<TResponse>)> BeforeAsync<
         TMessage,
         TResponse
-    >(TMessage message, IValidator<TMessage>? validator = null)
+    >(TMessage message, IValidator<TMessage>? validator = null, CancellationToken ct = default)
     {
         if (validator is null)
             return (HandlerContinuation.Continue, default!);
 
-        var validationResult = await validator.ValidateAsync(message);
+        var validationResult = await validator.ValidateAsync(message, ct);
 
         if (validationResult.IsValid)
             return (HandlerContinuation.Continue, default!);
 
         var errors = validationResult
-            .Errors.Select(e => Error.Validation(code: e.PropertyName, description: e.ErrorMessage))
+            .Errors.Select(e =>
+            {
+                var metadata = new Dictionary<string, object> { ["propertyName"] = e.PropertyName };
+                if (e.AttemptedValue is not null)
+                    metadata["attemptedValue"] = e.AttemptedValue;
+
+                return Error.Validation(
+                    code: ErrorCatalog.General.ValidationFailed,
+                    description: e.ErrorMessage,
+                    metadata: metadata
+                );
+            })
             .ToList();
 
         return (HandlerContinuation.Stop, errors);

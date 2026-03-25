@@ -1,5 +1,4 @@
 using APITemplate.Application.Common.Middleware;
-using ErrorOr;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Serilog;
@@ -54,11 +53,7 @@ try
         // Event handlers (returning Task) and non-ErrorOr handlers are not affected.
         opts.Policies.AddMiddleware(
             typeof(ErrorOrValidationMiddleware),
-            chain =>
-                chain.Handlers.Any(h =>
-                    h.Method.ReturnType.IsGenericType
-                    && h.Method.ReturnType.GetGenericTypeDefinition() == typeof(ErrorOr<>)
-                )
+            chain => chain.ShouldApplyErrorOrValidation(typeof(CreateProductsCommand).Assembly)
         );
     });
 

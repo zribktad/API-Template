@@ -120,13 +120,13 @@ public static class DomainErrors
             );
 
         public static Error Expired() =>
-            Error.Validation(
+            Error.Conflict(
                 code: ErrorCatalog.Invitations.Expired,
                 description: ErrorCatalog.Invitations.ExpiredMessage
             );
 
         public static Error ExpiredCreateNew() =>
-            Error.Validation(
+            Error.Conflict(
                 code: ErrorCatalog.Invitations.Expired,
                 description: ErrorCatalog.Invitations.ExpiredCreateNewMessage
             );
@@ -158,10 +158,10 @@ public static class DomainErrors
                 description: $"File '{fileName}' not found."
             );
 
-        public static Error InvalidFileType(string expectedType) =>
+        public static Error InvalidFileType(string extension) =>
             Error.Validation(
                 code: ErrorCatalog.Examples.InvalidFileType,
-                description: $"Invalid file type. Expected: {expectedType}."
+                description: $"File type '{extension}' is not allowed."
             );
 
         public static Error FileTooLarge(long maxSize) =>
