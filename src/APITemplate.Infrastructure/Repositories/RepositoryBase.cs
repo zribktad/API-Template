@@ -142,6 +142,7 @@ public abstract class RepositoryBase<T>
     /// Looks up the entity by <paramref name="id"/> and marks it for deletion.
     /// Throws <see cref="NotFoundException"/> when the entity does not exist.
     /// </summary>
+    [Obsolete("Use GetByIdAsync + DeleteAsync(entity) with ErrorOr pattern instead.")]
     public async Task DeleteAsync(Guid id, CancellationToken ct = default, string? errorCode = null)
     {
         var entity =

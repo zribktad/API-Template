@@ -1,10 +1,12 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Api.Filters.Idempotency;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
 
@@ -29,10 +31,13 @@ public sealed class IdempotentController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<IdempotentCreateResponse>(
+        var result = await bus.InvokeAsync<ErrorOr<IdempotentCreateResponse>>(
             new IdempotentCreateCommand(request),
             ct
         );
-        return Created(string.Empty, result);
+        if (result.IsError)
+            return result.ToActionResult(this);
+
+        return Created(string.Empty, result.Value);
     }
 }

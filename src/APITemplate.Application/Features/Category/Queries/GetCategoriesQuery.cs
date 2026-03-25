@@ -1,4 +1,5 @@
 using APITemplate.Application.Features.Category.Specifications;
+using ErrorOr;
 
 namespace APITemplate.Application.Features.Category;
 
@@ -8,7 +9,7 @@ public sealed record GetCategoriesQuery(CategoryFilter Filter);
 /// <summary>Handles <see cref="GetCategoriesQuery"/>.</summary>
 public sealed class GetCategoriesQueryHandler
 {
-    public static async Task<PagedResponse<CategoryResponse>> HandleAsync(
+    public static async Task<ErrorOr<PagedResponse<CategoryResponse>>> HandleAsync(
         GetCategoriesQuery request,
         ICategoryRepository repository,
         CancellationToken ct

@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Tests.Integration.Helpers;
+using Microsoft.AspNetCore.Mvc;
 using Shouldly;
 using Xunit;
 
@@ -77,8 +78,17 @@ public class FilesControllerTests : IClassFixture<CustomWebApplicationFactory>
             "bad stuff"
         );
         var response = await _client.PostAsync("/api/v1/files/upload", content, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+        var problem = JsonSerializer.Deserialize<ProblemDetails>(
+            body,
+            TestJsonOptions.CaseInsensitive
+        );
+        problem.ShouldNotBeNull();
+        problem!.Detail.ShouldBe("File type '.exe' is not allowed.");
+        problem.Extensions.ShouldContainKey("errorCode");
+        problem.Extensions["errorCode"]?.ToString().ShouldBe("EXA-0400-FILE");
     }
 
     [Fact]

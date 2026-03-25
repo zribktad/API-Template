@@ -1,8 +1,10 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Wolverine;
@@ -27,11 +29,11 @@ public sealed class CategoriesController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var categories = await bus.InvokeAsync<PagedResponse<CategoryResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<PagedResponse<CategoryResponse>>>(
             new GetCategoriesQuery(filter),
             ct
         );
-        return Ok(categories);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Returns a single category by its identifier, or 404 if not found.</summary>
@@ -40,8 +42,11 @@ public sealed class CategoriesController(IMessageBus bus) : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Categories)]
     public async Task<ActionResult<CategoryResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var category = await bus.InvokeAsync<CategoryResponse?>(new GetCategoryByIdQuery(id), ct);
-        return OkOrNotFound(category);
+        var result = await bus.InvokeAsync<ErrorOr<CategoryResponse>>(
+            new GetCategoryByIdQuery(id),
+            ct
+        );
+        return result.ToActionResult(this);
     }
 
     /// <summary>Creates multiple categories in a single batch operation.</summary>
@@ -52,8 +57,11 @@ public sealed class CategoriesController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<BatchResponse>(new CreateCategoriesCommand(request), ct);
-        return OkOrUnprocessable(result);
+        var result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
+            new CreateCategoriesCommand(request),
+            ct
+        );
+        return result.ToBatchResult(this);
     }
 
     /// <summary>Updates multiple categories in a single batch operation.</summary>
@@ -64,8 +72,11 @@ public sealed class CategoriesController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<BatchResponse>(new UpdateCategoriesCommand(request), ct);
-        return OkOrUnprocessable(result);
+        var result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
+            new UpdateCategoriesCommand(request),
+            ct
+        );
+        return result.ToBatchResult(this);
     }
 
     /// <summary>Soft-deletes multiple categories in a single batch operation.</summary>
@@ -76,8 +87,11 @@ public sealed class CategoriesController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<BatchResponse>(new DeleteCategoriesCommand(request), ct);
-        return OkOrUnprocessable(result);
+        var result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
+            new DeleteCategoriesCommand(request),
+            ct
+        );
+        return result.ToBatchResult(this);
     }
 
     /// <summary>
@@ -92,10 +106,10 @@ public sealed class CategoriesController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var stats = await bus.InvokeAsync<ProductCategoryStatsResponse?>(
+        var result = await bus.InvokeAsync<ErrorOr<ProductCategoryStatsResponse>>(
             new GetCategoryStatsQuery(id),
             ct
         );
-        return OkOrNotFound(stats);
+        return result.ToActionResult(this);
     }
 }

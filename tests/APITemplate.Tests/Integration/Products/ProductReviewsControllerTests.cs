@@ -161,6 +161,60 @@ public class ProductReviewsControllerTests : IClassFixture<CustomWebApplicationF
         reviews!.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task Create_WithInvalidRating_ReturnsBadRequestWithValidationError()
+    {
+        // FluentValidationActionFilter validates CreateProductReviewRequest before the handler runs.
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/productreviews",
+            new { ProductId = Guid.NewGuid(), Rating = 0 },
+            ct
+        );
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+        body.ShouldContain("Rating");
+    }
+
+    [Fact]
+    public async Task Delete_ReviewByOtherUser_ReturnsForbidden()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var ownerUserId = IntegrationAuthHelper.AuthenticateAndGetUserId(
+            _client,
+            tenantId: _tenantId
+        );
+
+        var productName = $"Shared Product-{Guid.NewGuid():N}";
+        await _client.PostAsJsonAsync(
+            "/api/v1/products",
+            new { Items = new[] { new { Name = productName, Price = 10m } } },
+            ct
+        );
+        var productId = await ResolveProductIdAsync(productName, 10m, ct);
+
+        var createReviewResponse = await _client.PostAsJsonAsync(
+            "/api/v1/productreviews",
+            new { ProductId = productId, Rating = 4 },
+            ct
+        );
+        createReviewResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var created = await createReviewResponse.Content.ReadFromJsonAsync<ProductReviewResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        var reviewId = created!.Id;
+
+        // Switch to a different user in the same tenant
+        IntegrationAuthHelper.AuthenticateAndGetUserId(_client, tenantId: _tenantId);
+        var deleteResponse = await _client.DeleteAsync($"/api/v1/productreviews/{reviewId}", ct);
+
+        deleteResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
     private async Task<Guid> ResolveProductIdAsync(string name, decimal price, CancellationToken ct)
     {
         var response = await _client.GetAsync(

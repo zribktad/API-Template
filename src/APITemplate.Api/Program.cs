@@ -1,8 +1,8 @@
+using APITemplate.Application.Common.Middleware;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Serilog;
 using Wolverine;
-using Wolverine.FluentValidation;
 
 try
 {
@@ -48,7 +48,13 @@ try
         opts.Durability.Mode = DurabilityMode.Balanced;
         opts.Discovery.IncludeAssembly(typeof(CreateProductsCommand).Assembly);
         opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
-        opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration);
+
+        // Apply ErrorOr validation middleware only to handlers returning ErrorOr<T>.
+        // Event handlers (returning Task) and non-ErrorOr handlers are not affected.
+        opts.Policies.AddMiddleware(
+            typeof(ErrorOrValidationMiddleware),
+            chain => chain.ShouldApplyErrorOrValidation(typeof(CreateProductsCommand).Assembly)
+        );
     });
 
     var app = builder.Build(); // Materialize the web app from configured services.

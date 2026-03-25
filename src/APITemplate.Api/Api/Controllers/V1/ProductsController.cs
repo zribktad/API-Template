@@ -1,8 +1,10 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Wolverine;
@@ -25,8 +27,11 @@ public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var products = await bus.InvokeAsync<ProductsResponse>(new GetProductsQuery(filter), ct);
-        return Ok(products);
+        var result = await bus.InvokeAsync<ErrorOr<ProductsResponse>>(
+            new GetProductsQuery(filter),
+            ct
+        );
+        return result.ToActionResult(this);
     }
 
     /// <summary>Returns a single product by its identifier, or 404 if not found.</summary>
@@ -35,8 +40,11 @@ public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Products)]
     public async Task<ActionResult<ProductResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var product = await bus.InvokeAsync<ProductResponse?>(new GetProductByIdQuery(id), ct);
-        return OkOrNotFound(product);
+        var result = await bus.InvokeAsync<ErrorOr<ProductResponse>>(
+            new GetProductByIdQuery(id),
+            ct
+        );
+        return result.ToActionResult(this);
     }
 
     /// <summary>Creates multiple products in a single batch operation.</summary>
@@ -47,8 +55,11 @@ public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<BatchResponse>(new CreateProductsCommand(request), ct);
-        return OkOrUnprocessable(result);
+        var result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
+            new CreateProductsCommand(request),
+            ct
+        );
+        return result.ToBatchResult(this);
     }
 
     /// <summary>Updates multiple products in a single batch operation.</summary>
@@ -59,8 +70,11 @@ public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<BatchResponse>(new UpdateProductsCommand(request), ct);
-        return OkOrUnprocessable(result);
+        var result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
+            new UpdateProductsCommand(request),
+            ct
+        );
+        return result.ToBatchResult(this);
     }
 
     /// <summary>Soft-deletes multiple products in a single batch operation.</summary>
@@ -71,7 +85,10 @@ public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<BatchResponse>(new DeleteProductsCommand(request), ct);
-        return OkOrUnprocessable(result);
+        var result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
+            new DeleteProductsCommand(request),
+            ct
+        );
+        return result.ToBatchResult(this);
     }
 }

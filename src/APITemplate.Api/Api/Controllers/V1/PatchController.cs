@@ -1,8 +1,10 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using SystemTextJsonPatch;
 using Wolverine;
@@ -28,10 +30,10 @@ public sealed class PatchController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<ProductResponse>(
+        var result = await bus.InvokeAsync<ErrorOr<ProductResponse>>(
             new PatchProductCommand(id, dto => patchDocument.ApplyTo(dto)),
             ct
         );
-        return Ok(result);
+        return result.ToActionResult(this);
     }
 }

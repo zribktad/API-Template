@@ -2,6 +2,7 @@ using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Batch.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Category.Specifications;
+using ErrorOr;
 using Wolverine;
 
 namespace APITemplate.Application.Features.Category;
@@ -12,7 +13,7 @@ public sealed record DeleteCategoriesCommand(BatchDeleteRequest Request);
 /// <summary>Handles <see cref="DeleteCategoriesCommand"/> by loading all categories and deleting in a single transaction.</summary>
 public sealed class DeleteCategoriesCommandHandler
 {
-    public static async Task<BatchResponse> HandleAsync(
+    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
         DeleteCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,

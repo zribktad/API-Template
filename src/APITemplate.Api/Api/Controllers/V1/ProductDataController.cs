@@ -1,8 +1,10 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Wolverine;
@@ -26,11 +28,11 @@ public sealed class ProductDataController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var items = await bus.InvokeAsync<List<ProductDataResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<List<ProductDataResponse>>>(
             new GetProductDataQuery(type),
             ct
         );
-        return Ok(items);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Returns a single product data document by its identifier, or 404 if not found.</summary>
@@ -39,8 +41,11 @@ public sealed class ProductDataController(IMessageBus bus) : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.ProductData)]
     public async Task<ActionResult<ProductDataResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var item = await bus.InvokeAsync<ProductDataResponse?>(new GetProductDataByIdQuery(id), ct);
-        return OkOrNotFound(item);
+        var result = await bus.InvokeAsync<ErrorOr<ProductDataResponse>>(
+            new GetProductDataByIdQuery(id),
+            ct
+        );
+        return result.ToActionResult(this);
     }
 
     /// <summary>Creates a new image product-data document and returns it with a 201 Location header.</summary>
@@ -51,11 +56,11 @@ public sealed class ProductDataController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var created = await bus.InvokeAsync<ProductDataResponse>(
+        var result = await bus.InvokeAsync<ErrorOr<ProductDataResponse>>(
             new CreateImageProductDataCommand(request),
             ct
         );
-        return CreatedAtGetById(created, created.Id);
+        return result.ToCreatedResult(this, v => new { id = v.Id, version = this.GetApiVersion() });
     }
 
     /// <summary>Creates a new video product-data document and returns it with a 201 Location header.</summary>
@@ -66,11 +71,11 @@ public sealed class ProductDataController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var created = await bus.InvokeAsync<ProductDataResponse>(
+        var result = await bus.InvokeAsync<ErrorOr<ProductDataResponse>>(
             new CreateVideoProductDataCommand(request),
             ct
         );
-        return CreatedAtGetById(created, created.Id);
+        return result.ToCreatedResult(this, v => new { id = v.Id, version = this.GetApiVersion() });
     }
 
     /// <summary>Deletes a product data document by its identifier.</summary>
@@ -78,7 +83,7 @@ public sealed class ProductDataController(IMessageBus bus) : ApiControllerBase
     [RequirePermission(Permission.ProductData.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await bus.InvokeAsync(new DeleteProductDataCommand(id), ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(new DeleteProductDataCommand(id), ct);
+        return result.ToNoContentResult(this);
     }
 }

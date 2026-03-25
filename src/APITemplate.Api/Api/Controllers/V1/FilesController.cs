@@ -1,10 +1,12 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Api.Requests;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
 
@@ -30,7 +32,7 @@ public sealed class FilesController(IMessageBus bus) : ApiControllerBase
     )
     {
         await using var stream = request.File.OpenReadStream();
-        var result = await bus.InvokeAsync<FileUploadResponse>(
+        var result = await bus.InvokeAsync<ErrorOr<FileUploadResponse>>(
             new UploadFileCommand(
                 new UploadFileRequest(
                     stream,
@@ -42,10 +44,13 @@ public sealed class FilesController(IMessageBus bus) : ApiControllerBase
             ),
             ct
         );
+        if (result.IsError)
+            return result.ToActionResult(this);
+
         return CreatedAtAction(
             nameof(Download),
-            new { id = result.Id, version = this.GetApiVersion() },
-            result
+            new { id = result.Value.Id, version = this.GetApiVersion() },
+            result.Value
         );
     }
 
@@ -60,14 +65,20 @@ public sealed class FilesController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<FileDownloadResult>(new DownloadFileQuery(request), ct);
+        var result = await bus.InvokeAsync<ErrorOr<FileDownloadResult>>(
+            new DownloadFileQuery(request),
+            ct
+        );
+        if (result.IsError)
+            return result.ToErrorResult(this);
+
         try
         {
-            return File(result.FileStream, result.ContentType, result.FileName);
+            return File(result.Value.FileStream, result.Value.ContentType, result.Value.FileName);
         }
         catch
         {
-            await result.FileStream.DisposeAsync();
+            await result.Value.FileStream.DisposeAsync();
             throw;
         }
     }

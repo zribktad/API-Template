@@ -1,8 +1,9 @@
 using APITemplate.Application.Common.Context;
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Wolverine;
 
 namespace APITemplate.Application.Features.ProductReview;
@@ -13,7 +14,7 @@ public sealed record DeleteProductReviewCommand(Guid Id) : IHasId;
 /// <summary>Handles <see cref="DeleteProductReviewCommand"/>.</summary>
 public sealed class DeleteProductReviewCommandHandler
 {
-    public static async Task HandleAsync(
+    public static async Task<ErrorOr<Success>> HandleAsync(
         DeleteProductReviewCommand command,
         IProductReviewRepository reviewRepository,
         IUnitOfWork unitOfWork,
@@ -23,32 +24,27 @@ public sealed class DeleteProductReviewCommandHandler
     )
     {
         var userId = actorProvider.ActorId;
-        var review = await reviewRepository.GetByIdOrThrowAsync(
+        var reviewResult = await reviewRepository.GetByIdOrError(
             command.Id,
-            ErrorCatalog.Reviews.ReviewNotFound,
+            DomainErrors.Reviews.NotFound(command.Id),
             ct
         );
+        if (reviewResult.IsError)
+            return reviewResult.Errors;
+        var review = reviewResult.Value;
 
         if (review.UserId != userId)
-        {
-            throw new ForbiddenException(
-                ErrorCatalog.Auth.ForbiddenOwnReviewsOnly,
-                ErrorCatalog.Auth.Forbidden
-            );
-        }
+            return DomainErrors.Auth.ForbiddenOwnReviewsOnly();
 
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
-                await reviewRepository.DeleteAsync(
-                    command.Id,
-                    ct,
-                    ErrorCatalog.Reviews.ReviewNotFound
-                );
+                await reviewRepository.DeleteAsync(review, ct);
             },
             ct
         );
 
         await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews));
+        return Result.Success;
     }
 }

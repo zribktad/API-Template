@@ -2,6 +2,7 @@ using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Batch.Rules;
 using APITemplate.Application.Common.Events;
 using APITemplate.Domain.Entities;
+using ErrorOr;
 using FluentValidation;
 using Wolverine;
 using ProductEntity = APITemplate.Domain.Entities.Product;
@@ -14,7 +15,7 @@ public sealed record CreateProductsCommand(CreateProductsRequest Request);
 /// <summary>Handles <see cref="CreateProductsCommand"/> by validating all items, bulk-validating references, and persisting in a single transaction.</summary>
 public sealed class CreateProductsCommandHandler
 {
-    public static async Task<BatchResponse> HandleAsync(
+    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
         CreateProductsCommand command,
         IProductRepository repository,
         ICategoryRepository categoryRepository,

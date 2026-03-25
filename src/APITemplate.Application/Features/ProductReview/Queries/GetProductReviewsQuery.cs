@@ -1,5 +1,6 @@
 using APITemplate.Application.Features.ProductReview.Specifications;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 
 namespace APITemplate.Application.Features.ProductReview;
 
@@ -9,7 +10,7 @@ public sealed record GetProductReviewsQuery(ProductReviewFilter Filter);
 /// <summary>Handles <see cref="GetProductReviewsQuery"/>.</summary>
 public sealed class GetProductReviewsQueryHandler
 {
-    public static async Task<PagedResponse<ProductReviewResponse>> HandleAsync(
+    public static async Task<ErrorOr<PagedResponse<ProductReviewResponse>>> HandleAsync(
         GetProductReviewsQuery request,
         IProductReviewRepository reviewRepository,
         CancellationToken ct

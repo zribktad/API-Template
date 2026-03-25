@@ -1,4 +1,5 @@
 using APITemplate.Api.GraphQL.Models;
+using ErrorOr;
 using HotChocolate.Authorization;
 using Wolverine;
 
@@ -36,11 +37,11 @@ public class ProductReviewQueries
             input?.PageSize ?? 20
         );
 
-        var page = await bus.InvokeAsync<PagedResponse<ProductReviewResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<PagedResponse<ProductReviewResponse>>>(
             new GetProductReviewsQuery(filter),
             ct
         );
-        return new ProductReviewPageResult(page);
+        return new ProductReviewPageResult(result.ToGraphQLResult());
     }
 
     /// <summary>Returns a single review by ID, or <see langword="null"/> if not found.</summary>
@@ -48,7 +49,14 @@ public class ProductReviewQueries
         Guid id,
         [Service] IMessageBus bus,
         CancellationToken ct
-    ) => await bus.InvokeAsync<ProductReviewResponse?>(new GetProductReviewByIdQuery(id), ct);
+    )
+    {
+        var result = await bus.InvokeAsync<ErrorOr<ProductReviewResponse>>(
+            new GetProductReviewByIdQuery(id),
+            ct
+        );
+        return result.ToGraphQLNullableResult();
+    }
 
     /// <summary>Returns a paginated list of reviews scoped to a specific product.</summary>
     public async Task<ProductReviewPageResult> GetReviewsByProductId(
@@ -64,10 +72,10 @@ public class ProductReviewQueries
             PageNumber: pageNumber,
             PageSize: pageSize
         );
-        var page = await bus.InvokeAsync<PagedResponse<ProductReviewResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<PagedResponse<ProductReviewResponse>>>(
             new GetProductReviewsQuery(filter),
             ct
         );
-        return new ProductReviewPageResult(page);
+        return new ProductReviewPageResult(result.ToGraphQLResult());
     }
 }

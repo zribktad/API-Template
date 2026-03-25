@@ -3,9 +3,9 @@ using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Resilience;
 using APITemplate.Application.Features.ProductData;
 using APITemplate.Domain.Entities;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
+using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Polly;
@@ -79,9 +79,10 @@ public class ProductDataRequestHandlersTests
             ct
         );
 
-        result.Count.ShouldBe(2);
-        result[0].Type.ShouldBe("image");
-        result[1].Type.ShouldBe("video");
+        result.IsError.ShouldBeFalse();
+        result.Value.Count.ShouldBe(2);
+        result.Value[0].Type.ShouldBe("image");
+        result.Value[1].Type.ShouldBe("video");
     }
 
     [Fact]
@@ -107,8 +108,9 @@ public class ProductDataRequestHandlersTests
             ct
         );
 
-        result.Count.ShouldBe(1);
-        result[0].Type.ShouldBe("image");
+        result.IsError.ShouldBeFalse();
+        result.Value.Count.ShouldBe(1);
+        result.Value[0].Type.ShouldBe("image");
         _repositoryMock.Verify(
             r => r.GetAllAsync("image", It.IsAny<CancellationToken>()),
             Times.Once
@@ -129,7 +131,8 @@ public class ProductDataRequestHandlersTests
             ct
         );
 
-        result.ShouldBeEmpty();
+        result.IsError.ShouldBeFalse();
+        result.Value.ShouldBeEmpty();
     }
 
     [Fact]
@@ -157,11 +160,11 @@ public class ProductDataRequestHandlersTests
             ct
         );
 
-        result.ShouldNotBeNull();
-        result!.Id.ShouldBe(image.Id);
-        result.Type.ShouldBe("image");
-        result.Title.ShouldBe("Banner");
-        var imageResult = result.ShouldBeOfType<ImageProductDataResponse>();
+        result.IsError.ShouldBeFalse();
+        result.Value.Id.ShouldBe(image.Id);
+        result.Value.Type.ShouldBe("image");
+        result.Value.Title.ShouldBe("Banner");
+        var imageResult = result.Value.ShouldBeOfType<ImageProductDataResponse>();
         imageResult.Width.ShouldBe(800);
         imageResult.Height.ShouldBe(600);
     }
@@ -181,7 +184,8 @@ public class ProductDataRequestHandlersTests
             ct
         );
 
-        result.ShouldBeNull();
+        result.IsError.ShouldBeTrue();
+        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
     }
 
     [Fact]
@@ -210,11 +214,11 @@ public class ProductDataRequestHandlersTests
             ct
         );
 
-        result.ShouldNotBeNull();
-        result.Type.ShouldBe("image");
-        result.Title.ShouldBe("Banner");
-        result.Description.ShouldBe("A banner");
-        var imageResult = result.ShouldBeOfType<ImageProductDataResponse>();
+        result.IsError.ShouldBeFalse();
+        result.Value.Type.ShouldBe("image");
+        result.Value.Title.ShouldBe("Banner");
+        result.Value.Description.ShouldBe("A banner");
+        var imageResult = result.Value.ShouldBeOfType<ImageProductDataResponse>();
         imageResult.Width.ShouldBe(1920);
         imageResult.Height.ShouldBe(1080);
         imageResult.Format.ShouldBe("jpg");
@@ -257,11 +261,11 @@ public class ProductDataRequestHandlersTests
             ct
         );
 
-        result.ShouldNotBeNull();
-        result.Type.ShouldBe("video");
-        result.Title.ShouldBe("Intro");
-        result.Description.ShouldBeNull();
-        var videoResult = result.ShouldBeOfType<VideoProductDataResponse>();
+        result.IsError.ShouldBeFalse();
+        result.Value.Type.ShouldBe("video");
+        result.Value.Title.ShouldBe("Intro");
+        result.Value.Description.ShouldBeNull();
+        var videoResult = result.Value.ShouldBeOfType<VideoProductDataResponse>();
         videoResult.DurationSeconds.ShouldBe(60);
         videoResult.Resolution.ShouldBe("1080p");
         videoResult.Format.ShouldBe("mp4");
@@ -285,21 +289,22 @@ public class ProductDataRequestHandlersTests
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductData?)null);
 
-        await Should.ThrowAsync<NotFoundException>(() =>
-            DeleteProductDataCommandHandler.HandleAsync(
-                new DeleteProductDataCommand(Guid.NewGuid()),
-                _repositoryMock.Object,
-                _productDataLinkRepositoryMock.Object,
-                _tenantProviderMock.Object,
-                _actorProviderMock.Object,
-                _unitOfWorkMock.Object,
-                _busMock.Object,
-                TimeProvider.System,
-                _registry,
-                _loggerMock.Object,
-                TestContext.Current.CancellationToken
-            )
+        var result = await DeleteProductDataCommandHandler.HandleAsync(
+            new DeleteProductDataCommand(Guid.NewGuid()),
+            _repositoryMock.Object,
+            _productDataLinkRepositoryMock.Object,
+            _tenantProviderMock.Object,
+            _actorProviderMock.Object,
+            _unitOfWorkMock.Object,
+            _busMock.Object,
+            TimeProvider.System,
+            _registry,
+            _loggerMock.Object,
+            TestContext.Current.CancellationToken
         );
+
+        result.IsError.ShouldBeTrue();
+        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
     }
 
     [Fact]

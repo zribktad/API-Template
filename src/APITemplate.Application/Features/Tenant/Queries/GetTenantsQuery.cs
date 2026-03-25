@@ -1,6 +1,7 @@
 using APITemplate.Application.Features.Tenant.DTOs;
 using APITemplate.Application.Features.Tenant.Specifications;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 
 namespace APITemplate.Application.Features.Tenant;
 
@@ -8,7 +9,7 @@ public sealed record GetTenantsQuery(TenantFilter Filter);
 
 public sealed class GetTenantsQueryHandler
 {
-    public static async Task<PagedResponse<TenantResponse>> HandleAsync(
+    public static async Task<ErrorOr<PagedResponse<TenantResponse>>> HandleAsync(
         GetTenantsQuery request,
         ITenantRepository repository,
         CancellationToken ct

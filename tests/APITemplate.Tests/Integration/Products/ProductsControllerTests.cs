@@ -330,6 +330,96 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         secondPayload!.Page.Items.ShouldContain(p => p.Name == "Cached product");
     }
 
+    [Fact]
+    public async Task Create_WithEmptyProductName_ReturnsBadRequestWithValidationError()
+    {
+        // FluentValidationActionFilter validates CreateProductsRequest before the handler runs,
+        // so empty Name is rejected at the controller level with 400.
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client);
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/products",
+            new { Items = new[] { new { Name = "", Price = 10m } } },
+            ct
+        );
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+        body.ShouldContain("required");
+    }
+
+    [Fact]
+    public async Task Create_WithPriceAboveThresholdAndNoDescription_ReturnsUnprocessableWithValidationFailure()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client);
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/products",
+            new { Items = new[] { new { Name = "Expensive Widget", Price = 1500m } } },
+            ct
+        );
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity, body);
+
+        var batch = await response.Content.ReadFromJsonAsync<BatchResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        batch.ShouldNotBeNull();
+        batch!.FailureCount.ShouldBe(1);
+        batch.Failures[0].Errors.ShouldContain(e => e.Contains("Description"));
+    }
+
+    [Fact]
+    public async Task GetById_NonExistentProduct_ReturnsProblemDetailsBody()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client);
+
+        var response = await _client.GetAsync($"/api/v1/products/{Guid.NewGuid()}", ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
+
+        var problem = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        problem.ShouldNotBeNull();
+        problem!.Status.ShouldBe((int)HttpStatusCode.NotFound);
+        problem.Title.ShouldBe("Not Found");
+        problem.ErrorCode.ShouldNotBeNullOrWhiteSpace();
+        problem.TraceId.ShouldNotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task Delete_NonExistentProduct_ReturnsUnprocessableWithFailure()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client);
+
+        var missingId = Guid.NewGuid();
+        var request = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/products")
+        {
+            Content = JsonContent.Create(new { Ids = new[] { missingId } }),
+        };
+        var response = await _client.SendAsync(request, ct);
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity, body);
+
+        var batch = await response.Content.ReadFromJsonAsync<BatchResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        batch.ShouldNotBeNull();
+        batch!.FailureCount.ShouldBe(1);
+        batch.Failures[0].Id.ShouldBe(missingId);
+    }
+
     private async Task<Guid> ResolveProductIdAsync(
         string name,
         decimal price,

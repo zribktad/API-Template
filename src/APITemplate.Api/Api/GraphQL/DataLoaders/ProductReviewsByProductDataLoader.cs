@@ -1,3 +1,4 @@
+using ErrorOr;
 using Wolverine;
 
 namespace APITemplate.Api.GraphQL.DataLoaders;
@@ -30,9 +31,10 @@ public sealed class ProductReviewsByProductDataLoader
         IReadOnlyDictionary<Guid, ProductReviewResponse[]>
     > LoadBatchAsync(IReadOnlyList<Guid> productIds, CancellationToken ct)
     {
-        return await _bus.InvokeAsync<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>(
-            new GetProductReviewsByProductIdsQuery(productIds),
-            ct
-        );
+        var result = await _bus.InvokeAsync<
+            ErrorOr<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>
+        >(new GetProductReviewsByProductIdsQuery(productIds), ct);
+
+        return result.ToGraphQLResult();
     }
 }

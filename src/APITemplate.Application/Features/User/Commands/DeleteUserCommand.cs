@@ -1,7 +1,9 @@
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Common.Security;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Wolverine;
 
@@ -11,7 +13,7 @@ public sealed record DeleteUserCommand(Guid Id) : IHasId;
 
 public sealed class DeleteUserCommandHandler
 {
-    public static async Task HandleAsync(
+    public static async Task<ErrorOr<Success>> HandleAsync(
         DeleteUserCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
@@ -21,11 +23,14 @@ public sealed class DeleteUserCommandHandler
         CancellationToken ct
     )
     {
-        var user = await repository.GetByIdOrThrowAsync(
+        var userResult = await repository.GetByIdOrError(
             command.Id,
-            ErrorCatalog.Users.NotFound,
+            DomainErrors.Users.NotFound(command.Id),
             ct
         );
+        if (userResult.IsError)
+            return userResult.Errors;
+        var user = userResult.Value;
 
         if (user.KeycloakUserId is not null)
             await keycloakAdmin.DeleteUserAsync(user.KeycloakUserId, ct);
@@ -46,5 +51,6 @@ public sealed class DeleteUserCommandHandler
         }
 
         await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
+        return Result.Success;
     }
 }

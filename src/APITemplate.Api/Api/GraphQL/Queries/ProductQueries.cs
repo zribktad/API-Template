@@ -1,4 +1,5 @@
 using APITemplate.Api.GraphQL.Models;
+using ErrorOr;
 using HotChocolate.Authorization;
 using Wolverine;
 
@@ -36,7 +37,11 @@ public class ProductQueries
             input?.CategoryIds
         );
 
-        var page = await bus.InvokeAsync<ProductsResponse>(new GetProductsQuery(filter), ct);
+        var result = await bus.InvokeAsync<ErrorOr<ProductsResponse>>(
+            new GetProductsQuery(filter),
+            ct
+        );
+        var page = result.ToGraphQLResult();
         return new ProductPageResult(page.Page, page.Facets);
     }
 
@@ -45,5 +50,12 @@ public class ProductQueries
         Guid id,
         [Service] IMessageBus bus,
         CancellationToken ct
-    ) => await bus.InvokeAsync<ProductResponse?>(new GetProductByIdQuery(id), ct);
+    )
+    {
+        var result = await bus.InvokeAsync<ErrorOr<ProductResponse>>(
+            new GetProductByIdQuery(id),
+            ct
+        );
+        return result.ToGraphQLNullableResult();
+    }
 }

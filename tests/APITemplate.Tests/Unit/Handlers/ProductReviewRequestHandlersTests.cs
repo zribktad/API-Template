@@ -4,9 +4,9 @@ using APITemplate.Application.Features.Product.Repositories;
 using APITemplate.Application.Features.ProductReview;
 using APITemplate.Application.Features.ProductReview.Specifications;
 using APITemplate.Domain.Entities;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
 using APITemplate.Domain.Options;
+using ErrorOr;
 using Moq;
 using Shouldly;
 using Wolverine;
@@ -64,8 +64,9 @@ public class ProductReviewRequestHandlersTests
             ct
         );
 
-        result.Items.Count().ShouldBe(2);
-        result.TotalCount.ShouldBe(2);
+        result.IsError.ShouldBeFalse();
+        result.Value.Items.Count().ShouldBe(2);
+        result.Value.TotalCount.ShouldBe(2);
     }
 
     [Theory]
@@ -99,13 +100,14 @@ public class ProductReviewRequestHandlersTests
 
         if (reviewExists)
         {
-            result.ShouldNotBeNull();
-            result!.UserId.ShouldBe(userId);
-            result.Rating.ShouldBe(4);
+            result.IsError.ShouldBeFalse();
+            result.Value.UserId.ShouldBe(userId);
+            result.Value.Rating.ShouldBe(4);
         }
         else
         {
-            result.ShouldBeNull();
+            result.IsError.ShouldBeTrue();
+            result.FirstError.Type.ShouldBe(ErrorType.NotFound);
         }
     }
 
@@ -135,8 +137,9 @@ public class ProductReviewRequestHandlersTests
             ct
         );
 
-        result.Count.ShouldBe(1);
-        result[0].ProductId.ShouldBe(productId);
+        result.IsError.ShouldBeFalse();
+        result.Value.Count.ShouldBe(1);
+        result.Value[0].ProductId.ShouldBe(productId);
     }
 
     [Fact]
@@ -169,10 +172,11 @@ public class ProductReviewRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
-        result.UserId.ShouldBe(_currentUserId);
-        result.Rating.ShouldBe(5);
-        result.ProductId.ShouldBe(product.Id);
-        result.Id.ShouldNotBe(Guid.Empty);
+        result.IsError.ShouldBeFalse();
+        result.Value.UserId.ShouldBe(_currentUserId);
+        result.Value.Rating.ShouldBe(5);
+        result.Value.ProductId.ShouldBe(product.Id);
+        result.Value.Id.ShouldNotBe(Guid.Empty);
 
         _reviewRepoMock.Verify(
             r => r.AddAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()),
@@ -190,7 +194,7 @@ public class ProductReviewRequestHandlersTests
     }
 
     [Fact]
-    public async Task CreateAsync_WhenProductNotFound_ThrowsNotFoundException()
+    public async Task CreateAsync_WhenProductNotFound_ReturnsNotFoundError()
     {
         _productRepoMock
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -198,18 +202,18 @@ public class ProductReviewRequestHandlersTests
 
         var request = new CreateProductReviewRequest(Guid.NewGuid(), null, 3);
 
-        var act = () =>
-            CreateProductReviewCommandHandler.HandleAsync(
-                new CreateProductReviewCommand(request),
-                _reviewRepoMock.Object,
-                _productRepoMock.Object,
-                _unitOfWorkMock.Object,
-                _actorProviderMock.Object,
-                _busMock.Object,
-                TestContext.Current.CancellationToken
-            );
+        var result = await CreateProductReviewCommandHandler.HandleAsync(
+            new CreateProductReviewCommand(request),
+            _reviewRepoMock.Object,
+            _productRepoMock.Object,
+            _unitOfWorkMock.Object,
+            _actorProviderMock.Object,
+            _busMock.Object,
+            TestContext.Current.CancellationToken
+        );
 
-        await Should.ThrowAsync<NotFoundException>(act);
+        result.IsError.ShouldBeTrue();
+        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
     }
 
     [Fact]
@@ -227,7 +231,7 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(review);
 
-        await DeleteProductReviewCommandHandler.HandleAsync(
+        var result = await DeleteProductReviewCommandHandler.HandleAsync(
             new DeleteProductReviewCommand(id),
             _reviewRepoMock.Object,
             _unitOfWorkMock.Object,
@@ -236,8 +240,9 @@ public class ProductReviewRequestHandlersTests
             TestContext.Current.CancellationToken
         );
 
+        result.IsError.ShouldBeFalse();
         _reviewRepoMock.Verify(
-            r => r.DeleteAsync(id, It.IsAny<CancellationToken>(), It.IsAny<string?>()),
+            r => r.DeleteAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()),
             Times.Once
         );
         _unitOfWorkMock.Verify(
@@ -252,7 +257,7 @@ public class ProductReviewRequestHandlersTests
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenNotOwner_ThrowsForbiddenException()
+    public async Task DeleteAsync_WhenNotOwner_ReturnsForbiddenError()
     {
         var id = Guid.NewGuid();
         var review = new ProductReview
@@ -266,26 +271,25 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(review);
 
-        var act = () =>
-            DeleteProductReviewCommandHandler.HandleAsync(
-                new DeleteProductReviewCommand(id),
-                _reviewRepoMock.Object,
-                _unitOfWorkMock.Object,
-                _actorProviderMock.Object,
-                _busMock.Object,
-                TestContext.Current.CancellationToken
-            );
+        var result = await DeleteProductReviewCommandHandler.HandleAsync(
+            new DeleteProductReviewCommand(id),
+            _reviewRepoMock.Object,
+            _unitOfWorkMock.Object,
+            _actorProviderMock.Object,
+            _busMock.Object,
+            TestContext.Current.CancellationToken
+        );
 
-        await Should.ThrowAsync<ForbiddenException>(act);
+        result.IsError.ShouldBeTrue();
+        result.FirstError.Type.ShouldBe(ErrorType.Forbidden);
         _reviewRepoMock.Verify(
-            r =>
-                r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()),
+            r => r.DeleteAsync(It.IsAny<ProductReview>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenNotFound_ThrowsNotFoundException()
+    public async Task DeleteAsync_WhenNotFound_ReturnsNotFoundError()
     {
         var id = Guid.NewGuid();
 
@@ -293,16 +297,16 @@ public class ProductReviewRequestHandlersTests
             .Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductReview?)null);
 
-        var act = () =>
-            DeleteProductReviewCommandHandler.HandleAsync(
-                new DeleteProductReviewCommand(id),
-                _reviewRepoMock.Object,
-                _unitOfWorkMock.Object,
-                _actorProviderMock.Object,
-                _busMock.Object,
-                TestContext.Current.CancellationToken
-            );
+        var result = await DeleteProductReviewCommandHandler.HandleAsync(
+            new DeleteProductReviewCommand(id),
+            _reviewRepoMock.Object,
+            _unitOfWorkMock.Object,
+            _actorProviderMock.Object,
+            _busMock.Object,
+            TestContext.Current.CancellationToken
+        );
 
-        await Should.ThrowAsync<NotFoundException>(act);
+        result.IsError.ShouldBeTrue();
+        result.FirstError.Type.ShouldBe(ErrorType.NotFound);
     }
 }

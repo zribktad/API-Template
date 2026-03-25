@@ -1,6 +1,7 @@
 using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Batch.Rules;
 using APITemplate.Application.Common.Events;
+using ErrorOr;
 using FluentValidation;
 using Wolverine;
 using CategoryEntity = APITemplate.Domain.Entities.Category;
@@ -13,7 +14,7 @@ public sealed record CreateCategoriesCommand(CreateCategoriesRequest Request);
 /// <summary>Handles <see cref="CreateCategoriesCommand"/> by validating all items and persisting in a single transaction.</summary>
 public sealed class CreateCategoriesCommandHandler
 {
-    public static async Task<BatchResponse> HandleAsync(
+    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
         CreateCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,

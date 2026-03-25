@@ -2,11 +2,13 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
+using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Application.Common.DTOs;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.User.DTOs;
 using Asp.Versioning;
+using ErrorOr;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
@@ -30,11 +32,11 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<PagedResponse<UserResponse>>(
+        var result = await bus.InvokeAsync<ErrorOr<PagedResponse<UserResponse>>>(
             new GetUsersQuery(filter),
             ct
         );
-        return Ok(result);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Returns a single user by their identifier, or 404 if not found.</summary>
@@ -43,8 +45,8 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
     [OutputCache(PolicyName = CacheTags.Users)]
     public async Task<ActionResult<UserResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var user = await bus.InvokeAsync<UserResponse?>(new GetUserByIdQuery(id), ct);
-        return OkOrNotFound(user);
+        var result = await bus.InvokeAsync<ErrorOr<UserResponse>>(new GetUserByIdQuery(id), ct);
+        return result.ToActionResult(this);
     }
 
     /// <summary>
@@ -62,8 +64,8 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
         if (userId is null || !Guid.TryParse(userId, out var id))
             return Unauthorized();
 
-        var user = await bus.InvokeAsync<UserResponse?>(new GetUserByIdQuery(id), ct);
-        return OkOrNotFound(user);
+        var result = await bus.InvokeAsync<ErrorOr<UserResponse>>(new GetUserByIdQuery(id), ct);
+        return result.ToActionResult(this);
     }
 
     /// <summary>Creates a new user account and returns it with a 201 Location header.</summary>
@@ -74,8 +76,11 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var user = await bus.InvokeAsync<UserResponse>(new CreateUserCommand(request), ct);
-        return CreatedAtGetById(user, user.Id);
+        var result = await bus.InvokeAsync<ErrorOr<UserResponse>>(
+            new CreateUserCommand(request),
+            ct
+        );
+        return result.ToCreatedResult(this, v => new { id = v.Id, version = this.GetApiVersion() });
     }
 
     /// <summary>Replaces all mutable fields of an existing user.</summary>
@@ -87,8 +92,11 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        await bus.InvokeAsync(new UpdateUserCommand(id, request), ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new UpdateUserCommand(id, request),
+            ct
+        );
+        return result.ToNoContentResult(this);
     }
 
     /// <summary>Activates a previously deactivated user account.</summary>
@@ -96,8 +104,11 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
     [RequirePermission(Permission.Users.Update)]
     public async Task<IActionResult> Activate(Guid id, CancellationToken ct)
     {
-        await bus.InvokeAsync(new SetUserActiveCommand(id, IsActive: true), ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new SetUserActiveCommand(id, IsActive: true),
+            ct
+        );
+        return result.ToNoContentResult(this);
     }
 
     /// <summary>Deactivates an active user account, preventing further logins.</summary>
@@ -105,8 +116,11 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
     [RequirePermission(Permission.Users.Update)]
     public async Task<IActionResult> Deactivate(Guid id, CancellationToken ct)
     {
-        await bus.InvokeAsync(new SetUserActiveCommand(id, IsActive: false), ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new SetUserActiveCommand(id, IsActive: false),
+            ct
+        );
+        return result.ToNoContentResult(this);
     }
 
     /// <summary>Changes the role of an existing user within the current tenant.</summary>
@@ -118,8 +132,11 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        await bus.InvokeAsync(new ChangeUserRoleCommand(id, request), ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new ChangeUserRoleCommand(id, request),
+            ct
+        );
+        return result.ToNoContentResult(this);
     }
 
     /// <summary>Soft-deletes a user account by its identifier.</summary>
@@ -127,8 +144,8 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
     [RequirePermission(Permission.Users.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await bus.InvokeAsync(new DeleteUserCommand(id), ct);
-        return NoContent();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(new DeleteUserCommand(id), ct);
+        return result.ToNoContentResult(this);
     }
 
     /// <summary>
@@ -142,7 +159,10 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        await bus.InvokeAsync(new KeycloakPasswordResetCommand(request), ct);
-        return Ok();
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new KeycloakPasswordResetCommand(request),
+            ct
+        );
+        return result.ToOkResult(this);
     }
 }

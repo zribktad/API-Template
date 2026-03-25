@@ -1,13 +1,14 @@
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Email;
+using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Common.Options;
 using APITemplate.Application.Features.TenantInvitation.DTOs;
 using APITemplate.Application.Features.TenantInvitation.Mappings;
 using APITemplate.Domain.Entities;
-using APITemplate.Domain.Exceptions;
 using APITemplate.Domain.Interfaces;
+using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Wolverine;
@@ -19,7 +20,7 @@ public sealed record CreateTenantInvitationCommand(CreateTenantInvitationRequest
 
 public sealed class CreateTenantInvitationCommandHandler
 {
-    public static async Task<TenantInvitationResponse> HandleAsync(
+    public static async Task<ErrorOr<TenantInvitationResponse>> HandleAsync(
         CreateTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
@@ -37,16 +38,16 @@ public sealed class CreateTenantInvitationCommandHandler
         var normalizedEmail = AppUser.NormalizeEmail(command.Request.Email);
 
         if (await invitationRepository.HasPendingInvitationAsync(normalizedEmail, ct))
-            throw new ConflictException(
-                $"A pending invitation already exists for '{command.Request.Email}'.",
-                ErrorCatalog.Invitations.AlreadyPending
-            );
+            return DomainErrors.Invitations.AlreadyPending(command.Request.Email);
 
-        var tenant = await tenantRepository.GetByIdOrThrowAsync(
+        var tenantResult = await tenantRepository.GetByIdOrError(
             tenantProvider.TenantId,
-            ErrorCatalog.Tenants.NotFound,
+            DomainErrors.Tenants.NotFound(tenantProvider.TenantId),
             ct
         );
+        if (tenantResult.IsError)
+            return tenantResult.Errors;
+        var tenant = tenantResult.Value;
 
         var rawToken = tokenGenerator.GenerateToken();
         var tokenHash = tokenGenerator.HashToken(rawToken);
