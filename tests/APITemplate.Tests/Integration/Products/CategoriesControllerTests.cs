@@ -225,6 +225,78 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         payload.TotalCount.ShouldBeGreaterThanOrEqualTo(2);
     }
 
+    [Fact]
+    public async Task GetById_NonExistentCategory_ReturnsProblemDetailsBody()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+
+        var response = await _client.GetAsync($"/api/v1/categories/{Guid.NewGuid()}", ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
+
+        var problem = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        problem.ShouldNotBeNull();
+        problem!.Status.ShouldBe((int)HttpStatusCode.NotFound);
+        problem.Title.ShouldBe("Not Found");
+        problem.Detail.ShouldNotBeNullOrWhiteSpace();
+        problem.ErrorCode.ShouldNotBeNullOrWhiteSpace();
+        problem.TraceId.ShouldNotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task Create_WithEmptyCategoryName_ReturnsUnprocessableWithValidationFailure()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/categories",
+            new { Items = new[] { new { Name = "" } } },
+            ct
+        );
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity, body);
+
+        var batch = await response.Content.ReadFromJsonAsync<BatchResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        batch.ShouldNotBeNull();
+        batch!.FailureCount.ShouldBe(1);
+        batch.Failures[0].Errors.ShouldContain(e => e.Contains("required"));
+    }
+
+    [Fact]
+    public async Task Delete_NonExistentCategory_ReturnsUnprocessableWithFailure()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
+
+        var missingId = Guid.NewGuid();
+        var request = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/categories")
+        {
+            Content = JsonContent.Create(new { Ids = new[] { missingId } }),
+        };
+        var response = await _client.SendAsync(request, ct);
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity, body);
+
+        var batch = await response.Content.ReadFromJsonAsync<BatchResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
+        batch.ShouldNotBeNull();
+        batch!.FailureCount.ShouldBe(1);
+        batch.Failures[0].Id.ShouldBe(missingId);
+    }
+
     private async Task<Guid> ResolveCategoryIdAsync(string name, CancellationToken ct)
     {
         var response = await _client.GetAsync(
