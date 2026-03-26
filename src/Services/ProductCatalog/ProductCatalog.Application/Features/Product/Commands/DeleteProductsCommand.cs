@@ -1,10 +1,11 @@
-using Contracts.IntegrationEvents.ProductCatalog;
+using Contracts.IntegrationEvents.Sagas;
 using ErrorOr;
 using ProductCatalog.Application.Common.Errors;
 using ProductCatalog.Application.Features.Product.Repositories;
 using ProductCatalog.Application.Features.Product.Specifications;
 using SharedKernel.Application.Batch;
 using SharedKernel.Application.Batch.Rules;
+using SharedKernel.Application.Context;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;
@@ -22,7 +23,7 @@ public sealed class DeleteProductsCommandHandler
         IProductRepository repository,
         IUnitOfWork unitOfWork,
         IMessageBus bus,
-        TimeProvider timeProvider,
+        IActorProvider actorProvider,
         CancellationToken ct
     )
     {
@@ -61,10 +62,14 @@ public sealed class DeleteProductsCommandHandler
             ct
         );
 
-        // Publish integration event for cascade in downstream services
-        DateTime occurredAtUtc = timeProvider.GetUtcNow().UtcDateTime;
+        // Start the deletion saga to coordinate cascading deletes across services
         await bus.PublishAsync(
-            new ProductDeletedIntegrationEvent(ids.ToList(), tenantId, occurredAtUtc)
+            new StartProductDeletionSaga(
+                Guid.NewGuid(),
+                ids.ToList(),
+                tenantId,
+                actorProvider.ActorId
+            )
         );
 
         return new BatchResponse([], ids.Count, 0);

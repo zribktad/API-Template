@@ -1,3 +1,4 @@
+using Contracts.IntegrationEvents.ProductCatalog;
 using ErrorOr;
 using ProductCatalog.Application.Common.Errors;
 using ProductCatalog.Application.Features.Category.Specifications;
@@ -6,6 +7,7 @@ using SharedKernel.Application.Batch;
 using SharedKernel.Application.Batch.Rules;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Domain.Interfaces;
+using Wolverine;
 
 namespace ProductCatalog.Application.Features.Category.Commands;
 
@@ -19,6 +21,8 @@ public sealed class DeleteCategoriesCommandHandler
         DeleteCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,
+        IMessageBus bus,
+        TimeProvider timeProvider,
         CancellationToken ct
     )
     {
@@ -43,6 +47,8 @@ public sealed class DeleteCategoriesCommandHandler
         if (context.HasFailures)
             return context.ToFailureResponse();
 
+        Guid tenantId = categories[0].TenantId;
+
         // Remove categories in a single transaction
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -51,6 +57,15 @@ public sealed class DeleteCategoriesCommandHandler
             },
             ct
         );
+
+        // Publish integration events for cascade in downstream services
+        DateTime occurredAtUtc = timeProvider.GetUtcNow().UtcDateTime;
+        foreach (Domain.Entities.Category category in categories)
+        {
+            await bus.PublishAsync(
+                new CategoryDeletedIntegrationEvent(category.Id, tenantId, occurredAtUtc)
+            );
+        }
 
         return new BatchResponse([], ids.Count, 0);
     }

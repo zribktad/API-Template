@@ -13,11 +13,11 @@ internal sealed class InMemoryProductRepository : IProductRepository
 {
     private static readonly IReadOnlyList<ProductPriceFacetBucketResponse> DefaultPriceBuckets =
     [
-        new("0 - 50", 0m, 50m, 0),
-        new("50 - 100", 50m, 100m, 0),
-        new("100 - 250", 100m, 250m, 0),
-        new("250 - 500", 250m, 500m, 0),
-        new("500+", 500m, null, 0),
+        new(PriceBucketLabels.ZeroToFifty, 0m, 50m, 0),
+        new(PriceBucketLabels.FiftyToOneHundred, 50m, 100m, 0),
+        new(PriceBucketLabels.OneHundredToTwoHundredFifty, 100m, 250m, 0),
+        new(PriceBucketLabels.TwoHundredFiftyToFiveHundred, 250m, 500m, 0),
+        new(PriceBucketLabels.FiveHundredAndAbove, 500m, null, 0),
     ];
 
     private readonly AppDbContext _dbContext;
