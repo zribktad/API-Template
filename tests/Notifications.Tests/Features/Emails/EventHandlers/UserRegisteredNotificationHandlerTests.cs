@@ -89,7 +89,7 @@ public sealed class UserRegisteredNotificationHandlerTests
 
         capturedMessage.ShouldNotBeNull();
         capturedMessage.To.ShouldBe("user@example.com");
-        capturedMessage.Subject.ShouldBe("Welcome to the platform!");
+        capturedMessage.Subject.ShouldBe(EmailSubjects.UserRegistration);
         capturedMessage.HtmlBody.ShouldBe("<html>welcome</html>");
         capturedMessage.TemplateName.ShouldBe(EmailTemplateNames.UserRegistration);
     }

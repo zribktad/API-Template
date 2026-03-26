@@ -64,12 +64,7 @@ public sealed class DeleteProductsCommandHandler
 
         // Start the deletion saga to coordinate cascading deletes across services
         await bus.PublishAsync(
-            new StartProductDeletionSaga(
-                Guid.NewGuid(),
-                ids.ToList(),
-                tenantId,
-                actorProvider.ActorId
-            )
+            new StartProductDeletionSaga(Guid.NewGuid(), ids, tenantId, actorProvider.ActorId)
         );
 
         return new BatchResponse([], ids.Count, 0);

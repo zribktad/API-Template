@@ -86,7 +86,7 @@ public sealed class UserRoleChangedNotificationHandlerTests
 
         capturedMessage.ShouldNotBeNull();
         capturedMessage.To.ShouldBe("user@example.com");
-        capturedMessage.Subject.ShouldBe("Your role has been updated");
+        capturedMessage.Subject.ShouldBe(EmailSubjects.UserRoleChanged);
         capturedMessage.HtmlBody.ShouldBe("<html>role changed</html>");
         capturedMessage.TemplateName.ShouldBe(EmailTemplateNames.UserRoleChanged);
     }

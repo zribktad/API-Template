@@ -1,5 +1,6 @@
 using BackgroundJobs.Application.Features.Jobs.DTOs;
 using BackgroundJobs.Application.Features.Jobs.Mappings;
+using BackgroundJobs.Domain.Entities;
 using BackgroundJobs.Domain.Interfaces;
 using ErrorOr;
 using SharedKernel.Application.Errors;
@@ -16,7 +17,7 @@ public sealed class GetJobStatusQueryHandler
         CancellationToken ct
     )
     {
-        var entity = await repository.GetByIdAsync(query.Request.Id, ct);
+        JobExecution? entity = await repository.GetByIdAsync(query.Request.Id, ct);
         return entity is null
             ? DomainErrors.General.NotFound("JobExecution", query.Request.Id)
             : JobResponseMapper.MapToResponse(entity);

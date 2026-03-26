@@ -35,7 +35,7 @@ public static class UserRegisteredNotificationHandler
         await queue.EnqueueAsync(
             new EmailMessage(
                 @event.Email,
-                "Welcome to the platform!",
+                EmailSubjects.UserRegistration,
                 html,
                 EmailTemplateNames.UserRegistration
             ),

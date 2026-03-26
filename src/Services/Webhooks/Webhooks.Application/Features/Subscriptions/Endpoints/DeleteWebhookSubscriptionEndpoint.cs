@@ -17,7 +17,7 @@ public static class DeleteWebhookSubscriptionEndpoint
         CancellationToken ct
     )
     {
-        var subscription =
+        WebhookSubscription subscription =
             await repository.GetByIdAsync(id, ct)
             ?? throw new NotFoundException(nameof(WebhookSubscription), id);
 

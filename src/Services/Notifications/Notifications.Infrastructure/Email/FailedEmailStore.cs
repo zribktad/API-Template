@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Notifications.Domain.Entities;
 using Notifications.Domain.Interfaces;
 using Notifications.Domain.ValueObjects;
-using Notifications.Infrastructure.Persistence;
 
 namespace Notifications.Infrastructure.Email;
 
@@ -43,8 +42,6 @@ public sealed class FailedEmailStore : IFailedEmailStore
             using IServiceScope scope = _scopeFactory.CreateScope();
             IFailedEmailRepository repository =
                 scope.ServiceProvider.GetRequiredService<IFailedEmailRepository>();
-            NotificationsDbContext dbContext =
-                scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
             TimeProvider timeProvider = scope.ServiceProvider.GetRequiredService<TimeProvider>();
 
             FailedEmail failedEmail = new()
@@ -63,7 +60,7 @@ public sealed class FailedEmailStore : IFailedEmailStore
             };
 
             await repository.AddAsync(failedEmail, ct);
-            await dbContext.SaveChangesAsync(ct);
+            await repository.SaveChangesAsync(ct);
 
             _logger.LogWarning(
                 "Stored failed email to {Recipient} with subject '{Subject}' for retry.",

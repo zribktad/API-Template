@@ -110,4 +110,10 @@ public sealed class FailedEmailRepository : IFailedEmailRepository
         _dbContext.FailedEmails.Remove(failedEmail);
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc />
+    public async Task SaveChangesAsync(CancellationToken ct = default)
+    {
+        await _dbContext.SaveChangesAsync(ct);
+    }
 }

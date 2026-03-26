@@ -48,4 +48,7 @@ public interface IFailedEmailRepository
 
     /// <summary>Permanently removes a successfully processed failed-email record from the store.</summary>
     Task DeleteAsync(FailedEmail failedEmail, CancellationToken ct = default);
+
+    /// <summary>Flushes all pending changes to the underlying store.</summary>
+    Task SaveChangesAsync(CancellationToken ct = default);
 }

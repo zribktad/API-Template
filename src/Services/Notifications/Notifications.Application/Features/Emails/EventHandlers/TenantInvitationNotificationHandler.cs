@@ -37,7 +37,7 @@ public static class TenantInvitationNotificationHandler
         await queue.EnqueueAsync(
             new EmailMessage(
                 @event.Email,
-                $"You've been invited to join {@event.TenantName}!",
+                string.Format(EmailSubjects.TenantInvitation, @event.TenantName),
                 html,
                 EmailTemplateNames.TenantInvitation
             ),

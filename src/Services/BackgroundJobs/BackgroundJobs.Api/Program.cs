@@ -1,6 +1,5 @@
 using BackgroundJobs.Application.Common;
 using BackgroundJobs.Application.Features.Jobs.Commands;
-using BackgroundJobs.Application.Features.Jobs.EventHandlers;
 using BackgroundJobs.Application.Options;
 using BackgroundJobs.Domain.Interfaces;
 using BackgroundJobs.Infrastructure.Persistence;
@@ -136,7 +135,9 @@ builder.Services.AddControllers();
 // Wolverine with RabbitMQ
 builder.Host.UseWolverine(opts =>
 {
-    opts.Discovery.IncludeAssembly(typeof(TenantDeactivatedHandler).Assembly);
+    opts.Discovery.IncludeAssembly(
+        typeof(BackgroundJobs.Infrastructure.EventHandlers.TenantDeactivatedHandler).Assembly
+    );
     opts.Discovery.IncludeAssembly(typeof(SubmitJobCommand).Assembly);
 
     // Shared conventions
@@ -144,8 +145,7 @@ builder.Host.UseWolverine(opts =>
     opts.ApplySharedRetryPolicies();
 
     // RabbitMQ transport
-    string rabbitHost = builder.Configuration["RabbitMQ:HostName"] ?? "localhost";
-    opts.UseRabbitMq(new Uri($"amqp://{rabbitHost}")).AutoProvision();
+    opts.UseSharedRabbitMq(builder.Configuration);
 
     // Listen to background-jobs queues
     opts.ListenToRabbitQueue(

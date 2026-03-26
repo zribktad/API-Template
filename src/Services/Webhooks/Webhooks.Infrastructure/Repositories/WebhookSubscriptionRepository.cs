@@ -33,8 +33,7 @@ public sealed class WebhookSubscriptionRepository : IWebhookSubscriptionReposito
     )
     {
         return await _dbContext
-            .WebhookSubscriptions.Include(s => s.EventTypes)
-            .Where(s => s.IsActive && !s.IsDeleted)
+            .WebhookSubscriptions.Where(s => s.IsActive && !s.IsDeleted)
             .Where(s => s.EventTypes.Any(et => et.EventType == eventType))
             .ToListAsync(ct);
     }

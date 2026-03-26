@@ -16,6 +16,7 @@ public sealed class KeycloakAdminTokenProvider : IDisposable
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptions<KeycloakOptions> _keycloakOptions;
     private readonly ILogger<KeycloakAdminTokenProvider> _logger;
+    private readonly TimeProvider _timeProvider;
 
     private string? _cachedToken;
     private DateTimeOffset _tokenExpiresAt = DateTimeOffset.MinValue;
@@ -24,12 +25,14 @@ public sealed class KeycloakAdminTokenProvider : IDisposable
     public KeycloakAdminTokenProvider(
         IHttpClientFactory httpClientFactory,
         IOptions<KeycloakOptions> keycloakOptions,
-        ILogger<KeycloakAdminTokenProvider> logger
+        ILogger<KeycloakAdminTokenProvider> logger,
+        TimeProvider timeProvider
     )
     {
         _httpClientFactory = httpClientFactory;
         _keycloakOptions = keycloakOptions;
         _logger = logger;
+        _timeProvider = timeProvider;
     }
 
     public async Task<string> GetTokenAsync(CancellationToken cancellationToken)
@@ -51,7 +54,7 @@ public sealed class KeycloakAdminTokenProvider : IDisposable
                 );
 
             _cachedToken = response.AccessToken;
-            _tokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(response.ExpiresIn);
+            _tokenExpiresAt = _timeProvider.GetUtcNow().AddSeconds(response.ExpiresIn);
             return _cachedToken;
         }
         finally
@@ -107,7 +110,7 @@ public sealed class KeycloakAdminTokenProvider : IDisposable
     }
 
     private bool IsTokenValid() =>
-        _cachedToken is not null && DateTimeOffset.UtcNow < _tokenExpiresAt - ExpiryMargin;
+        _cachedToken is not null && _timeProvider.GetUtcNow() < _tokenExpiresAt - ExpiryMargin;
 
     public void Dispose() => _lock.Dispose();
 }

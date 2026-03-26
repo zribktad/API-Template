@@ -32,7 +32,7 @@ public static class UserRoleChangedNotificationHandler
         await queue.EnqueueAsync(
             new EmailMessage(
                 @event.Email,
-                "Your role has been updated",
+                EmailSubjects.UserRoleChanged,
                 html,
                 EmailTemplateNames.UserRoleChanged
             ),

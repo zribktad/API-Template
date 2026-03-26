@@ -1,4 +1,5 @@
 using Webhooks.Application.Features.Subscriptions.DTOs;
+using Webhooks.Domain.Entities;
 using Webhooks.Domain.Interfaces;
 using Wolverine.Http;
 
@@ -15,7 +16,7 @@ public static class GetWebhookSubscriptionsEndpoint
         CancellationToken ct
     )
     {
-        var subscriptions = await repository.GetAllAsync(ct);
+        IReadOnlyList<WebhookSubscription> subscriptions = await repository.GetAllAsync(ct);
 
         return subscriptions
             .Select(s => new WebhookSubscriptionResponse(

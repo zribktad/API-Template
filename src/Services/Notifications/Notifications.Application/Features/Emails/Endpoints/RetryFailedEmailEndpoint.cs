@@ -29,6 +29,7 @@ public static class RetryFailedEmailEndpoint
         email.LastAttemptAtUtc = null;
         email.ClaimedBy = null;
         await repository.UpdateAsync(email, ct);
+        await repository.SaveChangesAsync(ct);
 
         await queue.EnqueueAsync(
             new EmailMessage(email.To, email.Subject, email.HtmlBody, email.TemplateName),
