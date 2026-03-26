@@ -1,10 +1,10 @@
 using Contracts.IntegrationEvents.Sagas;
 using ErrorOr;
 using Identity.Application.Errors;
-using Identity.Application.Extensions;
 using Identity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Application.Context;
+using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Entities.Contracts;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;

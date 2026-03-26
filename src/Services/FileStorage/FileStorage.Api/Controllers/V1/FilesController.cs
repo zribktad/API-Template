@@ -1,6 +1,5 @@
 using Asp.Versioning;
 using ErrorOr;
-using FileStorage.Api.Extensions;
 using FileStorage.Api.Requests;
 using FileStorage.Application.Features.Files.Commands;
 using FileStorage.Application.Features.Files.DTOs;
@@ -10,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
+using SharedKernel.Api.Extensions;
 using Wolverine;
 
 namespace FileStorage.Api.Controllers.V1;

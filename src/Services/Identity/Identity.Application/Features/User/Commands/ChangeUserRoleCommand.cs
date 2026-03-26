@@ -1,11 +1,11 @@
 using Contracts.IntegrationEvents.Identity;
 using ErrorOr;
 using Identity.Application.Errors;
-using Identity.Application.Extensions;
 using Identity.Application.Features.User.DTOs;
 using Identity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Application.Context;
+using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Entities.Contracts;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;
@@ -22,6 +22,7 @@ public sealed class ChangeUserRoleCommandHandler
         IUnitOfWork unitOfWork,
         IMessageBus bus,
         ITenantProvider tenantProvider,
+        TimeProvider timeProvider,
         ILogger<ChangeUserRoleCommandHandler> logger,
         CancellationToken ct
     )
@@ -51,7 +52,7 @@ public sealed class ChangeUserRoleCommandHandler
                     user.Username,
                     oldRole,
                     command.Request.Role.ToString(),
-                    DateTime.UtcNow
+                    timeProvider.GetUtcNow().UtcDateTime
                 )
             );
         }

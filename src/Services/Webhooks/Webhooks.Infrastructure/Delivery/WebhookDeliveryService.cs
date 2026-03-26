@@ -18,6 +18,7 @@ public sealed class WebhookDeliveryService : IWebhookDeliveryService
     private readonly IWebhookDeliveryLogRepository _deliveryLogRepository;
     private readonly IWebhookPayloadSigner _signer;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<WebhookDeliveryService> _logger;
 
     public WebhookDeliveryService(
@@ -25,6 +26,7 @@ public sealed class WebhookDeliveryService : IWebhookDeliveryService
         IWebhookDeliveryLogRepository deliveryLogRepository,
         IWebhookPayloadSigner signer,
         IHttpClientFactory httpClientFactory,
+        TimeProvider timeProvider,
         ILogger<WebhookDeliveryService> logger
     )
     {
@@ -32,6 +34,7 @@ public sealed class WebhookDeliveryService : IWebhookDeliveryService
         _deliveryLogRepository = deliveryLogRepository;
         _signer = signer;
         _httpClientFactory = httpClientFactory;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -64,7 +67,7 @@ public sealed class WebhookDeliveryService : IWebhookDeliveryService
             WebhookSubscriptionId = subscription.Id,
             EventType = eventType,
             Payload = serializedPayload,
-            AttemptedAtUtc = DateTime.UtcNow,
+            AttemptedAtUtc = _timeProvider.GetUtcNow().UtcDateTime,
         };
 
         try

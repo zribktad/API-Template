@@ -1,8 +1,8 @@
 using ErrorOr;
 using Identity.Application.Errors;
-using Identity.Application.Extensions;
 using Identity.Application.Security;
 using Identity.Domain.Interfaces;
+using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Entities.Contracts;
 using SharedKernel.Domain.Interfaces;
 

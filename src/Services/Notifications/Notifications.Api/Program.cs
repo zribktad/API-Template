@@ -5,6 +5,8 @@ using Notifications.Domain.Interfaces;
 using Notifications.Infrastructure.Email;
 using Notifications.Infrastructure.Persistence;
 using Notifications.Infrastructure.Repositories;
+using Polly;
+using Polly.Retry;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
@@ -61,6 +63,26 @@ builder.Host.UseWolverine(opts =>
     opts.ListenToRabbitQueue("notifications.user-role-changed");
     opts.ListenToRabbitQueue("notifications.invitation-created");
 });
+
+// Resilience pipeline for SMTP retries
+EmailOptions emailOptions =
+    builder.Configuration.GetSection("Email").Get<EmailOptions>() ?? new EmailOptions();
+
+builder.Services.AddResiliencePipeline(
+    "smtp-send",
+    pipelineBuilder =>
+    {
+        pipelineBuilder.AddRetry(
+            new RetryStrategyOptions
+            {
+                MaxRetryAttempts = emailOptions.MaxRetryAttempts,
+                BackoffType = DelayBackoffType.Exponential,
+                Delay = TimeSpan.FromSeconds(emailOptions.RetryBaseDelaySeconds),
+                UseJitter = true,
+            }
+        );
+    }
+);
 
 WebApplication app = builder.Build();
 

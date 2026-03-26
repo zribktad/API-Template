@@ -1,12 +1,12 @@
 using Contracts.IntegrationEvents.Identity;
 using ErrorOr;
 using Identity.Application.Errors;
-using Identity.Application.Extensions;
 using Identity.Application.Security;
 using Identity.Domain.Enums;
 using Identity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Application.Context;
+using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;
 
@@ -69,7 +69,7 @@ public sealed class ResendTenantInvitationCommandHandler
                     invitation.Email,
                     tenant.Name,
                     rawToken,
-                    DateTime.UtcNow
+                    timeProvider.GetUtcNow().UtcDateTime
                 )
             );
         }

@@ -25,6 +25,7 @@ public sealed class CreateUserCommandHandler
         ILogger<CreateUserCommandHandler> logger,
         IKeycloakAdminService keycloakAdmin,
         ITenantProvider tenantProvider,
+        TimeProvider timeProvider,
         CancellationToken ct
     )
     {
@@ -71,7 +72,7 @@ public sealed class CreateUserCommandHandler
                         tenantProvider.TenantId,
                         user.Email,
                         user.Username,
-                        DateTime.UtcNow
+                        timeProvider.GetUtcNow().UtcDateTime
                     )
                 );
             }

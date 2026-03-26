@@ -27,6 +27,7 @@ public sealed class CreateProductReviewCommandHandler
         IUnitOfWork unitOfWork,
         IActorProvider actorProvider,
         IMessageBus bus,
+        TimeProvider timeProvider,
         CancellationToken ct
     )
     {
@@ -64,7 +65,7 @@ public sealed class CreateProductReviewCommandHandler
                 review.UserId,
                 review.TenantId,
                 review.Rating,
-                DateTime.UtcNow
+                timeProvider.GetUtcNow().UtcDateTime
             )
         );
 

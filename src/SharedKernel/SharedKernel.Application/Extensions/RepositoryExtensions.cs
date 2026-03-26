@@ -1,7 +1,7 @@
 using Ardalis.Specification;
 using ErrorOr;
 
-namespace Reviews.Application.Common.Extensions;
+namespace SharedKernel.Application.Extensions;
 
 /// <summary>
 /// Extension methods for Ardalis repository base providing ErrorOr-based lookups.

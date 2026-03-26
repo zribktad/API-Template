@@ -1,9 +1,7 @@
 using Contracts.IntegrationEvents.ProductCatalog;
-using Contracts.IntegrationEvents.Sagas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Reviews.Domain.Entities;
-using Wolverine;
 
 namespace Reviews.Application.EventHandlers;
 
@@ -16,7 +14,7 @@ public sealed class ProductDeletedEventHandler
     public static async Task HandleAsync(
         ProductDeletedIntegrationEvent @event,
         DbContext dbContext,
-        IMessageBus bus,
+        TimeProvider timeProvider,
         ILogger<ProductDeletedEventHandler> logger,
         CancellationToken ct
     )
@@ -28,7 +26,7 @@ public sealed class ProductDeletedEventHandler
             .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.IsActive, false), ct);
 
         // Cascade soft-delete reviews
-        DateTime now = DateTime.UtcNow;
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         int deletedCount = await dbContext
             .Set<ProductReview>()
             .Where(r => @event.ProductIds.Contains(r.ProductId) && !r.IsDeleted)
@@ -45,7 +43,5 @@ public sealed class ProductDeletedEventHandler
             deletedCount,
             @event.ProductIds
         );
-
-        await bus.PublishAsync(new ReviewsCascadeCompleted(Guid.Empty, deletedCount));
     }
 }

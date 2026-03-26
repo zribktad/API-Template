@@ -1,9 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
-using Reviews.Application.Common.Security;
 using SharedKernel.Application.Context;
+using SharedKernel.Application.Security;
 
-namespace Reviews.Infrastructure.Security;
+namespace SharedKernel.Api.Security;
 
 /// <summary>
 /// Resolves actor identity for auditing from the current HTTP principal.
@@ -24,7 +24,7 @@ public sealed class HttpActorProvider : IActorProvider
             ClaimsPrincipal? user = _httpContextAccessor.HttpContext?.User;
             string? raw =
                 user?.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? user?.FindFirstValue(AuthConstants.Claims.Subject)
+                ?? user?.FindFirstValue(SharedAuthConstants.Claims.Subject)
                 ?? user?.FindFirstValue(ClaimTypes.Name);
 
             return Guid.TryParse(raw, out Guid id) ? id : Guid.Empty;

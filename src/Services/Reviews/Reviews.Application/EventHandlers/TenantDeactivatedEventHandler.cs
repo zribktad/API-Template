@@ -14,11 +14,12 @@ public sealed class TenantDeactivatedEventHandler
     public static async Task HandleAsync(
         TenantDeactivatedIntegrationEvent @event,
         DbContext dbContext,
+        TimeProvider timeProvider,
         ILogger<TenantDeactivatedEventHandler> logger,
         CancellationToken ct
     )
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
 
         // Cascade soft-delete all reviews for the tenant
         int deletedReviews = await dbContext

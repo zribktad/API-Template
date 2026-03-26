@@ -7,7 +7,7 @@ using Reviews.Application.EventHandlers;
 using Reviews.Domain.Interfaces;
 using Reviews.Infrastructure.Persistence;
 using Reviews.Infrastructure.Repositories;
-using Reviews.Infrastructure.Security;
+using SharedKernel.Api.Security;
 using SharedKernel.Application.Context;
 using SharedKernel.Application.Options;
 using SharedKernel.Domain.Interfaces;

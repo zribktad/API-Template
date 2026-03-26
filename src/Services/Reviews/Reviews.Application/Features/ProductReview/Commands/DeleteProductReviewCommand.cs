@@ -1,9 +1,9 @@
 using ErrorOr;
 using Reviews.Application.Common.Errors;
 using Reviews.Application.Common.Events;
-using Reviews.Application.Common.Extensions;
 using Reviews.Domain.Interfaces;
 using SharedKernel.Application.Context;
+using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Entities.Contracts;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;

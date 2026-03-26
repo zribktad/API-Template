@@ -1,8 +1,8 @@
 using ErrorOr;
 using Identity.Application.Errors;
-using Identity.Application.Extensions;
 using Identity.Domain.Enums;
 using Identity.Domain.Interfaces;
+using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Interfaces;
 
 namespace Identity.Application.Features.TenantInvitation.Commands;

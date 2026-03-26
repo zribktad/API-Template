@@ -1,6 +1,5 @@
 using Asp.Versioning;
 using ErrorOr;
-using Identity.Api.Extensions;
 using Identity.Application.Features.Tenant.Commands;
 using Identity.Application.Features.Tenant.DTOs;
 using Identity.Application.Features.Tenant.Queries;
@@ -9,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
+using SharedKernel.Api.Extensions;
 using SharedKernel.Domain.Common;
 using Wolverine;
 

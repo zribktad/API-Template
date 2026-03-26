@@ -2,7 +2,6 @@ using Asp.Versioning;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
-using Reviews.Api.Extensions;
 using Reviews.Application.Common.Events;
 using Reviews.Application.Common.Security;
 using Reviews.Application.Features.ProductReview.Commands;
@@ -11,6 +10,7 @@ using Reviews.Application.Features.ProductReview.Queries;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
+using SharedKernel.Api.Extensions;
 using SharedKernel.Domain.Common;
 using Wolverine;
 

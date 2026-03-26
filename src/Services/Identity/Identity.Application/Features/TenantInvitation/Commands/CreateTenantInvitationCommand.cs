@@ -1,7 +1,6 @@
 using Contracts.IntegrationEvents.Identity;
 using ErrorOr;
 using Identity.Application.Errors;
-using Identity.Application.Extensions;
 using Identity.Application.Features.TenantInvitation.DTOs;
 using Identity.Application.Features.TenantInvitation.Mappings;
 using Identity.Application.Options;
@@ -11,6 +10,7 @@ using Identity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SharedKernel.Application.Context;
+using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;
 using TenantInvitationEntity = Identity.Domain.Entities.TenantInvitation;
@@ -75,7 +75,7 @@ public sealed class CreateTenantInvitationCommandHandler
                     invitation.Email,
                     tenant.Name,
                     rawToken,
-                    DateTime.UtcNow
+                    timeProvider.GetUtcNow().UtcDateTime
                 )
             );
         }

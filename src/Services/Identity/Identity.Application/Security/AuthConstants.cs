@@ -1,3 +1,5 @@
+using SharedKernel.Application.Security;
+
 namespace Identity.Application.Security;
 
 /// <summary>
@@ -71,12 +73,12 @@ public static class AuthConstants
     /// <summary>JWT claim names used to extract identity and role information from tokens.</summary>
     public static class Claims
     {
-        public const string Subject = "sub";
+        public const string Subject = SharedAuthConstants.Claims.Subject;
         public const string RealmAccess = "realm_access";
         public const string Roles = "roles";
         public const string PreferredUsername = "preferred_username";
         public const string ServiceAccountUsernamePrefix = "service-account-";
-        public const string TenantId = "tenant_id";
+        public const string TenantId = SharedAuthConstants.Claims.TenantId;
     }
 
     /// <summary>

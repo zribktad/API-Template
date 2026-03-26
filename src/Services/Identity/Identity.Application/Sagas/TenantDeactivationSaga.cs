@@ -13,7 +13,8 @@ public class TenantDeactivationSaga : Saga
     public bool CategoriesCascaded { get; set; }
 
     public static (TenantDeactivationSaga, TenantDeactivatedIntegrationEvent) Start(
-        StartTenantDeactivationSaga command
+        StartTenantDeactivationSaga command,
+        TimeProvider timeProvider
     )
     {
         TenantDeactivationSaga saga = new()
@@ -24,7 +25,7 @@ public class TenantDeactivationSaga : Saga
         TenantDeactivatedIntegrationEvent @event = new(
             command.TenantId,
             command.ActorId,
-            DateTime.UtcNow
+            timeProvider.GetUtcNow().UtcDateTime
         );
         return (saga, @event);
     }

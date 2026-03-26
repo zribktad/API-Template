@@ -1,9 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
-using Reviews.Application.Common.Security;
 using SharedKernel.Application.Context;
+using SharedKernel.Application.Security;
 
-namespace Reviews.Infrastructure.Security;
+namespace SharedKernel.Api.Security;
 
 /// <summary>
 /// Resolves tenant identity from the current authenticated HTTP principal.
@@ -22,7 +22,7 @@ public sealed class HttpTenantProvider : ITenantProvider
         get
         {
             string? claimValue = _httpContextAccessor.HttpContext?.User.FindFirstValue(
-                AuthConstants.Claims.TenantId
+                SharedAuthConstants.Claims.TenantId
             );
             return Guid.TryParse(claimValue, out Guid tenantId) ? tenantId : Guid.Empty;
         }

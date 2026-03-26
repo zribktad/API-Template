@@ -1,9 +1,9 @@
 using ErrorOr;
 using FileStorage.Application.Common.Contracts;
 using FileStorage.Application.Common.Errors;
-using FileStorage.Application.Extensions;
 using FileStorage.Application.Features.Files.DTOs;
 using FileStorage.Domain.Interfaces;
+using SharedKernel.Application.Extensions;
 
 namespace FileStorage.Application.Features.Files.Queries;
 
