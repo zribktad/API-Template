@@ -16,4 +16,10 @@ public static class ErrorCatalog
         public const string Conflict = "GEN-0409";
         public const string ConcurrencyConflict = "GEN-0409-CONCURRENCY";
     }
+
+    /// <summary>Error codes for authentication and authorisation failures.</summary>
+    public static class Auth
+    {
+        public const string Forbidden = "AUTH-0403";
+    }
 }
