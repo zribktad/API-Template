@@ -45,6 +45,67 @@ services:
       - "8025:8025"
       - "1025:1025"
 
+  # Observability
+  alloy:
+    image: grafana/alloy:v1.10.2
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "12345:12345"
+    volumes:
+      - ./infrastructure/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+    command:
+      - run
+      - /etc/alloy/config.alloy
+
+  prometheus:
+    image: prom/prometheus:v3.4.2
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheusdata:/prometheus
+
+  loki:
+    image: grafana/loki:3.5.5
+    command: ["-config.file=/etc/loki/config.yml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./infrastructure/observability/loki/config.yml:/etc/loki/config.yml:ro
+      - lokidata:/loki
+
+  tempo:
+    image: grafana/tempo:2.9.1
+    command: ["-config.file=/etc/tempo/config.yml"]
+    ports:
+      - "3200:3200"
+      - "4319:4317"
+    volumes:
+      - ./infrastructure/observability/tempo/config.yml:/etc/tempo/config.yml:ro
+      - tempodata:/var/tempo
+
+  grafana:
+    image: grafana/grafana:12.3.1
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    volumes:
+      - ./infrastructure/observability/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./infrastructure/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+
   # Gateway
   gateway:
     build:
@@ -235,3 +296,7 @@ volumes:
   pgdata:
   mongodata:
   filestorage:
+  prometheusdata:
+  lokidata:
+  tempodata:
+  grafanadata:
