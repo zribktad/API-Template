@@ -1,0 +1,10 @@
+using ProductCatalog.Application.Features.ProductData.DTOs;
+using SharedKernel.Application.Validation;
+
+namespace ProductCatalog.Application.Features.ProductData.Validation;
+
+/// <summary>
+/// FluentValidation validator for <see cref="CreateImageProductDataRequest"/>, delegating to data-annotation-based validation rules.
+/// </summary>
+public sealed class CreateImageProductDataRequestValidator
+    : DataAnnotationsValidator<CreateImageProductDataRequest>;
