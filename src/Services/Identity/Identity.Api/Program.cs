@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Contracts.IntegrationEvents.Identity;
 using FluentValidation;
 using Identity.Application.Options;
 using Identity.Application.Security;
@@ -150,6 +151,20 @@ builder.Host.UseWolverine(opts =>
     opts.UseRabbitMq(new Uri(rabbitConnectionString))
         .AutoProvision()
         .EnableWolverineControlQueues();
+
+    opts.PublishMessage<UserRegisteredIntegrationEvent>()
+        .ToRabbitExchange(
+            "identity.events",
+            exchange =>
+            {
+                exchange.ExchangeType = Wolverine.RabbitMQ.ExchangeType.Fanout;
+                exchange.IsDurable = true;
+            }
+        );
+    opts.PublishMessage<UserRoleChangedIntegrationEvent>().ToRabbitExchange("identity.events");
+    opts.PublishMessage<TenantInvitationCreatedIntegrationEvent>()
+        .ToRabbitExchange("identity.events");
+    opts.PublishMessage<TenantDeactivatedIntegrationEvent>().ToRabbitExchange("identity.events");
 });
 
 // ══════════════════════════════════════════════════

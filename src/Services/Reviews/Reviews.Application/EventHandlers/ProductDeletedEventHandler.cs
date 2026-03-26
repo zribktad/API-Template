@@ -1,7 +1,9 @@
 using Contracts.IntegrationEvents.ProductCatalog;
+using Contracts.IntegrationEvents.Sagas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Reviews.Domain.Entities;
+using Wolverine;
 
 namespace Reviews.Application.EventHandlers;
 
@@ -14,6 +16,7 @@ public sealed class ProductDeletedEventHandler
     public static async Task HandleAsync(
         ProductDeletedIntegrationEvent @event,
         DbContext dbContext,
+        IMessageBus bus,
         TimeProvider timeProvider,
         ILogger<ProductDeletedEventHandler> logger,
         CancellationToken ct
@@ -43,5 +46,8 @@ public sealed class ProductDeletedEventHandler
             deletedCount,
             @event.ProductIds
         );
+
+        Guid correlationId = @event.ProductIds.FirstOrDefault();
+        await bus.PublishAsync(new ReviewsCascadeCompleted(correlationId, deletedCount));
     }
 }

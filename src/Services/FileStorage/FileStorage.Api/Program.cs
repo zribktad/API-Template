@@ -99,6 +99,14 @@ builder.Host.UseWolverine(opts =>
     opts.UseRabbitMq(new Uri(rabbitConnectionString))
         .AutoProvision()
         .EnableWolverineControlQueues();
+
+    opts.ListenToRabbitQueue(
+        "file-storage.product-deleted",
+        queue =>
+        {
+            queue.BindExchange("product-catalog.events");
+        }
+    );
 });
 
 // ══════════════════════════════════════════════════

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Contracts.IntegrationEvents.Reviews;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -123,10 +124,38 @@ builder.Host.UseWolverine(opts =>
         .AutoProvision()
         .EnableWolverineControlQueues();
 
+    opts.PublishMessage<ReviewCreatedIntegrationEvent>()
+        .ToRabbitExchange(
+            "reviews.events",
+            exchange =>
+            {
+                exchange.ExchangeType = Wolverine.RabbitMQ.ExchangeType.Fanout;
+                exchange.IsDurable = true;
+            }
+        );
+
     // Listen to integration event queues
-    opts.ListenToRabbitQueue("reviews.product-created");
-    opts.ListenToRabbitQueue("reviews.product-deleted");
-    opts.ListenToRabbitQueue("reviews.tenant-deactivated");
+    opts.ListenToRabbitQueue(
+        "reviews.product-created",
+        queue =>
+        {
+            queue.BindExchange("product-catalog.events");
+        }
+    );
+    opts.ListenToRabbitQueue(
+        "reviews.product-deleted",
+        queue =>
+        {
+            queue.BindExchange("product-catalog.events");
+        }
+    );
+    opts.ListenToRabbitQueue(
+        "reviews.tenant-deactivated",
+        queue =>
+        {
+            queue.BindExchange("identity.events");
+        }
+    );
 });
 
 // ══════════════════════════════════════════════════

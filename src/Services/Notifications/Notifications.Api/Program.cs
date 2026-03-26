@@ -59,9 +59,27 @@ builder.Host.UseWolverine(opts =>
     opts.UseRabbitMq(new Uri($"amqp://{rabbitHost}")).AutoProvision();
 
     // Listen to notification queues
-    opts.ListenToRabbitQueue("notifications.user-registered");
-    opts.ListenToRabbitQueue("notifications.user-role-changed");
-    opts.ListenToRabbitQueue("notifications.invitation-created");
+    opts.ListenToRabbitQueue(
+        "notifications.user-registered",
+        queue =>
+        {
+            queue.BindExchange("identity.events");
+        }
+    );
+    opts.ListenToRabbitQueue(
+        "notifications.user-role-changed",
+        queue =>
+        {
+            queue.BindExchange("identity.events");
+        }
+    );
+    opts.ListenToRabbitQueue(
+        "notifications.invitation-created",
+        queue =>
+        {
+            queue.BindExchange("identity.events");
+        }
+    );
 });
 
 // Resilience pipeline for SMTP retries

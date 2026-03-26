@@ -73,9 +73,27 @@ builder.Host.UseWolverine(opts =>
     opts.UseRabbitMq(new Uri($"amqp://{rabbitHost}")).AutoProvision();
 
     // Listen to webhook delivery queues
-    opts.ListenToRabbitQueue("webhooks.product-created");
-    opts.ListenToRabbitQueue("webhooks.product-deleted");
-    opts.ListenToRabbitQueue("webhooks.review-created");
+    opts.ListenToRabbitQueue(
+        "webhooks.product-created",
+        queue =>
+        {
+            queue.BindExchange("product-catalog.events");
+        }
+    );
+    opts.ListenToRabbitQueue(
+        "webhooks.product-deleted",
+        queue =>
+        {
+            queue.BindExchange("product-catalog.events");
+        }
+    );
+    opts.ListenToRabbitQueue(
+        "webhooks.review-created",
+        queue =>
+        {
+            queue.BindExchange("reviews.events");
+        }
+    );
 });
 
 WebApplication app = builder.Build();

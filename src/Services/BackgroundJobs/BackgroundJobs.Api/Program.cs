@@ -148,7 +148,13 @@ builder.Host.UseWolverine(opts =>
     opts.UseRabbitMq(new Uri($"amqp://{rabbitHost}")).AutoProvision();
 
     // Listen to background-jobs queues
-    opts.ListenToRabbitQueue("backgroundjobs.tenant-deactivated");
+    opts.ListenToRabbitQueue(
+        "background-jobs.tenant-deactivated",
+        queue =>
+        {
+            queue.BindExchange("identity.events");
+        }
+    );
 });
 
 WebApplication app = builder.Build();

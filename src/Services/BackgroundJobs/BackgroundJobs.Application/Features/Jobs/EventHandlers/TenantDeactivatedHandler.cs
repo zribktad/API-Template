@@ -3,6 +3,7 @@ using BackgroundJobs.Domain.Enums;
 using BackgroundJobs.Domain.Interfaces;
 using Contracts.IntegrationEvents.Identity;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Domain.Interfaces;
 
 namespace BackgroundJobs.Application.Features.Jobs.EventHandlers;
 
@@ -15,6 +16,7 @@ public sealed class TenantDeactivatedHandler
     public static async Task HandleAsync(
         TenantDeactivatedIntegrationEvent message,
         IJobExecutionRepository repository,
+        IUnitOfWork unitOfWork,
         TimeProvider timeProvider,
         ILogger<TenantDeactivatedHandler> logger,
         CancellationToken ct
@@ -37,6 +39,8 @@ public sealed class TenantDeactivatedHandler
 
         if (cancelled > 0)
         {
+            await unitOfWork.CommitAsync(ct);
+
             logger.LogInformation(
                 "Cancelled {Count} pending/processing jobs for deactivated tenant {TenantId}.",
                 cancelled,

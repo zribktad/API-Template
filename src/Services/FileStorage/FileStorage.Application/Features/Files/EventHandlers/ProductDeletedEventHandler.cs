@@ -1,5 +1,7 @@
 using Contracts.IntegrationEvents.ProductCatalog;
+using Contracts.IntegrationEvents.Sagas;
 using Microsoft.Extensions.Logging;
+using Wolverine;
 
 namespace FileStorage.Application.Features.Files.EventHandlers;
 
@@ -9,8 +11,9 @@ namespace FileStorage.Application.Features.Files.EventHandlers;
 /// </summary>
 public sealed class ProductDeletedEventHandler
 {
-    public static Task HandleAsync(
+    public static async Task HandleAsync(
         ProductDeletedIntegrationEvent @event,
+        IMessageBus bus,
         ILogger<ProductDeletedEventHandler> logger,
         CancellationToken ct
     )
@@ -22,6 +25,7 @@ public sealed class ProductDeletedEventHandler
             @event.TenantId
         );
 
-        return Task.CompletedTask;
+        Guid correlationId = @event.ProductIds.FirstOrDefault();
+        await bus.PublishAsync(new FilesCascadeCompleted(correlationId, 0));
     }
 }
