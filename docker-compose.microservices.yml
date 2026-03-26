@@ -1,0 +1,228 @@
+services:
+  # Infrastructure
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/docker/init-microservices-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:8
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    ports:
+      - "6379:6379"
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  # Gateway
+  gateway:
+    build:
+      context: .
+      dockerfile: src/Gateway/Gateway.Api/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      product-catalog:
+        condition: service_healthy
+      reviews:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+      notifications:
+        condition: service_healthy
+      file-storage:
+        condition: service_healthy
+      background-jobs:
+        condition: service_healthy
+      webhooks:
+        condition: service_healthy
+
+  # Services (each with own database)
+  product-catalog:
+    build:
+      context: .
+      dockerfile: src/Services/ProductCatalog/ProductCatalog.Api/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=productcatalog_db;Username=postgres;Password=postgres"
+      MongoDB__ConnectionString: "mongodb://mongodb:27017"
+      MongoDB__DatabaseName: "productcatalog"
+      RabbitMQ__HostName: rabbitmq
+      Keycloak__AuthServerUrl: "http://keycloak:8180/"
+      Keycloak__Realm: "api-template"
+      Keycloak__Resource: "api-template"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  reviews:
+    build:
+      context: .
+      dockerfile: src/Services/Reviews/Reviews.Api/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=reviews_db;Username=postgres;Password=postgres"
+      RabbitMQ__HostName: rabbitmq
+      Keycloak__AuthServerUrl: "http://keycloak:8180/"
+      Keycloak__Realm: "api-template"
+      Keycloak__Resource: "api-template"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  identity:
+    build:
+      context: .
+      dockerfile: src/Services/Identity/Identity.Api/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=identity_db;Username=postgres;Password=postgres"
+      RabbitMQ__HostName: rabbitmq
+      Keycloak__AuthServerUrl: "http://keycloak:8180/"
+      Keycloak__Realm: "api-template"
+      Keycloak__Resource: "api-template"
+      Keycloak__Credentials__Secret: "your-secret-here"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  notifications:
+    build:
+      context: .
+      dockerfile: src/Services/Notifications/Notifications.Api/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=notifications_db;Username=postgres;Password=postgres"
+      RabbitMQ__HostName: rabbitmq
+      Email__SmtpHost: mailpit
+      Email__SmtpPort: "1025"
+      Email__UseSsl: "false"
+      Email__SenderEmail: "noreply@api-template.local"
+      Email__SenderName: "API Template"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  file-storage:
+    build:
+      context: .
+      dockerfile: src/Services/FileStorage/FileStorage.Api/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=filestorage_db;Username=postgres;Password=postgres"
+      RabbitMQ__HostName: rabbitmq
+      FileStorage__BasePath: /app/storage
+    volumes:
+      - filestorage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  background-jobs:
+    build:
+      context: .
+      dockerfile: src/Services/BackgroundJobs/BackgroundJobs.Api/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=backgroundjobs_db;Username=postgres;Password=postgres"
+      ConnectionStrings__Redis: "dragonfly:6379"
+      RabbitMQ__HostName: rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      dragonfly:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  webhooks:
+    build:
+      context: .
+      dockerfile: src/Services/Webhooks/Webhooks.Api/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=webhooks_db;Username=postgres;Password=postgres"
+      RabbitMQ__HostName: rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  mongodata:
+  filestorage:
