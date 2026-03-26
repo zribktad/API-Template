@@ -13,6 +13,9 @@ using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+builder.Host.UseSharedSerilog();
+builder.Services.AddSharedObservability(builder.Configuration, builder.Environment, "file-storage");
+
 // ──────────────────────────────────────────────────
 // Options
 // ──────────────────────────────────────────────────
@@ -68,6 +71,13 @@ builder.Host.UseWolverine(opts =>
 // ══════════════════════════════════════════════════
 WebApplication app = builder.Build();
 
+using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+{
+    FileStorageDbContext dbContext =
+        scope.ServiceProvider.GetRequiredService<FileStorageDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();

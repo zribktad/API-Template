@@ -16,6 +16,9 @@ using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+builder.Host.UseSharedSerilog();
+builder.Services.AddSharedObservability(builder.Configuration, builder.Environment, "reviews");
+
 // ──────────────────────────────────────────────────
 // EF Core
 // ──────────────────────────────────────────────────
@@ -117,8 +120,14 @@ builder.Host.UseWolverine(opts =>
 // ══════════════════════════════════════════════════
 WebApplication app = builder.Build();
 
+using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+{
+    ReviewsDbContext dbContext = scope.ServiceProvider.GetRequiredService<ReviewsDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();

@@ -7,6 +7,7 @@ using Notifications.Infrastructure.Persistence;
 using Notifications.Infrastructure.Repositories;
 using Polly;
 using Polly.Retry;
+using SharedKernel.Api.Extensions;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
@@ -14,6 +15,13 @@ using Wolverine.Http;
 using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSharedSerilog();
+builder.Services.AddSharedObservability(
+    builder.Configuration,
+    builder.Environment,
+    "notifications"
+);
 
 // Database
 string connectionString =
@@ -103,9 +111,16 @@ builder.Services.AddResiliencePipeline(
 
 WebApplication app = builder.Build();
 
+using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+{
+    NotificationsDbContext dbContext =
+        scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 app.MapWolverineEndpoints();
 app.MapHealthChecks("/health");
 
-app.Run();
+await app.RunAsync();
 
 public partial class Program;

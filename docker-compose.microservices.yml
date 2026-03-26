@@ -52,6 +52,8 @@ services:
       dockerfile: src/Gateway/Gateway.Api/Dockerfile
     ports:
       - "8080:8080"
+    environment:
+      Observability__Otlp__Endpoint: "http://alloy:4317"
     depends_on:
       product-catalog:
         condition: service_healthy
@@ -81,6 +83,7 @@ services:
       Keycloak__AuthServerUrl: "http://keycloak:8180/"
       Keycloak__Realm: "api-template"
       Keycloak__Resource: "api-template"
+      Observability__Otlp__Endpoint: "http://alloy:4317"
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,6 +107,7 @@ services:
       Keycloak__AuthServerUrl: "http://keycloak:8180/"
       Keycloak__Realm: "api-template"
       Keycloak__Resource: "api-template"
+      Observability__Otlp__Endpoint: "http://alloy:4317"
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,6 +130,7 @@ services:
       Keycloak__Realm: "api-template"
       Keycloak__Resource: "api-template"
       Keycloak__Credentials__Secret: "your-secret-here"
+      Observability__Otlp__Endpoint: "http://alloy:4317"
     depends_on:
       postgres:
         condition: service_healthy
@@ -149,6 +154,7 @@ services:
       Email__UseSsl: "false"
       Email__SenderEmail: "noreply@api-template.local"
       Email__SenderName: "API Template"
+      Observability__Otlp__Endpoint: "http://alloy:4317"
     depends_on:
       postgres:
         condition: service_healthy
@@ -170,6 +176,7 @@ services:
       ConnectionStrings__DefaultConnection: "Host=postgres;Database=filestorage_db;Username=postgres;Password=postgres"
       RabbitMQ__HostName: rabbitmq
       FileStorage__BasePath: /app/storage
+      Observability__Otlp__Endpoint: "http://alloy:4317"
     volumes:
       - filestorage:/app/storage
     depends_on:
@@ -191,6 +198,7 @@ services:
       ConnectionStrings__DefaultConnection: "Host=postgres;Database=backgroundjobs_db;Username=postgres;Password=postgres"
       ConnectionStrings__Redis: "dragonfly:6379"
       RabbitMQ__HostName: rabbitmq
+      Observability__Otlp__Endpoint: "http://alloy:4317"
     depends_on:
       postgres:
         condition: service_healthy
@@ -211,6 +219,7 @@ services:
     environment:
       ConnectionStrings__DefaultConnection: "Host=postgres;Database=webhooks_db;Username=postgres;Password=postgres"
       RabbitMQ__HostName: rabbitmq
+      Observability__Otlp__Endpoint: "http://alloy:4317"
     depends_on:
       postgres:
         condition: service_healthy

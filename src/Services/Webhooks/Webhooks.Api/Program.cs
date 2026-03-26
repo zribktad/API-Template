@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http.Resilience;
 using Polly;
+using SharedKernel.Api.Extensions;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Webhooks.Application.Common.Constants;
@@ -16,6 +17,9 @@ using Wolverine.Http;
 using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSharedSerilog();
+builder.Services.AddSharedObservability(builder.Configuration, builder.Environment, "webhooks");
 
 // Database
 string connectionString =
@@ -97,9 +101,15 @@ builder.Host.UseWolverine(opts =>
 
 WebApplication app = builder.Build();
 
+using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+{
+    WebhooksDbContext dbContext = scope.ServiceProvider.GetRequiredService<WebhooksDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 app.MapWolverineEndpoints();
 app.MapHealthChecks("/health");
 
-app.Run();
+await app.RunAsync();
 
 public partial class Program;

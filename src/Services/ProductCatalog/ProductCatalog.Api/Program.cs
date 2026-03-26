@@ -18,6 +18,13 @@ using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+builder.Host.UseSharedSerilog();
+builder.Services.AddSharedObservability(
+    builder.Configuration,
+    builder.Environment,
+    "product-catalog"
+);
+
 // ──────────────────────────────────────────────────
 // EF Core
 // ──────────────────────────────────────────────────
@@ -128,8 +135,15 @@ builder.Host.UseWolverine(opts =>
 // ══════════════════════════════════════════════════
 WebApplication app = builder.Build();
 
+using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+{
+    ProductCatalogDbContext dbContext =
+        scope.ServiceProvider.GetRequiredService<ProductCatalogDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();

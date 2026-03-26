@@ -11,6 +11,7 @@ using BackgroundJobs.Infrastructure.TickerQ.Coordination;
 using BackgroundJobs.Infrastructure.TickerQ.Jobs;
 using BackgroundJobs.Infrastructure.TickerQ.RecurringJobRegistrations;
 using Microsoft.EntityFrameworkCore;
+using SharedKernel.Api.Extensions;
 using SharedKernel.Application.Options;
 using SharedKernel.Domain.Interfaces;
 using SharedKernel.Infrastructure.Persistence.UnitOfWork;
@@ -26,6 +27,13 @@ using Wolverine;
 using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSharedSerilog();
+builder.Services.AddSharedObservability(
+    builder.Configuration,
+    builder.Environment,
+    "background-jobs"
+);
 
 // Database
 string connectionString =
@@ -159,9 +167,16 @@ builder.Host.UseWolverine(opts =>
 
 WebApplication app = builder.Build();
 
+using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+{
+    BackgroundJobsDbContext dbContext =
+        scope.ServiceProvider.GetRequiredService<BackgroundJobsDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 app.MapControllers();
 app.MapHealthChecks("/health");
 
-app.Run();
+await app.RunAsync();
 
 public partial class Program;

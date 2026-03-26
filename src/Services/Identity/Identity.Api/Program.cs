@@ -20,6 +20,9 @@ using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+builder.Host.UseSharedSerilog();
+builder.Services.AddSharedObservability(builder.Configuration, builder.Environment, "identity");
+
 // ──────────────────────────────────────────────────
 // Options
 // ──────────────────────────────────────────────────
@@ -127,8 +130,14 @@ builder.Host.UseWolverine(opts =>
 // ══════════════════════════════════════════════════
 WebApplication app = builder.Build();
 
+using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+{
+    IdentityDbContext dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
