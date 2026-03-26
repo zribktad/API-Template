@@ -1,0 +1,145 @@
+using System.Security.Claims;
+using Identity.Application.Security;
+using Identity.Infrastructure.Security.Keycloak;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using JwtTokenValidatedContext = Microsoft.AspNetCore.Authentication.JwtBearer.TokenValidatedContext;
+using OidcTokenValidatedContext = Microsoft.AspNetCore.Authentication.OpenIdConnect.TokenValidatedContext;
+
+namespace Identity.Infrastructure.Security.Tenant;
+
+/// <summary>
+/// Validates tenant-related claims after JWT/OIDC token validation and normalizes
+/// Keycloak claims into standard .NET claim types used by authorization policies.
+/// </summary>
+public static class TenantClaimValidator
+{
+    public static async Task OnTokenValidated(JwtTokenValidatedContext context)
+    {
+        ClaimsIdentity? identity = context.Principal?.Identity as ClaimsIdentity;
+        if (identity != null)
+            KeycloakClaimMapper.MapKeycloakClaims(identity);
+
+        if (!IsServiceAccount(context.Principal))
+            await TryProvisionUserAsync(context.HttpContext, context.Principal);
+
+        if (!HasValidTenantClaim(context.Principal) && !IsServiceAccount(context.Principal))
+        {
+            context.Fail($"Missing required {AuthConstants.Claims.TenantId} claim.");
+        }
+
+        LogTokenValidated(
+            context.HttpContext,
+            context.Principal,
+            JwtBearerDefaults.AuthenticationScheme
+        );
+    }
+
+    public static async Task OnTokenValidated(OidcTokenValidatedContext context)
+    {
+        ClaimsIdentity? identity = context.Principal?.Identity as ClaimsIdentity;
+        if (identity != null)
+            KeycloakClaimMapper.MapKeycloakClaims(identity);
+
+        if (!IsServiceAccount(context.Principal))
+            await TryProvisionUserAsync(context.HttpContext, context.Principal);
+
+        if (!HasValidTenantClaim(context.Principal) && !IsServiceAccount(context.Principal))
+        {
+            context.Fail($"Missing required {AuthConstants.Claims.TenantId} claim.");
+        }
+
+        LogTokenValidated(
+            context.HttpContext,
+            context.Principal,
+            OpenIdConnectDefaults.AuthenticationScheme
+        );
+    }
+
+    public static bool HasValidTenantClaim(ClaimsPrincipal? principal)
+    {
+        return principal?.HasClaim(c =>
+                c.Type == AuthConstants.Claims.TenantId
+                && Guid.TryParse(c.Value, out Guid tenantId)
+                && tenantId != Guid.Empty
+            ) == true;
+    }
+
+    private static async Task TryProvisionUserAsync(
+        HttpContext httpContext,
+        ClaimsPrincipal? principal
+    )
+    {
+        try
+        {
+            string? sub = principal?.FindFirstValue(AuthConstants.Claims.Subject);
+            string? email = principal?.FindFirstValue(ClaimTypes.Email);
+            string? username = principal?.FindFirstValue(AuthConstants.Claims.PreferredUsername);
+
+            if (
+                string.IsNullOrEmpty(sub)
+                || string.IsNullOrEmpty(email)
+                || string.IsNullOrEmpty(username)
+            )
+                return;
+
+            IUserProvisioningService provisioningService =
+                httpContext.RequestServices.GetRequiredService<IUserProvisioningService>();
+
+            await provisioningService.ProvisionIfNeededAsync(sub, email, username);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            ILogger logger = httpContext
+                .RequestServices.GetRequiredService<ILoggerFactory>()
+                .CreateLogger(typeof(TenantClaimValidator));
+
+            logger.LogWarning(
+                ex,
+                "User provisioning failed during token validation — authentication will continue"
+            );
+        }
+    }
+
+    private static bool IsServiceAccount(ClaimsPrincipal? principal)
+    {
+        string? username = principal?.FindFirstValue(AuthConstants.Claims.PreferredUsername);
+        return username != null
+            && username.StartsWith(
+                AuthConstants.Claims.ServiceAccountUsernamePrefix,
+                StringComparison.OrdinalIgnoreCase
+            );
+    }
+
+    private static void LogTokenValidated(
+        HttpContext httpContext,
+        ClaimsPrincipal? principal,
+        string scheme
+    )
+    {
+        ILogger logger = httpContext
+            .RequestServices.GetRequiredService<ILoggerFactory>()
+            .CreateLogger(typeof(TenantClaimValidator));
+
+        if (principal?.Identity is not ClaimsIdentity identity)
+        {
+            logger.LogWarning("[{Scheme}] Token validated but no identity found", scheme);
+            return;
+        }
+
+        string? name = identity.FindFirst(ClaimTypes.Name)?.Value;
+        string[] roles = identity.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
+        string? tenantId = identity.FindFirst(AuthConstants.Claims.TenantId)?.Value;
+
+        logger.LogInformation(
+            "[{Scheme}] Authenticated user={User}, tenant={TenantId}, roles=[{Roles}]",
+            scheme,
+            name,
+            tenantId,
+            string.Join(", ", roles)
+        );
+    }
+}

@@ -13,4 +13,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Mvc" />
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.RabbitMQ" />
+    <PackageReference Include="WolverineFx.EntityFrameworkCore" />
+    <PackageReference Include="WolverineFx.FluentValidation" />
+  </ItemGroup>
+
 </Project>
