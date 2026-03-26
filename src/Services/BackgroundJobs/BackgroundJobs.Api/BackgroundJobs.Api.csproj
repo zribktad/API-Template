@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <ItemGroup>
+    <ProjectReference Include="..\BackgroundJobs.Application\BackgroundJobs.Application.csproj" />
+    <ProjectReference Include="..\BackgroundJobs.Infrastructure\BackgroundJobs.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\SharedKernel\SharedKernel.Api\SharedKernel.Api.csproj" />
+    <ProjectReference Include="..\..\..\SharedKernel\SharedKernel.Messaging\SharedKernel.Messaging.csproj" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>

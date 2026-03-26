@@ -13,4 +13,8 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\Identity\Identity.Api\Identity.Api.csproj" />
+  </ItemGroup>
+
 </Project>

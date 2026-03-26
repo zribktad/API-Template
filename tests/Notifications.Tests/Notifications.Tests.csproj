@@ -13,4 +13,8 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\Notifications\Notifications.Api\Notifications.Api.csproj" />
+  </ItemGroup>
+
 </Project>

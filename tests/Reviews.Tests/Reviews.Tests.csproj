@@ -13,4 +13,8 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\Reviews\Reviews.Api\Reviews.Api.csproj" />
+  </ItemGroup>
+
 </Project>

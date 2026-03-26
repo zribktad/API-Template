@@ -13,4 +13,8 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\BackgroundJobs\BackgroundJobs.Api\BackgroundJobs.Api.csproj" />
+  </ItemGroup>
+
 </Project>

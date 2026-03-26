@@ -13,4 +13,12 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.Domain\SharedKernel.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.Application\SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.Messaging\SharedKernel.Messaging.csproj" />
+    <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.Api\SharedKernel.Api.csproj" />
+  </ItemGroup>
+
 </Project>
