@@ -1,4 +1,5 @@
 using BackgroundJobs.Application.Common;
+using SharedKernel.Infrastructure.Queue;
 
 namespace BackgroundJobs.Infrastructure.Queue;
 

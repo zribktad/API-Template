@@ -1,12 +1,13 @@
 using System.Threading.Channels;
+using SharedKernel.Application.Queue;
 
-namespace Notifications.Infrastructure.Email;
+namespace SharedKernel.Infrastructure.Queue;
 
 /// <summary>
 /// A generic bounded channel-based queue. Subclass or instantiate directly for
 /// specific queue types (jobs, webhooks, emails, etc.).
 /// </summary>
-public class BoundedChannelQueue<T>
+public class BoundedChannelQueue<T> : IQueue<T>, IQueueReader<T>
 {
     private readonly Channel<T> _channel;
 

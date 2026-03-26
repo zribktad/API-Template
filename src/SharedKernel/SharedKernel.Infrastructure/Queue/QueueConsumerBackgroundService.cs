@@ -1,7 +1,7 @@
-using BackgroundJobs.Application.Common;
 using Microsoft.Extensions.Hosting;
+using SharedKernel.Application.Queue;
 
-namespace BackgroundJobs.Infrastructure.Queue;
+namespace SharedKernel.Infrastructure.Queue;
 
 /// <summary>
 /// Base <see cref="BackgroundService"/> that drains an <see cref="IQueueReader{T}"/> in a

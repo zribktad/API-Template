@@ -19,44 +19,44 @@ public static class TenantClaimValidator
 {
     public static async Task OnTokenValidated(JwtTokenValidatedContext context)
     {
-        ClaimsIdentity? identity = context.Principal?.Identity as ClaimsIdentity;
-        if (identity != null)
-            KeycloakClaimMapper.MapKeycloakClaims(identity);
-
-        if (!IsServiceAccount(context.Principal))
-            await TryProvisionUserAsync(context.HttpContext, context.Principal);
-
-        if (!HasValidTenantClaim(context.Principal) && !IsServiceAccount(context.Principal))
-        {
-            context.Fail($"Missing required {AuthConstants.Claims.TenantId} claim.");
-        }
-
-        LogTokenValidated(
-            context.HttpContext,
+        await ValidateTokenAsync(
             context.Principal,
-            JwtBearerDefaults.AuthenticationScheme
+            context.HttpContext,
+            JwtBearerDefaults.AuthenticationScheme,
+            reason => context.Fail(reason)
         );
     }
 
     public static async Task OnTokenValidated(OidcTokenValidatedContext context)
     {
-        ClaimsIdentity? identity = context.Principal?.Identity as ClaimsIdentity;
+        await ValidateTokenAsync(
+            context.Principal,
+            context.HttpContext,
+            OpenIdConnectDefaults.AuthenticationScheme,
+            reason => context.Fail(reason)
+        );
+    }
+
+    private static async Task ValidateTokenAsync(
+        ClaimsPrincipal? principal,
+        HttpContext httpContext,
+        string schemeName,
+        Action<string> fail
+    )
+    {
+        ClaimsIdentity? identity = principal?.Identity as ClaimsIdentity;
         if (identity != null)
             KeycloakClaimMapper.MapKeycloakClaims(identity);
 
-        if (!IsServiceAccount(context.Principal))
-            await TryProvisionUserAsync(context.HttpContext, context.Principal);
+        if (!IsServiceAccount(principal))
+            await TryProvisionUserAsync(httpContext, principal);
 
-        if (!HasValidTenantClaim(context.Principal) && !IsServiceAccount(context.Principal))
+        if (!HasValidTenantClaim(principal) && !IsServiceAccount(principal))
         {
-            context.Fail($"Missing required {AuthConstants.Claims.TenantId} claim.");
+            fail($"Missing required {AuthConstants.Claims.TenantId} claim.");
         }
 
-        LogTokenValidated(
-            context.HttpContext,
-            context.Principal,
-            OpenIdConnectDefaults.AuthenticationScheme
-        );
+        LogTokenValidated(httpContext, principal, schemeName);
     }
 
     public static bool HasValidTenantClaim(ClaimsPrincipal? principal)

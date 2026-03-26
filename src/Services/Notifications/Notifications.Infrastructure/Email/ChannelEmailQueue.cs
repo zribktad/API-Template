@@ -1,5 +1,6 @@
 using Notifications.Domain.Interfaces;
 using Notifications.Domain.ValueObjects;
+using SharedKernel.Infrastructure.Queue;
 
 namespace Notifications.Infrastructure.Email;
 

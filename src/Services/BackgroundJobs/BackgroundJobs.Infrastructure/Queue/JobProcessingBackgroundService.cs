@@ -4,6 +4,7 @@ using BackgroundJobs.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Domain.Interfaces;
+using SharedKernel.Infrastructure.Queue;
 
 namespace BackgroundJobs.Infrastructure.Queue;
 

@@ -34,7 +34,8 @@ public static class UserRoleChangedNotificationHandler
                 @event.Email,
                 EmailSubjects.UserRoleChanged,
                 html,
-                EmailTemplateNames.UserRoleChanged
+                EmailTemplateNames.UserRoleChanged,
+                Retryable: true
             ),
             ct
         );

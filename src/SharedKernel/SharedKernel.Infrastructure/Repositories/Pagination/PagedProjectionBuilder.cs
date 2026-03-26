@@ -27,7 +27,7 @@ internal static class PagedProjectionBuilder
         );
 
         // Get the PagedRow<TResult>(TResult item, int totalCount) constructor via reflection.
-        var ctor =
+        System.Reflection.ConstructorInfo ctor =
             typeof(PagedRow<TResult>).GetConstructor([typeof(TResult), typeof(int)])
             ?? throw new InvalidOperationException(
                 $"No suitable constructor found for {typeof(PagedRow<TResult>)} with parameters (TResult, int)."

@@ -1,4 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Asp.Versioning;
 using ErrorOr;
@@ -50,7 +49,6 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
     {
         string? userId =
             User.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
             ?? User.FindFirstValue(AuthConstants.Claims.Subject);
 
         if (userId is null || !Guid.TryParse(userId, out Guid id))

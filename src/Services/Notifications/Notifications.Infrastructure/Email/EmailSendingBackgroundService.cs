@@ -3,6 +3,7 @@ using Notifications.Domain.Interfaces;
 using Notifications.Domain.ValueObjects;
 using Polly;
 using Polly.Registry;
+using SharedKernel.Infrastructure.Queue;
 
 namespace Notifications.Infrastructure.Email;
 

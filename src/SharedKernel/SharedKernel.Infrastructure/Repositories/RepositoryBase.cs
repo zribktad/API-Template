@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Ardalis.Specification;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Application.Errors;
@@ -47,7 +48,9 @@ public abstract class RepositoryBase<T>
                 $"Specification {spec.GetType().Name} must define a Select projection to use GetPagedAsync."
             );
 
-        var combinedSelector = spec.Selector.BuildPaged(countSource);
+        Expression<Func<T, PagedRow<TResult>>> combinedSelector = spec.Selector.BuildPaged(
+            countSource
+        );
 
         // Apply skip/take + combined select -> single SQL query
         int skip = (pageNumber - 1) * pageSize;

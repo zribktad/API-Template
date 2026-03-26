@@ -1,4 +1,4 @@
-using SharedKernel.Domain.Exceptions;
+using Microsoft.AspNetCore.Http;
 using Webhooks.Domain.Entities;
 using Webhooks.Domain.Interfaces;
 using Wolverine.Http;
@@ -11,17 +11,19 @@ namespace Webhooks.Application.Features.Subscriptions.Endpoints;
 public static class DeleteWebhookSubscriptionEndpoint
 {
     [WolverineDelete("/api/v1/webhooks/subscriptions/{id}")]
-    public static async Task HandleAsync(
+    public static async Task<IResult> HandleAsync(
         Guid id,
         IWebhookSubscriptionRepository repository,
         CancellationToken ct
     )
     {
-        WebhookSubscription subscription =
-            await repository.GetByIdAsync(id, ct)
-            ?? throw new NotFoundException(nameof(WebhookSubscription), id);
+        WebhookSubscription? subscription = await repository.GetByIdAsync(id, ct);
+        if (subscription is null)
+            return Results.NotFound();
 
         await repository.DeleteAsync(subscription, ct);
         await repository.SaveChangesAsync(ct);
+
+        return Results.NoContent();
     }
 }

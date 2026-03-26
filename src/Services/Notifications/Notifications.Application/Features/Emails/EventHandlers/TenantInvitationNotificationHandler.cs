@@ -39,7 +39,8 @@ public static class TenantInvitationNotificationHandler
                 @event.Email,
                 string.Format(EmailSubjects.TenantInvitation, @event.TenantName),
                 html,
-                EmailTemplateNames.TenantInvitation
+                EmailTemplateNames.TenantInvitation,
+                Retryable: true
             ),
             ct
         );

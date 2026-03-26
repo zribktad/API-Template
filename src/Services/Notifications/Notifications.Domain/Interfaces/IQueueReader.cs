@@ -5,11 +5,4 @@ namespace Notifications.Domain.Interfaces;
 /// items without coupling to a specific transport implementation.
 /// </summary>
 /// <typeparam name="T">The type of item read from the queue.</typeparam>
-public interface IQueueReader<out T>
-{
-    /// <summary>
-    /// Returns an async stream that yields items as they become available, completing only when
-    /// <paramref name="ct"/> is cancelled or the underlying channel is closed.
-    /// </summary>
-    IAsyncEnumerable<T> ReadAllAsync(CancellationToken ct = default);
-}
+public interface IQueueReader<out T> : SharedKernel.Application.Queue.IQueueReader<T>;

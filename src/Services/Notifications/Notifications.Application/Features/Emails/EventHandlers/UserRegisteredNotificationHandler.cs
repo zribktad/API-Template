@@ -37,7 +37,8 @@ public static class UserRegisteredNotificationHandler
                 @event.Email,
                 EmailSubjects.UserRegistration,
                 html,
-                EmailTemplateNames.UserRegistration
+                EmailTemplateNames.UserRegistration,
+                Retryable: true
             ),
             ct
         );
