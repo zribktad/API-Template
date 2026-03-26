@@ -7,6 +7,7 @@ using FileStorage.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Api.Extensions;
 using SharedKernel.Messaging.Conventions;
+using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.RabbitMQ;
@@ -16,40 +17,31 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSharedSerilog();
 builder.Services.AddSharedObservability(builder.Configuration, builder.Environment, "file-storage");
 
-// ──────────────────────────────────────────────────
-// Options
-// ──────────────────────────────────────────────────
-builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection("FileStorage"));
-
-// ──────────────────────────────────────────────────
-// EF Core
-// ──────────────────────────────────────────────────
-builder.Services.AddDbContext<FileStorageDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("FileStorageDb"))
+builder.Services.AddValidatedOptions<FileStorageOptions>(
+    builder.Configuration,
+    FileStorageOptions.SectionName
 );
 
-// ──────────────────────────────────────────────────
-// Shared infrastructure (UnitOfWork, auditing, tenancy, versioning)
-// ──────────────────────────────────────────────────
+builder.Services.AddDbContext<FileStorageDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetRequiredConnectionString("FileStorageDb"))
+);
+
+builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<FileStorageDbContext>());
+
 builder.Services.AddSharedInfrastructure<FileStorageDbContext>(builder.Configuration);
 
-// Repositories
 builder.Services.AddScoped<IStoredFileRepository, StoredFileRepository>();
 
-// File storage service
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 
-// ──────────────────────────────────────────────────
-// Controllers
-// ──────────────────────────────────────────────────
 builder.Services.AddControllers();
 
-// ──────────────────────────────────────────────────
-// Wolverine + RabbitMQ
-// ──────────────────────────────────────────────────
+builder.Services.AddHealthChecks();
+
 builder.Host.UseWolverine(opts =>
 {
     opts.ApplySharedConventions();
+    opts.ApplySharedRetryPolicies();
 
     opts.Discovery.IncludeAssembly(typeof(IFileStorageService).Assembly);
 
@@ -58,26 +50,19 @@ builder.Host.UseWolverine(opts =>
     opts.UseSharedRabbitMq(builder.Configuration);
 
     opts.ListenToRabbitQueue(
-        "file-storage.product-deleted",
+        RabbitMqTopology.Queues.FileStorage.ProductDeleted,
         queue =>
         {
-            queue.BindExchange("product-catalog.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.ProductCatalog);
         }
     );
 });
 
-// ══════════════════════════════════════════════════
-// Build & Configure Pipeline
-// ══════════════════════════════════════════════════
 WebApplication app = builder.Build();
 
-using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
-{
-    FileStorageDbContext dbContext =
-        scope.ServiceProvider.GetRequiredService<FileStorageDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
+await app.MigrateDbAsync<FileStorageDbContext>();
 
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 await app.RunAsync();

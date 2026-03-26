@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace BackgroundJobs.Application.Options;
 
 /// <summary>
@@ -5,6 +7,8 @@ namespace BackgroundJobs.Application.Options;
 /// </summary>
 public sealed class ReindexJobOptions
 {
-    public bool Enabled { get; set; }
-    public string Cron { get; set; } = "0 */6 * * *";
+    public bool Enabled { get; init; }
+
+    [Required]
+    public string Cron { get; init; } = "0 */6 * * *";
 }

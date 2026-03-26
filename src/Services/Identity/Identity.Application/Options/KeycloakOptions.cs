@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Identity.Application.Options;
 
@@ -9,6 +10,8 @@ namespace Identity.Application.Options;
 /// </summary>
 public sealed class KeycloakOptions
 {
+    public const string SectionName = "Keycloak";
+
     [Required]
     [ConfigurationKeyName("realm")]
     public string Realm { get; init; } = string.Empty;
@@ -27,6 +30,8 @@ public sealed class KeycloakOptions
     [ConfigurationKeyName("ReadinessMaxRetries")]
     public int ReadinessMaxRetries { get; init; } = 30;
 
+    [Required]
+    [ValidateObjectMembers]
     [ConfigurationKeyName("credentials")]
     public KeycloakCredentialsOptions Credentials { get; init; } = new();
 }
@@ -36,6 +41,7 @@ public sealed class KeycloakOptions
 /// </summary>
 public sealed class KeycloakCredentialsOptions
 {
+    [Required]
     [ConfigurationKeyName("secret")]
     public string Secret { get; init; } = string.Empty;
 }

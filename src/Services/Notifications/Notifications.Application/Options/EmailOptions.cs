@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Notifications.Application.Options;
 
 /// <summary>
@@ -6,15 +8,33 @@ namespace Notifications.Application.Options;
 /// </summary>
 public sealed class EmailOptions
 {
-    public string SmtpHost { get; set; } = "localhost";
-    public int SmtpPort { get; set; } = 587;
-    public bool UseSsl { get; set; } = true;
-    public string SenderEmail { get; set; } = string.Empty;
-    public string SenderName { get; set; } = string.Empty;
-    public string? Username { get; set; }
-    public string? Password { get; set; }
-    public int InvitationTokenExpiryHours { get; set; } = 72;
-    public string BaseUrl { get; set; } = string.Empty;
-    public int MaxRetryAttempts { get; set; } = 3;
-    public int RetryBaseDelaySeconds { get; set; } = 2;
+    public const string SectionName = "Email";
+
+    [Required]
+    public string SmtpHost { get; init; } = "localhost";
+
+    [Range(1, 65535)]
+    public int SmtpPort { get; init; } = 587;
+    public bool UseSsl { get; init; } = true;
+
+    [Required]
+    [EmailAddress]
+    public string SenderEmail { get; init; } = string.Empty;
+
+    [Required]
+    public string SenderName { get; init; } = string.Empty;
+    public string? Username { get; init; }
+    public string? Password { get; init; }
+
+    [Range(1, 720)]
+    public int InvitationTokenExpiryHours { get; init; } = 72;
+
+    [Required]
+    public string BaseUrl { get; init; } = string.Empty;
+
+    [Range(1, 10)]
+    public int MaxRetryAttempts { get; init; } = 3;
+
+    [Range(1, 300)]
+    public int RetryBaseDelaySeconds { get; init; } = 2;
 }

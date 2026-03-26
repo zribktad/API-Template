@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace BackgroundJobs.Application.Options;
 
 /// <summary>
@@ -8,8 +10,12 @@ public sealed class TickerQSchedulerOptions
     public const string DefaultSchemaName = "tickerq";
     public const string DefaultCoordinationConnection = "Dragonfly";
 
-    public bool Enabled { get; set; }
-    public bool FailClosed { get; set; } = true;
-    public string InstanceNamePrefix { get; set; } = "BackgroundJobs";
-    public string CoordinationConnection { get; set; } = DefaultCoordinationConnection;
+    public bool Enabled { get; init; }
+    public bool FailClosed { get; init; } = true;
+
+    [Required]
+    public string InstanceNamePrefix { get; init; } = "BackgroundJobs";
+
+    [Required]
+    public string CoordinationConnection { get; init; } = DefaultCoordinationConnection;
 }

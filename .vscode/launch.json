@@ -123,6 +123,162 @@
         "Observability__Exporters__Otlp__Enabled": "true"
       },
       "console": "integratedTerminal"
+    },
+    {
+      "name": "MS: Gateway",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/Gateway/Gateway.Api/bin/Debug/net10.0/Gateway.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Gateway/Gateway.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:8080"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "MS: Product Catalog",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "ms: prepare debug product-catalog",
+      "program": "${workspaceFolder}/src/Services/ProductCatalog/ProductCatalog.Api/bin/Debug/net10.0/ProductCatalog.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Services/ProductCatalog/ProductCatalog.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5010",
+        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=productcatalog_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
+        "MongoDB__ConnectionString": "mongodb://localhost:27017",
+        "MongoDB__DatabaseName": "productcatalog",
+        "Keycloak__AuthServerUrl": "http://localhost:8180/",
+        "Keycloak__Realm": "api-template",
+        "Keycloak__Resource": "api-template",
+        "Observability__Otlp__Endpoint": "http://localhost:4317"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "MS: Reviews",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "ms: prepare debug reviews",
+      "program": "${workspaceFolder}/src/Services/Reviews/Reviews.Api/bin/Debug/net10.0/Reviews.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Services/Reviews/Reviews.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5020",
+        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=reviews_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
+        "Keycloak__AuthServerUrl": "http://localhost:8180/",
+        "Keycloak__Realm": "api-template",
+        "Keycloak__Resource": "api-template",
+        "Observability__Otlp__Endpoint": "http://localhost:4317"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "MS: Identity",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "ms: prepare debug identity",
+      "program": "${workspaceFolder}/src/Services/Identity/Identity.Api/bin/Debug/net10.0/Identity.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Services/Identity/Identity.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5030",
+        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=identity_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
+        "Keycloak__AuthServerUrl": "http://localhost:8180/",
+        "Keycloak__Realm": "api-template",
+        "Keycloak__Resource": "api-template",
+        "Keycloak__Credentials__Secret": "dev-client-secret",
+        "Observability__Otlp__Endpoint": "http://localhost:4317"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "MS: Notifications",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "ms: prepare debug notifications",
+      "program": "${workspaceFolder}/src/Services/Notifications/Notifications.Api/bin/Debug/net10.0/Notifications.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Services/Notifications/Notifications.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5040",
+        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=notifications_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
+        "Email__SmtpHost": "localhost",
+        "Email__SmtpPort": "1025",
+        "Email__UseSsl": "false",
+        "Email__SenderEmail": "noreply@api-template.local",
+        "Email__SenderName": "API Template",
+        "Observability__Otlp__Endpoint": "http://localhost:4317"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "MS: File Storage",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/Services/FileStorage/FileStorage.Api/bin/Debug/net10.0/FileStorage.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Services/FileStorage/FileStorage.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5050",
+        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=filestorage_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
+        "FileStorage__BasePath": "${workspaceFolder}/tmp/storage",
+        "Observability__Otlp__Endpoint": "http://localhost:4317"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "MS: Background Jobs",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/Services/BackgroundJobs/BackgroundJobs.Api/bin/Debug/net10.0/BackgroundJobs.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Services/BackgroundJobs/BackgroundJobs.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5060",
+        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=backgroundjobs_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
+        "ConnectionStrings__Redis": "localhost:6379",
+        "Observability__Otlp__Endpoint": "http://localhost:4317"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "MS: Webhooks",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/Services/Webhooks/Webhooks.Api/bin/Debug/net10.0/Webhooks.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Services/Webhooks/Webhooks.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5070",
+        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=webhooks_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
+        "Observability__Otlp__Endpoint": "http://localhost:4317"
+      },
+      "console": "integratedTerminal"
     }
   ]
 }

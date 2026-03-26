@@ -1,14 +1,13 @@
 using Contracts.IntegrationEvents.Reviews;
 using FluentValidation;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Reviews.Application.EventHandlers;
 using Reviews.Domain.Interfaces;
 using Reviews.Infrastructure.Persistence;
 using Reviews.Infrastructure.Repositories;
 using SharedKernel.Api.Extensions;
-using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
+using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.FluentValidation;
@@ -19,59 +18,30 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSharedSerilog();
 builder.Services.AddSharedObservability(builder.Configuration, builder.Environment, "reviews");
 
-// ──────────────────────────────────────────────────
-// EF Core
-// ──────────────────────────────────────────────────
 builder.Services.AddDbContext<ReviewsDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("ReviewsDb"))
+    options.UseNpgsql(builder.Configuration.GetRequiredConnectionString("ReviewsDb"))
 );
 
 // Register DbContext as the base type for event handlers that receive DbContext
 builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ReviewsDbContext>());
 
-// ──────────────────────────────────────────────────
-// Shared infrastructure (UnitOfWork, auditing, tenancy, versioning)
-// ──────────────────────────────────────────────────
 builder.Services.AddSharedInfrastructure<ReviewsDbContext>(builder.Configuration);
 
-// Repositories
 builder.Services.AddScoped<IProductReviewRepository, ProductReviewRepository>();
 
-// ──────────────────────────────────────────────────
-// Authentication
-// ──────────────────────────────────────────────────
-builder
-    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        IConfigurationSection keycloak = builder.Configuration.GetSection("Keycloak");
-        string authServerUrl = keycloak["auth-server-url"] ?? "http://localhost:8080";
-        string realm = keycloak["realm"] ?? "api-template";
-        string resource = keycloak["resource"] ?? "api-template-backend";
-
-        options.Authority = $"{authServerUrl.TrimEnd('/')}/realms/{realm}";
-        options.Audience = resource;
-        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-    });
-
+builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
 builder.Services.AddAuthorization();
 
-// ──────────────────────────────────────────────────
-// FluentValidation
-// ──────────────────────────────────────────────────
 builder.Services.AddValidatorsFromAssemblyContaining<ProductCreatedEventHandler>();
 
-// ──────────────────────────────────────────────────
-// Controllers
-// ──────────────────────────────────────────────────
 builder.Services.AddControllers();
 
-// ──────────────────────────────────────────────────
-// Wolverine + RabbitMQ
-// ──────────────────────────────────────────────────
+builder.Services.AddHealthChecks();
+
 builder.Host.UseWolverine(opts =>
 {
     opts.ApplySharedConventions();
+    opts.ApplySharedRetryPolicies();
 
     opts.UseFluentValidation();
 
@@ -83,7 +53,7 @@ builder.Host.UseWolverine(opts =>
 
     opts.PublishMessage<ReviewCreatedIntegrationEvent>()
         .ToRabbitExchange(
-            "reviews.events",
+            RabbitMqTopology.Exchanges.Reviews,
             exchange =>
             {
                 exchange.ExchangeType = Wolverine.RabbitMQ.ExchangeType.Fanout;
@@ -93,41 +63,35 @@ builder.Host.UseWolverine(opts =>
 
     // Listen to integration event queues
     opts.ListenToRabbitQueue(
-        "reviews.product-created",
+        RabbitMqTopology.Queues.Reviews.ProductCreated,
         queue =>
         {
-            queue.BindExchange("product-catalog.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.ProductCatalog);
         }
     );
     opts.ListenToRabbitQueue(
-        "reviews.product-deleted",
+        RabbitMqTopology.Queues.Reviews.ProductDeleted,
         queue =>
         {
-            queue.BindExchange("product-catalog.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.ProductCatalog);
         }
     );
     opts.ListenToRabbitQueue(
-        "reviews.tenant-deactivated",
+        RabbitMqTopology.Queues.Reviews.TenantDeactivated,
         queue =>
         {
-            queue.BindExchange("identity.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.Identity);
         }
     );
 });
 
-// ══════════════════════════════════════════════════
-// Build & Configure Pipeline
-// ══════════════════════════════════════════════════
 WebApplication app = builder.Build();
 
-using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
-{
-    ReviewsDbContext dbContext = scope.ServiceProvider.GetRequiredService<ReviewsDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
+await app.MigrateDbAsync<ReviewsDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 await app.RunAsync();

@@ -8,5 +8,7 @@ namespace Identity.Application.Options;
 /// </summary>
 public sealed class SystemIdentityOptions
 {
+    public const string SectionName = "SystemIdentity";
+
     public Guid DefaultActorId { get; init; } = AuditDefaults.SystemActorId;
 }

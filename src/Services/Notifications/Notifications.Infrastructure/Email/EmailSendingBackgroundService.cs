@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Notifications.Application.Common.Constants;
 using Notifications.Domain.Interfaces;
 using Notifications.Domain.ValueObjects;
 using Polly;
@@ -14,8 +15,6 @@ namespace Notifications.Infrastructure.Email;
 /// </summary>
 public sealed class EmailSendingBackgroundService : QueueConsumerBackgroundService<EmailMessage>
 {
-    private const string SmtpSendPipelineKey = "smtp-send";
-
     private readonly IEmailSender _sender;
     private readonly ResiliencePipelineProvider<string> _resiliencePipelineProvider;
     private readonly IFailedEmailStore _failedEmailStore;
@@ -39,7 +38,9 @@ public sealed class EmailSendingBackgroundService : QueueConsumerBackgroundServi
     /// <summary>Executes delivery of <paramref name="message"/> through the configured SMTP resilience pipeline.</summary>
     protected override async Task ProcessItemAsync(EmailMessage message, CancellationToken ct)
     {
-        ResiliencePipeline pipeline = _resiliencePipelineProvider.GetPipeline(SmtpSendPipelineKey);
+        ResiliencePipeline pipeline = _resiliencePipelineProvider.GetPipeline(
+            NotificationConstants.SmtpResiliencePipelineKey
+        );
 
         await pipeline.ExecuteAsync(
             async token =>

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace BackgroundJobs.Application.Options;
 
 /// <summary>
@@ -6,9 +8,17 @@ namespace BackgroundJobs.Application.Options;
 /// </summary>
 public sealed class CleanupJobOptions
 {
-    public bool Enabled { get; set; }
-    public string Cron { get; set; } = "0 * * * *";
-    public int SoftDeleteRetentionDays { get; set; } = 30;
-    public int StaleJobRetentionDays { get; set; } = 90;
-    public int BatchSize { get; set; } = 100;
+    public bool Enabled { get; init; }
+
+    [Required]
+    public string Cron { get; init; } = "0 * * * *";
+
+    [Range(1, int.MaxValue)]
+    public int SoftDeleteRetentionDays { get; init; } = 30;
+
+    [Range(1, int.MaxValue)]
+    public int StaleJobRetentionDays { get; init; } = 90;
+
+    [Range(1, int.MaxValue)]
+    public int BatchSize { get; init; } = 100;
 }

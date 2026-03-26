@@ -22,9 +22,7 @@ builder.Host.UseSharedSerilog();
 builder.Services.AddSharedObservability(builder.Configuration, builder.Environment, "webhooks");
 
 // Database
-string connectionString =
-    builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("DefaultConnection not configured");
+string connectionString = builder.Configuration.GetRequiredConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<WebhooksDbContext>(options => options.UseNpgsql(connectionString));
 
@@ -77,35 +75,31 @@ builder.Host.UseWolverine(opts =>
 
     // Listen to webhook delivery queues
     opts.ListenToRabbitQueue(
-        "webhooks.product-created",
+        RabbitMqTopology.Queues.Webhooks.ProductCreated,
         queue =>
         {
-            queue.BindExchange("product-catalog.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.ProductCatalog);
         }
     );
     opts.ListenToRabbitQueue(
-        "webhooks.product-deleted",
+        RabbitMqTopology.Queues.Webhooks.ProductDeleted,
         queue =>
         {
-            queue.BindExchange("product-catalog.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.ProductCatalog);
         }
     );
     opts.ListenToRabbitQueue(
-        "webhooks.review-created",
+        RabbitMqTopology.Queues.Webhooks.ReviewCreated,
         queue =>
         {
-            queue.BindExchange("reviews.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.Reviews);
         }
     );
 });
 
 WebApplication app = builder.Build();
 
-using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
-{
-    WebhooksDbContext dbContext = scope.ServiceProvider.GetRequiredService<WebhooksDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
+await app.MigrateDbAsync<WebhooksDbContext>();
 
 app.MapWolverineEndpoints();
 app.MapHealthChecks("/health");

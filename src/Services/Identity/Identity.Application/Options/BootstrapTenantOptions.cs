@@ -7,6 +7,8 @@ namespace Identity.Application.Options;
 /// </summary>
 public sealed class BootstrapTenantOptions
 {
+    public const string SectionName = "BootstrapTenant";
+
     [Required]
     public string Code { get; init; } = "default";
 

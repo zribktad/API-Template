@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using Microsoft.Extensions.Options;
+
 namespace BackgroundJobs.Application.Options;
 
 /// <summary>
@@ -7,7 +10,15 @@ public sealed class BackgroundJobsOptions
 {
     public const string SectionName = "BackgroundJobs";
 
-    public TickerQSchedulerOptions TickerQ { get; set; } = new();
-    public CleanupJobOptions Cleanup { get; set; } = new();
-    public ReindexJobOptions Reindex { get; set; } = new();
+    [Required]
+    [ValidateObjectMembers]
+    public TickerQSchedulerOptions TickerQ { get; init; } = new();
+
+    [Required]
+    [ValidateObjectMembers]
+    public CleanupJobOptions Cleanup { get; init; } = new();
+
+    [Required]
+    [ValidateObjectMembers]
+    public ReindexJobOptions Reindex { get; init; } = new();
 }

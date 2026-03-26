@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using SharedKernel.Domain.Options;
 
@@ -9,10 +10,19 @@ namespace SharedKernel.Application.Options;
 /// </summary>
 public sealed class TransactionDefaultsOptions
 {
+    public const string SectionName = "TransactionDefaults";
+
+    [Range(0, int.MaxValue)]
     public IsolationLevel IsolationLevel { get; set; } = IsolationLevel.ReadCommitted;
+
+    [Range(0, int.MaxValue)]
     public int TimeoutSeconds { get; set; } = 30;
     public bool RetryEnabled { get; set; } = true;
+
+    [Range(0, int.MaxValue)]
     public int RetryCount { get; set; } = 3;
+
+    [Range(0, int.MaxValue)]
     public int RetryDelaySeconds { get; set; } = 5;
 
     /// <summary>

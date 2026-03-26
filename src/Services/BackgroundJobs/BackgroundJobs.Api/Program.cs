@@ -12,9 +12,6 @@ using BackgroundJobs.Infrastructure.TickerQ.Jobs;
 using BackgroundJobs.Infrastructure.TickerQ.RecurringJobRegistrations;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Api.Extensions;
-using SharedKernel.Application.Options;
-using SharedKernel.Domain.Interfaces;
-using SharedKernel.Infrastructure.Persistence.UnitOfWork;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using StackExchange.Redis;
@@ -36,37 +33,24 @@ builder.Services.AddSharedObservability(
 );
 
 // Database
-string connectionString =
-    builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("DefaultConnection not configured");
+string connectionString = builder.Configuration.GetRequiredConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<BackgroundJobsDbContext>(options =>
     options.UseNpgsql(connectionString)
 );
 
 // Options
-builder.Services.Configure<BackgroundJobsOptions>(
-    builder.Configuration.GetSection(BackgroundJobsOptions.SectionName)
+builder.Services.AddValidatedOptions<BackgroundJobsOptions>(
+    builder.Configuration,
+    BackgroundJobsOptions.SectionName
 );
 
 BackgroundJobsOptions backgroundJobsOptions =
-    builder.Configuration.GetSection(BackgroundJobsOptions.SectionName).Get<BackgroundJobsOptions>()
-    ?? new BackgroundJobsOptions();
+    builder.Configuration.GetRequiredOptions<BackgroundJobsOptions>(
+        BackgroundJobsOptions.SectionName
+    );
 
-// TimeProvider for UTC timestamps
-builder.Services.AddSingleton(TimeProvider.System);
-
-// Unit of Work
-builder.Services.Configure<TransactionDefaultsOptions>(
-    builder.Configuration.GetSection("TransactionDefaults")
-);
-builder.Services.AddScoped<IDbTransactionProvider, EfCoreTransactionProvider>();
-builder.Services.AddScoped<IUnitOfWork>(sp => new UnitOfWork(
-    sp.GetRequiredService<BackgroundJobsDbContext>(),
-    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TransactionDefaultsOptions>>(),
-    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<UnitOfWork>>(),
-    sp.GetRequiredService<IDbTransactionProvider>()
-));
+builder.Services.AddSharedInfrastructure<BackgroundJobsDbContext>(builder.Configuration);
 
 // Repository
 builder.Services.AddScoped<IJobExecutionRepository, JobExecutionRepository>();
@@ -84,7 +68,9 @@ builder.Services.AddScoped<IReindexService, ReindexService>();
 // TickerQ (when enabled)
 if (backgroundJobsOptions.TickerQ.Enabled)
 {
-    string? dragonflyConnectionString = builder.Configuration.GetConnectionString("Dragonfly");
+    string? dragonflyConnectionString = builder.Configuration.GetConnectionString(
+        backgroundJobsOptions.TickerQ.CoordinationConnection
+    );
 
     if (!string.IsNullOrWhiteSpace(dragonflyConnectionString))
     {
@@ -157,22 +143,17 @@ builder.Host.UseWolverine(opts =>
 
     // Listen to background-jobs queues
     opts.ListenToRabbitQueue(
-        "background-jobs.tenant-deactivated",
+        RabbitMqTopology.Queues.BackgroundJobs.TenantDeactivated,
         queue =>
         {
-            queue.BindExchange("identity.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.Identity);
         }
     );
 });
 
 WebApplication app = builder.Build();
 
-using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
-{
-    BackgroundJobsDbContext dbContext =
-        scope.ServiceProvider.GetRequiredService<BackgroundJobsDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
+await app.MigrateDbAsync<BackgroundJobsDbContext>();
 
 app.MapControllers();
 app.MapHealthChecks("/health");

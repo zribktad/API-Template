@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Identity.Application.Options;
 
 /// <summary>
@@ -5,5 +7,8 @@ namespace Identity.Application.Options;
 /// </summary>
 public sealed class InvitationOptions
 {
-    public int InvitationTokenExpiryHours { get; set; } = 72;
+    public const string SectionName = "Invitation";
+
+    [Range(1, 720)]
+    public int InvitationTokenExpiryHours { get; init; } = 72;
 }

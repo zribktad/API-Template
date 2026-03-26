@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Notifications.Application.Common.Constants;
 using Notifications.Application.Features.Emails.EventHandlers;
 using Notifications.Application.Options;
 using Notifications.Domain.Interfaces;
@@ -24,16 +25,14 @@ builder.Services.AddSharedObservability(
 );
 
 // Database
-string connectionString =
-    builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("DefaultConnection not configured");
+string connectionString = builder.Configuration.GetRequiredConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<NotificationsDbContext>(options =>
     options.UseNpgsql(connectionString)
 );
 
 // Email options
-builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.AddValidatedOptions<EmailOptions>(builder.Configuration, EmailOptions.SectionName);
 
 // Email services (queue, sender, renderer, store)
 builder.Services.AddSingleton<ChannelEmailQueue>();
@@ -67,34 +66,35 @@ builder.Host.UseWolverine(opts =>
 
     // Listen to notification queues
     opts.ListenToRabbitQueue(
-        "notifications.user-registered",
+        RabbitMqTopology.Queues.Notifications.UserRegistered,
         queue =>
         {
-            queue.BindExchange("identity.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.Identity);
         }
     );
     opts.ListenToRabbitQueue(
-        "notifications.user-role-changed",
+        RabbitMqTopology.Queues.Notifications.UserRoleChanged,
         queue =>
         {
-            queue.BindExchange("identity.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.Identity);
         }
     );
     opts.ListenToRabbitQueue(
-        "notifications.invitation-created",
+        RabbitMqTopology.Queues.Notifications.InvitationCreated,
         queue =>
         {
-            queue.BindExchange("identity.events");
+            queue.BindExchange(RabbitMqTopology.Exchanges.Identity);
         }
     );
 });
 
 // Resilience pipeline for SMTP retries
-EmailOptions emailOptions =
-    builder.Configuration.GetSection("Email").Get<EmailOptions>() ?? new EmailOptions();
+EmailOptions emailOptions = builder.Configuration.GetRequiredOptions<EmailOptions>(
+    EmailOptions.SectionName
+);
 
 builder.Services.AddResiliencePipeline(
-    "smtp-send",
+    NotificationConstants.SmtpResiliencePipelineKey,
     pipelineBuilder =>
     {
         pipelineBuilder.AddRetry(
@@ -111,12 +111,7 @@ builder.Services.AddResiliencePipeline(
 
 WebApplication app = builder.Build();
 
-using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
-{
-    NotificationsDbContext dbContext =
-        scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
+await app.MigrateDbAsync<NotificationsDbContext>();
 
 app.MapWolverineEndpoints();
 app.MapHealthChecks("/health");

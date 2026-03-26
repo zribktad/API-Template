@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using SharedKernel.Api.Extensions;
 using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
+using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.FluentValidation;
@@ -23,37 +24,35 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSharedSerilog();
 builder.Services.AddSharedObservability(builder.Configuration, builder.Environment, "identity");
 
-// ──────────────────────────────────────────────────
-// Options
-// ──────────────────────────────────────────────────
-builder.Services.Configure<KeycloakOptions>(builder.Configuration.GetSection("Keycloak"));
-builder.Services.Configure<BffOptions>(builder.Configuration.GetSection("Bff"));
-builder.Services.Configure<BootstrapTenantOptions>(
-    builder.Configuration.GetSection("BootstrapTenant")
+builder.Services.AddValidatedOptions<KeycloakOptions>(
+    builder.Configuration,
+    KeycloakOptions.SectionName
 );
-builder.Services.Configure<SystemIdentityOptions>(
-    builder.Configuration.GetSection("SystemIdentity")
+builder.Services.AddValidatedOptions<BffOptions>(builder.Configuration, BffOptions.SectionName);
+builder.Services.AddValidatedOptions<BootstrapTenantOptions>(
+    builder.Configuration,
+    BootstrapTenantOptions.SectionName
 );
-builder.Services.Configure<InvitationOptions>(builder.Configuration.GetSection("Invitation"));
+builder.Services.AddValidatedOptions<SystemIdentityOptions>(
+    builder.Configuration,
+    SystemIdentityOptions.SectionName
+);
+builder.Services.AddValidatedOptions<InvitationOptions>(
+    builder.Configuration,
+    InvitationOptions.SectionName
+);
 
-// ──────────────────────────────────────────────────
-// EF Core
-// ──────────────────────────────────────────────────
 builder.Services.AddDbContext<IdentityDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("IdentityDb"))
+    options.UseNpgsql(builder.Configuration.GetRequiredConnectionString("IdentityDb"))
 );
 
-// ──────────────────────────────────────────────────
-// Shared infrastructure (UnitOfWork, auditing, tenancy, versioning)
-// ──────────────────────────────────────────────────
+builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<IdentityDbContext>());
 builder.Services.AddSharedInfrastructure<IdentityDbContext>(builder.Configuration);
 
-// Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<ITenantInvitationRepository, TenantInvitationRepository>();
 
-// Security
 builder.Services.AddSingleton<IRolePermissionMap, StaticRolePermissionMap>();
 builder.Services.AddScoped<IKeycloakAdminService, KeycloakAdminService>();
 builder.Services.AddScoped<ISecureTokenGenerator, SecureTokenGenerator>();
@@ -61,46 +60,30 @@ builder.Services.AddScoped<IUserProvisioningService, UserProvisioningService>();
 builder.Services.AddSingleton<KeycloakAdminTokenProvider>();
 builder.Services.AddTransient<KeycloakAdminTokenHandler>();
 
-// ──────────────────────────────────────────────────
-// Authentication
-// ──────────────────────────────────────────────────
-builder
-    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddSharedKeycloakJwtBearer(
+    builder.Configuration,
+    builder.Environment,
+    options =>
     {
-        KeycloakOptions keycloak = builder
-            .Configuration.GetSection("Keycloak")
-            .Get<KeycloakOptions>()!;
-        options.Authority = KeycloakUrlHelper.BuildAuthority(
-            keycloak.AuthServerUrl,
-            keycloak.Realm
-        );
-        options.Audience = keycloak.Resource;
-        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
         options.Events = new JwtBearerEvents
         {
             OnTokenValidated = TenantClaimValidator.OnTokenValidated,
         };
-    });
+    }
+);
 
 builder.Services.AddAuthorization();
 
-// ──────────────────────────────────────────────────
-// FluentValidation
-// ──────────────────────────────────────────────────
 builder.Services.AddValidatorsFromAssemblyContaining<IKeycloakAdminService>();
 
-// ──────────────────────────────────────────────────
-// Controllers
-// ──────────────────────────────────────────────────
 builder.Services.AddControllers();
 
-// ──────────────────────────────────────────────────
-// Wolverine + RabbitMQ
-// ──────────────────────────────────────────────────
+builder.Services.AddHealthChecks();
+
 builder.Host.UseWolverine(opts =>
 {
     opts.ApplySharedConventions();
+    opts.ApplySharedRetryPolicies();
 
     opts.UseFluentValidation();
 
@@ -112,32 +95,28 @@ builder.Host.UseWolverine(opts =>
 
     opts.PublishMessage<UserRegisteredIntegrationEvent>()
         .ToRabbitExchange(
-            "identity.events",
+            RabbitMqTopology.Exchanges.Identity,
             exchange =>
             {
                 exchange.ExchangeType = Wolverine.RabbitMQ.ExchangeType.Fanout;
                 exchange.IsDurable = true;
             }
         );
-    opts.PublishMessage<UserRoleChangedIntegrationEvent>().ToRabbitExchange("identity.events");
+    opts.PublishMessage<UserRoleChangedIntegrationEvent>()
+        .ToRabbitExchange(RabbitMqTopology.Exchanges.Identity);
     opts.PublishMessage<TenantInvitationCreatedIntegrationEvent>()
-        .ToRabbitExchange("identity.events");
-    opts.PublishMessage<TenantDeactivatedIntegrationEvent>().ToRabbitExchange("identity.events");
+        .ToRabbitExchange(RabbitMqTopology.Exchanges.Identity);
+    opts.PublishMessage<TenantDeactivatedIntegrationEvent>()
+        .ToRabbitExchange(RabbitMqTopology.Exchanges.Identity);
 });
 
-// ══════════════════════════════════════════════════
-// Build & Configure Pipeline
-// ══════════════════════════════════════════════════
 WebApplication app = builder.Build();
 
-using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
-{
-    IdentityDbContext dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
+await app.MigrateDbAsync<IdentityDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 await app.RunAsync();

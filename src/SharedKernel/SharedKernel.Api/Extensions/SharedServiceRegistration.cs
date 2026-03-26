@@ -33,8 +33,9 @@ public static class SharedServiceRegistration
         where TDbContext : DbContext
     {
         // Transaction & Unit of Work
-        services.Configure<TransactionDefaultsOptions>(
-            configuration.GetSection("TransactionDefaults")
+        services.AddValidatedOptions<TransactionDefaultsOptions>(
+            configuration,
+            TransactionDefaultsOptions.SectionName
         );
         services.AddScoped<IDbTransactionProvider, EfCoreTransactionProvider>();
         services.AddScoped<IUnitOfWork>(sp => new UnitOfWork(

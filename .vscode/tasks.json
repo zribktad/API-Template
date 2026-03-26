@@ -299,6 +299,220 @@
       ],
       "dependsOrder": "sequence",
       "problemMatcher": []
+    },
+    {
+      "label": "ms: build all",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/APITemplate.Microservices.slnx"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: test all",
+      "type": "shell",
+      "command": "dotnet test ${workspaceFolder}/tests/SharedKernel.Tests && dotnet test ${workspaceFolder}/tests/ProductCatalog.Tests && dotnet test ${workspaceFolder}/tests/Reviews.Tests && dotnet test ${workspaceFolder}/tests/Identity.Tests && dotnet test ${workspaceFolder}/tests/Notifications.Tests && dotnet test ${workspaceFolder}/tests/FileStorage.Tests && dotnet test ${workspaceFolder}/tests/BackgroundJobs.Tests && dotnet test ${workspaceFolder}/tests/Webhooks.Tests",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: build gateway",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Gateway/Gateway.Api/Gateway.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: build product-catalog",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Services/ProductCatalog/ProductCatalog.Api/ProductCatalog.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: build reviews",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Services/Reviews/Reviews.Api/Reviews.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: build identity",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Services/Identity/Identity.Api/Identity.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: build notifications",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Services/Notifications/Notifications.Api/Notifications.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: build file-storage",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Services/FileStorage/FileStorage.Api/FileStorage.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: build background-jobs",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Services/BackgroundJobs/BackgroundJobs.Api/BackgroundJobs.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: build webhooks",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Services/Webhooks/Webhooks.Api/Webhooks.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: docker infra up",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.microservices.yml",
+        "up",
+        "-d",
+        "postgres",
+        "mongodb",
+        "dragonfly",
+        "rabbitmq",
+        "mailpit"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "ms: docker infra + observability up",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.microservices.yml",
+        "up",
+        "-d",
+        "postgres",
+        "mongodb",
+        "dragonfly",
+        "rabbitmq",
+        "mailpit",
+        "alloy",
+        "prometheus",
+        "loki",
+        "tempo",
+        "grafana"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "ms: docker all up",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.microservices.yml",
+        "up",
+        "--build",
+        "-d"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "ms: docker all down",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.microservices.yml",
+        "down"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "ms: docker logs",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.microservices.yml",
+        "logs",
+        "-f",
+        "--tail",
+        "100"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "ms: prepare debug product-catalog",
+      "dependsOn": [
+        "ms: docker infra up",
+        "ms: build product-catalog"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "ms: prepare debug identity",
+      "dependsOn": [
+        "ms: docker infra up",
+        "ms: build identity"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "ms: prepare debug notifications",
+      "dependsOn": [
+        "ms: docker infra up",
+        "ms: build notifications"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "ms: prepare debug reviews",
+      "dependsOn": [
+        "ms: docker infra up",
+        "ms: build reviews"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
     }
   ]
 }

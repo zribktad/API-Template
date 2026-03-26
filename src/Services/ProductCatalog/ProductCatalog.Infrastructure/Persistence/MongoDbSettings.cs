@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace ProductCatalog.Infrastructure.Persistence;
 
 /// <summary>
@@ -5,7 +7,11 @@ namespace ProductCatalog.Infrastructure.Persistence;
 /// </summary>
 public sealed class MongoDbSettings
 {
+    public const string SectionName = "MongoDB";
+
+    [Required]
     public string ConnectionString { get; init; } = string.Empty;
 
+    [Required]
     public string DatabaseName { get; init; } = string.Empty;
 }
