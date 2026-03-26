@@ -11,14 +11,11 @@ using ProductDataEntity = APITemplate.Domain.Entities.ProductData.ProductData;
 
 namespace APITemplate.Application.Features.ProductData;
 
+/// <summary>Soft-deletes a product-data document (MongoDB) and its links (PostgreSQL) with resilience.</summary>
 public sealed record DeleteProductDataCommand(Guid Id) : IHasId;
 
 public sealed class DeleteProductDataCommandHandler
 {
-    /// <summary>
-    /// Wolverine compound-handler load step: loads the product-data document and verifies
-    /// tenant ownership, short-circuiting the handler pipeline when not found.
-    /// </summary>
     public static async Task<(HandlerContinuation, ProductDataEntity?, OutgoingMessages)> LoadAsync(
         DeleteProductDataCommand command,
         IProductDataRepository repository,
@@ -40,7 +37,6 @@ public sealed class DeleteProductDataCommandHandler
         return (HandlerContinuation.Continue, data, messages);
     }
 
-    /// <summary>Soft-deletes product-data links in PostgreSQL and the document in MongoDB with resilience.</summary>
     public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         DeleteProductDataCommand command,
         ProductDataEntity data,

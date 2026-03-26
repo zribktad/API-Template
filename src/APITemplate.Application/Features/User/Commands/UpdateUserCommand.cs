@@ -9,6 +9,7 @@ using Wolverine;
 
 namespace APITemplate.Application.Features.User;
 
+/// <summary>Updates user profile (email, username) with uniqueness validation.</summary>
 public sealed record UpdateUserCommand(Guid Id, UpdateUserRequest Request) : IHasId;
 
 public sealed class UpdateUserCommandHandler

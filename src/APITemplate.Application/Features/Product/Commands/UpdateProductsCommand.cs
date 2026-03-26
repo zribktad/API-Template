@@ -8,16 +8,11 @@ using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product;
 
-/// <summary>Updates multiple products in a single batch operation.</summary>
+/// <summary>Updates products and syncs their product-data links in a single batch.</summary>
 public sealed record UpdateProductsCommand(UpdateProductsRequest Request);
 
-/// <summary>Handles <see cref="UpdateProductsCommand"/> by validating all items, loading products in bulk, and updating in a single transaction.</summary>
 public sealed class UpdateProductsCommandHandler
 {
-    /// <summary>
-    /// Wolverine compound-handler load step: validates and loads products, short-circuiting the
-    /// handler pipeline with a failure response when any validation rule fails.
-    /// </summary>
     public static async Task<(
         HandlerContinuation,
         EntityLookup<ProductEntity>?,
@@ -56,7 +51,6 @@ public sealed class UpdateProductsCommandHandler
         );
     }
 
-    /// <summary>Applies changes and syncs product-data links in a single transaction.</summary>
     public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         UpdateProductsCommand command,
         EntityLookup<ProductEntity> lookup,

@@ -11,10 +11,9 @@ using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
 namespace APITemplate.Application.Features.ProductReview;
 
-/// <summary>Creates a new product review for the authenticated user and returns the persisted representation.</summary>
+/// <summary>Creates a product review attributed to the authenticated user.</summary>
 public sealed record CreateProductReviewCommand(CreateProductReviewRequest Request);
 
-/// <summary>Handles <see cref="CreateProductReviewCommand"/>.</summary>
 public sealed class CreateProductReviewCommandHandler
 {
     public static async Task<(HandlerContinuation, OutgoingMessages)> LoadAsync(

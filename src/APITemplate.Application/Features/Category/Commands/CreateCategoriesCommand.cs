@@ -8,10 +8,9 @@ using CategoryEntity = APITemplate.Domain.Entities.Category;
 
 namespace APITemplate.Application.Features.Category;
 
-/// <summary>Creates multiple categories in a single batch operation.</summary>
+/// <summary>Creates multiple categories in a single batch.</summary>
 public sealed record CreateCategoriesCommand(CreateCategoriesRequest Request);
 
-/// <summary>Handles <see cref="CreateCategoriesCommand"/> by validating all items and persisting in a single transaction.</summary>
 public sealed class CreateCategoriesCommandHandler
 {
     public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(

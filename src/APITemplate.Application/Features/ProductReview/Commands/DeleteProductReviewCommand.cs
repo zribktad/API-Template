@@ -9,10 +9,9 @@ using ProductReviewEntity = APITemplate.Domain.Entities.ProductReview;
 
 namespace APITemplate.Application.Features.ProductReview;
 
-/// <summary>Deletes the product review with the given identifier; only the review's author may delete it.</summary>
+/// <summary>Deletes a product review; only the author may delete their own review.</summary>
 public sealed record DeleteProductReviewCommand(Guid Id) : IHasId;
 
-/// <summary>Handles <see cref="DeleteProductReviewCommand"/>.</summary>
 public sealed class DeleteProductReviewCommandHandler
 {
     public static async Task<(

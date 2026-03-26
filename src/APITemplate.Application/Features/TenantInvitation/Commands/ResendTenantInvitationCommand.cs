@@ -12,6 +12,7 @@ using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
 
 namespace APITemplate.Application.Features.TenantInvitation;
 
+/// <summary>Regenerates the token for a pending invitation and re-sends the notification email.</summary>
 public sealed record ResendTenantInvitationCommand(Guid InvitationId);
 
 public sealed class ResendTenantInvitationCommandHandler

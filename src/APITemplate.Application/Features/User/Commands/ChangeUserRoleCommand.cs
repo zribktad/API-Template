@@ -9,6 +9,7 @@ using Wolverine;
 
 namespace APITemplate.Application.Features.User;
 
+/// <summary>Changes a user's role and emits a role-changed notification.</summary>
 public sealed record ChangeUserRoleCommand(Guid Id, ChangeUserRoleRequest Request) : IHasId;
 
 public sealed class ChangeUserRoleCommandHandler

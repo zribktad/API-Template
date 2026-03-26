@@ -19,7 +19,7 @@ internal static class WolverineTypeExtensions
         if (genericTypeDefinition == typeof(ErrorOr<>))
             return true;
 
-        // Support cascading message tuples like (ErrorOr<T>, OutgoingMessages).
+        // Wolverine compound handlers return ValueTuples; unwrap to find ErrorOr<T> inside.
         if (returnType.IsValueTupleType())
             return returnType.GetGenericArguments().Any(arg => arg.IsErrorOrReturnType());
 

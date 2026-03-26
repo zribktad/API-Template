@@ -9,6 +9,7 @@ using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
 
 namespace APITemplate.Application.Features.TenantInvitation;
 
+/// <summary>Accepts a tenant invitation using a one-time token.</summary>
 public sealed record AcceptTenantInvitationCommand(string Token);
 
 public sealed class AcceptTenantInvitationCommandHandler

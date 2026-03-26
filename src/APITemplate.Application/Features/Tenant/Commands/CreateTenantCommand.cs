@@ -9,6 +9,7 @@ using TenantEntity = APITemplate.Domain.Entities.Tenant;
 
 namespace APITemplate.Application.Features.Tenant;
 
+/// <summary>Creates a new tenant with a unique code.</summary>
 public sealed record CreateTenantCommand(CreateTenantRequest Request);
 
 public sealed class CreateTenantCommandHandler

@@ -9,6 +9,7 @@ using TenantEntity = APITemplate.Domain.Entities.Tenant;
 
 namespace APITemplate.Application.Features.Tenant;
 
+/// <summary>Soft-deletes a tenant and triggers cascading cleanup.</summary>
 public sealed record DeleteTenantCommand(Guid Id) : IHasId;
 
 public sealed class DeleteTenantCommandHandler

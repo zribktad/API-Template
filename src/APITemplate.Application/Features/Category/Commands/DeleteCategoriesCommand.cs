@@ -8,16 +8,11 @@ using CategoryEntity = APITemplate.Domain.Entities.Category;
 
 namespace APITemplate.Application.Features.Category;
 
-/// <summary>Soft-deletes multiple categories in a single batch operation.</summary>
+/// <summary>Soft-deletes multiple categories in a single batch.</summary>
 public sealed record DeleteCategoriesCommand(BatchDeleteRequest Request);
 
-/// <summary>Handles <see cref="DeleteCategoriesCommand"/> by loading all categories and deleting in a single transaction.</summary>
 public sealed class DeleteCategoriesCommandHandler
 {
-    /// <summary>
-    /// Wolverine compound-handler load step: loads categories and marks missing ones,
-    /// short-circuiting the handler pipeline with a failure response when any ID is not found.
-    /// </summary>
     public static async Task<(
         HandlerContinuation,
         List<CategoryEntity>?,
@@ -57,7 +52,6 @@ public sealed class DeleteCategoriesCommandHandler
         return (HandlerContinuation.Continue, categories, messages);
     }
 
-    /// <summary>Removes categories in a single transaction.</summary>
     public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         DeleteCategoriesCommand command,
         List<CategoryEntity> categories,

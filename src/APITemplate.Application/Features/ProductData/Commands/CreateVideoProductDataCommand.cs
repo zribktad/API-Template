@@ -8,6 +8,7 @@ using Wolverine;
 
 namespace APITemplate.Application.Features.ProductData;
 
+/// <summary>Creates a video product-data document in MongoDB.</summary>
 public sealed record CreateVideoProductDataCommand(CreateVideoProductDataRequest Request);
 
 public sealed class CreateVideoProductDataCommandHandler

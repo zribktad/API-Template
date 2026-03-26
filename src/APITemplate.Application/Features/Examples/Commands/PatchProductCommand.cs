@@ -12,6 +12,7 @@ using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Examples;
 
+/// <summary>Partially updates a product using a JSON Patch document.</summary>
 public sealed record PatchProductCommand(Guid Id, Action<PatchableProductDto> ApplyPatch) : IHasId;
 
 public sealed class PatchProductCommandHandler

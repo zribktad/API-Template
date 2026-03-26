@@ -8,16 +8,11 @@ using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product;
 
-/// <summary>Soft-deletes multiple products and their associated data links in a single batch operation.</summary>
+/// <summary>Soft-deletes products and their associated data links in a single batch.</summary>
 public sealed record DeleteProductsCommand(BatchDeleteRequest Request);
 
-/// <summary>Handles <see cref="DeleteProductsCommand"/> by loading all products, soft-deleting links and products in a single transaction.</summary>
 public sealed class DeleteProductsCommandHandler
 {
-    /// <summary>
-    /// Wolverine compound-handler load step: loads products and marks missing ones,
-    /// short-circuiting the handler pipeline with a failure response when any ID is not found.
-    /// </summary>
     public static async Task<(
         HandlerContinuation,
         List<ProductEntity>?,
@@ -53,7 +48,6 @@ public sealed class DeleteProductsCommandHandler
         return (HandlerContinuation.Continue, products, messages);
     }
 
-    /// <summary>Soft-deletes product-data links and removes products in a single transaction.</summary>
     public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         DeleteProductsCommand command,
         List<ProductEntity> products,

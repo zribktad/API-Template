@@ -9,16 +9,11 @@ using ProductEntity = APITemplate.Domain.Entities.Product;
 
 namespace APITemplate.Application.Features.Product;
 
-/// <summary>Creates multiple products in a single batch operation.</summary>
+/// <summary>Creates products with optional product-data links in a single batch.</summary>
 public sealed record CreateProductsCommand(CreateProductsRequest Request);
 
-/// <summary>Handles <see cref="CreateProductsCommand"/> by validating all items, bulk-validating references, and persisting in a single transaction.</summary>
 public sealed class CreateProductsCommandHandler
 {
-    /// <summary>
-    /// Wolverine compound-handler load step: validates items and checks references,
-    /// short-circuiting the handler pipeline with a failure response when any rule fails.
-    /// </summary>
     public static async Task<(HandlerContinuation, OutgoingMessages)> LoadAsync(
         CreateProductsCommand command,
         ICategoryRepository categoryRepository,
@@ -58,7 +53,6 @@ public sealed class CreateProductsCommandHandler
         return (HandlerContinuation.Continue, messages);
     }
 
-    /// <summary>Builds product entities and persists them in a single transaction.</summary>
     public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         CreateProductsCommand command,
         IProductRepository repository,

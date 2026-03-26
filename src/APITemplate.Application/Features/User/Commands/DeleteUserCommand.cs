@@ -9,6 +9,7 @@ using Wolverine;
 
 namespace APITemplate.Application.Features.User;
 
+/// <summary>Deletes a user from the database and Keycloak.</summary>
 public sealed record DeleteUserCommand(Guid Id) : IHasId;
 
 public sealed class DeleteUserCommandHandler

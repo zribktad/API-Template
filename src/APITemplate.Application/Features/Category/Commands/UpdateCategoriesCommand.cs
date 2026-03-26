@@ -9,16 +9,11 @@ using CategoryEntity = APITemplate.Domain.Entities.Category;
 
 namespace APITemplate.Application.Features.Category;
 
-/// <summary>Updates multiple categories in a single batch operation.</summary>
+/// <summary>Updates multiple categories in a single batch.</summary>
 public sealed record UpdateCategoriesCommand(UpdateCategoriesRequest Request);
 
-/// <summary>Handles <see cref="UpdateCategoriesCommand"/> by validating all items, loading categories in bulk, and updating in a single transaction.</summary>
 public sealed class UpdateCategoriesCommandHandler
 {
-    /// <summary>
-    /// Wolverine compound-handler load step: validates items and loads categories,
-    /// short-circuiting the handler pipeline with a failure response when any rule fails.
-    /// </summary>
     public static async Task<(
         HandlerContinuation,
         EntityLookup<CategoryEntity>?,
@@ -70,7 +65,6 @@ public sealed class UpdateCategoriesCommandHandler
         );
     }
 
-    /// <summary>Applies changes to all categories in a single transaction.</summary>
     public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         UpdateCategoriesCommand command,
         EntityLookup<CategoryEntity> lookup,

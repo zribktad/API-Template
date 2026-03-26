@@ -8,6 +8,7 @@ using Wolverine;
 
 namespace APITemplate.Application.Features.TenantInvitation;
 
+/// <summary>Revokes a pending tenant invitation.</summary>
 public sealed record RevokeTenantInvitationCommand(Guid InvitationId);
 
 public sealed class RevokeTenantInvitationCommandHandler

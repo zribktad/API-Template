@@ -16,6 +16,7 @@ using TenantInvitationEntity = APITemplate.Domain.Entities.TenantInvitation;
 
 namespace APITemplate.Application.Features.TenantInvitation;
 
+/// <summary>Creates a tenant invitation with a secure token and sends a notification email.</summary>
 public sealed record CreateTenantInvitationCommand(CreateTenantInvitationRequest Request);
 
 public sealed class CreateTenantInvitationCommandHandler

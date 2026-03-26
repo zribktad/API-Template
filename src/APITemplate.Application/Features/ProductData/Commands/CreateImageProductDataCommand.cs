@@ -8,6 +8,7 @@ using Wolverine;
 
 namespace APITemplate.Application.Features.ProductData;
 
+/// <summary>Creates an image product-data document in MongoDB.</summary>
 public sealed record CreateImageProductDataCommand(CreateImageProductDataRequest Request);
 
 public sealed class CreateImageProductDataCommandHandler

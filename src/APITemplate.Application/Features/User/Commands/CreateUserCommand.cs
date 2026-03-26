@@ -11,6 +11,7 @@ using Wolverine;
 
 namespace APITemplate.Application.Features.User;
 
+/// <summary>Creates a user in the database and Keycloak with compensating delete on failure.</summary>
 public sealed record CreateUserCommand(CreateUserRequest Request);
 
 public sealed class CreateUserCommandHandler

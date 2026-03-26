@@ -9,6 +9,7 @@ using Wolverine;
 
 namespace APITemplate.Application.Features.User;
 
+/// <summary>Activates or deactivates a user, syncing the state to Keycloak.</summary>
 public sealed record SetUserActiveCommand(Guid Id, bool IsActive) : IHasId;
 
 public sealed class SetUserActiveCommandHandler
@@ -45,6 +46,9 @@ public sealed class SetUserActiveCommandHandler
         CancellationToken ct
     )
     {
+        if (user.IsActive == command.IsActive)
+            return (Result.Success, []);
+
         if (user.KeycloakUserId is not null)
             await keycloakAdmin.SetUserEnabledAsync(user.KeycloakUserId, command.IsActive, ct);
 
