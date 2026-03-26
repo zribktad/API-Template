@@ -12,6 +12,7 @@ using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
 using Wolverine;
 

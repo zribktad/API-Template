@@ -3,12 +3,12 @@ using ErrorOr;
 using Identity.Application.Features.Tenant.Commands;
 using Identity.Application.Features.Tenant.DTOs;
 using Identity.Application.Features.Tenant.Queries;
-using Identity.Application.Security;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
 using Wolverine;
 

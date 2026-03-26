@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Identity.Application.Security;
+namespace SharedKernel.Application.Security;
 
 /// <summary>
 /// Centralised registry of all fine-grained permission string constants used throughout the application.
@@ -76,6 +76,13 @@ public static class Permission
         public const string Execute = "Examples.Execute";
         public const string Upload = "Examples.Upload";
         public const string Download = "Examples.Download";
+    }
+
+    /// <summary>Permissions governing file storage resource access.</summary>
+    public static class Files
+    {
+        public const string Upload = "Files.Upload";
+        public const string Download = "Files.Download";
     }
 
     private static readonly Lazy<IReadOnlySet<string>> LazyAll = new(() =>

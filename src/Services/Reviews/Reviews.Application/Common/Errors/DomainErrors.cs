@@ -1,4 +1,6 @@
 using ErrorOr;
+using SharedDomainErrors = SharedKernel.Application.Errors.DomainErrors;
+using SharedErrorCatalog = SharedKernel.Application.Errors.ErrorCatalog;
 
 namespace Reviews.Application.Common.Errors;
 
@@ -11,7 +13,7 @@ public static class DomainErrors
     {
         public static Error ForbiddenOwnReviewsOnly() =>
             Error.Forbidden(
-                code: ErrorCatalog.Auth.Forbidden,
+                code: SharedErrorCatalog.Auth.Forbidden,
                 description: ErrorCatalog.Auth.ForbiddenOwnReviewsOnly
             );
     }
@@ -19,15 +21,13 @@ public static class DomainErrors
     public static class Reviews
     {
         public static Error NotFound(Guid id) =>
-            Error.NotFound(
-                code: ErrorCatalog.Reviews.ReviewNotFound,
-                description: $"Review with id '{id}' not found."
-            );
+            SharedDomainErrors.General.NotFound(ErrorCatalog.Reviews.ReviewNotFound, "Review", id);
 
         public static Error ProductNotFoundForReview(Guid productId) =>
-            Error.NotFound(
-                code: ErrorCatalog.Reviews.ProductNotFoundForReview,
-                description: $"Product with id '{productId}' not found."
+            SharedDomainErrors.General.NotFound(
+                ErrorCatalog.Reviews.ProductNotFoundForReview,
+                "Product",
+                productId
             );
     }
 }

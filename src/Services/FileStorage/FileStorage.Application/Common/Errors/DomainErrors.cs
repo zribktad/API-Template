@@ -1,4 +1,5 @@
 using ErrorOr;
+using SharedDomainErrors = SharedKernel.Application.Errors.DomainErrors;
 
 namespace FileStorage.Application.Common.Errors;
 
@@ -10,9 +11,10 @@ public static class DomainErrors
     public static class Files
     {
         public static Error NotFound(string fileName) =>
-            Error.NotFound(
-                code: FileStorageErrorCatalog.Files.NotFound,
-                description: $"File '{fileName}' not found."
+            SharedDomainErrors.General.NotFound(
+                FileStorageErrorCatalog.Files.NotFound,
+                "File",
+                fileName
             );
 
         public static Error InvalidFileType(string extension) =>

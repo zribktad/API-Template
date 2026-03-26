@@ -3,13 +3,13 @@ using ErrorOr;
 using Identity.Application.Features.TenantInvitation.Commands;
 using Identity.Application.Features.TenantInvitation.DTOs;
 using Identity.Application.Features.TenantInvitation.Queries;
-using Identity.Application.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
 using Wolverine;
 

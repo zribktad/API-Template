@@ -5,10 +5,9 @@ namespace Reviews.Application.Common.Errors;
 /// </summary>
 public static class ErrorCatalog
 {
-    /// <summary>Error codes for authentication and authorisation failures.</summary>
+    /// <summary>Error descriptions for authentication and authorisation failures.</summary>
     public static class Auth
     {
-        public const string Forbidden = "AUTH-0403";
         public const string ForbiddenOwnReviewsOnly = "You can only delete your own reviews.";
     }
 

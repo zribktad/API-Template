@@ -1,4 +1,5 @@
 using ErrorOr;
+using SharedDomainErrors = SharedKernel.Application.Errors.DomainErrors;
 
 namespace ProductCatalog.Application.Common.Errors;
 
@@ -10,27 +11,22 @@ public static class DomainErrors
     public static class Products
     {
         public static Error NotFound(Guid id) =>
-            Error.NotFound(
-                code: ErrorCatalog.Products.NotFound,
-                description: $"Product with id '{id}' not found."
-            );
+            SharedDomainErrors.General.NotFound(ErrorCatalog.Products.NotFound, "Product", id);
     }
 
     public static class Categories
     {
         public static Error NotFound(Guid id) =>
-            Error.NotFound(
-                code: ErrorCatalog.Categories.NotFound,
-                description: $"Category with id '{id}' not found."
-            );
+            SharedDomainErrors.General.NotFound(ErrorCatalog.Categories.NotFound, "Category", id);
     }
 
     public static class ProductData
     {
         public static Error NotFound(Guid id) =>
-            Error.NotFound(
-                code: ErrorCatalog.ProductData.NotFound,
-                description: $"ProductData with id '{id}' not found."
+            SharedDomainErrors.General.NotFound(
+                ErrorCatalog.ProductData.NotFound,
+                "ProductData",
+                id
             );
     }
 }

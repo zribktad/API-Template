@@ -1,7 +1,6 @@
 using Asp.Versioning;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
-using ProductCatalog.Application.Common.Security;
 using ProductCatalog.Application.Features.Product.Commands;
 using ProductCatalog.Application.Features.Product.DTOs;
 using ProductCatalog.Application.Features.Product.Queries;
@@ -9,6 +8,7 @@ using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Application.DTOs;
+using SharedKernel.Application.Security;
 using Wolverine;
 
 namespace ProductCatalog.Api.Controllers.V1;

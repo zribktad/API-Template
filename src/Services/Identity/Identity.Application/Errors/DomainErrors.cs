@@ -1,4 +1,5 @@
 using ErrorOr;
+using SharedDomainErrors = SharedKernel.Application.Errors.DomainErrors;
 
 namespace Identity.Application.Errors;
 
@@ -10,78 +11,74 @@ public static class DomainErrors
     public static class Users
     {
         public static Error NotFound(Guid id) =>
-            Error.NotFound(
-                code: IdentityErrorCatalog.Users.NotFound,
-                description: $"User with id '{id}' not found."
-            );
+            SharedDomainErrors.General.NotFound(IdentityErrorCatalog.Users.NotFound, "User", id);
 
         public static Error EmailAlreadyExists(string email) =>
-            Error.Conflict(
-                code: IdentityErrorCatalog.Users.EmailAlreadyExists,
-                description: $"Email '{email}' is already in use."
+            SharedDomainErrors.General.Conflict(
+                IdentityErrorCatalog.Users.EmailAlreadyExists,
+                $"Email '{email}' is already in use."
             );
 
         public static Error UsernameAlreadyExists(string username) =>
-            Error.Conflict(
-                code: IdentityErrorCatalog.Users.UsernameAlreadyExists,
-                description: $"Username '{username}' is already in use."
+            SharedDomainErrors.General.Conflict(
+                IdentityErrorCatalog.Users.UsernameAlreadyExists,
+                $"Username '{username}' is already in use."
             );
     }
 
     public static class Tenants
     {
         public static Error NotFound(Guid id) =>
-            Error.NotFound(
-                code: IdentityErrorCatalog.Tenants.NotFound,
-                description: $"Tenant with id '{id}' not found."
+            SharedDomainErrors.General.NotFound(
+                IdentityErrorCatalog.Tenants.NotFound,
+                "Tenant",
+                id
             );
 
         public static Error CodeAlreadyExists(string code) =>
-            Error.Conflict(
-                code: IdentityErrorCatalog.Tenants.CodeAlreadyExists,
-                description: string.Format(
-                    IdentityErrorCatalog.Tenants.CodeAlreadyExistsMessage,
-                    code
-                )
+            SharedDomainErrors.General.Conflict(
+                IdentityErrorCatalog.Tenants.CodeAlreadyExists,
+                string.Format(IdentityErrorCatalog.Tenants.CodeAlreadyExistsMessage, code)
             );
     }
 
     public static class Invitations
     {
         public static Error NotFound(Guid id) =>
-            Error.NotFound(
-                code: IdentityErrorCatalog.Invitations.NotFound,
-                description: $"Invitation with id '{id}' not found."
+            SharedDomainErrors.General.NotFound(
+                IdentityErrorCatalog.Invitations.NotFound,
+                "Invitation",
+                id
             );
 
         public static Error AlreadyPending(string email) =>
-            Error.Conflict(
-                code: IdentityErrorCatalog.Invitations.AlreadyPending,
-                description: $"A pending invitation for '{email}' already exists."
+            SharedDomainErrors.General.Conflict(
+                IdentityErrorCatalog.Invitations.AlreadyPending,
+                $"A pending invitation for '{email}' already exists."
             );
 
         public static Error Expired() =>
-            Error.Conflict(
-                code: IdentityErrorCatalog.Invitations.Expired,
-                description: IdentityErrorCatalog.Invitations.ExpiredMessage
+            SharedDomainErrors.General.Conflict(
+                IdentityErrorCatalog.Invitations.Expired,
+                IdentityErrorCatalog.Invitations.ExpiredMessage
             );
 
         public static Error ExpiredCreateNew() =>
-            Error.Conflict(
-                code: IdentityErrorCatalog.Invitations.Expired,
-                description: IdentityErrorCatalog.Invitations.ExpiredCreateNewMessage
+            SharedDomainErrors.General.Conflict(
+                IdentityErrorCatalog.Invitations.Expired,
+                IdentityErrorCatalog.Invitations.ExpiredCreateNewMessage
             );
 
         public static Error AlreadyAccepted() =>
-            Error.Conflict(
-                code: IdentityErrorCatalog.Invitations.AlreadyAccepted,
-                description: IdentityErrorCatalog.Invitations.AlreadyAcceptedMessage
+            SharedDomainErrors.General.Conflict(
+                IdentityErrorCatalog.Invitations.AlreadyAccepted,
+                IdentityErrorCatalog.Invitations.AlreadyAcceptedMessage
             );
 
         public static Error NotPending() =>
-            Error.Conflict(
-                code: IdentityErrorCatalog.Invitations.NotPending,
-                description: IdentityErrorCatalog.Invitations.NotPendingMessage
+            SharedDomainErrors.General.Conflict(
+                IdentityErrorCatalog.Invitations.NotPending,
+                IdentityErrorCatalog.Invitations.NotPendingMessage
             );
 
         public static Error NotFoundOrExpired() =>
