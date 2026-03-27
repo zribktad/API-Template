@@ -49,6 +49,7 @@ public sealed class DeleteProductsCommandHandler
             return context.ToFailureResponse();
 
         Guid tenantId = products[0].TenantId;
+        Guid correlationId = Guid.NewGuid();
 
         // Soft-delete product-data links and remove products in a single transaction
         await unitOfWork.ExecuteInTransactionAsync(
@@ -58,13 +59,16 @@ public sealed class DeleteProductsCommandHandler
                     product.SoftDeleteProductDataLinks();
 
                 await repository.DeleteRangeAsync(products, ct);
+                await bus.PublishAsync(
+                    new StartProductDeletionSaga(
+                        correlationId,
+                        ids,
+                        tenantId,
+                        actorProvider.ActorId
+                    )
+                );
             },
             ct
-        );
-
-        // Start the deletion saga to coordinate cascading deletes across services
-        await bus.PublishAsync(
-            new StartProductDeletionSaga(Guid.NewGuid(), ids, tenantId, actorProvider.ActorId)
         );
 
         return new BatchResponse([], ids.Count, 0);

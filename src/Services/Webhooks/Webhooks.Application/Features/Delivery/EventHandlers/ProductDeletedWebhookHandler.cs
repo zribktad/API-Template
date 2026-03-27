@@ -25,6 +25,11 @@ public static class ProductDeletedWebhookHandler
         );
 
         string payload = JsonSerializer.Serialize(@event);
-        await deliveryService.DeliverAsync(WebhookEventTypes.ProductDeleted, payload, ct);
+        await deliveryService.DeliverAsync(
+            WebhookEventTypes.ProductDeleted,
+            payload,
+            @event.TenantId,
+            ct
+        );
     }
 }

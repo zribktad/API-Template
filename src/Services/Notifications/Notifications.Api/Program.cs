@@ -45,6 +45,8 @@ builder.Services.AddHostedService<EmailSendingBackgroundService>();
 
 // TimeProvider for UTC timestamps
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
+builder.Services.AddSharedAuthorization();
 
 // Repository
 builder.Services.AddScoped<IFailedEmailRepository, FailedEmailRepository>();
@@ -113,8 +115,10 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<NotificationsDbContext>();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapWolverineEndpoints();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 
 await app.RunAsync();
 

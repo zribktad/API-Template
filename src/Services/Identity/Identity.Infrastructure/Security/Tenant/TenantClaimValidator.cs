@@ -48,8 +48,12 @@ public static class TenantClaimValidator
         if (identity != null)
             KeycloakClaimMapper.MapKeycloakClaims(identity);
 
+        Domain.Entities.AppUser? user = null;
         if (!IsServiceAccount(principal))
-            await TryProvisionUserAsync(httpContext, principal);
+            user = await TryProvisionUserAsync(httpContext, principal);
+
+        if (identity is not null && user is not null)
+            EnrichIdentity(identity, user);
 
         if (!HasValidTenantClaim(principal) && !IsServiceAccount(principal))
         {
@@ -68,7 +72,7 @@ public static class TenantClaimValidator
             ) == true;
     }
 
-    private static async Task TryProvisionUserAsync(
+    private static async Task<Domain.Entities.AppUser?> TryProvisionUserAsync(
         HttpContext httpContext,
         ClaimsPrincipal? principal
     )
@@ -84,12 +88,12 @@ public static class TenantClaimValidator
                 || string.IsNullOrEmpty(email)
                 || string.IsNullOrEmpty(username)
             )
-                return;
+                return null;
 
             IUserProvisioningService provisioningService =
                 httpContext.RequestServices.GetRequiredService<IUserProvisioningService>();
 
-            await provisioningService.ProvisionIfNeededAsync(sub, email, username);
+            return await provisioningService.ProvisionIfNeededAsync(sub, email, username);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -101,7 +105,23 @@ public static class TenantClaimValidator
                 ex,
                 "User provisioning failed during token validation — authentication will continue"
             );
+
+            return null;
         }
+    }
+
+    private static void EnrichIdentity(ClaimsIdentity identity, Domain.Entities.AppUser user)
+    {
+        ReplaceClaim(identity, AuthConstants.Claims.TenantId, user.TenantId.ToString());
+        ReplaceClaim(identity, ClaimTypes.NameIdentifier, user.Id.ToString());
+    }
+
+    private static void ReplaceClaim(ClaimsIdentity identity, string claimType, string value)
+    {
+        foreach (Claim existing in identity.FindAll(claimType).ToArray())
+            identity.RemoveClaim(existing);
+
+        identity.AddClaim(new Claim(claimType, value));
     }
 
     private static bool IsServiceAccount(ClaimsPrincipal? principal)

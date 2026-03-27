@@ -33,28 +33,22 @@ public sealed class DeleteTenantCommandHandler
         if (tenantResult.IsError)
             return tenantResult.Errors;
 
+        Guid correlationId = Guid.NewGuid();
+
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {
                 await repository.DeleteAsync(tenantResult.Value, ct);
+                await bus.PublishAsync(
+                    new StartTenantDeactivationSaga(
+                        correlationId,
+                        command.Id,
+                        actorProvider.ActorId
+                    )
+                );
             },
             ct
         );
-
-        try
-        {
-            await bus.PublishAsync(
-                new StartTenantDeactivationSaga(Guid.NewGuid(), command.Id, actorProvider.ActorId)
-            );
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(
-                ex,
-                "Failed to publish {EventType}.",
-                nameof(StartTenantDeactivationSaga)
-            );
-        }
 
         return Result.Success;
     }

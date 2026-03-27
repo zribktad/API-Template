@@ -10,6 +10,7 @@ public interface IWebhookSubscriptionRepository
     Task<WebhookSubscription?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<WebhookSubscription>> GetActiveByEventTypeAsync(
         string eventType,
+        Guid tenantId,
         CancellationToken ct = default
     );
     Task<IReadOnlyList<WebhookSubscription>> GetAllAsync(CancellationToken ct = default);

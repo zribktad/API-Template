@@ -46,6 +46,7 @@ public sealed class ProductDeletionSagaTests
 
         @event.ProductIds.ShouldBe(productIds);
         @event.TenantId.ShouldBe(tenantId);
+        @event.CorrelationId.ShouldBe(command.CorrelationId);
     }
 
     [Fact]

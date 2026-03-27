@@ -17,8 +17,14 @@ public sealed class ProductDeletedEventHandlerTests
     [Fact]
     public async Task HandleAsync_PublishesFilesCascadeCompleted()
     {
+        Guid correlationId = Guid.NewGuid();
         IReadOnlyList<Guid> productIds = new[] { Guid.NewGuid(), Guid.NewGuid() };
-        ProductDeletedIntegrationEvent @event = new(productIds, Guid.NewGuid(), DateTime.UtcNow);
+        ProductDeletedIntegrationEvent @event = new(
+            correlationId,
+            productIds,
+            Guid.NewGuid(),
+            DateTime.UtcNow
+        );
         FilesCascadeCompleted? capturedMessage = null;
         _busMock
             .Setup(b => b.PublishAsync(It.IsAny<FilesCascadeCompleted>(), null))
@@ -35,7 +41,7 @@ public sealed class ProductDeletedEventHandlerTests
         );
 
         capturedMessage.ShouldNotBeNull();
-        capturedMessage.CorrelationId.ShouldBe(productIds[0]);
+        capturedMessage.CorrelationId.ShouldBe(correlationId);
         capturedMessage.DeletedCount.ShouldBe(0);
     }
 
@@ -43,6 +49,7 @@ public sealed class ProductDeletedEventHandlerTests
     public async Task HandleAsync_PublishesExactlyOneMessage()
     {
         ProductDeletedIntegrationEvent @event = new(
+            Guid.NewGuid(),
             new[] { Guid.NewGuid() },
             Guid.NewGuid(),
             DateTime.UtcNow

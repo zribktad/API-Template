@@ -47,7 +47,6 @@ public sealed class ProductDeletedEventHandler
             @event.ProductIds
         );
 
-        Guid correlationId = @event.ProductIds.FirstOrDefault();
-        await bus.PublishAsync(new ReviewsCascadeCompleted(correlationId, deletedCount));
+        await bus.PublishAsync(new ReviewsCascadeCompleted(@event.CorrelationId, deletedCount));
     }
 }

@@ -32,6 +32,7 @@ public class ProductDeletionSaga : Saga
         };
 
         ProductDeletedIntegrationEvent integrationEvent = new(
+            command.CorrelationId,
             command.ProductIds,
             command.TenantId,
             timeProvider.GetUtcNow().UtcDateTime

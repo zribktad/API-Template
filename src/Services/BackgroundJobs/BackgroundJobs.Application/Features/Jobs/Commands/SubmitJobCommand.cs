@@ -4,6 +4,7 @@ using BackgroundJobs.Application.Features.Jobs.Mappings;
 using BackgroundJobs.Domain.Entities;
 using BackgroundJobs.Domain.Interfaces;
 using ErrorOr;
+using SharedKernel.Application.Context;
 using SharedKernel.Domain.Interfaces;
 
 namespace BackgroundJobs.Application.Features.Jobs.Commands;
@@ -17,6 +18,7 @@ public sealed class SubmitJobCommandHandler
         IJobExecutionRepository repository,
         IJobQueue jobQueue,
         IUnitOfWork unitOfWork,
+        ITenantProvider tenantProvider,
         TimeProvider timeProvider,
         CancellationToken ct
     )
@@ -28,6 +30,7 @@ public sealed class SubmitJobCommandHandler
             Parameters = command.Request.Parameters,
             CallbackUrl = command.Request.CallbackUrl,
             SubmittedAtUtc = timeProvider.GetUtcNow().UtcDateTime,
+            TenantId = tenantProvider.TenantId,
         };
 
         await unitOfWork.ExecuteInTransactionAsync(

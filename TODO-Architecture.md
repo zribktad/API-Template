@@ -6,6 +6,22 @@ All 7 microservices extracted from the monolith and running independently.
 
 ---
 
+## Open TODOs
+
+### Reliability
+- Replace in-memory `ChannelJobQueue` in BackgroundJobs with durable persistence/replay so queued jobs survive process restarts.
+- Replace in-memory `ChannelEmailQueue` in Notifications with durable persistence/replay so pending emails are not lost on restart between enqueue and delivery.
+
+### File Storage Cascade
+- Implement real product-related file cleanup in FileStorage on `ProductDeletedIntegrationEvent`.
+- Introduce an explicit relation from stored files to product-owned resources, so `FilesCascadeCompleted` is emitted only after actual cleanup instead of a placeholder acknowledgment.
+
+### Test Coverage
+- Add integration/runtime coverage for shared auth bootstrap: permission policies, BFF cookie/OIDC flow, tenant claim enrichment, and locked-down Wolverine HTTP endpoints.
+- Add saga-flow tests that verify `ProductDeletionSaga` correlation across ProductCatalog, Reviews, and FileStorage using the new `CorrelationId`.
+
+---
+
 ## Bounded Contexts (Implemented)
 
 | # | Service | Entities | Database | Transport |

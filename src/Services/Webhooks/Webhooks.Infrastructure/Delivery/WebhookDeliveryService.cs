@@ -42,11 +42,12 @@ public sealed class WebhookDeliveryService : IWebhookDeliveryService
     public async Task DeliverAsync(
         string eventType,
         string serializedPayload,
+        Guid tenantId,
         CancellationToken ct = default
     )
     {
         IReadOnlyList<WebhookSubscription> subscriptions =
-            await _subscriptionRepository.GetActiveByEventTypeAsync(eventType, ct);
+            await _subscriptionRepository.GetActiveByEventTypeAsync(eventType, tenantId, ct);
 
         foreach (WebhookSubscription subscription in subscriptions)
         {

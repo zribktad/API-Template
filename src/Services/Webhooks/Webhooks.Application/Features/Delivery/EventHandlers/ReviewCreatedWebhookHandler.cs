@@ -26,6 +26,11 @@ public static class ReviewCreatedWebhookHandler
         );
 
         string payload = JsonSerializer.Serialize(@event);
-        await deliveryService.DeliverAsync(WebhookEventTypes.ReviewCreated, payload, ct);
+        await deliveryService.DeliverAsync(
+            WebhookEventTypes.ReviewCreated,
+            payload,
+            @event.TenantId,
+            ct
+        );
     }
 }

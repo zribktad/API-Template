@@ -14,7 +14,7 @@ using Wolverine;
 namespace ProductCatalog.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/product-data")]
+[Route("api/v{version:apiVersion}/[controller]")]
 /// <summary>
 /// Presentation-layer controller that manages product supplementary data (images and videos)
 /// stored in MongoDB.

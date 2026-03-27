@@ -3,6 +3,7 @@ using BackgroundJobs.Application.Features.Jobs.DTOs;
 using BackgroundJobs.Application.Features.Jobs.Queries;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
+using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
 using Wolverine;
 
@@ -12,9 +13,7 @@ namespace BackgroundJobs.Api.Controllers;
 /// Presentation-layer controller for long-running job submission and
 /// asynchronous status polling using a channel-based job queue.
 /// </summary>
-[ApiController]
-[Route("api/[controller]")]
-public sealed class JobsController(IMessageBus bus) : ControllerBase
+public sealed class JobsController(IMessageBus bus) : ApiControllerBase
 {
     /// <summary>
     /// Enqueues a new job and returns 202 Accepted with a Location header pointing to the

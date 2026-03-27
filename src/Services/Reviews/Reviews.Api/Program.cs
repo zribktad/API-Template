@@ -6,6 +6,7 @@ using Reviews.Domain.Interfaces;
 using Reviews.Infrastructure.Persistence;
 using Reviews.Infrastructure.Repositories;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
@@ -28,9 +29,10 @@ builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ReviewsDbConte
 builder.Services.AddSharedInfrastructure<ReviewsDbContext>(builder.Configuration);
 
 builder.Services.AddScoped<IProductReviewRepository, ProductReviewRepository>();
+builder.Services.AddSingleton<IRolePermissionMap, DefaultRolePermissionMap>();
 
 builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
-builder.Services.AddAuthorization();
+builder.Services.AddSharedAuthorization(enablePermissionPolicies: true);
 
 builder.Services.AddValidatorsFromAssemblyContaining<ProductCreatedEventHandler>();
 
@@ -91,7 +93,7 @@ await app.MigrateDbAsync<ReviewsDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
 await app.RunAsync();

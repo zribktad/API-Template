@@ -9,6 +9,7 @@ using ProductCatalog.Infrastructure.Persistence;
 using ProductCatalog.Infrastructure.Repositories;
 using ProductCatalog.Infrastructure.StoredProcedures;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
@@ -44,6 +45,7 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IProductDataRepository, ProductDataRepository>();
 builder.Services.AddScoped<IProductDataLinkRepository, ProductDataLinkRepository>();
 builder.Services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
+builder.Services.AddSingleton<IRolePermissionMap, DefaultRolePermissionMap>();
 
 builder.Services.AddResiliencePipeline(
     ProductCatalog.Application.Common.Resilience.ResiliencePipelineKeys.MongoProductDataDelete,
@@ -61,7 +63,7 @@ builder.Services.AddResiliencePipeline(
 );
 
 builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
-builder.Services.AddAuthorization();
+builder.Services.AddSharedAuthorization(enablePermissionPolicies: true);
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
 
@@ -106,7 +108,7 @@ await app.MigrateDbAsync<ProductCatalogDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
 await app.RunAsync();

@@ -12,6 +12,7 @@ using BackgroundJobs.Infrastructure.TickerQ.Jobs;
 using BackgroundJobs.Infrastructure.TickerQ.RecurringJobRegistrations;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using StackExchange.Redis;
@@ -51,6 +52,8 @@ BackgroundJobsOptions backgroundJobsOptions =
     );
 
 builder.Services.AddSharedInfrastructure<BackgroundJobsDbContext>(builder.Configuration);
+builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
+builder.Services.AddSharedAuthorization();
 
 // Repository
 builder.Services.AddScoped<IJobExecutionRepository, JobExecutionRepository>();
@@ -155,8 +158,10 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<BackgroundJobsDbContext>();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 
 await app.RunAsync();
 

@@ -5,6 +5,7 @@ namespace Contracts.IntegrationEvents.ProductCatalog;
 /// Triggers cascade in Reviews (delete reviews) and File Storage (orphan files).
 /// </summary>
 public sealed record ProductDeletedIntegrationEvent(
+    Guid CorrelationId,
     IReadOnlyList<Guid> ProductIds,
     Guid TenantId,
     DateTime OccurredAtUtc

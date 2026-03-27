@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http.Resilience;
 using Polly;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.Security;
+using SharedKernel.Application.Context;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Webhooks.Application.Common.Constants;
@@ -28,6 +30,10 @@ builder.Services.AddDbContext<WebhooksDbContext>(options => options.UseNpgsql(co
 
 // TimeProvider for HMAC timestamp generation
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantProvider, HttpTenantProvider>();
+builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
+builder.Services.AddSharedAuthorization();
 
 // HMAC signing
 builder.Services.AddSingleton<IWebhookPayloadSigner, HmacWebhookPayloadSigner>();
@@ -101,8 +107,10 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<WebhooksDbContext>();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapWolverineEndpoints();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 
 await app.RunAsync();
 

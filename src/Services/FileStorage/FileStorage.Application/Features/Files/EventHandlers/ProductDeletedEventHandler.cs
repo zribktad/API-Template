@@ -25,7 +25,6 @@ public sealed class ProductDeletedEventHandler
             @event.TenantId
         );
 
-        Guid correlationId = @event.ProductIds.FirstOrDefault();
-        await bus.PublishAsync(new FilesCascadeCompleted(correlationId, 0));
+        await bus.PublishAsync(new FilesCascadeCompleted(@event.CorrelationId, 0));
     }
 }

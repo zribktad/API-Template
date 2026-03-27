@@ -6,6 +6,7 @@ using FileStorage.Infrastructure.Persistence;
 using FileStorage.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
@@ -31,8 +32,11 @@ builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<FileStorageDbC
 builder.Services.AddSharedInfrastructure<FileStorageDbContext>(builder.Configuration);
 
 builder.Services.AddScoped<IStoredFileRepository, StoredFileRepository>();
+builder.Services.AddSingleton<IRolePermissionMap, DefaultRolePermissionMap>();
 
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
+builder.Services.AddSharedAuthorization(enablePermissionPolicies: true);
 
 builder.Services.AddControllers();
 
@@ -62,7 +66,9 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<FileStorageDbContext>();
 
-app.MapHealthChecks("/health");
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
 await app.RunAsync();

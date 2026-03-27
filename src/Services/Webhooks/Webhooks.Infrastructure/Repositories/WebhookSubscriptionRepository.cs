@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SharedKernel.Application.Context;
 using Webhooks.Domain.Entities;
 using Webhooks.Domain.Interfaces;
 using Webhooks.Infrastructure.Persistence;
@@ -12,10 +13,15 @@ namespace Webhooks.Infrastructure.Repositories;
 public sealed class WebhookSubscriptionRepository : IWebhookSubscriptionRepository
 {
     private readonly WebhooksDbContext _dbContext;
+    private readonly ITenantProvider _tenantProvider;
 
-    public WebhookSubscriptionRepository(WebhooksDbContext dbContext)
+    public WebhookSubscriptionRepository(
+        WebhooksDbContext dbContext,
+        ITenantProvider tenantProvider
+    )
     {
         _dbContext = dbContext;
+        _tenantProvider = tenantProvider;
     }
 
     /// <inheritdoc />
@@ -23,17 +29,21 @@ public sealed class WebhookSubscriptionRepository : IWebhookSubscriptionReposito
     {
         return await _dbContext
             .WebhookSubscriptions.Include(s => s.EventTypes)
-            .FirstOrDefaultAsync(s => s.Id == id, ct);
+            .FirstOrDefaultAsync(
+                s => s.Id == id && s.TenantId == _tenantProvider.TenantId && !s.IsDeleted,
+                ct
+            );
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<WebhookSubscription>> GetActiveByEventTypeAsync(
         string eventType,
+        Guid tenantId,
         CancellationToken ct = default
     )
     {
         return await _dbContext
-            .WebhookSubscriptions.Where(s => s.IsActive && !s.IsDeleted)
+            .WebhookSubscriptions.Where(s => s.IsActive && !s.IsDeleted && s.TenantId == tenantId)
             .Where(s => s.EventTypes.Any(et => et.EventType == eventType))
             .ToListAsync(ct);
     }
@@ -45,7 +55,7 @@ public sealed class WebhookSubscriptionRepository : IWebhookSubscriptionReposito
     {
         return await _dbContext
             .WebhookSubscriptions.Include(s => s.EventTypes)
-            .Where(s => !s.IsDeleted)
+            .Where(s => !s.IsDeleted && s.TenantId == _tenantProvider.TenantId)
             .OrderByDescending(s => s.Audit.CreatedAtUtc)
             .ToListAsync(ct);
     }

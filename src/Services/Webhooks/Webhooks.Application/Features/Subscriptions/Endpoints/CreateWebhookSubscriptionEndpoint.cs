@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using SharedKernel.Application.Context;
 using Webhooks.Application.Features.Subscriptions.DTOs;
 using Webhooks.Domain.Entities;
 using Webhooks.Domain.Interfaces;
@@ -15,6 +16,7 @@ public static class CreateWebhookSubscriptionEndpoint
     public static async Task<IResult> HandleAsync(
         CreateWebhookSubscriptionRequest request,
         IWebhookSubscriptionRepository repository,
+        ITenantProvider tenantProvider,
         CancellationToken ct
     )
     {
@@ -27,6 +29,7 @@ public static class CreateWebhookSubscriptionEndpoint
         WebhookSubscription subscription = new()
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantProvider.TenantId,
             Url = request.Url,
             Secret = request.Secret,
             IsActive = true,

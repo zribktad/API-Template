@@ -25,6 +25,11 @@ public static class ProductCreatedWebhookHandler
         );
 
         string payload = JsonSerializer.Serialize(@event);
-        await deliveryService.DeliverAsync(WebhookEventTypes.ProductCreated, payload, ct);
+        await deliveryService.DeliverAsync(
+            WebhookEventTypes.ProductCreated,
+            payload,
+            @event.TenantId,
+            ct
+        );
     }
 }

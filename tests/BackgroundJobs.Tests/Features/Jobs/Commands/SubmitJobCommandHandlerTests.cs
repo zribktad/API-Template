@@ -6,6 +6,7 @@ using BackgroundJobs.Domain.Enums;
 using BackgroundJobs.Domain.Interfaces;
 using ErrorOr;
 using Moq;
+using SharedKernel.Application.Context;
 using SharedKernel.Domain.Interfaces;
 using Shouldly;
 using Xunit;
@@ -17,6 +18,7 @@ public sealed class SubmitJobCommandHandlerTests
     private readonly Mock<IJobExecutionRepository> _repositoryMock = new();
     private readonly Mock<IJobQueue> _jobQueueMock = new();
     private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
+    private readonly Mock<ITenantProvider> _tenantProviderMock = new();
 
     public SubmitJobCommandHandlerTests()
     {
@@ -35,6 +37,8 @@ public sealed class SubmitJobCommandHandlerTests
                     return Task.CompletedTask;
                 }
             );
+
+        _tenantProviderMock.SetupGet(x => x.TenantId).Returns(Guid.NewGuid());
     }
 
     [Fact]
@@ -48,6 +52,7 @@ public sealed class SubmitJobCommandHandlerTests
             _repositoryMock.Object,
             _jobQueueMock.Object,
             _unitOfWorkMock.Object,
+            _tenantProviderMock.Object,
             TimeProvider.System,
             CancellationToken.None
         );
@@ -69,6 +74,7 @@ public sealed class SubmitJobCommandHandlerTests
             _repositoryMock.Object,
             _jobQueueMock.Object,
             _unitOfWorkMock.Object,
+            _tenantProviderMock.Object,
             TimeProvider.System,
             CancellationToken.None
         );
@@ -94,6 +100,7 @@ public sealed class SubmitJobCommandHandlerTests
             _repositoryMock.Object,
             _jobQueueMock.Object,
             _unitOfWorkMock.Object,
+            _tenantProviderMock.Object,
             TimeProvider.System,
             CancellationToken.None
         );

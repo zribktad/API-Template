@@ -10,5 +10,10 @@ public interface IWebhookDeliveryService
     /// Signs and delivers the <paramref name="serializedPayload"/> to all active subscribers
     /// that are registered for the specified <paramref name="eventType"/>.
     /// </summary>
-    Task DeliverAsync(string eventType, string serializedPayload, CancellationToken ct = default);
+    Task DeliverAsync(
+        string eventType,
+        string serializedPayload,
+        Guid tenantId,
+        CancellationToken ct = default
+    );
 }

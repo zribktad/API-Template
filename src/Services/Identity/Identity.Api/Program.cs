@@ -1,5 +1,6 @@
 using Contracts.IntegrationEvents.Identity;
 using FluentValidation;
+using Identity.Api.Extensions;
 using Identity.Application.Options;
 using Identity.Application.Security;
 using Identity.Domain.Interfaces;
@@ -53,26 +54,32 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<ITenantInvitationRepository, TenantInvitationRepository>();
 
-builder.Services.AddSingleton<IRolePermissionMap, StaticRolePermissionMap>();
+builder.Services.AddSingleton<IRolePermissionMap, DefaultRolePermissionMap>();
 builder.Services.AddScoped<IKeycloakAdminService, KeycloakAdminService>();
 builder.Services.AddScoped<ISecureTokenGenerator, SecureTokenGenerator>();
 builder.Services.AddScoped<IUserProvisioningService, UserProvisioningService>();
 builder.Services.AddSingleton<KeycloakAdminTokenProvider>();
 builder.Services.AddTransient<KeycloakAdminTokenHandler>();
 
-builder.Services.AddSharedKeycloakJwtBearer(
-    builder.Configuration,
-    builder.Environment,
-    options =>
-    {
-        options.Events = new JwtBearerEvents
+builder
+    .Services.AddSharedKeycloakJwtBearer(
+        builder.Configuration,
+        builder.Environment,
+        requireTenantClaim: true,
+        options =>
         {
-            OnTokenValidated = TenantClaimValidator.OnTokenValidated,
-        };
-    }
-);
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = TenantClaimValidator.OnTokenValidated,
+            };
+        }
+    )
+    .AddIdentityBffAuthentication(builder.Configuration, builder.Environment);
 
-builder.Services.AddAuthorization();
+builder.Services.AddSharedAuthorization(
+    [JwtBearerDefaults.AuthenticationScheme, AuthConstants.BffSchemes.Cookie],
+    enablePermissionPolicies: true
+);
 
 builder.Services.AddValidatorsFromAssemblyContaining<IKeycloakAdminService>();
 
@@ -116,7 +123,7 @@ await app.MigrateDbAsync<IdentityDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
 await app.RunAsync();

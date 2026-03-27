@@ -16,7 +16,7 @@ using Wolverine;
 namespace Identity.Api.Controllers.V1;
 
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/tenant-invitations")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public sealed class TenantInvitationsController(IMessageBus bus) : ApiControllerBase
 {
     [HttpGet]
