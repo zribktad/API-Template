@@ -29,13 +29,15 @@ public sealed class TenantDeactivationSagaTests
     [Fact]
     public void Start_PublishesIntegrationEventWithCorrectFields()
     {
+        Guid correlationId = Guid.NewGuid();
         Guid tenantId = Guid.NewGuid();
         Guid actorId = Guid.NewGuid();
-        StartTenantDeactivationSaga command = new(Guid.NewGuid(), tenantId, actorId);
+        StartTenantDeactivationSaga command = new(correlationId, tenantId, actorId);
 
         (TenantDeactivationSaga _, TenantDeactivatedIntegrationEvent @event) =
             TenantDeactivationSaga.Start(command, TimeProvider.System);
 
+        @event.CorrelationId.ShouldBe(correlationId);
         @event.TenantId.ShouldBe(tenantId);
         @event.ActorId.ShouldBe(actorId);
     }

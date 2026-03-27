@@ -23,6 +23,7 @@ public class TenantDeactivationSaga : Saga
             TenantId = command.TenantId,
         };
         TenantDeactivatedIntegrationEvent @event = new(
+            command.CorrelationId,
             command.TenantId,
             command.ActorId,
             timeProvider.GetUtcNow().UtcDateTime
