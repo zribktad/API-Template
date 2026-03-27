@@ -42,8 +42,18 @@ public static class RabbitMqTopology
             public const string ProductDeleted = "file-storage.product-deleted";
         }
 
+        public static class Identity
+        {
+            public const string TenantDeactivated = "identity.tenant-deactivated";
+            public const string UsersCascadeCompleted = "identity.users-cascade-completed";
+            public const string ProductsCascadeCompleted = "identity.products-cascade-completed";
+            public const string CategoriesCascadeCompleted =
+                "identity.categories-cascade-completed";
+        }
+
         public static class ProductCatalog
         {
+            public const string TenantDeactivated = "product-catalog.tenant-deactivated";
             public const string ReviewsCascadeCompleted =
                 "product-catalog.reviews-cascade-completed";
             public const string FilesCascadeCompleted = "product-catalog.files-cascade-completed";
