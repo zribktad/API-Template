@@ -47,7 +47,7 @@ public sealed class TenantDeactivationSagaTests
     {
         TenantDeactivationSaga saga = CreateSaga();
 
-        saga.Handle(new UsersCascadeCompleted(Guid.NewGuid().ToString(), Guid.NewGuid(), 5));
+        saga.Handle(new UsersCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 5));
 
         saga.UsersCascaded.ShouldBeTrue();
         saga.ProductsCascaded.ShouldBeFalse();
@@ -59,7 +59,7 @@ public sealed class TenantDeactivationSagaTests
     {
         TenantDeactivationSaga saga = CreateSaga();
 
-        saga.Handle(new ProductsCascadeCompleted(Guid.NewGuid().ToString(), Guid.NewGuid(), 3));
+        saga.Handle(new ProductsCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 3));
 
         saga.ProductsCascaded.ShouldBeTrue();
     }
@@ -69,7 +69,7 @@ public sealed class TenantDeactivationSagaTests
     {
         TenantDeactivationSaga saga = CreateSaga();
 
-        saga.Handle(new CategoriesCascadeCompleted(Guid.NewGuid().ToString(), Guid.NewGuid(), 2));
+        saga.Handle(new CategoriesCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 2));
 
         saga.CategoriesCascaded.ShouldBeTrue();
     }
@@ -79,8 +79,8 @@ public sealed class TenantDeactivationSagaTests
     {
         TenantDeactivationSaga saga = CreateSaga();
 
-        saga.Handle(new UsersCascadeCompleted(Guid.NewGuid().ToString(), Guid.NewGuid(), 5));
-        saga.Handle(new ProductsCascadeCompleted(Guid.NewGuid().ToString(), Guid.NewGuid(), 3));
+        saga.Handle(new UsersCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 5));
+        saga.Handle(new ProductsCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 3));
 
         saga.IsCompleted().ShouldBeFalse();
     }
@@ -90,9 +90,9 @@ public sealed class TenantDeactivationSagaTests
     {
         TenantDeactivationSaga saga = CreateSaga();
 
-        saga.Handle(new UsersCascadeCompleted(Guid.NewGuid().ToString(), Guid.NewGuid(), 5));
-        saga.Handle(new ProductsCascadeCompleted(Guid.NewGuid().ToString(), Guid.NewGuid(), 3));
-        saga.Handle(new CategoriesCascadeCompleted(Guid.NewGuid().ToString(), Guid.NewGuid(), 2));
+        saga.Handle(new UsersCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 5));
+        saga.Handle(new ProductsCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 3));
+        saga.Handle(new CategoriesCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 2));
 
         saga.IsCompleted().ShouldBeTrue();
     }
