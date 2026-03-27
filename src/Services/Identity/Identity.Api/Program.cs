@@ -115,6 +115,20 @@ builder.Host.UseWolverine(opts =>
         .ToRabbitExchange(RabbitMqTopology.Exchanges.Identity);
     opts.PublishMessage<TenantDeactivatedIntegrationEvent>()
         .ToRabbitExchange(RabbitMqTopology.Exchanges.Identity);
+
+    // Handle the TenantDeactivated event for user cascade
+    opts.ListenToRabbitQueue(
+        RabbitMqTopology.Queues.Identity.TenantDeactivated,
+        queue =>
+        {
+            queue.BindExchange(RabbitMqTopology.Exchanges.Identity);
+        }
+    );
+
+    // Listen for saga completion messages routed back to this service
+    opts.ListenToRabbitQueue(RabbitMqTopology.Queues.Identity.UsersCascadeCompleted);
+    opts.ListenToRabbitQueue(RabbitMqTopology.Queues.Identity.ProductsCascadeCompleted);
+    opts.ListenToRabbitQueue(RabbitMqTopology.Queues.Identity.CategoriesCascadeCompleted);
 });
 
 WebApplication app = builder.Build();

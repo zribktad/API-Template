@@ -100,6 +100,15 @@ builder.Host.UseWolverine(opts =>
     opts.ListenToRabbitQueue(RabbitMqTopology.Queues.ProductCatalog.ReviewsCascadeCompleted);
     opts.ListenToRabbitQueue(RabbitMqTopology.Queues.ProductCatalog.FilesCascadeCompleted);
     opts.ListenToRabbitQueue(RabbitMqTopology.Queues.ProductCatalog.StartProductDeletionSaga);
+
+    // Handle the TenantDeactivated event for product and category cascade
+    opts.ListenToRabbitQueue(
+        RabbitMqTopology.Queues.ProductCatalog.TenantDeactivated,
+        queue =>
+        {
+            queue.BindExchange(RabbitMqTopology.Exchanges.Identity);
+        }
+    );
 });
 
 WebApplication app = builder.Build();
