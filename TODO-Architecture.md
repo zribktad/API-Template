@@ -85,17 +85,6 @@ Required fixes:
 - Add `[OutputCache(PolicyName = CacheTags.X)]` to all GET endpoints in ProductCatalog, Identity, FileStorage, and other read-heavy services.
 - Publish `CacheInvalidationNotification` in write command handlers and ensure the Wolverine `CacheInvalidationHandler` is discovered in each service.
 
-#### Missing — JWT `sub` Claim Fallback in Identity Service
-
-The monolith's `GetMe()` endpoint resolves the caller identity via three fallbacks in order:
-1. `ClaimTypes.NameIdentifier`
-2. `JwtRegisteredClaimNames.Sub` ← **missing in Identity microservice**
-3. `AuthConstants.Claims.Subject`
-
-`Identity.Api/Controllers/V1/UsersController.cs` skips the standard JWT `sub` claim, meaning users whose token carries only `sub` (and no `NameIdentifier`) will receive a 404 instead of their own profile.
-
-Required fix: restore the `JwtRegisteredClaimNames.Sub` fallback as the second check in `GetCurrentUserId()`.
-
 #### Missing — Demo/Example Endpoints Not in Gateway
 
 Three demonstration controllers exist in the monolith (`src/APITemplate.Api/`) and their SharedKernel infrastructure was already ported (idempotency store, permissions), but the controllers themselves were never added to the Gateway or any microservice:
