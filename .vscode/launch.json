@@ -128,13 +128,21 @@
       "name": "MS: Gateway",
       "type": "coreclr",
       "request": "launch",
+      "preLaunchTask": "ms: prepare debug gateway",
       "program": "${workspaceFolder}/src/Gateway/Gateway.Api/bin/Debug/net10.0/Gateway.Api.dll",
       "args": [],
       "cwd": "${workspaceFolder}/src/Gateway/Gateway.Api",
       "stopAtEntry": false,
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "http://localhost:8080"
+        "ASPNETCORE_URLS": "http://localhost:8080",
+        "ReverseProxy__Clusters__product-catalog__Destinations__destination1__Address": "http://localhost:5010",
+        "ReverseProxy__Clusters__reviews__Destinations__destination1__Address": "http://localhost:5020",
+        "ReverseProxy__Clusters__identity__Destinations__destination1__Address": "http://localhost:5030",
+        "ReverseProxy__Clusters__notifications__Destinations__destination1__Address": "http://localhost:5040",
+        "ReverseProxy__Clusters__file-storage__Destinations__destination1__Address": "http://localhost:5050",
+        "ReverseProxy__Clusters__background-jobs__Destinations__destination1__Address": "http://localhost:5060",
+        "ReverseProxy__Clusters__webhooks__Destinations__destination1__Address": "http://localhost:5070"
       },
       "console": "integratedTerminal"
     },
@@ -150,13 +158,13 @@
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_URLS": "http://localhost:5010",
-        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=productcatalog_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__ProductCatalogDb": "Host=localhost;Port=5432;Database=productcatalog_db;Username=postgres;Password=postgres",
         "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
         "MongoDB__ConnectionString": "mongodb://localhost:27017",
         "MongoDB__DatabaseName": "productcatalog",
-        "Keycloak__AuthServerUrl": "http://localhost:8180/",
-        "Keycloak__Realm": "api-template",
-        "Keycloak__Resource": "api-template",
+        "Keycloak__realm": "api-template",
+        "Keycloak__auth-server-url": "http://localhost:8180/",
+        "Keycloak__resource": "api-template",
         "Observability__Otlp__Endpoint": "http://localhost:4317"
       },
       "console": "integratedTerminal"
@@ -173,11 +181,11 @@
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_URLS": "http://localhost:5020",
-        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=reviews_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__ReviewsDb": "Host=localhost;Port=5432;Database=reviews_db;Username=postgres;Password=postgres",
         "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
-        "Keycloak__AuthServerUrl": "http://localhost:8180/",
-        "Keycloak__Realm": "api-template",
-        "Keycloak__Resource": "api-template",
+        "Keycloak__realm": "api-template",
+        "Keycloak__auth-server-url": "http://localhost:8180/",
+        "Keycloak__resource": "api-template",
         "Observability__Otlp__Endpoint": "http://localhost:4317"
       },
       "console": "integratedTerminal"
@@ -194,12 +202,12 @@
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_URLS": "http://localhost:5030",
-        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=identity_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__IdentityDb": "Host=localhost;Port=5432;Database=identity_db;Username=postgres;Password=postgres",
         "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
-        "Keycloak__AuthServerUrl": "http://localhost:8180/",
-        "Keycloak__Realm": "api-template",
-        "Keycloak__Resource": "api-template",
-        "Keycloak__Credentials__Secret": "dev-client-secret",
+        "Keycloak__realm": "api-template",
+        "Keycloak__auth-server-url": "http://localhost:8180/",
+        "Keycloak__resource": "api-template",
+        "Keycloak__credentials__secret": "dev-client-secret",
         "Observability__Otlp__Endpoint": "http://localhost:4317"
       },
       "console": "integratedTerminal"
@@ -231,6 +239,7 @@
       "name": "MS: File Storage",
       "type": "coreclr",
       "request": "launch",
+      "preLaunchTask": "ms: prepare debug file-storage",
       "program": "${workspaceFolder}/src/Services/FileStorage/FileStorage.Api/bin/Debug/net10.0/FileStorage.Api.dll",
       "args": [],
       "cwd": "${workspaceFolder}/src/Services/FileStorage/FileStorage.Api",
@@ -238,7 +247,7 @@
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_URLS": "http://localhost:5050",
-        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=filestorage_db;Username=postgres;Password=postgres",
+        "ConnectionStrings__FileStorageDb": "Host=localhost;Port=5432;Database=filestorage_db;Username=postgres;Password=postgres",
         "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
         "FileStorage__BasePath": "${workspaceFolder}/tmp/storage",
         "Observability__Otlp__Endpoint": "http://localhost:4317"
@@ -249,6 +258,7 @@
       "name": "MS: Background Jobs",
       "type": "coreclr",
       "request": "launch",
+      "preLaunchTask": "ms: prepare debug background-jobs",
       "program": "${workspaceFolder}/src/Services/BackgroundJobs/BackgroundJobs.Api/bin/Debug/net10.0/BackgroundJobs.Api.dll",
       "args": [],
       "cwd": "${workspaceFolder}/src/Services/BackgroundJobs/BackgroundJobs.Api",
@@ -258,7 +268,7 @@
         "ASPNETCORE_URLS": "http://localhost:5060",
         "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=backgroundjobs_db;Username=postgres;Password=postgres",
         "ConnectionStrings__RabbitMQ": "amqp://guest:guest@localhost:5672",
-        "ConnectionStrings__Redis": "localhost:6379",
+        "ConnectionStrings__Dragonfly": "localhost:6379",
         "Observability__Otlp__Endpoint": "http://localhost:4317"
       },
       "console": "integratedTerminal"
@@ -267,6 +277,7 @@
       "name": "MS: Webhooks",
       "type": "coreclr",
       "request": "launch",
+      "preLaunchTask": "ms: prepare debug webhooks",
       "program": "${workspaceFolder}/src/Services/Webhooks/Webhooks.Api/bin/Debug/net10.0/Webhooks.Api.dll",
       "args": [],
       "cwd": "${workspaceFolder}/src/Services/Webhooks/Webhooks.Api",
