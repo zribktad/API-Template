@@ -3,6 +3,7 @@ using Contracts.IntegrationEvents.Sagas;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Infrastructure.Persistence.SoftDelete;
 using Wolverine;
 
 namespace Identity.Application.EventHandlers;
@@ -29,14 +30,7 @@ public sealed class TenantDeactivatedEventHandler
             .Set<AppUser>()
             .IgnoreQueryFilters()
             .Where(u => u.TenantId == @event.TenantId && !u.IsDeleted)
-            .ExecuteUpdateAsync(
-                setters =>
-                    setters
-                        .SetProperty(u => u.IsDeleted, true)
-                        .SetProperty(u => u.DeletedAtUtc, now)
-                        .SetProperty(u => u.DeletedBy, @event.ActorId),
-                ct
-            );
+            .BulkSoftDeleteAsync(@event.ActorId, now, ct);
 
         // ExecuteUpdateAsync bypasses the change tracker; clear stale cached entities
         // so any subsequent reads in the same unit of work see the updated state.

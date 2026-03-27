@@ -3,6 +3,7 @@ using Contracts.IntegrationEvents.Sagas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ProductCatalog.Domain.Entities;
+using SharedKernel.Infrastructure.Persistence.SoftDelete;
 using Wolverine;
 
 namespace ProductCatalog.Application.EventHandlers;
@@ -30,27 +31,13 @@ public sealed class TenantDeactivatedEventHandler
             .Set<Product>()
             .IgnoreQueryFilters()
             .Where(p => p.TenantId == @event.TenantId && !p.IsDeleted)
-            .ExecuteUpdateAsync(
-                setters =>
-                    setters
-                        .SetProperty(p => p.IsDeleted, true)
-                        .SetProperty(p => p.DeletedAtUtc, now)
-                        .SetProperty(p => p.DeletedBy, @event.ActorId),
-                ct
-            );
+            .BulkSoftDeleteAsync(@event.ActorId, now, ct);
 
         int deletedCategories = await dbContext
             .Set<Category>()
             .IgnoreQueryFilters()
             .Where(c => c.TenantId == @event.TenantId && !c.IsDeleted)
-            .ExecuteUpdateAsync(
-                setters =>
-                    setters
-                        .SetProperty(c => c.IsDeleted, true)
-                        .SetProperty(c => c.DeletedAtUtc, now)
-                        .SetProperty(c => c.DeletedBy, @event.ActorId),
-                ct
-            );
+            .BulkSoftDeleteAsync(@event.ActorId, now, ct);
 
         // ExecuteUpdateAsync bypasses the change tracker; clear stale cached entities
         // so any subsequent reads in the same unit of work see the updated state.

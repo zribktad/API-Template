@@ -54,7 +54,7 @@ public sealed class ProductDeletionSagaTests
     {
         ProductDeletionSaga saga = CreateSaga();
 
-        saga.Handle(new ReviewsCascadeCompleted(Guid.NewGuid(), 10));
+        saga.Handle(new ReviewsCascadeCompleted(Guid.NewGuid().ToString(), 10));
 
         saga.ReviewsCascaded.ShouldBeTrue();
         saga.FilesCascaded.ShouldBeFalse();
@@ -65,7 +65,7 @@ public sealed class ProductDeletionSagaTests
     {
         ProductDeletionSaga saga = CreateSaga();
 
-        saga.Handle(new FilesCascadeCompleted(Guid.NewGuid(), 5));
+        saga.Handle(new FilesCascadeCompleted(Guid.NewGuid().ToString(), 5));
 
         saga.FilesCascaded.ShouldBeTrue();
         saga.ReviewsCascaded.ShouldBeFalse();
@@ -76,7 +76,7 @@ public sealed class ProductDeletionSagaTests
     {
         ProductDeletionSaga saga = CreateSaga();
 
-        saga.Handle(new ReviewsCascadeCompleted(Guid.NewGuid(), 10));
+        saga.Handle(new ReviewsCascadeCompleted(Guid.NewGuid().ToString(), 10));
 
         saga.IsCompleted().ShouldBeFalse();
     }
@@ -86,8 +86,8 @@ public sealed class ProductDeletionSagaTests
     {
         ProductDeletionSaga saga = CreateSaga();
 
-        saga.Handle(new ReviewsCascadeCompleted(Guid.NewGuid(), 10));
-        saga.Handle(new FilesCascadeCompleted(Guid.NewGuid(), 5));
+        saga.Handle(new ReviewsCascadeCompleted(Guid.NewGuid().ToString(), 10));
+        saga.Handle(new FilesCascadeCompleted(Guid.NewGuid().ToString(), 5));
 
         saga.IsCompleted().ShouldBeTrue();
     }

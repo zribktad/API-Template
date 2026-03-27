@@ -147,7 +147,7 @@ public sealed class TenantDeactivatedEventHandlerTests : IDisposable
             b =>
                 b.PublishAsync(
                     It.Is<ProductsCascadeCompleted>(m =>
-                        m.CorrelationId == correlationId
+                        m.TenantDeactivationSagaId == correlationId.ToString()
                         && m.TenantId == tenantId
                         && m.DeletedCount == 1
                     ),
@@ -185,7 +185,7 @@ public sealed class TenantDeactivatedEventHandlerTests : IDisposable
             b =>
                 b.PublishAsync(
                     It.Is<CategoriesCascadeCompleted>(m =>
-                        m.CorrelationId == correlationId
+                        m.TenantDeactivationSagaId == correlationId.ToString()
                         && m.TenantId == tenantId
                         && m.DeletedCount == 1
                     ),

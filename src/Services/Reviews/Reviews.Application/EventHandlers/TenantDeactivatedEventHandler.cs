@@ -2,6 +2,7 @@ using Contracts.IntegrationEvents.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Reviews.Domain.Entities;
+using SharedKernel.Infrastructure.Persistence.SoftDelete;
 
 namespace Reviews.Application.EventHandlers;
 
@@ -26,14 +27,7 @@ public sealed class TenantDeactivatedEventHandler
             .Set<ProductReview>()
             .IgnoreQueryFilters()
             .Where(r => r.TenantId == @event.TenantId && !r.IsDeleted)
-            .ExecuteUpdateAsync(
-                setters =>
-                    setters
-                        .SetProperty(r => r.IsDeleted, true)
-                        .SetProperty(r => r.DeletedAtUtc, now)
-                        .SetProperty(r => r.DeletedBy, @event.ActorId),
-                ct
-            );
+            .BulkSoftDeleteAsync(@event.ActorId, now, ct);
 
         // Mark all product projections inactive for the tenant
         int deactivatedProducts = await dbContext

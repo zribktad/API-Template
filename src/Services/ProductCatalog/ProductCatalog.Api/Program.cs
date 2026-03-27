@@ -1,3 +1,4 @@
+using Contracts.IntegrationEvents.Sagas;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Polly;
@@ -109,6 +110,12 @@ builder.Host.UseWolverine(opts =>
             queue.BindExchange(RabbitMqTopology.Exchanges.Identity);
         }
     );
+
+    // Route completion messages back to Identity's queues
+    opts.PublishMessage<ProductsCascadeCompleted>()
+        .ToRabbitQueue(RabbitMqTopology.Queues.Identity.ProductsCascadeCompleted);
+    opts.PublishMessage<CategoriesCascadeCompleted>()
+        .ToRabbitQueue(RabbitMqTopology.Queues.Identity.CategoriesCascadeCompleted);
 });
 
 WebApplication app = builder.Build();

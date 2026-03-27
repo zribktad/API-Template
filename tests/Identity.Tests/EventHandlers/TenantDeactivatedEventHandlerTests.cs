@@ -110,7 +110,7 @@ public sealed class TenantDeactivatedEventHandlerTests : IDisposable
             b =>
                 b.PublishAsync(
                     It.Is<UsersCascadeCompleted>(m =>
-                        m.CorrelationId == correlationId
+                        m.TenantDeactivationSagaId == correlationId.ToString()
                         && m.TenantId == tenantId
                         && m.DeactivatedCount == 1
                     ),

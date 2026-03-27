@@ -212,7 +212,7 @@ Application/Features/Products/Commands/CreateProducts/
 // Identity events
 public sealed record UserRegisteredIntegrationEvent(Guid UserId, Guid TenantId, string Email, string Username, DateTime OccurredAtUtc);
 public sealed record UserRoleChangedIntegrationEvent(Guid UserId, Guid TenantId, string Email, string Username, string OldRole, string NewRole, DateTime OccurredAtUtc);
-public sealed record TenantDeactivatedIntegrationEvent(Guid TenantId, Guid ActorId, DateTime OccurredAtUtc);
+public sealed record TenantDeactivatedIntegrationEvent(Guid CorrelationId, Guid TenantId, Guid ActorId, DateTime OccurredAtUtc);
 public sealed record TenantInvitationCreatedIntegrationEvent(Guid InvitationId, string Email, string TenantName, string Token, DateTime OccurredAtUtc);
 
 // Product Catalog events

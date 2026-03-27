@@ -3,6 +3,7 @@ using Contracts.IntegrationEvents.Sagas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Reviews.Domain.Entities;
+using SharedKernel.Infrastructure.Persistence.SoftDelete;
 using Wolverine;
 
 namespace Reviews.Application.EventHandlers;
@@ -33,13 +34,7 @@ public sealed class ProductDeletedEventHandler
         int deletedCount = await dbContext
             .Set<ProductReview>()
             .Where(r => @event.ProductIds.Contains(r.ProductId) && !r.IsDeleted)
-            .ExecuteUpdateAsync(
-                setters =>
-                    setters
-                        .SetProperty(r => r.IsDeleted, true)
-                        .SetProperty(r => r.DeletedAtUtc, now),
-                ct
-            );
+            .BulkSoftDeleteAsync(actorId: null, now, ct);
 
         logger.LogInformation(
             "Cascade soft-deleted {Count} reviews for products {ProductIds}",

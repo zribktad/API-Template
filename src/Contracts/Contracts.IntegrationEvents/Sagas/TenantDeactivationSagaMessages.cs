@@ -1,3 +1,5 @@
+using Wolverine.Persistence.Sagas;
+
 namespace Contracts.IntegrationEvents.Sagas;
 
 /// <summary>
@@ -8,18 +10,26 @@ public sealed record StartTenantDeactivationSaga(Guid CorrelationId, Guid Tenant
 /// <summary>
 /// Confirmation that users have been deactivated for the given tenant.
 /// </summary>
-public sealed record UsersCascadeCompleted(Guid CorrelationId, Guid TenantId, int DeactivatedCount);
+public sealed record UsersCascadeCompleted(
+    [property: SagaIdentity] Guid CorrelationId,
+    Guid TenantId,
+    int DeactivatedCount
+);
 
 /// <summary>
 /// Confirmation that products have been cascade-deleted for the given tenant.
 /// </summary>
-public sealed record ProductsCascadeCompleted(Guid CorrelationId, Guid TenantId, int DeletedCount);
+public sealed record ProductsCascadeCompleted(
+    [property: SagaIdentity] Guid CorrelationId,
+    Guid TenantId,
+    int DeletedCount
+);
 
 /// <summary>
 /// Confirmation that categories have been cascade-deleted for the given tenant.
 /// </summary>
 public sealed record CategoriesCascadeCompleted(
-    Guid CorrelationId,
+    [property: SagaIdentity] Guid CorrelationId,
     Guid TenantId,
     int DeletedCount
 );

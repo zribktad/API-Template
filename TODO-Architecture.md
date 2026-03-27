@@ -8,31 +8,20 @@ All 7 microservices extracted from the monolith and running independently.
 
 ## Open TODOs
 
-### CRITICAL — Broken Saga: TenantDeactivationSaga
-`TenantDeactivationSaga` is structurally complete but will **never reach `MarkCompleted()`** — the three completion messages it waits for are never published by any service:
-
-- `UsersCascadeCompleted` — no publisher exists anywhere in the codebase.
-- `ProductsCascadeCompleted` — no publisher exists anywhere in the codebase.
-- `CategoriesCascadeCompleted` — no publisher exists anywhere in the codebase.
-
-Root causes:
-1. `TenantDeactivatedIntegrationEvent` carries no `CorrelationId`, so downstream handlers have no way to correlate a reply back to the correct saga instance.
-2. `TenantDeactivatedEventHandler` in Reviews and `TenantDeactivatedHandler` in BackgroundJobs perform their work correctly but never publish a completion message.
-3. ProductCatalog has no handler for `TenantDeactivatedIntegrationEvent` at all — `ProductsCascadeCompleted` and `CategoriesCascadeCompleted` are therefore never emitted.
-4. No queue bindings for the three completion messages exist in `RabbitMqTopology`.
-
-Required fixes:
-- Add `CorrelationId` to `TenantDeactivatedIntegrationEvent` (propagated from `StartTenantDeactivationSaga`).
-- Add `TenantDeactivatedIntegrationEvent` handler to ProductCatalog that soft-deletes products + categories and publishes `ProductsCascadeCompleted` + `CategoriesCascadeCompleted`.
-- Extend Reviews `TenantDeactivatedEventHandler` to publish `UsersCascadeCompleted` (or move that responsibility to Identity, depending on ownership).
-- Register corresponding queue bindings in `RabbitMqTopology` and `Identity.Api/Program.cs` `ListenToRabbitQueue(...)`.
-
 ### CRITICAL — Orphaned Integration Event: CategoryDeletedIntegrationEvent
 `CategoryDeletedIntegrationEvent` is published by `DeleteCategoriesCommandHandler` but:
 - No queue binding exists in `RabbitMqTopology`.
 - No consumer/handler exists in any service.
 
 Messages are silently dropped. Either implement a consumer (e.g. Webhooks) or remove the event until a consumer is needed.
+
+### Saga Reliability — Missing EF Core Persistence Mapping
+Neither `ProductDeletionSaga` (ProductCatalog) nor `TenantDeactivationSaga` (Identity) is mapped in the service's `DbContext`, and no EF Core migration exists for either saga table.
+With `UseEntityFrameworkCoreTransactions()`, Wolverine requires the saga type to be present in the registered `DbContext` to persist state between messages.
+Required for each saga:
+1. Add `DbSet<XxxSaga>` to the service's `DbContext`.
+2. Add an `IEntityTypeConfiguration<XxxSaga>` that maps `Id`, status flags, and excludes global query filters (sagas are not tenant-scoped).
+3. Generate and run `dotnet ef migrations add AddXxxSaga`.
 
 ### Saga Reliability — Missing Timeout Handling
 Neither `ProductDeletionSaga` nor `TenantDeactivationSaga` implement timeout/expiration.
@@ -62,7 +51,7 @@ Consolidate into `SharedKernel.Application` (or `Contracts`) so both services sh
 ### Test Coverage
 - Add integration/runtime coverage for shared auth bootstrap: permission policies, BFF cookie/OIDC flow, tenant claim enrichment, and locked-down Wolverine HTTP endpoints.
 - Add saga-flow tests that verify `ProductDeletionSaga` correlation across ProductCatalog, Reviews, and FileStorage using the new `CorrelationId`.
-- Add saga-flow tests for `TenantDeactivationSaga` once the broken completion-message chain is fixed.
+- Add saga-flow tests for `TenantDeactivationSaga`.
 
 ---
 
@@ -181,6 +170,11 @@ tests/
 | `webhooks.product-deleted` | product-catalog.events | Webhooks |
 | `webhooks.review-created` | reviews.events | Webhooks |
 | `background-jobs.tenant-deactivated` | identity.events | Background Jobs |
+| `identity.tenant-deactivated` | identity.events | Identity |
+| `identity.users-cascade-completed` | — (direct) | Identity |
+| `identity.products-cascade-completed` | — (direct) | Identity |
+| `identity.categories-cascade-completed` | — (direct) | Identity |
+| `product-catalog.tenant-deactivated` | identity.events | ProductCatalog |
 
 ---
 

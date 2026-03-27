@@ -1,3 +1,5 @@
+using Wolverine.Persistence.Sagas;
+
 namespace Contracts.IntegrationEvents.Sagas;
 
 /// <summary>
@@ -13,9 +15,15 @@ public sealed record StartProductDeletionSaga(
 /// <summary>
 /// Confirmation that reviews have been cascade-deleted for the given products.
 /// </summary>
-public sealed record ReviewsCascadeCompleted(Guid CorrelationId, int DeletedCount);
+public sealed record ReviewsCascadeCompleted(
+    [property: SagaIdentity] Guid CorrelationId,
+    int DeletedCount
+);
 
 /// <summary>
 /// Confirmation that files have been orphaned for the given products.
 /// </summary>
-public sealed record FilesCascadeCompleted(Guid CorrelationId, int DeletedCount);
+public sealed record FilesCascadeCompleted(
+    [property: SagaIdentity] Guid CorrelationId,
+    int DeletedCount
+);

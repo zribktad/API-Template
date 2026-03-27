@@ -1,5 +1,6 @@
 using Contracts.IntegrationEvents.ProductCatalog;
 using Contracts.IntegrationEvents.Sagas;
+using Microsoft.Extensions.Logging;
 using Wolverine;
 
 namespace ProductCatalog.Application.Sagas;
@@ -64,4 +65,18 @@ public class ProductDeletionSaga : Saga
         if (ReviewsCascaded && FilesCascaded)
             MarkCompleted();
     }
+
+    public static void NotFound(ReviewsCascadeCompleted msg, ILogger<ProductDeletionSaga> logger) =>
+        logger.LogWarning(
+            "Received {MessageType} for unknown saga {SagaId}",
+            nameof(ReviewsCascadeCompleted),
+            msg.CorrelationId
+        );
+
+    public static void NotFound(FilesCascadeCompleted msg, ILogger<ProductDeletionSaga> logger) =>
+        logger.LogWarning(
+            "Received {MessageType} for unknown saga {SagaId}",
+            nameof(FilesCascadeCompleted),
+            msg.CorrelationId
+        );
 }

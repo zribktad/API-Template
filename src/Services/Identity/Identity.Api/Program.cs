@@ -1,4 +1,5 @@
 using Contracts.IntegrationEvents.Identity;
+using Contracts.IntegrationEvents.Sagas;
 using FluentValidation;
 using Identity.Api.Extensions;
 using Identity.Application.Options;
@@ -129,6 +130,10 @@ builder.Host.UseWolverine(opts =>
     opts.ListenToRabbitQueue(RabbitMqTopology.Queues.Identity.UsersCascadeCompleted);
     opts.ListenToRabbitQueue(RabbitMqTopology.Queues.Identity.ProductsCascadeCompleted);
     opts.ListenToRabbitQueue(RabbitMqTopology.Queues.Identity.CategoriesCascadeCompleted);
+
+    // Route completion messages to their designated queues so the saga receives them
+    opts.PublishMessage<UsersCascadeCompleted>()
+        .ToRabbitQueue(RabbitMqTopology.Queues.Identity.UsersCascadeCompleted);
 });
 
 WebApplication app = builder.Build();
