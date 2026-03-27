@@ -8,17 +8,103 @@ All 7 microservices extracted from the monolith and running independently.
 
 ## Open TODOs
 
+### CRITICAL — Broken Saga: TenantDeactivationSaga
+`TenantDeactivationSaga` is structurally complete but will **never reach `MarkCompleted()`** — the three completion messages it waits for are never published by any service:
+
+- `UsersCascadeCompleted` — no publisher exists anywhere in the codebase.
+- `ProductsCascadeCompleted` — no publisher exists anywhere in the codebase.
+- `CategoriesCascadeCompleted` — no publisher exists anywhere in the codebase.
+
+Root causes:
+1. `TenantDeactivatedIntegrationEvent` carries no `CorrelationId`, so downstream handlers have no way to correlate a reply back to the correct saga instance.
+2. `TenantDeactivatedEventHandler` in Reviews and `TenantDeactivatedHandler` in BackgroundJobs perform their work correctly but never publish a completion message.
+3. ProductCatalog has no handler for `TenantDeactivatedIntegrationEvent` at all — `ProductsCascadeCompleted` and `CategoriesCascadeCompleted` are therefore never emitted.
+4. No queue bindings for the three completion messages exist in `RabbitMqTopology`.
+
+Required fixes:
+- Add `CorrelationId` to `TenantDeactivatedIntegrationEvent` (propagated from `StartTenantDeactivationSaga`).
+- Add `TenantDeactivatedIntegrationEvent` handler to ProductCatalog that soft-deletes products + categories and publishes `ProductsCascadeCompleted` + `CategoriesCascadeCompleted`.
+- Extend Reviews `TenantDeactivatedEventHandler` to publish `UsersCascadeCompleted` (or move that responsibility to Identity, depending on ownership).
+- Register corresponding queue bindings in `RabbitMqTopology` and `Identity.Api/Program.cs` `ListenToRabbitQueue(...)`.
+
+### CRITICAL — Orphaned Integration Event: CategoryDeletedIntegrationEvent
+`CategoryDeletedIntegrationEvent` is published by `DeleteCategoriesCommandHandler` but:
+- No queue binding exists in `RabbitMqTopology`.
+- No consumer/handler exists in any service.
+
+Messages are silently dropped. Either implement a consumer (e.g. Webhooks) or remove the event until a consumer is needed.
+
+### Saga Reliability — Missing Timeout Handling
+Neither `ProductDeletionSaga` nor `TenantDeactivationSaga` implement timeout/expiration.
+If a downstream service fails to publish its completion message the saga will remain in an incomplete state indefinitely with no compensation or alerting.
+Implement `ScheduleTimeout<T>(TimeSpan)` in Wolverine for both sagas, with a compensation handler that logs/alerts and optionally rolls back the parent operation.
+
 ### Reliability
 - Replace in-memory `ChannelJobQueue` in BackgroundJobs with durable persistence/replay so queued jobs survive process restarts.
 - Replace in-memory `ChannelEmailQueue` in Notifications with durable persistence/replay so pending emails are not lost on restart between enqueue and delivery.
 
 ### File Storage Cascade
 - Implement real product-related file cleanup in FileStorage on `ProductDeletedIntegrationEvent`.
-- Introduce an explicit relation from stored files to product-owned resources, so `FilesCascadeCompleted` is emitted only after actual cleanup instead of a placeholder acknowledgment.
+- Introduce an explicit relation from stored files to product-owned resources, so `FilesCascadeCompleted` is emitted only after actual cleanup instead of a placeholder acknowledgment (currently publishes `FilesCascadeCompleted` with `count = 0`).
+
+### Messaging — Missing Idempotency Keys in Integration Events
+All integration events (`UserRegisteredIntegrationEvent`, `TenantDeactivatedIntegrationEvent`, etc.) lack a `MessageId` field.
+On RabbitMQ redelivery (e.g. after a consumer crash mid-processing) the same event can be processed twice, causing duplicate emails, duplicate cascade deletes, etc.
+Add `Guid MessageId` to all integration event records and guard handlers with an idempotency check against a seen-message store.
+
+### DRY — Duplicate Validator Code
+`ProductValidationRules` and `ProductRequestValidatorBase<T>` are copy-pasted identically into:
+- `src/APITemplate.Application/Features/Product/Validation/ProductRequestValidatorBase.cs`
+- `src/Services/ProductCatalog/ProductCatalog.Application/Features/Product/Validation/ProductRequestValidatorBase.cs`
+
+Consolidate into `SharedKernel.Application` (or `Contracts`) so both services share the same source of truth.
 
 ### Test Coverage
 - Add integration/runtime coverage for shared auth bootstrap: permission policies, BFF cookie/OIDC flow, tenant claim enrichment, and locked-down Wolverine HTTP endpoints.
 - Add saga-flow tests that verify `ProductDeletionSaga` correlation across ProductCatalog, Reviews, and FileStorage using the new `CorrelationId`.
+- Add saga-flow tests for `TenantDeactivationSaga` once the broken completion-message chain is fixed.
+
+---
+
+### Regressions vs. Monolith (main branch)
+
+#### CRITICAL — Output Caching Not Ported
+
+The monolith had a full tenant-aware output caching stack that was never ported to the microservices architecture:
+
+- `TenantAwareOutputCachePolicy` — varied cache key by tenant ID so responses were never served across tenant boundaries. **Not in SharedKernel, not in any service.**
+- `CacheInvalidationHandler` (Wolverine) — handled `CacheInvalidationNotification` and called `IOutputCacheInvalidationService.EvictAsync`. **No equivalent exists in any microservice.**
+- `IOutputCacheInvalidationService` / `OutputCacheInvalidationService` — Redis/Dragonfly-backed tag eviction with telemetry. **Not in SharedKernel.**
+- `AddOutputCache` + `UseOutputCache` — never registered in any microservice `Program.cs` or SharedKernel.
+- `[OutputCache(PolicyName = CacheTags.X)]` decorators — missing from all controllers in ProductCatalog, Identity, FileStorage, BackgroundJobs, Webhooks, Notifications. Reviews has the decorators but the middleware is not registered → decorators are silently ignored at runtime.
+- `CacheTags` constants and `CacheInvalidationNotification` records in Reviews are dead code without a handler.
+
+Required fixes:
+- Move `TenantAwareOutputCachePolicy`, `IOutputCacheInvalidationService`, `OutputCacheInvalidationService`, `CacheInvalidationHandler`, and `CacheTags` into `SharedKernel.Api`.
+- Register `AddOutputCache` (with Redis/Dragonfly backing and `TenantAwareOutputCachePolicy`) in a shared extension method and call it from every microservice `Program.cs`.
+- Add `[OutputCache(PolicyName = CacheTags.X)]` to all GET endpoints in ProductCatalog, Identity, FileStorage, and other read-heavy services.
+- Publish `CacheInvalidationNotification` in write command handlers and ensure the Wolverine `CacheInvalidationHandler` is discovered in each service.
+
+#### Missing — JWT `sub` Claim Fallback in Identity Service
+
+The monolith's `GetMe()` endpoint resolves the caller identity via three fallbacks in order:
+1. `ClaimTypes.NameIdentifier`
+2. `JwtRegisteredClaimNames.Sub` ← **missing in Identity microservice**
+3. `AuthConstants.Claims.Subject`
+
+`Identity.Api/Controllers/V1/UsersController.cs` skips the standard JWT `sub` claim, meaning users whose token carries only `sub` (and no `NameIdentifier`) will receive a 404 instead of their own profile.
+
+Required fix: restore the `JwtRegisteredClaimNames.Sub` fallback as the second check in `GetCurrentUserId()`.
+
+#### Missing — Demo/Example Endpoints Not in Gateway
+
+Three demonstration controllers exist in the monolith (`src/APITemplate.Api/`) and their SharedKernel infrastructure was already ported (idempotency store, permissions), but the controllers themselves were never added to the Gateway or any microservice:
+
+- `IdempotentController` — demonstrates idempotent POST semantics via `[Idempotent]` filter and `IIdempotencyStore`.
+- `PatchController` — demonstrates JSON Patch (RFC 6902) partial updates.
+- `SseController` — demonstrates Server-Sent Events streaming over a persistent HTTP connection.
+
+Required fix: decide whether these should live in a dedicated `Examples` microservice or directly in the Gateway API, then add the controllers and register the route in YARP.
 
 ---
 
