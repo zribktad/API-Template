@@ -8,4 +8,5 @@ public static class WebhookEventTypes
     public const string ProductCreated = "product.created";
     public const string ProductDeleted = "product.deleted";
     public const string ReviewCreated = "review.created";
+    public const string CategoryDeleted = "category.deleted";
 }

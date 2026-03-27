@@ -23,6 +23,7 @@ public static class RabbitMqTopology
             public const string ProductCreated = "webhooks.product-created";
             public const string ProductDeleted = "webhooks.product-deleted";
             public const string ReviewCreated = "webhooks.review-created";
+            public const string CategoryDeleted = "webhooks.category-deleted";
         }
 
         public static class BackgroundJobs

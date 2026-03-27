@@ -101,6 +101,13 @@ builder.Host.UseWolverine(opts =>
             queue.BindExchange(RabbitMqTopology.Exchanges.Reviews);
         }
     );
+    opts.ListenToRabbitQueue(
+        RabbitMqTopology.Queues.Webhooks.CategoryDeleted,
+        queue =>
+        {
+            queue.BindExchange(RabbitMqTopology.Exchanges.ProductCatalog);
+        }
+    );
 });
 
 WebApplication app = builder.Build();

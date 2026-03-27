@@ -41,7 +41,7 @@ public sealed class ProductDeletedEventHandlerTests
         );
 
         capturedMessage.ShouldNotBeNull();
-        capturedMessage.ProductDeletionSagaId.ShouldBe(correlationId.ToString());
+        capturedMessage.CorrelationId.ShouldBe(correlationId);
         capturedMessage.DeletedCount.ShouldBe(0);
     }
 

@@ -8,13 +8,6 @@ All 7 microservices extracted from the monolith and running independently.
 
 ## Open TODOs
 
-### CRITICAL — Orphaned Integration Event: CategoryDeletedIntegrationEvent
-`CategoryDeletedIntegrationEvent` is published by `DeleteCategoriesCommandHandler` but:
-- No queue binding exists in `RabbitMqTopology`.
-- No consumer/handler exists in any service.
-
-Messages are silently dropped. Either implement a consumer (e.g. Webhooks) or remove the event until a consumer is needed.
-
 ### Saga Reliability — Missing EF Core Persistence Mapping
 Neither `ProductDeletionSaga` (ProductCatalog) nor `TenantDeactivationSaga` (Identity) is mapped in the service's `DbContext`, and no EF Core migration exists for either saga table.
 With `UseEntityFrameworkCoreTransactions()`, Wolverine requires the saga type to be present in the registered `DbContext` to persist state between messages.
@@ -169,6 +162,7 @@ tests/
 | `webhooks.product-created` | product-catalog.events | Webhooks |
 | `webhooks.product-deleted` | product-catalog.events | Webhooks |
 | `webhooks.review-created` | reviews.events | Webhooks |
+| `webhooks.category-deleted` | product-catalog.events | Webhooks |
 | `background-jobs.tenant-deactivated` | identity.events | Background Jobs |
 | `identity.tenant-deactivated` | identity.events | Identity |
 | `identity.users-cascade-completed` | — (direct) | Identity |

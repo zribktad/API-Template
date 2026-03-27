@@ -96,6 +96,11 @@ builder.Host.UseWolverine(opts =>
             RabbitMqTopology.Exchanges.ProductCatalog,
             exchange => exchange.ExchangeType = Wolverine.RabbitMQ.ExchangeType.Fanout
         );
+    opts.PublishMessage<Contracts.IntegrationEvents.ProductCatalog.CategoryDeletedIntegrationEvent>()
+        .ToRabbitExchange(
+            RabbitMqTopology.Exchanges.ProductCatalog,
+            exchange => exchange.ExchangeType = Wolverine.RabbitMQ.ExchangeType.Fanout
+        );
 
     // Listen for saga completion messages
     opts.ListenToRabbitQueue(RabbitMqTopology.Queues.ProductCatalog.ReviewsCascadeCompleted);
