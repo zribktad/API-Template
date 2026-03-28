@@ -1,6 +1,6 @@
 using ErrorOr;
-using Reviews.Application.Common.Errors;
 using Reviews.Application.Common.Events;
+using Reviews.Application.Common.Errors;
 using Reviews.Domain.Interfaces;
 using SharedKernel.Application.Context;
 using SharedKernel.Application.Extensions;
@@ -8,7 +8,7 @@ using SharedKernel.Domain.Entities.Contracts;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;
 
-namespace Reviews.Application.Features.ProductReview.Commands;
+namespace Reviews.Application.Features.DeleteReview;
 
 /// <summary>Deletes the product review with the given identifier; only the review's author may delete it.</summary>
 public sealed record DeleteProductReviewCommand(Guid Id) : IHasId;

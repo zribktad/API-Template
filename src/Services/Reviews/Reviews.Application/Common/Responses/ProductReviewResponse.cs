@@ -1,6 +1,6 @@
 using SharedKernel.Domain.Entities.Contracts;
 
-namespace Reviews.Application.Features.ProductReview.DTOs;
+namespace Reviews.Application.Common.Responses;
 
 /// <summary>
 /// Read model returned by product review queries, representing a single review submitted by a user for a product.

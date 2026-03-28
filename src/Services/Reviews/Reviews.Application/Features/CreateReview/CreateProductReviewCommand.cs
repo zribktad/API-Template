@@ -1,18 +1,27 @@
+using System.ComponentModel.DataAnnotations;
 using Contracts.IntegrationEvents.Reviews;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
-using Reviews.Application.Common.Errors;
 using Reviews.Application.Common.Events;
-using Reviews.Application.Features.ProductReview.DTOs;
-using Reviews.Application.Features.ProductReview.Mappings;
+using Reviews.Application.Common.Mappings;
+using Reviews.Application.Common.Responses;
+using Reviews.Application.Common.Errors;
 using Reviews.Domain.Entities;
 using Reviews.Domain.Interfaces;
 using SharedKernel.Application.Context;
+using SharedKernel.Application.Validation;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;
 using ProductReviewEntity = Reviews.Domain.Entities.ProductReview;
 
-namespace Reviews.Application.Features.ProductReview.Commands;
+namespace Reviews.Application.Features.CreateReview;
+
+/// <summary>Payload for submitting a new product review, including the target product, an optional comment, and a 1-5 star rating.</summary>
+public sealed record CreateProductReviewRequest(
+    [NotEmpty(ErrorMessage = "ProductId is required.")] Guid ProductId,
+    string? Comment,
+    [Range(1, 5, ErrorMessage = "Rating must be between 1 and 5.")] int Rating
+);
 
 /// <summary>Creates a new product review for the authenticated user and returns the persisted representation.</summary>
 public sealed record CreateProductReviewCommand(CreateProductReviewRequest Request);

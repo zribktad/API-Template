@@ -2,11 +2,12 @@ using Contracts.IntegrationEvents.ProductCatalog;
 using Contracts.IntegrationEvents.Sagas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Reviews.Domain.Entities;
 using SharedKernel.Infrastructure.Persistence.SoftDelete;
 using Wolverine;
+using ProductProjection = Reviews.Domain.Entities.ProductProjection;
+using ProductReviewEntity = Reviews.Domain.Entities.ProductReview;
 
-namespace Reviews.Application.EventHandlers;
+namespace Reviews.Application.Features.ProductEvents;
 
 /// <summary>
 /// Handles <see cref="ProductDeletedIntegrationEvent"/> by marking product projections inactive
@@ -32,7 +33,7 @@ public sealed class ProductDeletedEventHandler
         // Cascade soft-delete reviews
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         int deletedCount = await dbContext
-            .Set<ProductReview>()
+            .Set<ProductReviewEntity>()
             .Where(r => @event.ProductIds.Contains(r.ProductId) && !r.IsDeleted)
             .BulkSoftDeleteAsync(actorId: null, now, ct);
 

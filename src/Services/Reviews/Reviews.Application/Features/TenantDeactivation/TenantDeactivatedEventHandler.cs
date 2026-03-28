@@ -1,10 +1,11 @@
 using Contracts.IntegrationEvents.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Reviews.Domain.Entities;
 using SharedKernel.Infrastructure.Persistence.SoftDelete;
+using ProductProjection = Reviews.Domain.Entities.ProductProjection;
+using ProductReviewEntity = Reviews.Domain.Entities.ProductReview;
 
-namespace Reviews.Application.EventHandlers;
+namespace Reviews.Application.Features.TenantDeactivation;
 
 /// <summary>
 /// Handles <see cref="TenantDeactivatedIntegrationEvent"/> by cascade soft-deleting
@@ -24,7 +25,7 @@ public sealed class TenantDeactivatedEventHandler
 
         // Cascade soft-delete all reviews for the tenant
         int deletedReviews = await dbContext
-            .Set<ProductReview>()
+            .Set<ProductReviewEntity>()
             .IgnoreQueryFilters()
             .Where(r => r.TenantId == @event.TenantId && !r.IsDeleted)
             .BulkSoftDeleteAsync(@event.ActorId, now, ct);

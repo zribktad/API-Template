@@ -1,8 +1,8 @@
 using System.Linq.Expressions;
-using Reviews.Application.Features.ProductReview.DTOs;
+using Reviews.Application.Common.Responses;
 using ProductReviewEntity = Reviews.Domain.Entities.ProductReview;
 
-namespace Reviews.Application.Features.ProductReview.Mappings;
+namespace Reviews.Application.Common.Mappings;
 
 /// <summary>
 /// Provides mapping utilities between product review domain entities and their response DTOs.

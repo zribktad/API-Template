@@ -1,7 +1,7 @@
 using Contracts.IntegrationEvents.Reviews;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using Reviews.Application.EventHandlers;
+using Reviews.Application.Features.ProductEvents;
 using Reviews.Domain.Interfaces;
 using Reviews.Infrastructure.Persistence;
 using Reviews.Infrastructure.Repositories;

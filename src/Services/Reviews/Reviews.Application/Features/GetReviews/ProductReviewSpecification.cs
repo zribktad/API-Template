@@ -1,8 +1,25 @@
 using Ardalis.Specification;
-using Reviews.Application.Features.ProductReview.DTOs;
+using Reviews.Application.Common.Mappings;
+using Reviews.Application.Common.Responses;
+using Reviews.Application.Common.Sorting;
 using ProductReviewEntity = Reviews.Domain.Entities.ProductReview;
 
-namespace Reviews.Application.Features.ProductReview.Specifications;
+namespace Reviews.Application.Features.GetReviews;
+
+/// <summary>
+/// Ardalis specification for querying a filtered and sorted list of product reviews
+/// projected to <see cref="ProductReviewResponse"/>.
+/// </summary>
+public sealed class ProductReviewSpecification : Specification<ProductReviewEntity, ProductReviewResponse>
+{
+    /// <summary>Initialises the specification by applying filter, sort, and projection from <paramref name="filter"/>.</summary>
+    public ProductReviewSpecification(ProductReviewFilter filter)
+    {
+        Query.ApplyFilter(filter);
+        ProductReviewSortFields.Map.ApplySort(Query, filter.SortBy, filter.SortDirection);
+        Query.Select(ProductReviewMappings.Projection);
+    }
+}
 
 /// <summary>
 /// Extension methods that apply <see cref="ProductReviewFilter"/> criteria to an Ardalis specification builder.
@@ -10,10 +27,6 @@ namespace Reviews.Application.Features.ProductReview.Specifications;
 /// </summary>
 internal static class ProductReviewFilterCriteria
 {
-    /// <summary>
-    /// Appends filter predicates to <paramref name="query"/> for each non-null field in <paramref name="filter"/>,
-    /// including product id, user id, rating range, and creation date range.
-    /// </summary>
     internal static void ApplyFilter(
         this ISpecificationBuilder<ProductReviewEntity> query,
         ProductReviewFilter filter

@@ -1,9 +1,8 @@
 using ErrorOr;
-using Reviews.Application.Features.ProductReview.DTOs;
-using Reviews.Application.Features.ProductReview.Specifications;
+using Reviews.Application.Common.Responses;
 using Reviews.Domain.Interfaces;
 
-namespace Reviews.Application.Features.ProductReview.Queries;
+namespace Reviews.Application.Features.GetReviewsByProductId;
 
 /// <summary>Returns all reviews for a specific product, ordered by creation date descending.</summary>
 public sealed record GetProductReviewsByProductIdQuery(Guid ProductId);
@@ -18,7 +17,7 @@ public sealed class GetProductReviewsByProductIdQueryHandler
     )
     {
         return await reviewRepository.ListAsync(
-            new ProductReviewByProductIdSpecification(request.ProductId),
+            new GetReviewsByProductIdSpec(request.ProductId),
             ct
         );
     }

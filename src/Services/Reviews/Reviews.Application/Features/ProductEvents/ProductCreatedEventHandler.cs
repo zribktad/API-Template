@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Reviews.Domain.Entities;
 
-namespace Reviews.Application.EventHandlers;
+namespace Reviews.Application.Features.ProductEvents;
 
 /// <summary>
 /// Handles <see cref="ProductCreatedIntegrationEvent"/> by creating or reactivating

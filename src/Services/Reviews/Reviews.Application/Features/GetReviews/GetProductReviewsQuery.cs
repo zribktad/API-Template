@@ -1,10 +1,9 @@
 using ErrorOr;
-using Reviews.Application.Features.ProductReview.DTOs;
-using Reviews.Application.Features.ProductReview.Specifications;
+using Reviews.Application.Common.Responses;
 using Reviews.Domain.Interfaces;
 using SharedKernel.Domain.Common;
 
-namespace Reviews.Application.Features.ProductReview.Queries;
+namespace Reviews.Application.Features.GetReviews;
 
 /// <summary>Returns a paginated, filtered, and sorted list of product reviews.</summary>
 public sealed record GetProductReviewsQuery(ProductReviewFilter Filter);

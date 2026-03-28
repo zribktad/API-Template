@@ -1,8 +1,26 @@
 using FluentValidation;
-using Reviews.Application.Features.ProductReview.DTOs;
+using Reviews.Application.Common.Sorting;
+using SharedKernel.Application.Contracts;
+using SharedKernel.Application.DTOs;
 using SharedKernel.Application.Validation;
 
-namespace Reviews.Application.Features.ProductReview.Validation;
+namespace Reviews.Application.Features.GetReviews;
+
+/// <summary>
+/// Filter parameters for querying product reviews, supporting filtering by product, user, rating range, date range, sorting, and pagination.
+/// </summary>
+public sealed record ProductReviewFilter(
+    Guid? ProductId = null,
+    Guid? UserId = null,
+    int? MinRating = null,
+    int? MaxRating = null,
+    DateTime? CreatedFrom = null,
+    DateTime? CreatedTo = null,
+    string? SortBy = null,
+    string? SortDirection = null,
+    int PageNumber = 1,
+    int PageSize = PaginationFilter.DefaultPageSize
+) : PaginationFilter(PageNumber, PageSize), IDateRangeFilter, ISortableFilter;
 
 /// <summary>
 /// FluentValidation validator for <see cref="ProductReviewFilter"/>.
@@ -14,11 +32,7 @@ public sealed class ProductReviewFilterValidator : AbstractValidator<ProductRevi
     {
         Include(new PaginationFilterValidator());
         Include(new DateRangeFilterValidator<ProductReviewFilter>());
-        Include(
-            new SortableFilterValidator<ProductReviewFilter>(
-                ProductReviewSortFields.Map.AllowedNames
-            )
-        );
+        Include(new SortableFilterValidator<ProductReviewFilter>(ProductReviewSortFields.Map.AllowedNames));
 
         RuleFor(x => x.MinRating)
             .InclusiveBetween(1, 5)

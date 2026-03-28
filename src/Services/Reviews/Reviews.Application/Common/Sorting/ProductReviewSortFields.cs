@@ -1,7 +1,7 @@
 using SharedKernel.Application.Sorting;
 using ProductReviewEntity = Reviews.Domain.Entities.ProductReview;
 
-namespace Reviews.Application.Features.ProductReview;
+namespace Reviews.Application.Common.Sorting;
 
 /// <summary>
 /// Defines the allowed sort fields for product review queries and maps them to entity expressions.

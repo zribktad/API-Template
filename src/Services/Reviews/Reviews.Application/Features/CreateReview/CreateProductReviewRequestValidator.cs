@@ -1,7 +1,6 @@
-using Reviews.Application.Features.ProductReview.DTOs;
 using SharedKernel.Application.Validation;
 
-namespace Reviews.Application.Features.ProductReview.Validation;
+namespace Reviews.Application.Features.CreateReview;
 
 /// <summary>
 /// FluentValidation validator for <see cref="CreateProductReviewRequest"/>, delegating to data-annotation-based validation rules.
