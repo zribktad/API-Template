@@ -1,27 +1,200 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/APITemplate.Api/APITemplate.Api.csproj" />
-    <Project Path="src/APITemplate.Application/APITemplate.Application.csproj" />
-    <Project Path="src/APITemplate.Domain/APITemplate.Domain.csproj" />
-    <Project Path="src/APITemplate.Infrastructure/APITemplate.Infrastructure.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/APITemplate.Tests/APITemplate.Tests.csproj" />
-  </Folder>
-  <Folder Name="/docs/">
-    <File Path="docs/README.md" />
-  </Folder>
-  <Folder Name="/infrastructure/">
-    <File Path="infrastructure/keycloak/realms/api-template-realm.json" />
-  </Folder>
+
+  <!-- ================================================================
+       SOLUTION ITEMS — root config, docker-compose, git
+       ================================================================ -->
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
     <File Path="CLAUDE.md" />
     <File Path="TODO.md" />
+    <File Path="TODO-Architecture.md" />
+    <File Path="LICENSE" />
+    <File Path="global.json" />
     <File Path="Directory.Build.targets" />
     <File Path="Directory.Packages.props" />
     <File Path="docker-compose.yml" />
+    <File Path="docker-compose.microservices.yml" />
     <File Path="docker-compose.production.yml" />
+    <File Path=".gitignore" />
     <File Path=".dockerignore" />
   </Folder>
+
+  <!-- ================================================================
+       CI/CD — GitHub Actions, Dependabot
+       ================================================================ -->
+  <Folder Name="/.github/">
+    <File Path=".github/dependabot.yml" />
+    <File Path=".github/workflows/pr-validation.yml" />
+  </Folder>
+
+  <!-- ================================================================
+       SOURCE — monolith + microservices
+       ================================================================ -->
+  <Folder Name="/src/">
+
+    <!-- Monolith (single deployable API template) -->
+    <Folder Name="Monolith">
+      <Project Path="src/APITemplate.Api/APITemplate.Api.csproj" />
+      <Project Path="src/APITemplate.Application/APITemplate.Application.csproj" />
+      <Project Path="src/APITemplate.Domain/APITemplate.Domain.csproj" />
+      <Project Path="src/APITemplate.Infrastructure/APITemplate.Infrastructure.csproj" />
+    </Folder>
+
+    <!-- Shared kernel — cross-cutting abstractions reused by all services -->
+    <Folder Name="SharedKernel">
+      <Project Path="src/SharedKernel/SharedKernel.Domain/SharedKernel.Domain.csproj" />
+      <Project Path="src/SharedKernel/SharedKernel.Application/SharedKernel.Application.csproj" />
+      <Project Path="src/SharedKernel/SharedKernel.Infrastructure/SharedKernel.Infrastructure.csproj" />
+      <Project Path="src/SharedKernel/SharedKernel.Messaging/SharedKernel.Messaging.csproj" />
+      <Project Path="src/SharedKernel/SharedKernel.Api/SharedKernel.Api.csproj" />
+    </Folder>
+
+    <!-- Contracts — integration events shared across service boundaries -->
+    <Folder Name="Contracts">
+      <Project Path="src/Contracts/Contracts.IntegrationEvents/Contracts.IntegrationEvents.csproj" />
+    </Folder>
+
+    <!-- Microservices — each service follows Domain/Application/Infrastructure/Api layers -->
+    <Folder Name="Services">
+      <Folder Name="ProductCatalog">
+        <Project Path="src/Services/ProductCatalog/ProductCatalog.Domain/ProductCatalog.Domain.csproj" />
+        <Project Path="src/Services/ProductCatalog/ProductCatalog.Application/ProductCatalog.Application.csproj" />
+        <Project Path="src/Services/ProductCatalog/ProductCatalog.Infrastructure/ProductCatalog.Infrastructure.csproj" />
+        <Project Path="src/Services/ProductCatalog/ProductCatalog.Api/ProductCatalog.Api.csproj" />
+      </Folder>
+      <Folder Name="Reviews">
+        <Project Path="src/Services/Reviews/Reviews.Domain/Reviews.Domain.csproj" />
+        <Project Path="src/Services/Reviews/Reviews.Application/Reviews.Application.csproj" />
+        <Project Path="src/Services/Reviews/Reviews.Infrastructure/Reviews.Infrastructure.csproj" />
+        <Project Path="src/Services/Reviews/Reviews.Api/Reviews.Api.csproj" />
+      </Folder>
+      <Folder Name="Identity">
+        <Project Path="src/Services/Identity/Identity.Domain/Identity.Domain.csproj" />
+        <Project Path="src/Services/Identity/Identity.Application/Identity.Application.csproj" />
+        <Project Path="src/Services/Identity/Identity.Infrastructure/Identity.Infrastructure.csproj" />
+        <Project Path="src/Services/Identity/Identity.Api/Identity.Api.csproj" />
+      </Folder>
+      <Folder Name="Notifications">
+        <Project Path="src/Services/Notifications/Notifications.Domain/Notifications.Domain.csproj" />
+        <Project Path="src/Services/Notifications/Notifications.Application/Notifications.Application.csproj" />
+        <Project Path="src/Services/Notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj" />
+        <Project Path="src/Services/Notifications/Notifications.Api/Notifications.Api.csproj" />
+      </Folder>
+      <Folder Name="FileStorage">
+        <Project Path="src/Services/FileStorage/FileStorage.Domain/FileStorage.Domain.csproj" />
+        <Project Path="src/Services/FileStorage/FileStorage.Application/FileStorage.Application.csproj" />
+        <Project Path="src/Services/FileStorage/FileStorage.Infrastructure/FileStorage.Infrastructure.csproj" />
+        <Project Path="src/Services/FileStorage/FileStorage.Api/FileStorage.Api.csproj" />
+      </Folder>
+      <Folder Name="BackgroundJobs">
+        <Project Path="src/Services/BackgroundJobs/BackgroundJobs.Domain/BackgroundJobs.Domain.csproj" />
+        <Project Path="src/Services/BackgroundJobs/BackgroundJobs.Application/BackgroundJobs.Application.csproj" />
+        <Project Path="src/Services/BackgroundJobs/BackgroundJobs.Infrastructure/BackgroundJobs.Infrastructure.csproj" />
+        <Project Path="src/Services/BackgroundJobs/BackgroundJobs.Api/BackgroundJobs.Api.csproj" />
+      </Folder>
+      <Folder Name="Webhooks">
+        <Project Path="src/Services/Webhooks/Webhooks.Domain/Webhooks.Domain.csproj" />
+        <Project Path="src/Services/Webhooks/Webhooks.Application/Webhooks.Application.csproj" />
+        <Project Path="src/Services/Webhooks/Webhooks.Infrastructure/Webhooks.Infrastructure.csproj" />
+        <Project Path="src/Services/Webhooks/Webhooks.Api/Webhooks.Api.csproj" />
+      </Folder>
+    </Folder>
+
+    <!-- Gateway — single entry point / reverse proxy for all microservices -->
+    <Folder Name="Gateway">
+      <Project Path="src/Gateway/Gateway.Api/Gateway.Api.csproj" />
+    </Folder>
+
+  </Folder>
+
+  <!-- ================================================================
+       TESTS — unit tests per service + integration tests
+       ================================================================ -->
+  <Folder Name="/tests/">
+    <Project Path="tests/APITemplate.Tests/APITemplate.Tests.csproj" />
+    <Project Path="tests/SharedKernel.Tests/SharedKernel.Tests.csproj" />
+    <Project Path="tests/ProductCatalog.Tests/ProductCatalog.Tests.csproj" />
+    <Project Path="tests/Reviews.Tests/Reviews.Tests.csproj" />
+    <Project Path="tests/Identity.Tests/Identity.Tests.csproj" />
+    <Project Path="tests/Notifications.Tests/Notifications.Tests.csproj" />
+    <Project Path="tests/FileStorage.Tests/FileStorage.Tests.csproj" />
+    <Project Path="tests/BackgroundJobs.Tests/BackgroundJobs.Tests.csproj" />
+    <Project Path="tests/Webhooks.Tests/Webhooks.Tests.csproj" />
+    <Project Path="tests/Integration.Tests/Integration.Tests.csproj" />
+  </Folder>
+
+  <!-- ================================================================
+       DOCS — architecture, guides, how-tos
+       ================================================================ -->
+  <Folder Name="/docs/">
+    <File Path="docs/README.md" />
+    <Folder Name="Architecture">
+      <File Path="docs/Architecture-Microservices-Plan.md" />
+      <File Path="docs/cqrs-architecture.md" />
+    </Folder>
+    <Folder Name="Authentication">
+      <File Path="docs/AUTHENTICATION.md" />
+      <File Path="docs/keycloak-auth-workflow.md" />
+    </Folder>
+    <Folder Name="Database">
+      <File Path="docs/ef-migration.md" />
+      <File Path="docs/mongodb-migration.md" />
+      <File Path="docs/mongodb-polymorphism.md" />
+      <File Path="docs/stored-procedures.md" />
+    </Folder>
+    <Folder Name="Endpoints">
+      <File Path="docs/endpoint-showcase.md" />
+      <File Path="docs/how-to-create-endpoint.md" />
+      <File Path="docs/rest-endpoint.md" />
+      <File Path="docs/graphql-endpoint.md" />
+      <File Path="docs/scalar-and-graphql-ui.md" />
+    </Folder>
+    <Folder Name="Patterns">
+      <File Path="docs/result-pattern.md" />
+      <File Path="docs/specifications.md" />
+      <File Path="docs/transactions.md" />
+      <File Path="docs/validation.md" />
+    </Folder>
+    <Folder Name="Operations">
+      <File Path="docs/CACHING.md" />
+      <File Path="docs/observability.md" />
+    </Folder>
+    <Folder Name="Development">
+      <File Path="docs/GIT_HOOKS.md" />
+      <File Path="docs/mailing.md" />
+      <File Path="docs/testing.md" />
+      <File Path="docs/remaining-refactoring.md" />
+    </Folder>
+  </Folder>
+
+  <!-- ================================================================
+       INFRASTRUCTURE — docker, k8s, observability stack, keycloak
+       ================================================================ -->
+  <Folder Name="/infrastructure/">
+    <Folder Name="docker">
+      <File Path="infrastructure/docker/init-microservices-databases.sql" />
+    </Folder>
+    <Folder Name="dragonfly">
+      <File Path="infrastructure/dragonfly/haproxy.cfg" />
+    </Folder>
+    <Folder Name="keycloak">
+      <File Path="infrastructure/keycloak/realms/api-template-realm.json" />
+    </Folder>
+    <Folder Name="kubernetes">
+      <File Path="infrastructure/kubernetes/dragonfly/dragonfly.yml" />
+      <File Path="infrastructure/kubernetes/dragonfly/README.md" />
+    </Folder>
+    <Folder Name="observability">
+      <File Path="infrastructure/observability/alloy/config.alloy" />
+      <File Path="infrastructure/observability/grafana/dashboards/apitemplate-overview.json" />
+      <File Path="infrastructure/observability/grafana/grafana.ini" />
+      <File Path="infrastructure/observability/grafana/provisioning/dashboards/dashboards.yml" />
+      <File Path="infrastructure/observability/grafana/provisioning/datasources/datasources.yml" />
+      <File Path="infrastructure/observability/loki/config.yml" />
+      <File Path="infrastructure/observability/prometheus/prometheus.yml" />
+      <File Path="infrastructure/observability/prometheus/rules/apitemplate-alerts.yml" />
+      <File Path="infrastructure/observability/tempo/config.yml" />
+    </Folder>
+  </Folder>
+
 </Solution>
