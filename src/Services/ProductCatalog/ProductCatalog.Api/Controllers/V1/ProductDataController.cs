@@ -1,13 +1,13 @@
 using Asp.Versioning;
-using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using ProductCatalog.Application.Features.ProductData.Commands;
 using ProductCatalog.Application.Features.ProductData.DTOs;
 using ProductCatalog.Application.Features.ProductData.Queries;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
-using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Security;
 using Wolverine;
 
@@ -23,64 +23,51 @@ public sealed class ProductDataController(IMessageBus bus) : ApiControllerBase
 {
     [HttpGet]
     [RequirePermission(Permission.ProductData.Read)]
-    public async Task<ActionResult<List<ProductDataResponse>>> GetAll(
+    [OutputCache(PolicyName = CacheTags.ProductData)]
+    public Task<ActionResult<List<ProductDataResponse>>> GetAll(
         [FromQuery] string? type,
         CancellationToken ct
-    )
-    {
-        ErrorOr<List<ProductDataResponse>> result = await bus.InvokeAsync<
-            ErrorOr<List<ProductDataResponse>>
-        >(new GetProductDataQuery(type), ct);
-        return result.ToActionResult(this);
-    }
+    ) =>
+        InvokeToActionResultAsync<List<ProductDataResponse>>(
+            bus,
+            new GetProductDataQuery(type),
+            ct
+        );
 
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.ProductData.Read)]
-    public async Task<ActionResult<ProductDataResponse>> GetById(Guid id, CancellationToken ct)
-    {
-        ErrorOr<ProductDataResponse> result = await bus.InvokeAsync<ErrorOr<ProductDataResponse>>(
-            new GetProductDataByIdQuery(id),
-            ct
-        );
-        return result.ToActionResult(this);
-    }
+    [OutputCache(PolicyName = CacheTags.ProductData)]
+    public Task<ActionResult<ProductDataResponse>> GetById(Guid id, CancellationToken ct) =>
+        InvokeToActionResultAsync<ProductDataResponse>(bus, new GetProductDataByIdQuery(id), ct);
 
     [HttpPost("image")]
     [RequirePermission(Permission.ProductData.Create)]
-    public async Task<ActionResult<ProductDataResponse>> CreateImage(
+    public Task<ActionResult<ProductDataResponse>> CreateImage(
         CreateImageProductDataRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<ProductDataResponse> result = await bus.InvokeAsync<ErrorOr<ProductDataResponse>>(
+    ) =>
+        InvokeToCreatedResultAsync<ProductDataResponse>(
+            bus,
             new CreateImageProductDataCommand(request),
+            v => new { id = v.Id, version = this.GetApiVersion() },
             ct
         );
-        return result.ToCreatedResult(this, v => new { id = v.Id, version = this.GetApiVersion() });
-    }
 
     [HttpPost("video")]
     [RequirePermission(Permission.ProductData.Create)]
-    public async Task<ActionResult<ProductDataResponse>> CreateVideo(
+    public Task<ActionResult<ProductDataResponse>> CreateVideo(
         CreateVideoProductDataRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<ProductDataResponse> result = await bus.InvokeAsync<ErrorOr<ProductDataResponse>>(
+    ) =>
+        InvokeToCreatedResultAsync<ProductDataResponse>(
+            bus,
             new CreateVideoProductDataCommand(request),
+            v => new { id = v.Id, version = this.GetApiVersion() },
             ct
         );
-        return result.ToCreatedResult(this, v => new { id = v.Id, version = this.GetApiVersion() });
-    }
 
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.ProductData.Delete)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
-    {
-        ErrorOr<Success> result = await bus.InvokeAsync<ErrorOr<Success>>(
-            new DeleteProductDataCommand(id),
-            ct
-        );
-        return result.ToNoContentResult(this);
-    }
+    public Task<IActionResult> Delete(Guid id, CancellationToken ct) =>
+        InvokeToNoContentResultAsync(bus, new DeleteProductDataCommand(id), ct);
 }

@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\APITemplate.Application\APITemplate.Application.csproj" />
     <ProjectReference Include="..\APITemplate.Infrastructure\APITemplate.Infrastructure.csproj" />
+    <ProjectReference Include="..\SharedKernel\SharedKernel.Application\SharedKernel.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

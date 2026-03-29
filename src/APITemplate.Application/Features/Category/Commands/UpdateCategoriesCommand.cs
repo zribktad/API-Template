@@ -1,9 +1,9 @@
 using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Batch.Rules;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Category.Specifications;
 using ErrorOr;
 using FluentValidation;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.Category;
@@ -14,11 +14,10 @@ public sealed record UpdateCategoriesCommand(UpdateCategoriesRequest Request);
 /// <summary>Handles <see cref="UpdateCategoriesCommand"/> by validating all items, loading categories in bulk, and updating in a single transaction.</summary>
 public sealed class UpdateCategoriesCommandHandler
 {
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         UpdateCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         IValidator<UpdateCategoryItem> itemValidator,
         CancellationToken ct
     )
@@ -49,7 +48,7 @@ public sealed class UpdateCategoriesCommandHandler
         );
 
         if (context.HasFailures)
-            return context.ToFailureResponse();
+            return (context.ToFailureResponse(), CacheInvalidationCascades.None);
 
         // Apply changes in a single transaction
         await unitOfWork.ExecuteInTransactionAsync(
@@ -69,8 +68,9 @@ public sealed class UpdateCategoriesCommandHandler
             ct
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories));
-
-        return new BatchResponse([], items.Count, 0);
+        return (
+            new BatchResponse([], items.Count, 0),
+            CacheInvalidationCascades.ForTag(CacheTags.Categories)
+        );
     }
 }

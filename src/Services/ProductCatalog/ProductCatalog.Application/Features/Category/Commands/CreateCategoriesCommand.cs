@@ -4,8 +4,10 @@ using ProductCatalog.Application.Features.Category.DTOs;
 using ProductCatalog.Domain.Interfaces;
 using SharedKernel.Application.Batch;
 using SharedKernel.Application.Batch.Rules;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Domain.Interfaces;
+using Wolverine;
 using CategoryEntity = ProductCatalog.Domain.Entities.Category;
 
 namespace ProductCatalog.Application.Features.Category.Commands;
@@ -16,7 +18,7 @@ public sealed record CreateCategoriesCommand(CreateCategoriesRequest Request);
 /// <summary>Handles <see cref="CreateCategoriesCommand"/> by validating all items and persisting in a single transaction.</summary>
 public sealed class CreateCategoriesCommandHandler
 {
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         CreateCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,
@@ -33,7 +35,7 @@ public sealed class CreateCategoriesCommandHandler
         );
 
         if (context.HasFailures)
-            return context.ToFailureResponse();
+            return (context.ToFailureResponse(), CacheInvalidationCascades.None);
 
         List<CategoryEntity> entities = items
             .Select(item => new CategoryEntity
@@ -52,6 +54,9 @@ public sealed class CreateCategoriesCommandHandler
             ct
         );
 
-        return new BatchResponse([], items.Count, 0);
+        return (
+            new BatchResponse([], items.Count, 0),
+            CacheInvalidationCascades.ForTag(CacheTags.Categories)
+        );
     }
 }

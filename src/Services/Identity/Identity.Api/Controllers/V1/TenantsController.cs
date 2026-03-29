@@ -1,13 +1,13 @@
 using Asp.Versioning;
-using ErrorOr;
 using Identity.Application.Features.Tenant.Commands;
 using Identity.Application.Features.Tenant.DTOs;
 using Identity.Application.Features.Tenant.Queries;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
-using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
 using Wolverine;
@@ -19,50 +19,38 @@ public sealed class TenantsController(IMessageBus bus) : ApiControllerBase
 {
     [HttpGet]
     [RequirePermission(Permission.Tenants.Read)]
-    public async Task<ActionResult<PagedResponse<TenantResponse>>> GetAll(
+    [OutputCache(PolicyName = CacheTags.Tenants)]
+    public Task<ActionResult<PagedResponse<TenantResponse>>> GetAll(
         [FromQuery] TenantFilter filter,
         CancellationToken ct
-    )
-    {
-        ErrorOr<PagedResponse<TenantResponse>> result = await bus.InvokeAsync<
-            ErrorOr<PagedResponse<TenantResponse>>
-        >(new GetTenantsQuery(filter), ct);
-        return result.ToActionResult(this);
-    }
+    ) =>
+        InvokeToActionResultAsync<PagedResponse<TenantResponse>>(
+            bus,
+            new GetTenantsQuery(filter),
+            ct
+        );
 
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Tenants.Read)]
-    public async Task<ActionResult<TenantResponse>> GetById(Guid id, CancellationToken ct)
-    {
-        ErrorOr<TenantResponse> result = await bus.InvokeAsync<ErrorOr<TenantResponse>>(
-            new GetTenantByIdQuery(id),
-            ct
-        );
-        return result.ToActionResult(this);
-    }
+    [OutputCache(PolicyName = CacheTags.Tenants)]
+    public Task<ActionResult<TenantResponse>> GetById(Guid id, CancellationToken ct) =>
+        InvokeToActionResultAsync<TenantResponse>(bus, new GetTenantByIdQuery(id), ct);
 
     [HttpPost]
     [RequirePermission(Permission.Tenants.Create)]
-    public async Task<ActionResult<TenantResponse>> Create(
+    public Task<ActionResult<TenantResponse>> Create(
         CreateTenantRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<TenantResponse> result = await bus.InvokeAsync<ErrorOr<TenantResponse>>(
+    ) =>
+        InvokeToCreatedResultAsync<TenantResponse>(
+            bus,
             new CreateTenantCommand(request),
+            v => new { id = v.Id, version = this.GetApiVersion() },
             ct
         );
-        return result.ToCreatedResult(this, v => new { id = v.Id, version = this.GetApiVersion() });
-    }
 
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.Tenants.Delete)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
-    {
-        ErrorOr<Success> result = await bus.InvokeAsync<ErrorOr<Success>>(
-            new DeleteTenantCommand(id),
-            ct
-        );
-        return result.ToNoContentResult(this);
-    }
+    public Task<IActionResult> Delete(Guid id, CancellationToken ct) =>
+        InvokeToNoContentResultAsync(bus, new DeleteTenantCommand(id), ct);
 }

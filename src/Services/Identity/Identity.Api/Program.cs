@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.OutputCaching;
 using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
@@ -103,6 +104,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<IKeycloakAdminService>();
 
 builder.Services.AddControllers();
 builder.Services.AddSharedOpenApiDocumentation();
+builder.Services.AddSharedOutputCaching(builder.Configuration);
 
 builder.Services.AddHealthChecks();
 
@@ -115,6 +117,7 @@ builder.Host.UseWolverine(opts =>
 
     opts.Discovery.IncludeAssembly(typeof(IKeycloakAdminService).Assembly);
     opts.Discovery.IncludeAssembly(typeof(TenantDeactivationSaga).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(CacheInvalidationHandler).Assembly);
 
     opts.PersistMessagesWithPostgresql(
         builder.Configuration.GetRequiredConnectionString("IdentityDb"),
@@ -163,11 +166,7 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<IdentityDbContext>();
 
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapSharedOpenApiEndpoint();
-app.MapHealthChecks("/health").AllowAnonymous();
-app.MapControllers();
+app.UseSharedMicroserviceApiPipeline(true, a => a.MapControllers());
 
 await app.RunAsync();
 

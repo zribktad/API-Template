@@ -1,9 +1,9 @@
 using APITemplate.Application.Common.Errors;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Common.Security;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.User;
@@ -12,11 +12,10 @@ public sealed record SetUserActiveCommand(Guid Id, bool IsActive) : IHasId;
 
 public sealed class SetUserActiveCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         SetUserActiveCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         IKeycloakAdminService keycloakAdmin,
         CancellationToken ct
     )
@@ -27,7 +26,7 @@ public sealed class SetUserActiveCommandHandler
             ct
         );
         if (userResult.IsError)
-            return userResult.Errors;
+            return (userResult.Errors, CacheInvalidationCascades.None);
         var user = userResult.Value;
 
         if (user.KeycloakUserId is not null)
@@ -37,7 +36,6 @@ public sealed class SetUserActiveCommandHandler
         await repository.UpdateAsync(user, ct);
         await unitOfWork.CommitAsync(ct);
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.Users));
     }
 }

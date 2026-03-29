@@ -1,5 +1,5 @@
-using APITemplate.Application.Common.Events;
 using Microsoft.Extensions.DependencyInjection;
+using SharedKernel.Application.Common.Events;
 using Shouldly;
 using Wolverine;
 using Xunit;

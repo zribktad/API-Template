@@ -1,8 +1,8 @@
 using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Batch.Rules;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Category.Specifications;
 using ErrorOr;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.Category;
@@ -13,11 +13,10 @@ public sealed record DeleteCategoriesCommand(BatchDeleteRequest Request);
 /// <summary>Handles <see cref="DeleteCategoriesCommand"/> by loading all categories and deleting in a single transaction.</summary>
 public sealed class DeleteCategoriesCommandHandler
 {
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         DeleteCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -40,7 +39,7 @@ public sealed class DeleteCategoriesCommandHandler
         );
 
         if (context.HasFailures)
-            return context.ToFailureResponse();
+            return (context.ToFailureResponse(), CacheInvalidationCascades.None);
 
         // Remove categories in a single transaction
         await unitOfWork.ExecuteInTransactionAsync(
@@ -51,8 +50,9 @@ public sealed class DeleteCategoriesCommandHandler
             ct
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Categories));
-
-        return new BatchResponse([], ids.Count, 0);
+        return (
+            new BatchResponse([], ids.Count, 0),
+            CacheInvalidationCascades.ForTag(CacheTags.Categories)
+        );
     }
 }

@@ -7,6 +7,7 @@ using APITemplate.Domain.Enums;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.TenantInvitation;
@@ -15,7 +16,7 @@ public sealed record ResendTenantInvitationCommand(Guid InvitationId);
 
 public sealed class ResendTenantInvitationCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         ResendTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
@@ -34,15 +35,15 @@ public sealed class ResendTenantInvitationCommandHandler
             ct
         );
         if (invitationResult.IsError)
-            return invitationResult.Errors;
+            return (invitationResult.Errors, CacheInvalidationCascades.None);
         var invitation = invitationResult.Value;
 
         if (invitation.Status != InvitationStatus.Pending)
-            return DomainErrors.Invitations.NotPending();
+            return (DomainErrors.Invitations.NotPending(), CacheInvalidationCascades.None);
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
         if (invitation.ExpiresAtUtc < now)
-            return DomainErrors.Invitations.ExpiredCreateNew();
+            return (DomainErrors.Invitations.ExpiredCreateNew(), CacheInvalidationCascades.None);
 
         var tenantResult = await tenantRepository.GetByIdOrError(
             tenantProvider.TenantId,
@@ -50,7 +51,7 @@ public sealed class ResendTenantInvitationCommandHandler
             ct
         );
         if (tenantResult.IsError)
-            return tenantResult.Errors;
+            return (tenantResult.Errors, CacheInvalidationCascades.None);
         var tenant = tenantResult.Value;
 
         var rawToken = tokenGenerator.GenerateToken();
@@ -69,7 +70,6 @@ public sealed class ResendTenantInvitationCommandHandler
             logger
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.TenantInvitations));
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.TenantInvitations));
     }
 }

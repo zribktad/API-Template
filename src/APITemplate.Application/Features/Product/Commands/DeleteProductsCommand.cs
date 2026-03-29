@@ -1,8 +1,8 @@
 using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Batch.Rules;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.Product.Specifications;
 using ErrorOr;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.Product;
@@ -13,11 +13,10 @@ public sealed record DeleteProductsCommand(BatchDeleteRequest Request);
 /// <summary>Handles <see cref="DeleteProductsCommand"/> by loading all products, soft-deleting links and products in a single transaction.</summary>
 public sealed class DeleteProductsCommandHandler
 {
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         DeleteProductsCommand command,
         IProductRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -40,7 +39,7 @@ public sealed class DeleteProductsCommandHandler
         );
 
         if (context.HasFailures)
-            return context.ToFailureResponse();
+            return (context.ToFailureResponse(), CacheInvalidationCascades.None);
 
         // Soft-delete product-data links and remove products in a single transaction
         await unitOfWork.ExecuteInTransactionAsync(
@@ -54,9 +53,9 @@ public sealed class DeleteProductsCommandHandler
             ct
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews));
-
-        return new BatchResponse([], ids.Count, 0);
+        return (
+            new BatchResponse([], ids.Count, 0),
+            CacheInvalidationCascades.ForTags(CacheTags.Products, CacheTags.Reviews)
+        );
     }
 }

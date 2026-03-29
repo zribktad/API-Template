@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.RabbitMQ;
 
@@ -24,7 +25,13 @@ public static class RabbitMqConventionExtensions
         string connectionString =
             configuration.GetConnectionString("RabbitMQ") ?? BuildFromHostName(configuration);
 
-        opts.UseRabbitMq(new Uri(connectionString)).AutoProvision().EnableWolverineControlQueues();
+        opts.UseRabbitMq(new Uri(connectionString))
+            .AutoProvision()
+            .EnableWolverineControlQueues()
+            .ConfigureListeners(listener =>
+            {
+                listener.UseInterop(new TenantAwareEnvelopeMapper());
+            });
 
         return opts;
     }

@@ -7,6 +7,7 @@ using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.User;
@@ -15,7 +16,7 @@ public sealed record CreateUserCommand(CreateUserRequest Request);
 
 public sealed class CreateUserCommandHandler
 {
-    public static async Task<ErrorOr<UserResponse>> HandleAsync(
+    public static async Task<(ErrorOr<UserResponse>, OutgoingMessages)> HandleAsync(
         CreateUserCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
@@ -31,7 +32,7 @@ public sealed class CreateUserCommandHandler
             ct
         );
         if (emailResult.IsError)
-            return emailResult.Errors;
+            return (emailResult.Errors, CacheInvalidationCascades.None);
 
         var usernameResult = await UserValidationHelper.ValidateUsernameUniqueAsync(
             repository,
@@ -39,7 +40,7 @@ public sealed class CreateUserCommandHandler
             ct
         );
         if (usernameResult.IsError)
-            return usernameResult.Errors;
+            return (usernameResult.Errors, CacheInvalidationCascades.None);
 
         var keycloakUserId = await keycloakAdmin.CreateUserAsync(
             command.Request.Username,
@@ -65,8 +66,7 @@ public sealed class CreateUserCommandHandler
                 logger
             );
 
-            await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
-            return user.ToResponse();
+            return (user.ToResponse(), CacheInvalidationCascades.ForTag(CacheTags.Users));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

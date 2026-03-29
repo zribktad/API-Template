@@ -34,15 +34,13 @@ public sealed class JobsController(IMessageBus bus) : ApiControllerBase
 
     /// <summary>Returns the current execution status of a previously submitted job, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<JobStatusResponse>> GetStatus(
+    public Task<ActionResult<JobStatusResponse>> GetStatus(
         [FromRoute] Guid id,
         CancellationToken ct
-    )
-    {
-        ErrorOr<JobStatusResponse> result = await bus.InvokeAsync<ErrorOr<JobStatusResponse>>(
+    ) =>
+        InvokeToActionResultAsync<JobStatusResponse>(
+            bus,
             new GetJobStatusQuery(new GetJobStatusRequest(id)),
             ct
         );
-        return result.ToActionResult(this);
-    }
 }

@@ -3,6 +3,7 @@ using ErrorOr;
 using Identity.Application.Errors;
 using Identity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Context;
 using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Entities.Contracts;
@@ -15,7 +16,7 @@ public sealed record DeleteTenantCommand(Guid Id) : IHasId;
 
 public sealed class DeleteTenantCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         DeleteTenantCommand command,
         ITenantRepository repository,
         IUnitOfWork unitOfWork,
@@ -31,7 +32,7 @@ public sealed class DeleteTenantCommandHandler
             ct
         );
         if (tenantResult.IsError)
-            return tenantResult.Errors;
+            return (tenantResult.Errors, CacheInvalidationCascades.None);
 
         Guid correlationId = Guid.NewGuid();
 
@@ -50,6 +51,13 @@ public sealed class DeleteTenantCommandHandler
             ct
         );
 
-        return Result.Success;
+        return (
+            Result.Success,
+            CacheInvalidationCascades.ForTags(
+                CacheTags.Tenants,
+                CacheTags.Users,
+                CacheTags.TenantInvitations
+            )
+        );
     }
 }

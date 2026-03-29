@@ -11,12 +11,27 @@ internal static class WolverineTypeExtensions
         if (!returnType.IsGenericType)
             return false;
 
-        var genericTypeDefinition = returnType.GetGenericTypeDefinition();
+        Type genericTypeDefinition = returnType.GetGenericTypeDefinition();
 
         if (genericTypeDefinition == typeof(Task<>) || genericTypeDefinition == typeof(ValueTask<>))
             return returnType.GetGenericArguments()[0].IsErrorOrReturnType();
 
-        return genericTypeDefinition == typeof(ErrorOr<>);
+        if (genericTypeDefinition == typeof(ErrorOr<>))
+            return true;
+
+        // (ErrorOr<T>, OutgoingMessages) and similar ValueTuple returns
+        if (
+            returnType is { IsValueType: true, IsGenericType: true }
+            && returnType.Name.StartsWith("ValueTuple`", StringComparison.Ordinal)
+        )
+        {
+            Type[] args = returnType.GetGenericArguments();
+            return args.Length > 0
+                && args[0].IsGenericType
+                && args[0].GetGenericTypeDefinition() == typeof(ErrorOr<>);
+        }
+
+        return false;
     }
 
     internal static bool HasValidatorIn(this Type messageType, Assembly assembly)

@@ -125,7 +125,6 @@ public sealed class PostgresTransactionTests(SharedPostgresContainer postgres)
                     productRepository,
                     unitOfWork,
                     new TestActorProvider(actorId),
-                    Mock.Of<IMessageBus>(),
                     ct
                 )
             );

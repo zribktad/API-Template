@@ -1,12 +1,10 @@
 using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
-using APITemplate.Api.ErrorOrMapping;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Security;
 using Asp.Versioning;
-using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;
@@ -18,53 +16,40 @@ namespace APITemplate.Api.Controllers.V1;
 /// </summary>
 public sealed class TenantsController(IMessageBus bus) : ApiControllerBase
 {
-    /// <summary>Returns a paginated, filterable list of tenants.</summary>
     [HttpGet]
     [RequirePermission(Permission.Tenants.Read)]
     [OutputCache(PolicyName = CacheTags.Tenants)]
-    public async Task<ActionResult<PagedResponse<TenantResponse>>> GetAll(
+    public Task<ActionResult<PagedResponse<TenantResponse>>> GetAll(
         [FromQuery] TenantFilter filter,
         CancellationToken ct
-    )
-    {
-        var result = await bus.InvokeAsync<ErrorOr<PagedResponse<TenantResponse>>>(
+    ) =>
+        InvokeToActionResultAsync<PagedResponse<TenantResponse>>(
+            bus,
             new GetTenantsQuery(filter),
             ct
         );
-        return result.ToActionResult(this);
-    }
 
-    /// <summary>Returns a single tenant by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Tenants.Read)]
     [OutputCache(PolicyName = CacheTags.Tenants)]
-    public async Task<ActionResult<TenantResponse>> GetById(Guid id, CancellationToken ct)
-    {
-        var result = await bus.InvokeAsync<ErrorOr<TenantResponse>>(new GetTenantByIdQuery(id), ct);
-        return result.ToActionResult(this);
-    }
+    public Task<ActionResult<TenantResponse>> GetById(Guid id, CancellationToken ct) =>
+        InvokeToActionResultAsync<TenantResponse>(bus, new GetTenantByIdQuery(id), ct);
 
-    /// <summary>Creates a new tenant and returns it with a 201 Location header.</summary>
     [HttpPost]
     [RequirePermission(Permission.Tenants.Create)]
-    public async Task<ActionResult<TenantResponse>> Create(
+    public Task<ActionResult<TenantResponse>> Create(
         CreateTenantRequest request,
         CancellationToken ct
-    )
-    {
-        var result = await bus.InvokeAsync<ErrorOr<TenantResponse>>(
+    ) =>
+        InvokeToCreatedResultAsync<TenantResponse>(
+            bus,
             new CreateTenantCommand(request),
+            v => new { id = v.Id, version = this.GetApiVersion() },
             ct
         );
-        return result.ToCreatedResult(this, v => new { id = v.Id, version = this.GetApiVersion() });
-    }
 
-    /// <summary>Soft-deletes a tenant and cascades the deletion to its child entities.</summary>
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.Tenants.Delete)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
-    {
-        var result = await bus.InvokeAsync<ErrorOr<Success>>(new DeleteTenantCommand(id), ct);
-        return result.ToNoContentResult(this);
-    }
+    public Task<IActionResult> Delete(Guid id, CancellationToken ct) =>
+        InvokeToNoContentResultAsync(bus, new DeleteTenantCommand(id), ct);
 }

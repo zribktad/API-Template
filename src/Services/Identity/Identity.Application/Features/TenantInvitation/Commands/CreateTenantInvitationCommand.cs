@@ -9,6 +9,7 @@ using Identity.Domain.Entities;
 using Identity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Context;
 using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Interfaces;
@@ -21,7 +22,7 @@ public sealed record CreateTenantInvitationCommand(CreateTenantInvitationRequest
 
 public sealed class CreateTenantInvitationCommandHandler
 {
-    public static async Task<ErrorOr<TenantInvitationResponse>> HandleAsync(
+    public static async Task<(ErrorOr<TenantInvitationResponse>, OutgoingMessages)> HandleAsync(
         CreateTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
@@ -39,7 +40,10 @@ public sealed class CreateTenantInvitationCommandHandler
         string normalizedEmail = AppUser.NormalizeEmail(command.Request.Email);
 
         if (await invitationRepository.HasPendingInvitationAsync(normalizedEmail, ct))
-            return DomainErrors.Invitations.AlreadyPending(command.Request.Email);
+            return (
+                DomainErrors.Invitations.AlreadyPending(command.Request.Email),
+                CacheInvalidationCascades.None
+            );
 
         ErrorOr<Domain.Entities.Tenant> tenantResult = await tenantRepository.GetByIdOrError(
             tenantProvider.TenantId,
@@ -47,7 +51,7 @@ public sealed class CreateTenantInvitationCommandHandler
             ct
         );
         if (tenantResult.IsError)
-            return tenantResult.Errors;
+            return (tenantResult.Errors, CacheInvalidationCascades.None);
         Domain.Entities.Tenant tenant = tenantResult.Value;
 
         string rawToken = tokenGenerator.GenerateToken();
@@ -88,6 +92,9 @@ public sealed class CreateTenantInvitationCommandHandler
             );
         }
 
-        return invitation.ToResponse();
+        return (
+            invitation.ToResponse(),
+            CacheInvalidationCascades.ForTag(CacheTags.TenantInvitations)
+        );
     }
 }

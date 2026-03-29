@@ -1,12 +1,12 @@
 using Asp.Versioning;
-using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using ProductCatalog.Application.Features.Product.Commands;
 using ProductCatalog.Application.Features.Product.DTOs;
 using ProductCatalog.Application.Features.Product.Queries;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
-using SharedKernel.Api.ErrorOrMapping;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Application.Security;
 using Wolverine;
@@ -22,72 +22,40 @@ public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
     /// <summary>Returns a filtered, paginated product list including search facets.</summary>
     [HttpGet]
     [RequirePermission(Permission.Products.Read)]
-    public async Task<ActionResult<ProductsResponse>> GetAll(
+    [OutputCache(PolicyName = CacheTags.Products)]
+    public Task<ActionResult<ProductsResponse>> GetAll(
         [FromQuery] ProductFilter filter,
         CancellationToken ct
-    )
-    {
-        ErrorOr<ProductsResponse> result = await bus.InvokeAsync<ErrorOr<ProductsResponse>>(
-            new GetProductsQuery(filter),
-            ct
-        );
-        return result.ToActionResult(this);
-    }
+    ) => InvokeToActionResultAsync<ProductsResponse>(bus, new GetProductsQuery(filter), ct);
 
     /// <summary>Returns a single product by its identifier, or 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Products.Read)]
-    public async Task<ActionResult<ProductResponse>> GetById(Guid id, CancellationToken ct)
-    {
-        ErrorOr<ProductResponse> result = await bus.InvokeAsync<ErrorOr<ProductResponse>>(
-            new GetProductByIdQuery(id),
-            ct
-        );
-        return result.ToActionResult(this);
-    }
+    [OutputCache(PolicyName = CacheTags.Products)]
+    public Task<ActionResult<ProductResponse>> GetById(Guid id, CancellationToken ct) =>
+        InvokeToActionResultAsync<ProductResponse>(bus, new GetProductByIdQuery(id), ct);
 
     /// <summary>Creates multiple products in a single batch operation.</summary>
     [HttpPost]
     [RequirePermission(Permission.Products.Create)]
-    public async Task<ActionResult<BatchResponse>> Create(
+    public Task<ActionResult<BatchResponse>> Create(
         CreateProductsRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<BatchResponse> result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
-            new CreateProductsCommand(request),
-            ct
-        );
-        return result.ToBatchResult(this);
-    }
+    ) => InvokeToBatchResultAsync(bus, new CreateProductsCommand(request), ct);
 
     /// <summary>Updates multiple products in a single batch operation.</summary>
     [HttpPut]
     [RequirePermission(Permission.Products.Update)]
-    public async Task<ActionResult<BatchResponse>> Update(
+    public Task<ActionResult<BatchResponse>> Update(
         UpdateProductsRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<BatchResponse> result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
-            new UpdateProductsCommand(request),
-            ct
-        );
-        return result.ToBatchResult(this);
-    }
+    ) => InvokeToBatchResultAsync(bus, new UpdateProductsCommand(request), ct);
 
     /// <summary>Soft-deletes multiple products in a single batch operation.</summary>
     [HttpDelete]
     [RequirePermission(Permission.Products.Delete)]
-    public async Task<ActionResult<BatchResponse>> Delete(
+    public Task<ActionResult<BatchResponse>> Delete(
         BatchDeleteRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<BatchResponse> result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
-            new DeleteProductsCommand(request),
-            ct
-        );
-        return result.ToBatchResult(this);
-    }
+    ) => InvokeToBatchResultAsync(bus, new DeleteProductsCommand(request), ct);
 }

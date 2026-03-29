@@ -5,6 +5,7 @@ using APITemplate.Application.Features.User.DTOs;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.User;
@@ -13,7 +14,7 @@ public sealed record ChangeUserRoleCommand(Guid Id, ChangeUserRoleRequest Reques
 
 public sealed class ChangeUserRoleCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         ChangeUserRoleCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
@@ -28,7 +29,7 @@ public sealed class ChangeUserRoleCommandHandler
             ct
         );
         if (userResult.IsError)
-            return userResult.Errors;
+            return (userResult.Errors, CacheInvalidationCascades.None);
         var user = userResult.Value;
 
         var oldRole = user.Role.ToString();
@@ -48,7 +49,6 @@ public sealed class ChangeUserRoleCommandHandler
             logger
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.Users));
     }
 }

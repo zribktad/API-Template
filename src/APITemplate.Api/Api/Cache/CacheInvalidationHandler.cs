@@ -1,4 +1,4 @@
-using APITemplate.Application.Common.Events;
+using SharedKernel.Application.Common.Events;
 
 namespace APITemplate.Api.Cache;
 

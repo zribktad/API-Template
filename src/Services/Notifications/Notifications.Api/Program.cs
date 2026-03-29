@@ -117,11 +117,7 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<NotificationsDbContext>();
 
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapSharedOpenApiEndpoint();
-app.MapWolverineEndpoints();
-app.MapHealthChecks("/health").AllowAnonymous();
+app.UseSharedMicroserviceApiPipeline(false, a => a.MapWolverineEndpoints());
 
 await app.RunAsync();
 

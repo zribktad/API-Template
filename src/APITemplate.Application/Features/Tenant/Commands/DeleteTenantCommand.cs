@@ -5,6 +5,7 @@ using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.Tenant;
@@ -13,7 +14,7 @@ public sealed record DeleteTenantCommand(Guid Id) : IHasId;
 
 public sealed class DeleteTenantCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         DeleteTenantCommand command,
         ITenantRepository repository,
         IUnitOfWork unitOfWork,
@@ -30,7 +31,7 @@ public sealed class DeleteTenantCommandHandler
             ct
         );
         if (tenantResult.IsError)
-            return tenantResult.Errors;
+            return (tenantResult.Errors, CacheInvalidationCascades.None);
 
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -49,7 +50,6 @@ public sealed class DeleteTenantCommandHandler
             logger
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Tenants));
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.Tenants));
     }
 }

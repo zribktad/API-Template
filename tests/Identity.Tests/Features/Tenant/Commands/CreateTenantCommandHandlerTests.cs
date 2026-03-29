@@ -40,7 +40,7 @@ public sealed class CreateTenantCommandHandlerTests
             .Setup(r => r.CodeExistsAsync("EXISTING", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        ErrorOr<TenantResponse> result = await CreateTenantCommandHandler.HandleAsync(
+        var (result, _) = await CreateTenantCommandHandler.HandleAsync(
             command,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
@@ -60,7 +60,7 @@ public sealed class CreateTenantCommandHandlerTests
             .Setup(r => r.CodeExistsAsync("NEW-CODE", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        ErrorOr<TenantResponse> result = await CreateTenantCommandHandler.HandleAsync(
+        var (result, _) = await CreateTenantCommandHandler.HandleAsync(
             command,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,

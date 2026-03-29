@@ -5,10 +5,12 @@ using FileStorage.Application.Features.Files.Commands;
 using FileStorage.Application.Features.Files.DTOs;
 using FileStorage.Application.Features.Files.Queries;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Security;
 using Wolverine;
 
@@ -62,6 +64,7 @@ public sealed class FilesController(IMessageBus bus) : ApiControllerBase
     /// </summary>
     [HttpGet("{id:guid}/download")]
     [RequirePermission(Permission.Files.Download)]
+    [OutputCache(PolicyName = CacheTags.Files)]
     public async Task<IActionResult> Download(
         [FromRoute] DownloadFileRequest request,
         CancellationToken ct

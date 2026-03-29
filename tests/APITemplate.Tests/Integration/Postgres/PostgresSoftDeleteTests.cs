@@ -305,7 +305,6 @@ public sealed class PostgresSoftDeleteTests(SharedPostgresContainer postgres)
                 new DeleteProductsCommand(new BatchDeleteRequest([product.Id])),
                 new ProductRepository(deleteContext),
                 CreateUnitOfWork(deleteContext),
-                Mock.Of<IMessageBus>(),
                 ct
             );
         }

@@ -4,7 +4,6 @@ using APITemplate.Api.ExceptionHandling;
 using APITemplate.Api.Filters.Idempotency;
 using APITemplate.Api.Filters.Webhooks;
 using APITemplate.Api.OpenApi;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Http;
 using APITemplate.Application.Common.Options;
 using APITemplate.Infrastructure.Health;
@@ -13,6 +12,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Serilog;
+using SharedKernel.Application.Common.Events;
 using StackExchange.Redis;
 
 namespace APITemplate.Api.Extensions;
@@ -268,6 +268,7 @@ public static class ApiServiceCollectionExtensions
                             cachingOptions.TenantInvitationsExpirationSeconds
                         ),
                         (CacheTags.Users, cachingOptions.UsersExpirationSeconds),
+                        (CacheTags.Files, cachingOptions.FilesExpirationSeconds),
                     ];
 
                     foreach (var (name, expirationSeconds) in policies)

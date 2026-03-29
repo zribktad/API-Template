@@ -1,9 +1,9 @@
 using APITemplate.Application.Common.Errors;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Enums;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.TenantInvitation;
@@ -12,11 +12,10 @@ public sealed record RevokeTenantInvitationCommand(Guid InvitationId);
 
 public sealed class RevokeTenantInvitationCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         RevokeTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -26,14 +25,13 @@ public sealed class RevokeTenantInvitationCommandHandler
             ct
         );
         if (invitationResult.IsError)
-            return invitationResult.Errors;
+            return (invitationResult.Errors, CacheInvalidationCascades.None);
         var invitation = invitationResult.Value;
 
         invitation.Status = InvitationStatus.Revoked;
         await invitationRepository.UpdateAsync(invitation, ct);
         await unitOfWork.CommitAsync(ct);
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.TenantInvitations));
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.TenantInvitations));
     }
 }

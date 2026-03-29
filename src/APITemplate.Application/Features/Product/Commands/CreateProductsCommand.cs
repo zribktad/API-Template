@@ -1,9 +1,9 @@
 using APITemplate.Application.Common.Batch;
 using APITemplate.Application.Common.Batch.Rules;
-using APITemplate.Application.Common.Events;
 using APITemplate.Domain.Entities;
 using ErrorOr;
 using FluentValidation;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 using ProductEntity = APITemplate.Domain.Entities.Product;
 
@@ -15,13 +15,12 @@ public sealed record CreateProductsCommand(CreateProductsRequest Request);
 /// <summary>Handles <see cref="CreateProductsCommand"/> by validating all items, bulk-validating references, and persisting in a single transaction.</summary>
 public sealed class CreateProductsCommandHandler
 {
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         CreateProductsCommand command,
         IProductRepository repository,
         ICategoryRepository categoryRepository,
         IProductDataRepository productDataRepository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         IValidator<CreateProductRequest> itemValidator,
         CancellationToken ct
     )
@@ -47,7 +46,7 @@ public sealed class CreateProductsCommandHandler
         );
 
         if (context.HasFailures)
-            return context.ToFailureResponse();
+            return (context.ToFailureResponse(), CacheInvalidationCascades.None);
 
         // Build entities and persist in a single transaction
         var entities = items
@@ -77,7 +76,9 @@ public sealed class CreateProductsCommandHandler
             ct
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Products));
-        return new BatchResponse([], items.Count, 0);
+        return (
+            new BatchResponse([], items.Count, 0),
+            CacheInvalidationCascades.ForTag(CacheTags.Products)
+        );
     }
 }

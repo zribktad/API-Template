@@ -1,10 +1,10 @@
 using APITemplate.Application.Common.Errors;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Application.Features.User.DTOs;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.User;
@@ -13,11 +13,10 @@ public sealed record UpdateUserCommand(Guid Id, UpdateUserRequest Request) : IHa
 
 public sealed class UpdateUserCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         UpdateUserCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
-        IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -27,7 +26,7 @@ public sealed class UpdateUserCommandHandler
             ct
         );
         if (userResult.IsError)
-            return userResult.Errors;
+            return (userResult.Errors, CacheInvalidationCascades.None);
         var user = userResult.Value;
 
         if (!string.Equals(user.Email, command.Request.Email, StringComparison.OrdinalIgnoreCase))
@@ -38,7 +37,7 @@ public sealed class UpdateUserCommandHandler
                 ct
             );
             if (emailResult.IsError)
-                return emailResult.Errors;
+                return (emailResult.Errors, CacheInvalidationCascades.None);
         }
 
         var normalizedNew = AppUser.NormalizeUsername(command.Request.Username);
@@ -50,7 +49,7 @@ public sealed class UpdateUserCommandHandler
                 ct
             );
             if (usernameResult.IsError)
-                return usernameResult.Errors;
+                return (usernameResult.Errors, CacheInvalidationCascades.None);
         }
 
         user.Username = command.Request.Username;
@@ -59,7 +58,6 @@ public sealed class UpdateUserCommandHandler
         await repository.UpdateAsync(user, ct);
         await unitOfWork.CommitAsync(ct);
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Users));
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.Users));
     }
 }

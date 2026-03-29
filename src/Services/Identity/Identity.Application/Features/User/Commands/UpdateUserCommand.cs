@@ -3,9 +3,11 @@ using Identity.Application.Errors;
 using Identity.Application.Features.User.DTOs;
 using Identity.Domain.Entities;
 using Identity.Domain.Interfaces;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Entities.Contracts;
 using SharedKernel.Domain.Interfaces;
+using Wolverine;
 
 namespace Identity.Application.Features.User.Commands;
 
@@ -13,7 +15,7 @@ public sealed record UpdateUserCommand(Guid Id, UpdateUserRequest Request) : IHa
 
 public sealed class UpdateUserCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         UpdateUserCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
@@ -26,7 +28,7 @@ public sealed class UpdateUserCommandHandler
             ct
         );
         if (userResult.IsError)
-            return userResult.Errors;
+            return (userResult.Errors, CacheInvalidationCascades.None);
         AppUser user = userResult.Value;
 
         if (!string.Equals(user.Email, command.Request.Email, StringComparison.OrdinalIgnoreCase))
@@ -37,7 +39,7 @@ public sealed class UpdateUserCommandHandler
                 ct
             );
             if (emailResult.IsError)
-                return emailResult.Errors;
+                return (emailResult.Errors, CacheInvalidationCascades.None);
         }
 
         string normalizedNew = AppUser.NormalizeUsername(command.Request.Username);
@@ -50,7 +52,7 @@ public sealed class UpdateUserCommandHandler
                     ct
                 );
             if (usernameResult.IsError)
-                return usernameResult.Errors;
+                return (usernameResult.Errors, CacheInvalidationCascades.None);
         }
 
         user.Username = command.Request.Username;
@@ -58,7 +60,6 @@ public sealed class UpdateUserCommandHandler
 
         await repository.UpdateAsync(user, ct);
         await unitOfWork.CommitAsync(ct);
-
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.Users));
     }
 }

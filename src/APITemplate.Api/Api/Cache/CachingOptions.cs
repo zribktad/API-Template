@@ -28,4 +28,7 @@ public sealed class CachingOptions
 
     [Range(1, int.MaxValue)]
     public int UsersExpirationSeconds { get; set; } = 30;
+
+    [Range(1, int.MaxValue)]
+    public int FilesExpirationSeconds { get; set; } = 60;
 }

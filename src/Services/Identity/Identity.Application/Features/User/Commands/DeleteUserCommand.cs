@@ -3,6 +3,7 @@ using Identity.Application.Errors;
 using Identity.Application.Security;
 using Identity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Entities.Contracts;
 using SharedKernel.Domain.Interfaces;
@@ -14,7 +15,7 @@ public sealed record DeleteUserCommand(Guid Id) : IHasId;
 
 public sealed class DeleteUserCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         DeleteUserCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
@@ -29,7 +30,7 @@ public sealed class DeleteUserCommandHandler
             ct
         );
         if (userResult.IsError)
-            return userResult.Errors;
+            return (userResult.Errors, CacheInvalidationCascades.None);
         Domain.Entities.AppUser user = userResult.Value;
 
         if (user.KeycloakUserId is not null)
@@ -50,6 +51,6 @@ public sealed class DeleteUserCommandHandler
             throw;
         }
 
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.Users));
     }
 }

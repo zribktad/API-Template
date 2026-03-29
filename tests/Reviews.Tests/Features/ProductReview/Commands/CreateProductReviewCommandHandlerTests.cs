@@ -1,4 +1,3 @@
-using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Reviews.Application.Common.Errors;
@@ -50,7 +49,7 @@ public sealed class CreateProductReviewCommandHandlerTests
         CreateProductReviewRequest request = new(productId, "Great!", 5);
         CreateProductReviewCommand command = new(request);
 
-        ErrorOr<ProductReviewResponse> result = await CreateProductReviewCommandHandler.HandleAsync(
+        var (result, _) = await CreateProductReviewCommandHandler.HandleAsync(
             command,
             _reviewRepoMock.Object,
             dbContext,
@@ -86,7 +85,7 @@ public sealed class CreateProductReviewCommandHandlerTests
         CreateProductReviewRequest request = new(productId, "Should fail", 3);
         CreateProductReviewCommand command = new(request);
 
-        ErrorOr<ProductReviewResponse> result = await CreateProductReviewCommandHandler.HandleAsync(
+        var (result, _) = await CreateProductReviewCommandHandler.HandleAsync(
             command,
             _reviewRepoMock.Object,
             dbContext,
@@ -122,7 +121,7 @@ public sealed class CreateProductReviewCommandHandlerTests
         CreateProductReviewRequest request = new(productId, "Excellent!", 5);
         CreateProductReviewCommand command = new(request);
 
-        ErrorOr<ProductReviewResponse> result = await CreateProductReviewCommandHandler.HandleAsync(
+        var (result, _) = await CreateProductReviewCommandHandler.HandleAsync(
             command,
             _reviewRepoMock.Object,
             dbContext,

@@ -7,6 +7,7 @@ using Identity.Application.Security;
 using Identity.Domain.Entities;
 using Identity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Context;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;
@@ -17,7 +18,7 @@ public sealed record CreateUserCommand(CreateUserRequest Request);
 
 public sealed class CreateUserCommandHandler
 {
-    public static async Task<ErrorOr<UserResponse>> HandleAsync(
+    public static async Task<(ErrorOr<UserResponse>, OutgoingMessages)> HandleAsync(
         CreateUserCommand command,
         IUserRepository repository,
         IUnitOfWork unitOfWork,
@@ -35,7 +36,7 @@ public sealed class CreateUserCommandHandler
             ct
         );
         if (emailResult.IsError)
-            return emailResult.Errors;
+            return (emailResult.Errors, CacheInvalidationCascades.None);
 
         ErrorOr<Success> usernameResult = await UserValidationHelper.ValidateUsernameUniqueAsync(
             repository,
@@ -43,7 +44,7 @@ public sealed class CreateUserCommandHandler
             ct
         );
         if (usernameResult.IsError)
-            return usernameResult.Errors;
+            return (usernameResult.Errors, CacheInvalidationCascades.None);
 
         string keycloakUserId = await keycloakAdmin.CreateUserAsync(
             command.Request.Username,
@@ -85,7 +86,7 @@ public sealed class CreateUserCommandHandler
                 );
             }
 
-            return user.ToResponse();
+            return (user.ToResponse(), CacheInvalidationCascades.ForTag(CacheTags.Users));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

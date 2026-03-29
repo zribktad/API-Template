@@ -1,9 +1,9 @@
 using APITemplate.Application.Common.Context;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Features.ProductData.Mappings;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.ProductData;
@@ -12,11 +12,10 @@ public sealed record CreateImageProductDataCommand(CreateImageProductDataRequest
 
 public sealed class CreateImageProductDataCommandHandler
 {
-    public static async Task<ErrorOr<ProductDataResponse>> HandleAsync(
+    public static async Task<(ErrorOr<ProductDataResponse>, OutgoingMessages)> HandleAsync(
         CreateImageProductDataCommand command,
         IProductDataRepository repository,
         ITenantProvider tenantProvider,
-        IMessageBus bus,
         TimeProvider timeProvider,
         CancellationToken ct
     )
@@ -34,7 +33,6 @@ public sealed class CreateImageProductDataCommandHandler
         };
 
         var created = await repository.CreateAsync(entity, ct);
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.ProductData));
-        return created.ToResponse();
+        return (created.ToResponse(), CacheInvalidationCascades.ForTag(CacheTags.ProductData));
     }
 }

@@ -1,9 +1,9 @@
 using APITemplate.Application.Common.Context;
 using APITemplate.Application.Common.Errors;
-using APITemplate.Application.Common.Events;
 using APITemplate.Application.Common.Extensions;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
+using SharedKernel.Application.Common.Events;
 using Wolverine;
 
 namespace APITemplate.Application.Features.ProductReview;
@@ -14,12 +14,11 @@ public sealed record DeleteProductReviewCommand(Guid Id) : IHasId;
 /// <summary>Handles <see cref="DeleteProductReviewCommand"/>.</summary>
 public sealed class DeleteProductReviewCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         DeleteProductReviewCommand command,
         IProductReviewRepository reviewRepository,
         IUnitOfWork unitOfWork,
         IActorProvider actorProvider,
-        IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -30,11 +29,11 @@ public sealed class DeleteProductReviewCommandHandler
             ct
         );
         if (reviewResult.IsError)
-            return reviewResult.Errors;
+            return (reviewResult.Errors, CacheInvalidationCascades.None);
         var review = reviewResult.Value;
 
         if (review.UserId != userId)
-            return DomainErrors.Auth.ForbiddenOwnReviewsOnly();
+            return (DomainErrors.Auth.ForbiddenOwnReviewsOnly(), CacheInvalidationCascades.None);
 
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -44,7 +43,6 @@ public sealed class DeleteProductReviewCommandHandler
             ct
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews));
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.Reviews));
     }
 }

@@ -5,6 +5,7 @@ using ProductCatalog.Application.Features.Category.Specifications;
 using ProductCatalog.Domain.Interfaces;
 using SharedKernel.Application.Batch;
 using SharedKernel.Application.Batch.Rules;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;
@@ -17,7 +18,7 @@ public sealed record DeleteCategoriesCommand(BatchDeleteRequest Request);
 /// <summary>Handles <see cref="DeleteCategoriesCommand"/> by loading all categories and deleting in a single transaction.</summary>
 public sealed class DeleteCategoriesCommandHandler
 {
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         DeleteCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,
@@ -45,7 +46,7 @@ public sealed class DeleteCategoriesCommandHandler
         );
 
         if (context.HasFailures)
-            return context.ToFailureResponse();
+            return (context.ToFailureResponse(), CacheInvalidationCascades.None);
 
         Guid tenantId = categories[0].TenantId;
 
@@ -67,6 +68,9 @@ public sealed class DeleteCategoriesCommandHandler
             );
         }
 
-        return new BatchResponse([], ids.Count, 0);
+        return (
+            new BatchResponse([], ids.Count, 0),
+            CacheInvalidationCascades.ForTag(CacheTags.Categories)
+        );
     }
 }

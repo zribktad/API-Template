@@ -1,12 +1,14 @@
 using Contracts.IntegrationEvents.Sagas;
 using FileStorage.Application.Common.Contracts;
 using FileStorage.Application.Common.Options;
+using FileStorage.Application.Features.Files.Commands;
 using FileStorage.Domain.Interfaces;
 using FileStorage.Infrastructure.FileStorage;
 using FileStorage.Infrastructure.Persistence;
 using FileStorage.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.OutputCaching;
 using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
@@ -42,6 +44,7 @@ builder.Services.AddSharedAuthorization(enablePermissionPolicies: true);
 
 builder.Services.AddControllers();
 builder.Services.AddSharedOpenApiDocumentation();
+builder.Services.AddSharedOutputCaching(builder.Configuration);
 
 builder.Services.AddHealthChecks();
 
@@ -50,7 +53,9 @@ builder.Host.UseWolverine(opts =>
     opts.ApplySharedConventions();
     opts.ApplySharedRetryPolicies();
 
+    opts.Discovery.IncludeAssembly(typeof(UploadFileCommand).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IFileStorageService).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(CacheInvalidationHandler).Assembly);
 
     opts.PersistMessagesWithPostgresql(
         builder.Configuration.GetRequiredConnectionString("FileStorageDb"),
@@ -77,11 +82,7 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<FileStorageDbContext>();
 
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapSharedOpenApiEndpoint();
-app.MapHealthChecks("/health").AllowAnonymous();
-app.MapControllers();
+app.UseSharedMicroserviceApiPipeline(true, a => a.MapControllers());
 
 await app.RunAsync();
 
