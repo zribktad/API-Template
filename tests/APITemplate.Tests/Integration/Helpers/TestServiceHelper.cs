@@ -27,24 +27,7 @@ internal static class TestServiceHelper
 {
     internal static void ConfigureTestAuthentication(IServiceCollection services)
     {
-        services.PostConfigure<JwtBearerOptions>(
-            JwtBearerDefaults.AuthenticationScheme,
-            options =>
-            {
-                options.Authority = null;
-                options.RequireHttpsMetadata = false;
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidIssuer = "http://localhost:8180/realms/api-template",
-                    ValidateAudience = true,
-                    ValidAudience = "api-template",
-                    ValidateLifetime = true,
-                    IssuerSigningKey = IntegrationAuthHelper.SecurityKey,
-                    ValidateIssuerSigningKey = true,
-                };
-            }
-        );
+        TestCommon.TestAuthSetup.ConfigureTestJwtBearer(services);
 
         services.PostConfigure<OpenIdConnectOptions>(
             AuthConstants.BffSchemes.Oidc,

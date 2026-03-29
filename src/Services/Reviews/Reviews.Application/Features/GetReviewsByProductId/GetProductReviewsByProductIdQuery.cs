@@ -1,5 +1,6 @@
 using ErrorOr;
 using Reviews.Application.Common.Responses;
+using Reviews.Application.Features.GetReviewsByProductIds;
 using Reviews.Domain.Interfaces;
 
 namespace Reviews.Application.Features.GetReviewsByProductId;
@@ -17,7 +18,7 @@ public sealed class GetProductReviewsByProductIdQueryHandler
     )
     {
         return await reviewRepository.ListAsync(
-            new GetReviewsByProductIdSpec(request.ProductId),
+            new GetReviewsByProductIdsSpec([request.ProductId]),
             ct
         );
     }

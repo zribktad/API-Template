@@ -24,13 +24,11 @@ public sealed class ProductDeletedEventHandler
         CancellationToken ct
     )
     {
-        // Mark projections inactive
         await dbContext
             .Set<ProductProjection>()
             .Where(p => @event.ProductIds.Contains(p.ProductId))
             .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.IsActive, false), ct);
 
-        // Cascade soft-delete reviews
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         int deletedCount = await dbContext
             .Set<ProductReviewEntity>()

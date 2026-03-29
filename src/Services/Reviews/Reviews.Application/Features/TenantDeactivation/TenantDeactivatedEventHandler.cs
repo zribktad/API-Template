@@ -23,14 +23,12 @@ public sealed class TenantDeactivatedEventHandler
     {
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
 
-        // Cascade soft-delete all reviews for the tenant
         int deletedReviews = await dbContext
             .Set<ProductReviewEntity>()
             .IgnoreQueryFilters()
             .Where(r => r.TenantId == @event.TenantId && !r.IsDeleted)
             .BulkSoftDeleteAsync(@event.ActorId, now, ct);
 
-        // Mark all product projections inactive for the tenant
         int deactivatedProducts = await dbContext
             .Set<ProductProjection>()
             .Where(p => p.TenantId == @event.TenantId && p.IsActive)

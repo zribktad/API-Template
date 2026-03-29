@@ -22,16 +22,18 @@ public sealed class GetReviewsByProductIdsHandler
     )
     {
         if (request.ProductIds.Count == 0)
-            return (ErrorOr<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>)
-                new Dictionary<Guid, ProductReviewResponse[]>();
+            return ErrorOrFactory.From<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>(
+                new Dictionary<Guid, ProductReviewResponse[]>()
+            );
 
         List<ProductReviewResponse> reviews = await reviewRepository.ListAsync(
             new GetReviewsByProductIdsSpec(request.ProductIds),
             ct
         );
-        ILookup<Guid, ProductReviewResponse> lookup = reviews.ToLookup(review => review.ProductId);
 
-        return (ErrorOr<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>)
-            request.ProductIds.Distinct().ToDictionary(id => id, id => lookup[id].ToArray());
+        Dictionary<Guid, ProductReviewResponse[]> grouped = reviews
+            .GroupBy(review => review.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToArray());
+        return ErrorOrFactory.From<IReadOnlyDictionary<Guid, ProductReviewResponse[]>>(grouped);
     }
 }

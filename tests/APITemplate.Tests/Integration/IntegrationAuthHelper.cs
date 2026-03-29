@@ -1,21 +1,19 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using APITemplate.Application.Common.Security;
 using APITemplate.Domain.Entities;
 using APITemplate.Domain.Enums;
 using APITemplate.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using TestCommon;
 
 namespace APITemplate.Tests.Integration;
 
 internal static class IntegrationAuthHelper
 {
-    internal static readonly RSA RsaKey = RSA.Create(2048);
-
-    internal static readonly RsaSecurityKey SecurityKey = new(RsaKey);
+    internal static readonly RsaSecurityKey SecurityKey = TestAuthSetup.SecurityKey;
 
     private static readonly SigningCredentials SigningCredentials = new(
         SecurityKey,

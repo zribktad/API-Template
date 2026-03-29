@@ -28,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Tests.Common\Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\APITemplate.Api\APITemplate.Api.csproj" />
     <ProjectReference Include="..\..\src\APITemplate.Application\APITemplate.Application.csproj" />
     <ProjectReference Include="..\..\src\APITemplate.Infrastructure\APITemplate.Infrastructure.csproj" />
