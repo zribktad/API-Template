@@ -8,13 +8,13 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Features;
 
-public class JobCallbackUrlTests : IClassFixture<CustomWebApplicationFactory>
+public class JobCallbackUrlTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
 
-    public JobCallbackUrlTests(CustomWebApplicationFactory factory)
+    public JobCallbackUrlTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Fact]

@@ -9,13 +9,13 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Features;
 
-public class PatchControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class PatchControllerTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
 
-    public PatchControllerTests(CustomWebApplicationFactory factory)
+    public PatchControllerTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Fact]

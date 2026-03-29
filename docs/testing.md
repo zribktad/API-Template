@@ -10,6 +10,14 @@ This guide explains how to add unit tests and integration tests for this project
 **PostgreSQL integration:** Testcontainers.PostgreSql
 **Database reset:** Respawn (resets PostgreSQL to a clean state between tests without re-creating the schema)
 
+### Assertions
+
+Use **Shouldly** for all test assertions (`ShouldBe`, `ShouldNotBeNull`, `ShouldContain`, and so on). Do not add **FluentAssertions** or another general-purpose assertion library unless the team explicitly agrees; mixing styles makes failures harder to read and reviews noisier.
+
+Shared JSON options and HTTP response helpers used by multiple test projects live in **`tests/Tests.Common`** (`TestJsonOptions`, `HttpResponseAssertionExtensions.ShouldHaveStatusAsync`, etc.).
+
+For APIs that accept `CancellationToken`, prefer **`TestContext.Current.CancellationToken`** in test code so cancellation is responsive (xUnit analyzer **xUnit1051**).
+
 Run all tests:
 
 ```bash

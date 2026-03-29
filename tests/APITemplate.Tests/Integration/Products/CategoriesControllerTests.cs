@@ -7,14 +7,14 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Products;
 
-public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class CategoriesControllerTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
     private readonly Guid _tenantId = Guid.NewGuid();
 
-    public CategoriesControllerTests(CustomWebApplicationFactory factory)
+    public CategoriesControllerTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Fact]

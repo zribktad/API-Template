@@ -4,15 +4,15 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.GraphQL;
 
-public class GraphQLProductReviewTests : IClassFixture<CustomWebApplicationFactory>
+public class GraphQLProductReviewTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
     private readonly GraphQLTestHelper _graphql;
     private readonly Guid _tenantId = Guid.NewGuid();
 
-    public GraphQLProductReviewTests(CustomWebApplicationFactory factory)
+    public GraphQLProductReviewTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
         _graphql = new GraphQLTestHelper(_client);
     }
 

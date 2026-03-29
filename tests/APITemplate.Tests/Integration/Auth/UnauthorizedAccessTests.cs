@@ -5,13 +5,13 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Auth;
 
-public class UnauthorizedAccessTests : IClassFixture<CustomWebApplicationFactory>
+public class UnauthorizedAccessTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
 
-    public UnauthorizedAccessTests(CustomWebApplicationFactory factory)
+    public UnauthorizedAccessTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Theory]

@@ -31,3 +31,4 @@ global using APITemplate.Tests.Integration.Features;
 global using APITemplate.Tests.Integration.GraphQL;
 global using APITemplate.Tests.Integration.Infrastructure;
 global using APITemplate.Tests.Integration.Products;
+global using TestCommon;

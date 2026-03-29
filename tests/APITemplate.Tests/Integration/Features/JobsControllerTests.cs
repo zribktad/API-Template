@@ -1,86 +1,80 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
+using Alba;
 using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Enums;
-using APITemplate.Tests.Integration.Helpers;
+using APITemplate.Tests.Integration;
 using Shouldly;
+using TestCommon;
 using Xunit;
 
 namespace APITemplate.Tests.Integration.Features;
 
-public class JobsControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class JobsControllerTests : IClassFixture<AlbaApiFixture>
 {
-    private readonly HttpClient _client;
+    private readonly IAlbaHost _host;
 
-    public JobsControllerTests(CustomWebApplicationFactory factory)
+    public JobsControllerTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _host = fixture.Host;
     }
 
     [Fact]
     public async Task Submit_ValidRequest_Returns202WithLocationHeader()
     {
-        var ct = TestContext.Current.CancellationToken;
-        IntegrationAuthHelper.Authenticate(_client);
-
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/jobs",
-            new { JobType = "data-export" },
-            ct
-        );
-
-        var body = await response.Content.ReadAsStringAsync(ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.Accepted, body);
-        response.Headers.Location.ShouldNotBeNull();
+        _ = await _host.Scenario(_ =>
+        {
+            _.WithBearerToken(IntegrationAuthHelper.CreateTestToken());
+            _.Post.Json(new { JobType = "data-export" }).ToUrl("/api/v1/jobs");
+            _.StatusCodeShouldBe(HttpStatusCode.Accepted);
+            _.Header("Location").ShouldHaveOneNonNullValue();
+        });
     }
 
     [Fact]
     public async Task Submit_ValidRequest_ResponseContainsPendingStatus()
     {
-        var ct = TestContext.Current.CancellationToken;
-        IntegrationAuthHelper.Authenticate(_client);
+        var result = await _host.Scenario(_ =>
+        {
+            _.WithBearerToken(IntegrationAuthHelper.CreateTestToken());
+            _.Post.Json(new { JobType = "report-generation" }).ToUrl("/api/v1/jobs");
+            _.StatusCodeShouldBe(HttpStatusCode.Accepted);
+        });
 
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/jobs",
-            new { JobType = "report-generation" },
-            ct
-        );
-
-        var body = await response.Content.ReadAsStringAsync(ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.Accepted, body);
-
-        var result = JsonSerializer.Deserialize<JobStatusResponse>(
+        var body = await result.ReadAsTextAsync();
+        var jobResult = JsonSerializer.Deserialize<JobStatusResponse>(
             body,
             TestJsonOptions.CaseInsensitive
         );
-        result.ShouldNotBeNull();
-        result!.Status.ShouldBe(JobStatus.Pending);
-        result.JobType.ShouldBe("report-generation");
+        jobResult.ShouldNotBeNull();
+        jobResult!.Status.ShouldBe(JobStatus.Pending);
+        jobResult.JobType.ShouldBe("report-generation");
     }
 
     [Fact]
     public async Task GetStatus_AfterSubmit_ReturnsJobWithMatchingId()
     {
-        var ct = TestContext.Current.CancellationToken;
-        IntegrationAuthHelper.Authenticate(_client);
+        var submitResult = await _host.Scenario(_ =>
+        {
+            _.WithBearerToken(IntegrationAuthHelper.CreateTestToken());
+            _.Post.Json(new { JobType = "async-task" }).ToUrl("/api/v1/jobs");
+            _.StatusCodeShouldBe(HttpStatusCode.Accepted);
+        });
 
-        var submitResponse = await _client.PostAsJsonAsync(
-            "/api/v1/jobs",
-            new { JobType = "async-task" },
-            ct
-        );
-        var submitBody = await submitResponse.Content.ReadAsStringAsync(ct);
-        submitResponse.StatusCode.ShouldBe(HttpStatusCode.Accepted, submitBody);
+        var submitBody = await submitResult.ReadAsTextAsync();
         var submitted = JsonSerializer.Deserialize<JobStatusResponse>(
             submitBody,
             TestJsonOptions.CaseInsensitive
         )!;
 
-        var getResponse = await _client.GetAsync($"/api/v1/jobs/{submitted.Id}", ct);
-        var getBody = await getResponse.Content.ReadAsStringAsync(ct);
-        getResponse.StatusCode.ShouldBe(HttpStatusCode.OK, getBody);
+        var getResult = await _host.Scenario(_ =>
+        {
+            _.WithBearerToken(IntegrationAuthHelper.CreateTestToken());
+            _.Get.Url($"/api/v1/jobs/{submitted.Id}");
+            _.StatusCodeShouldBeOk();
+        });
 
+        var getBody = await getResult.ReadAsTextAsync();
         var status = JsonSerializer.Deserialize<JobStatusResponse>(
             getBody,
             TestJsonOptions.CaseInsensitive
@@ -93,21 +87,22 @@ public class JobsControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GetStatus_NonExistentId_Returns404()
     {
-        var ct = TestContext.Current.CancellationToken;
-        IntegrationAuthHelper.Authenticate(_client);
-
-        var response = await _client.GetAsync($"/api/v1/jobs/{Guid.NewGuid()}", ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        _ = await _host.Scenario(_ =>
+        {
+            _.WithBearerToken(IntegrationAuthHelper.CreateTestToken());
+            _.Get.Url($"/api/v1/jobs/{Guid.NewGuid()}");
+            _.StatusCodeShouldBe(HttpStatusCode.NotFound);
+        });
     }
 
     [Fact]
     public async Task Submit_EmptyJobType_Returns400()
     {
-        var ct = TestContext.Current.CancellationToken;
-        IntegrationAuthHelper.Authenticate(_client);
-
-        var response = await _client.PostAsJsonAsync("/api/v1/jobs", new { JobType = "" }, ct);
-
-        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        _ = await _host.Scenario(_ =>
+        {
+            _.WithBearerToken(IntegrationAuthHelper.CreateTestToken());
+            _.Post.Json(new { JobType = "" }).ToUrl("/api/v1/jobs");
+            _.StatusCodeShouldBe(HttpStatusCode.BadRequest);
+        });
     }
 }

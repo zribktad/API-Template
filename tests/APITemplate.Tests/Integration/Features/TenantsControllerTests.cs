@@ -6,14 +6,14 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Features;
 
-public class TenantsControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class TenantsControllerTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
     private readonly Guid _tenantId = Guid.NewGuid();
 
-    public TenantsControllerTests(CustomWebApplicationFactory factory)
+    public TenantsControllerTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.Authenticate(_client, tenantId: _tenantId);
     }
 

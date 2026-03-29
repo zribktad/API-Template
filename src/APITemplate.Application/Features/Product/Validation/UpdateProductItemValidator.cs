@@ -1,3 +1,5 @@
+using SharedKernel.Application.Validation;
+
 namespace APITemplate.Application.Features.Product.Validation;
 
 /// <summary>

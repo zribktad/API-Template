@@ -15,20 +15,20 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Auth;
 
-public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFactory>
+public sealed class BffSecurityTests : IClassFixture<AlbaBffSecurityFixture>
 {
-    private readonly BffSecurityWebApplicationFactory _factory;
+    private readonly AlbaBffSecurityFixture _fixture;
 
-    public BffSecurityTests(BffSecurityWebApplicationFactory factory)
+    public BffSecurityTests(AlbaBffSecurityFixture fixture)
     {
-        _factory = factory;
+        _fixture = fixture;
     }
 
     [Fact]
     public async Task PostWithCookieAuth_WithoutCsrfHeader_Returns403()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Cookie-Auth", "1");
 
         var response = await client.PostAsync(
@@ -44,7 +44,7 @@ public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFa
     public async Task PostWithCookieAuth_WithCsrfHeader_PassesCsrfCheck()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Cookie-Auth", "1");
         client.DefaultRequestHeaders.Add(
             AuthConstants.Csrf.HeaderName,
@@ -65,7 +65,7 @@ public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFa
     public async Task PostWithJwtBearer_WithoutCsrfHeader_PassesCsrfCheck()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.Authenticate(client);
 
         var response = await client.PostAsync(
@@ -81,7 +81,7 @@ public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFa
     public async Task GetCsrfEndpoint_ReturnsHeaderConfig()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
 
         var response = await client.GetAsync("/api/v1/bff/csrf", ct);
 
@@ -94,26 +94,24 @@ public sealed class BffSecurityTests : IClassFixture<BffSecurityWebApplicationFa
 }
 
 /// <summary>
-/// Extends <see cref="CustomWebApplicationFactory"/> by replacing the real BFF Cookie
-/// authentication handler with <see cref="FakeCookieAuthHandler"/>. When the
-/// <c>X-Test-Cookie-Auth: 1</c> request header is present, the handler returns
-/// an authenticated principal so that authorization policies that explicitly list the
-/// <c>BffCookie</c> scheme authenticate correctly.
+/// Alba host with the real BFF Cookie handler replaced by <see cref="FakeCookieAuthHandler"/>.
 /// </summary>
-public sealed class BffSecurityWebApplicationFactory : CustomWebApplicationFactory
+public sealed class AlbaBffSecurityFixture : AlbaApiFixture
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
-
         builder.ConfigureTestServices(services =>
         {
-            // Replace the real BffCookie handler with the fake one by swapping the handler type
-            // in the existing SchemeBuilder — avoids "scheme already exists" errors.
             services.PostConfigure<AuthenticationOptions>(options =>
             {
-                if (options.SchemeMap.TryGetValue(AuthConstants.BffSchemes.Cookie, out var builder))
-                    builder.HandlerType = typeof(FakeCookieAuthHandler);
+                if (
+                    options.SchemeMap.TryGetValue(
+                        AuthConstants.BffSchemes.Cookie,
+                        out var schemeBuilder
+                    )
+                )
+                    schemeBuilder.HandlerType = typeof(FakeCookieAuthHandler);
             });
         });
     }

@@ -7,20 +7,20 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Security;
 
-public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebApplicationFactory>
+public class PermissionAuthorizationIntegrationTests : IClassFixture<AlbaApiFixture>
 {
-    private readonly CustomWebApplicationFactory _factory;
+    private readonly AlbaApiFixture _fixture;
 
-    public PermissionAuthorizationIntegrationTests(CustomWebApplicationFactory factory)
+    public PermissionAuthorizationIntegrationTests(AlbaApiFixture fixture)
     {
-        _factory = factory;
+        _fixture = fixture;
     }
 
     [Fact]
     public async Task User_CanGetProducts()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.AuthenticateAsUser(client);
 
         var response = await client.GetAsync("/api/v1/products", ct);
@@ -32,7 +32,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
     public async Task User_CannotCreateProduct()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.AuthenticateAsUser(client);
 
         var response = await client.PostAsJsonAsync(
@@ -59,7 +59,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
     public async Task TenantAdmin_CanCreateProduct()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.AuthenticateAsTenantAdmin(client);
 
         var response = await client.PostAsJsonAsync(
@@ -86,7 +86,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
     public async Task TenantAdmin_CannotCreateUser()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.AuthenticateAsTenantAdmin(client);
 
         var response = await client.PostAsJsonAsync(
@@ -107,7 +107,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
     public async Task PlatformAdmin_CanCreateProduct()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.Authenticate(client);
 
         var response = await client.PostAsJsonAsync(
@@ -134,7 +134,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
     public async Task PlatformAdmin_CanGetUsers()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.Authenticate(client);
 
         var response = await client.GetAsync("/api/v1/users", ct);
@@ -146,7 +146,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
     public async Task User_CannotDeleteProduct()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.AuthenticateAsUser(client);
 
         var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/products")
@@ -162,7 +162,7 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
     public async Task TenantAdmin_CanReadUsers()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.AuthenticateAsTenantAdmin(client);
 
         var response = await client.GetAsync("/api/v1/users", ct);
@@ -174,11 +174,11 @@ public class PermissionAuthorizationIntegrationTests : IClassFixture<CustomWebAp
     public async Task User_CanCreateProductReview()
     {
         var ct = TestContext.Current.CancellationToken;
-        var client = _factory.CreateClient();
+        var client = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.AuthenticateAsUser(client);
 
         // First create a product as PlatformAdmin
-        var adminClient = _factory.CreateClient();
+        var adminClient = _fixture.Host.Server.CreateClient();
         IntegrationAuthHelper.Authenticate(adminClient);
         var productName = $"Review Target-{Guid.NewGuid():N}";
         var productResponse = await adminClient.PostAsJsonAsync(

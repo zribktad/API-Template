@@ -1,49 +1,53 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
+using Alba;
+using APITemplate.Tests.Integration;
 using Microsoft.AspNetCore.Http;
 using Shouldly;
 using Xunit;
 
 namespace APITemplate.Tests.Integration.Infrastructure;
 
-public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
+public class ScalarAndOpenApiTests : IClassFixture<AlbaApiFixture>
 {
-    private readonly HttpClient _client;
+    private readonly IAlbaHost _host;
 
-    public ScalarAndOpenApiTests(CustomWebApplicationFactory factory)
+    public ScalarAndOpenApiTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _host = fixture.Host;
     }
 
     [Fact]
     public async Task OpenApi_Endpoint_ReturnsJsonDocument()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var response = await _client.GetAsync("/openapi/v1.json", ct);
-
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var content = await response.Content.ReadAsStringAsync(ct);
-        content.ShouldContain("openapi");
-        content.ShouldContain("paths");
-        content.ShouldContain("ApiProblemDetails");
-        content.ShouldContain("application/problem+json");
+        _ = await _host.Scenario(_ =>
+        {
+            _.Get.Url("/openapi/v1.json");
+            _.StatusCodeShouldBeOk();
+            _.ContentShouldContain("openapi");
+            _.ContentShouldContain("paths");
+            _.ContentShouldContain("ApiProblemDetails");
+            _.ContentShouldContain("application/problem+json");
+        });
     }
 
     [Fact]
     public async Task OpenApi_ContainsGlobalErrorResponsesForRestEndpoints()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var response = await _client.GetAsync("/openapi/v1.json", ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var result = await _host.Scenario(_ =>
+        {
+            _.Get.Url("/openapi/v1.json");
+            _.StatusCodeShouldBeOk();
+        });
 
-        var content = await response.Content.ReadAsStringAsync(ct);
+        var content = await result.ReadAsTextAsync();
         using var doc = JsonDocument.Parse(content);
 
         var paths = doc.RootElement.GetProperty("paths");
-        var productReviewsPath = paths.EnumerateObject()
-            .FirstOrDefault(p => p.Name.Contains("productreviews", StringComparison.OrdinalIgnoreCase))
+        var productReviewsPath = paths
+            .EnumerateObject()
+            .FirstOrDefault(p =>
+                p.Name.Contains("productreviews", StringComparison.OrdinalIgnoreCase)
+            )
             .Value;
 
         productReviewsPath.ValueKind.ShouldBe(JsonValueKind.Object);
@@ -52,20 +56,26 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
         var responses = productReviewsPost.GetProperty("responses");
 
         responses.TryGetProperty(StatusCodes.Status400BadRequest.ToString(), out _).ShouldBeTrue();
-        responses.TryGetProperty(StatusCodes.Status401Unauthorized.ToString(), out _).ShouldBeTrue();
+        responses
+            .TryGetProperty(StatusCodes.Status401Unauthorized.ToString(), out _)
+            .ShouldBeTrue();
         responses.TryGetProperty(StatusCodes.Status403Forbidden.ToString(), out _).ShouldBeTrue();
         responses.TryGetProperty(StatusCodes.Status404NotFound.ToString(), out _).ShouldBeTrue();
-        responses.TryGetProperty(StatusCodes.Status500InternalServerError.ToString(), out _).ShouldBeTrue();
+        responses
+            .TryGetProperty(StatusCodes.Status500InternalServerError.ToString(), out _)
+            .ShouldBeTrue();
     }
 
     [Fact]
     public async Task OpenApi_ContainsOAuth2SecurityScheme()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var response = await _client.GetAsync("/openapi/v1.json", ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var result = await _host.Scenario(_ =>
+        {
+            _.Get.Url("/openapi/v1.json");
+            _.StatusCodeShouldBeOk();
+        });
 
-        var content = await response.Content.ReadAsStringAsync(ct);
+        var content = await result.ReadAsTextAsync();
         using var doc = JsonDocument.Parse(content);
 
         var components = doc.RootElement.GetProperty("components");
@@ -77,31 +87,27 @@ public class ScalarAndOpenApiTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Scalar_Endpoint_ReturnsHtml()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var response = await _client.GetAsync("/scalar/v1", ct);
-
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var content = await response.Content.ReadAsStringAsync(ct);
-        content.ShouldContain("scalar");
-        content.ShouldContain("authorizationUrl");
-        content.ShouldContain("tokenUrl");
-        content.ShouldContain("x-scalar-redirect-uri");
-        content.ShouldContain("x-usePkce");
-        content.ShouldContain("api-template-scalar");
+        _ = await _host.Scenario(_ =>
+        {
+            _.Get.Url("/scalar/v1");
+            _.StatusCodeShouldBeOk();
+            _.ContentShouldContain("scalar");
+            _.ContentShouldContain("authorizationUrl");
+            _.ContentShouldContain("tokenUrl");
+            _.ContentShouldContain("x-scalar-redirect-uri");
+            _.ContentShouldContain("x-usePkce");
+            _.ContentShouldContain("api-template-scalar");
+        });
     }
 
     [Fact]
     public async Task GraphQL_Endpoint_IsAccessible()
     {
-        var ct = TestContext.Current.CancellationToken;
-        IntegrationAuthHelper.Authenticate(_client);
-
-        var response = await _client.PostAsJsonAsync(
-            "/graphql",
-            new { query = "{ __typename }" },
-            ct);
-
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        _ = await _host.Scenario(_ =>
+        {
+            _.WithBearerToken(IntegrationAuthHelper.CreateTestToken());
+            _.Post.Json(new { query = "{ __typename }" }).ToUrl("/graphql");
+            _.StatusCodeShouldBeOk();
+        });
     }
 }

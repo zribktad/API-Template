@@ -7,14 +7,14 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Auth;
 
-public class AuthenticatedCrudTests : IClassFixture<CustomWebApplicationFactory>
+public class AuthenticatedCrudTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
     private readonly Guid _tenantId = Guid.NewGuid();
 
-    public AuthenticatedCrudTests(CustomWebApplicationFactory factory)
+    public AuthenticatedCrudTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Fact]

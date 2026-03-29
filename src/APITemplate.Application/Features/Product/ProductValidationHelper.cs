@@ -16,7 +16,7 @@ internal static class ProductValidationHelper
         IReadOnlySet<int> failedIndices,
         CancellationToken ct
     )
-        where T : IProductRequest
+        where T : class, SharedKernel.Application.Contracts.IProductRequest
     {
         // Category (EF Core / PostgreSQL) and product-data (MongoDB) checks use independent
         // connections, so they can safely run in parallel.

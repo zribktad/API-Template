@@ -8,19 +8,6 @@ All 7 microservices extracted from the monolith and running independently.
 
 ## Open TODOs
 
-### [x] Saga Reliability — Missing EF Core Persistence Mapping
-Neither `ProductDeletionSaga` (ProductCatalog) nor `TenantDeactivationSaga` (Identity) is mapped in the service's `DbContext`, and no EF Core migration exists for either saga table.
-With `UseEntityFrameworkCoreTransactions()`, Wolverine requires the saga type to be present in the registered `DbContext` to persist state between messages.
-Required for each saga:
-1. Add `DbSet<XxxSaga>` to the service's `DbContext`.
-2. Add an `IEntityTypeConfiguration<XxxSaga>` that maps `Id`, status flags, and excludes global query filters (sagas are not tenant-scoped).
-3. Generate and run `dotnet ef migrations add AddXxxSaga`.
-
-### [x] Saga Reliability — Missing Timeout Handling
-Neither `ProductDeletionSaga` nor `TenantDeactivationSaga` implement timeout/expiration.
-If a downstream service fails to publish its completion message the saga will remain in an incomplete state indefinitely with no compensation or alerting.
-Implement `ScheduleTimeout<T>(TimeSpan)` in Wolverine for both sagas, with a compensation handler that logs/alerts and optionally rolls back the parent operation.
-
 ### Reliability
 - Replace in-memory `ChannelJobQueue` in BackgroundJobs with durable persistence/replay so queued jobs survive process restarts.
 - Replace in-memory `ChannelEmailQueue` in Notifications with durable persistence/replay so pending emails are not lost on restart between enqueue and delivery.
@@ -29,53 +16,36 @@ Implement `ScheduleTimeout<T>(TimeSpan)` in Wolverine for both sagas, with a com
 - Implement real product-related file cleanup in FileStorage on `ProductDeletedIntegrationEvent`.
 - Introduce an explicit relation from stored files to product-owned resources, so `FilesCascadeCompleted` is emitted only after actual cleanup instead of a placeholder acknowledgment (currently publishes `FilesCascadeCompleted` with `count = 0`).
 
-### Messaging — Missing Idempotency Keys in Integration Events
-All integration events (`UserRegisteredIntegrationEvent`, `TenantDeactivatedIntegrationEvent`, etc.) lack a `MessageId` field.
-On RabbitMQ redelivery (e.g. after a consumer crash mid-processing) the same event can be processed twice, causing duplicate emails, duplicate cascade deletes, etc.
-Add `Guid MessageId` to all integration event records and guard handlers with an idempotency check against a seen-message store.
+### Messaging — Idempotency
+- Add `Guid MessageId` to all integration event records and guard consumers with an idempotency check against a seen-message store (RabbitMQ redelivery can duplicate work today).
 
-### DRY — Duplicate Validator Code
-`ProductValidationRules` and `ProductRequestValidatorBase<T>` are copy-pasted identically into:
-- `src/APITemplate.Application/Features/Product/Validation/ProductRequestValidatorBase.cs`
-- `src/Services/ProductCatalog/ProductCatalog.Application/Features/Product/Validation/ProductRequestValidatorBase.cs`
-
-Consolidate into `SharedKernel.Application` (or `Contracts`) so both services share the same source of truth.
+### DRY — Product validators
+- Consolidate `ProductValidationRules` and `ProductRequestValidatorBase<T>` from `APITemplate.Application` and `ProductCatalog.Application` into a single shared location (e.g. `SharedKernel.Application`).
 
 ### Test Coverage
-- Add integration/runtime coverage for shared auth bootstrap: permission policies, BFF cookie/OIDC flow, tenant claim enrichment, and locked-down Wolverine HTTP endpoints.
-- Add saga-flow tests that verify `ProductDeletionSaga` correlation across ProductCatalog, Reviews, and FileStorage using the new `CorrelationId`.
-- Add saga-flow tests for `TenantDeactivationSaga`.
+- Add integration/runtime coverage for microservices shared auth: permission policies, BFF cookie/OIDC flow (where applicable), tenant claim enrichment, and locked-down Wolverine HTTP endpoints.
+
+### Gateway — Demo / Example APIs
+- Expose monolith-style demo endpoints (`IdempotentController`, `PatchController`, `SseController` under `src/APITemplate.Api/`) via a dedicated Examples service or Gateway host, and register routes in YARP.
+
+### Optional polish
+- **Output cache:** ProductCatalog, Identity, Reviews, and FileStorage use `AddSharedOutputCaching` + `[OutputCache]` + invalidation. BackgroundJobs still runs with `useOutputCaching: false` (it has a GET on `JobsController`); enable caching there only if you want read responses cached like the other APIs.
 
 ---
 
-### Regressions vs. Monolith (main branch)
+## Completed ([x])
 
-#### CRITICAL — Output Caching Not Ported
+### [x] Saga — EF Core persistence
+`ProductDeletionSaga` and `TenantDeactivationSaga` are mapped in each service `DbContext`, with EF migrations and saga schema (`sagas`).
 
-The monolith had a full tenant-aware output caching stack that was never ported to the microservices architecture:
+### [x] Saga — Timeout handling
+Both sagas schedule Wolverine timeouts (`ProductDeletionSagaTimeout`, `TenantDeactivationSagaTimeout`) with compensation-style handling.
 
-- `TenantAwareOutputCachePolicy` — varied cache key by tenant ID so responses were never served across tenant boundaries. **Not in SharedKernel, not in any service.**
-- `CacheInvalidationHandler` (Wolverine) — handled `CacheInvalidationNotification` and called `IOutputCacheInvalidationService.EvictAsync`. **No equivalent exists in any microservice.**
-- `IOutputCacheInvalidationService` / `OutputCacheInvalidationService` — Redis/Dragonfly-backed tag eviction with telemetry. **Not in SharedKernel.**
-- `AddOutputCache` + `UseOutputCache` — never registered in any microservice `Program.cs` or SharedKernel.
-- `[OutputCache(PolicyName = CacheTags.X)]` decorators — missing from all controllers in ProductCatalog, Identity, FileStorage, BackgroundJobs, Webhooks, Notifications. Reviews has the decorators but the middleware is not registered → decorators are silently ignored at runtime.
-- `CacheTags` constants and `CacheInvalidationNotification` records in Reviews are dead code without a handler.
+### [x] Output caching (microservices read APIs)
+Tenant-aware policies, Redis/Dragonfly-backed output cache registration (`AddSharedOutputCaching`), `UseSharedOutputCaching` in the shared pipeline, `CacheInvalidationHandler`, and write-side `CacheInvalidationCascades` are implemented in `SharedKernel.Api` / `SharedKernel.Application` and wired for **ProductCatalog, Identity, Reviews, FileStorage** (including `[OutputCache]` on their GET controllers).
 
-Required fixes:
-- Move `TenantAwareOutputCachePolicy`, `IOutputCacheInvalidationService`, `OutputCacheInvalidationService`, `CacheInvalidationHandler`, and `CacheTags` into `SharedKernel.Api`.
-- Register `AddOutputCache` (with Redis/Dragonfly backing and `TenantAwareOutputCachePolicy`) in a shared extension method and call it from every microservice `Program.cs`.
-- Add `[OutputCache(PolicyName = CacheTags.X)]` to all GET endpoints in ProductCatalog, Identity, FileStorage, and other read-heavy services.
-- Publish `CacheInvalidationNotification` in write command handlers and ensure the Wolverine `CacheInvalidationHandler` is discovered in each service.
-
-#### Missing — Demo/Example Endpoints Not in Gateway
-
-Three demonstration controllers exist in the monolith (`src/APITemplate.Api/`) and their SharedKernel infrastructure was already ported (idempotency store, permissions), but the controllers themselves were never added to the Gateway or any microservice:
-
-- `IdempotentController` — demonstrates idempotent POST semantics via `[Idempotent]` filter and `IIdempotencyStore`.
-- `PatchController` — demonstrates JSON Patch (RFC 6902) partial updates.
-- `SseController` — demonstrates Server-Sent Events streaming over a persistent HTTP connection.
-
-Required fix: decide whether these should live in a dedicated `Examples` microservice or directly in the Gateway API, then add the controllers and register the route in YARP.
+### [x] Saga-flow integration tests
+`tests/Integration.Tests/Sagas/ProductDeletionSagaIntegrationTests.cs` and `TenantDeactivationSagaIntegrationTests.cs` exercise cross-service correlation and completion messages.
 
 ---
 

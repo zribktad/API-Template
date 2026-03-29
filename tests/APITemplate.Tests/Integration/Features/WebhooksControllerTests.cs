@@ -7,13 +7,13 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Features;
 
-public class WebhooksControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class WebhooksControllerTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
 
-    public WebhooksControllerTests(CustomWebApplicationFactory factory)
+    public WebhooksControllerTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Fact]

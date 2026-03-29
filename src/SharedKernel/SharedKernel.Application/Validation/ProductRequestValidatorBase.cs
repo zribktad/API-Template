@@ -1,7 +1,7 @@
-using APITemplate.Application.Common.Validation;
 using FluentValidation;
+using SharedKernel.Application.Contracts;
 
-namespace APITemplate.Application.Features.Product.Validation;
+namespace SharedKernel.Application.Validation;
 
 /// <summary>
 /// Shared FluentValidation extension methods and constants for product-related validation rules.

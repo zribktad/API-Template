@@ -1,6 +1,7 @@
 using System.Net;
 using Integration.Tests.Factories;
 using Shouldly;
+using TestCommon;
 using Xunit;
 
 namespace Integration.Tests.Infrastructure;
@@ -17,11 +18,10 @@ public sealed class GatewayScalarAndOpenApiTests : IClassFixture<GatewayServiceF
     [Fact]
     public async Task Scalar_Endpoint_ContainsAllServiceDocumentsAndOAuthConfig()
     {
-        HttpResponseMessage response = await _client.GetAsync("/scalar/v1");
+        var ct = TestContext.Current.CancellationToken;
+        HttpResponseMessage response = await _client.GetAsync("/scalar/v1", ct);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        string content = await response.Content.ReadAsStringAsync();
+        string content = await response.ShouldHaveStatusAsync(HttpStatusCode.OK, ct);
         content.ShouldContain("api-template-scalar");
         content.ShouldContain("authorizationUrl");
         content.ShouldContain("tokenUrl");
@@ -37,7 +37,8 @@ public sealed class GatewayScalarAndOpenApiTests : IClassFixture<GatewayServiceF
     [InlineData("/openapi/webhooks.json")]
     public async Task OpenApi_GatewayRoutes_AreRegistered(string openApiPath)
     {
-        HttpResponseMessage response = await _client.GetAsync(openApiPath);
+        var ct = TestContext.Current.CancellationToken;
+        HttpResponseMessage response = await _client.GetAsync(openApiPath, ct);
 
         // Upstream service is intentionally unavailable in this test host, so
         // YARP should produce a proxy failure instead of a missing route.

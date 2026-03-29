@@ -1,12 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using Identity.Infrastructure.Persistence;
 using Integration.Tests.Factories;
 using Integration.Tests.Fixtures;
 using Integration.Tests.Helpers;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Reviews.Domain.Entities;
 using Reviews.Infrastructure.Persistence;
@@ -23,7 +21,6 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
     private ProductCatalogServiceFactory _productCatalogFactory = null!;
     private IdentityServiceFactory _identityFactory = null!;
     private ReviewsServiceFactory _reviewsFactory = null!;
-    private FileStorageServiceFactory _fileStorageFactory = null!;
 
     public OutputCacheBehaviorTests(SharedContainers containers)
     {
@@ -35,20 +32,17 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
         _productCatalogFactory = new ProductCatalogServiceFactory(_containers);
         _identityFactory = new IdentityServiceFactory(_containers);
         _reviewsFactory = new ReviewsServiceFactory(_containers);
-        _fileStorageFactory = new FileStorageServiceFactory(_containers);
 
         await Task.WhenAll(
             _productCatalogFactory.InitializeAsync().AsTask(),
             _identityFactory.InitializeAsync().AsTask(),
-            _reviewsFactory.InitializeAsync().AsTask(),
-            _fileStorageFactory.InitializeAsync().AsTask()
+            _reviewsFactory.InitializeAsync().AsTask()
         );
     }
 
     public async ValueTask DisposeAsync()
     {
         await Task.WhenAll(
-            _fileStorageFactory.DisposeAsync().AsTask(),
             _reviewsFactory.DisposeAsync().AsTask(),
             _identityFactory.DisposeAsync().AsTask(),
             _productCatalogFactory.DisposeAsync().AsTask()
@@ -155,6 +149,22 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Identity_ReadEndpoint_ReturnsAgeHeaderOnSecondRead()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = Guid.NewGuid();
+        HttpClient client = _identityFactory.CreateClient();
+        IntegrationAuthHelper.AuthenticateAsPlatformAdmin(client, tenantId);
+
+        HttpResponseMessage first = await client.GetAsync("/api/v1/tenants", ct);
+        first.StatusCode.ShouldBe(HttpStatusCode.OK, await first.Content.ReadAsStringAsync(ct));
+
+        HttpResponseMessage second = await client.GetAsync("/api/v1/tenants", ct);
+        second.StatusCode.ShouldBe(HttpStatusCode.OK, await second.Content.ReadAsStringAsync(ct));
+        second.Headers.Age.ShouldNotBeNull();
+    }
+
+    [Fact]
     public async Task Identity_WarmReadThenCreateUser_ReadShowsFreshDataAfterInvalidation()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -200,6 +210,44 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
             await client.GetAsync($"/api/v1/users/{createdId}", ct)
         ).Content.ReadAsStringAsync(ct);
         body.ShouldContain(username);
+    }
+
+    [Fact]
+    public async Task Reviews_ReadEndpoint_ReturnsAgeHeaderOnSecondRead()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = Guid.NewGuid();
+        HttpClient client = _reviewsFactory.CreateClient();
+        IntegrationAuthHelper.AuthenticateAsTenantAdmin(client, tenantId, Guid.NewGuid());
+
+        Guid productId = Guid.NewGuid();
+        await using (AsyncServiceScope scope = _reviewsFactory.Services.CreateAsyncScope())
+        {
+            ReviewsDbContext db = scope.ServiceProvider.GetRequiredService<ReviewsDbContext>();
+            db.ProductProjections.Add(
+                new ProductProjection
+                {
+                    ProductId = productId,
+                    TenantId = tenantId,
+                    Name = "Cache Age Product",
+                    IsActive = true,
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        HttpResponseMessage first = await client.GetAsync(
+            $"/api/v1/productreviews/by-product/{productId}",
+            ct
+        );
+        first.StatusCode.ShouldBe(HttpStatusCode.OK, await first.Content.ReadAsStringAsync(ct));
+
+        HttpResponseMessage second = await client.GetAsync(
+            $"/api/v1/productreviews/by-product/{productId}",
+            ct
+        );
+        second.StatusCode.ShouldBe(HttpStatusCode.OK, await second.Content.ReadAsStringAsync(ct));
+        second.Headers.Age.ShouldNotBeNull();
     }
 
     [Fact]
@@ -255,35 +303,61 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task FileStorage_DownloadEndpoint_ReturnsAgeHeaderOnSecondRead()
+    public async Task Reviews_CacheIsIsolatedByTenant()
     {
         var ct = TestContext.Current.CancellationToken;
-        var tenantId = Guid.NewGuid();
-        HttpClient client = _fileStorageFactory.CreateClient();
-        IntegrationAuthHelper.AuthenticateAsTenantAdmin(client, tenantId);
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var userA = Guid.NewGuid();
+        var userB = Guid.NewGuid();
+        var tenantBProductId = Guid.NewGuid();
 
-        using MultipartFormDataContent form = new();
-        ByteArrayContent content = new(Encoding.UTF8.GetBytes("cached-file-content"));
-        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
-            "text/plain"
+        HttpClient clientA = _reviewsFactory.CreateClient();
+        HttpClient clientB = _reviewsFactory.CreateClient();
+        IntegrationAuthHelper.AuthenticateAsTenantAdmin(clientA, tenantA, userA);
+        IntegrationAuthHelper.AuthenticateAsTenantAdmin(clientB, tenantB, userB);
+
+        await using (AsyncServiceScope scope = _reviewsFactory.Services.CreateAsyncScope())
+        {
+            ReviewsDbContext db = scope.ServiceProvider.GetRequiredService<ReviewsDbContext>();
+            db.ProductProjections.Add(
+                new ProductProjection
+                {
+                    ProductId = tenantBProductId,
+                    TenantId = tenantB,
+                    Name = "Tenant B Product",
+                    IsActive = true,
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        HttpResponseMessage warmA = await clientA.GetAsync("/api/v1/productreviews", ct);
+        warmA.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        HttpResponseMessage createB = await clientB.PostAsJsonAsync(
+            "/api/v1/productreviews",
+            new
+            {
+                ProductId = tenantBProductId,
+                Comment = "tenant-b-review",
+                Rating = 4,
+            },
+            ct
         );
-        form.Add(content, "File", "cache.txt");
-        form.Add(new StringContent("cache-file"), "Description");
-
-        HttpResponseMessage upload = await client.PostAsync("/api/v1/files/upload", form, ct);
-        upload.StatusCode.ShouldBe(
+        createB.StatusCode.ShouldBe(
             HttpStatusCode.Created,
-            await upload.Content.ReadAsStringAsync(ct)
+            await createB.Content.ReadAsStringAsync(ct)
         );
 
-        string uploadBody = await upload.Content.ReadAsStringAsync(ct);
-        Guid fileId = JsonDocument.Parse(uploadBody).RootElement.GetProperty("id").GetGuid();
+        string bodyB = await (
+            await clientB.GetAsync("/api/v1/productreviews", ct)
+        ).Content.ReadAsStringAsync(ct);
+        bodyB.ShouldContain("tenant-b-review");
 
-        HttpResponseMessage first = await client.GetAsync($"/api/v1/files/{fileId}/download", ct);
-        first.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        HttpResponseMessage second = await client.GetAsync($"/api/v1/files/{fileId}/download", ct);
-        second.StatusCode.ShouldBe(HttpStatusCode.OK);
-        second.Headers.Age.ShouldNotBeNull();
+        string bodyA = await (
+            await clientA.GetAsync("/api/v1/productreviews", ct)
+        ).Content.ReadAsStringAsync(ct);
+        bodyA.ShouldNotContain("tenant-b-review");
     }
 }

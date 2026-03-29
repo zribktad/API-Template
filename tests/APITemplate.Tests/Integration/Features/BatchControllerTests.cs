@@ -8,13 +8,13 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Features;
 
-public class BatchControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class BatchControllerTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
 
-    public BatchControllerTests(CustomWebApplicationFactory factory)
+    public BatchControllerTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Fact]

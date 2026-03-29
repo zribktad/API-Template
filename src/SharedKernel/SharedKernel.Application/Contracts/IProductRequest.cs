@@ -1,4 +1,4 @@
-namespace APITemplate.Application.Common.Contracts;
+namespace SharedKernel.Application.Contracts;
 
 /// <summary>
 /// Shared contract for create and update product command requests, enabling reuse of

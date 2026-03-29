@@ -6,19 +6,19 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Infrastructure;
 
-public sealed class WolverineNotificationTests : IClassFixture<CustomWebApplicationFactory>
+public sealed class WolverineNotificationTests : IClassFixture<AlbaApiFixture>
 {
-    private readonly CustomWebApplicationFactory _factory;
+    private readonly AlbaApiFixture _fixture;
 
-    public WolverineNotificationTests(CustomWebApplicationFactory factory)
+    public WolverineNotificationTests(AlbaApiFixture fixture)
     {
-        _factory = factory;
+        _fixture = fixture;
     }
 
     [Fact]
     public async Task CacheInvalidationNotification_CanBePublished()
     {
-        await using var scope = _factory.Services.CreateAsyncScope();
+        await using var scope = _fixture.Host.Services.CreateAsyncScope();
         var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
 
         var exception = await Record.ExceptionAsync(() =>

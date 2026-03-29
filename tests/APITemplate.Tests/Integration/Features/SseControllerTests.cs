@@ -4,13 +4,13 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Features;
 
-public class SseControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class SseControllerTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
 
-    public SseControllerTests(CustomWebApplicationFactory factory)
+    public SseControllerTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Fact]

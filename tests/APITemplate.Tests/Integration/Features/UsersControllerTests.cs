@@ -7,15 +7,15 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Features;
 
-public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class UsersControllerTests : IClassFixture<AlbaApiFixture>
 {
-    private readonly CustomWebApplicationFactory _factory;
+    private readonly AlbaApiFixture _fixture;
     private readonly HttpClient _client;
 
-    public UsersControllerTests(CustomWebApplicationFactory factory)
+    public UsersControllerTests(AlbaApiFixture fixture)
     {
-        _factory = factory;
-        _client = factory.CreateClient();
+        _fixture = fixture;
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Fact]
@@ -23,15 +23,25 @@ public class UsersControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var ct = TestContext.Current.CancellationToken;
         var (tenant, user) = await IntegrationAuthHelper.SeedTenantUserAsync(
-            _factory.Services,
+            _fixture.Host.Services,
             username: "regular-user",
             email: "regular-user@example.com",
-            ct: ct);
+            ct: ct
+        );
 
-        IntegrationAuthHelper.Authenticate(_client, user.Id, tenant.Id, user.Username, UserRole.User);
+        IntegrationAuthHelper.Authenticate(
+            _client,
+            user.Id,
+            tenant.Id,
+            user.Username,
+            UserRole.User
+        );
 
         var response = await _client.GetAsync("/api/v1/users/me", ct);
-        var payload = await response.Content.ReadFromJsonAsync<UserResponse>(TestJsonOptions.CaseInsensitive, ct);
+        var payload = await response.Content.ReadFromJsonAsync<UserResponse>(
+            TestJsonOptions.CaseInsensitive,
+            ct
+        );
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         payload.ShouldNotBeNull();

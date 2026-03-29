@@ -10,15 +10,15 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Products;
 
-public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class ProductsControllerTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
     private readonly Mock<IProductDataRepository> _productDataRepositoryMock;
 
-    public ProductsControllerTests(CustomWebApplicationFactory factory)
+    public ProductsControllerTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
-        _productDataRepositoryMock = factory.Services.GetRequiredService<
+        _client = fixture.Host.Server.CreateClient();
+        _productDataRepositoryMock = fixture.Host.Services.GetRequiredService<
             Mock<IProductDataRepository>
         >();
         _productDataRepositoryMock.Reset();

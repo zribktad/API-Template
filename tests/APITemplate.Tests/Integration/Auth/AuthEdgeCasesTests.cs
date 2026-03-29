@@ -4,13 +4,13 @@ using Xunit;
 
 namespace APITemplate.Tests.Integration.Auth;
 
-public class AuthEdgeCasesTests : IClassFixture<CustomWebApplicationFactory>
+public class AuthEdgeCasesTests : IClassFixture<AlbaApiFixture>
 {
     private readonly HttpClient _client;
 
-    public AuthEdgeCasesTests(CustomWebApplicationFactory factory)
+    public AuthEdgeCasesTests(AlbaApiFixture fixture)
     {
-        _client = factory.CreateClient();
+        _client = fixture.Host.Server.CreateClient();
     }
 
     [Fact]

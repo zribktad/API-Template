@@ -40,7 +40,17 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
 
     public new async ValueTask DisposeAsync()
     {
-        await base.DisposeAsync();
+        try
+        {
+            await base.DisposeAsync();
+        }
+        catch (OperationCanceledException) { }
+        catch (AggregateException ex)
+            when (ex.InnerExceptions.All(e =>
+                    e is OperationCanceledException or TaskCanceledException
+                )
+            ) { }
+
         await TestDatabaseLifecycle.DropDatabaseAsync(
             _containers.PostgresServerConnectionString,
             _databaseName
