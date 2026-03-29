@@ -11,6 +11,23 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.RabbitMq" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.RabbitMQ" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\ProductCatalog\ProductCatalog.Api\ProductCatalog.Api.csproj" Aliases="ProductCatalogApi" />
+    <ProjectReference Include="..\..\src\Services\Reviews\Reviews.Api\Reviews.Api.csproj" Aliases="ReviewsApi" />
+    <ProjectReference Include="..\..\src\Services\Identity\Identity.Api\Identity.Api.csproj" Aliases="IdentityApi" />
+    <ProjectReference Include="..\..\src\Services\FileStorage\FileStorage.Api\FileStorage.Api.csproj" Aliases="FileStorageApi" />
+    <ProjectReference Include="..\..\src\Contracts\Contracts.IntegrationEvents\Contracts.IntegrationEvents.csproj" />
+    <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.Messaging\SharedKernel.Messaging.csproj" />
   </ItemGroup>
 
 </Project>
