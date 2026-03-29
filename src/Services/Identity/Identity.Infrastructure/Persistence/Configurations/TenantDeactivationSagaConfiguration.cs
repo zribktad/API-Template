@@ -17,7 +17,7 @@ public sealed class TenantDeactivationSagaConfiguration
 
         builder.HasKey(s => s.Id);
 
-        builder.Property(s => s.Id).IsRequired().HasMaxLength(64);
+        builder.Property(s => s.Id).IsRequired();
         builder.Property(s => s.TenantId).IsRequired();
         builder.Property(s => s.UsersCascaded).IsRequired();
         builder.Property(s => s.ProductsCascaded).IsRequired();

@@ -16,7 +16,7 @@ public sealed class ProductDeletionSagaConfiguration : IEntityTypeConfiguration<
 
         builder.HasKey(s => s.Id);
 
-        builder.Property(s => s.Id).IsRequired().HasMaxLength(64);
+        builder.Property(s => s.Id).IsRequired();
         builder.Property(s => s.TenantId).IsRequired();
         builder.Property(s => s.ReviewsCascaded).IsRequired();
         builder.Property(s => s.FilesCascaded).IsRequired();

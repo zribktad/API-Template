@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using FileStorage.Domain.Entities;
+using FileStorage.Infrastructure.Persistence;
 using Identity.Infrastructure.Persistence;
 using Integration.Tests.Factories;
 using Integration.Tests.Fixtures;
@@ -21,6 +23,7 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
     private ProductCatalogServiceFactory _productCatalogFactory = null!;
     private IdentityServiceFactory _identityFactory = null!;
     private ReviewsServiceFactory _reviewsFactory = null!;
+    private FileStorageServiceFactory _fileStorageFactory = null!;
 
     public OutputCacheBehaviorTests(SharedContainers containers)
     {
@@ -32,17 +35,20 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
         _productCatalogFactory = new ProductCatalogServiceFactory(_containers);
         _identityFactory = new IdentityServiceFactory(_containers);
         _reviewsFactory = new ReviewsServiceFactory(_containers);
+        _fileStorageFactory = new FileStorageServiceFactory(_containers);
 
         await Task.WhenAll(
             _productCatalogFactory.InitializeAsync().AsTask(),
             _identityFactory.InitializeAsync().AsTask(),
-            _reviewsFactory.InitializeAsync().AsTask()
+            _reviewsFactory.InitializeAsync().AsTask(),
+            _fileStorageFactory.InitializeAsync().AsTask()
         );
     }
 
     public async ValueTask DisposeAsync()
     {
         await Task.WhenAll(
+            _fileStorageFactory.DisposeAsync().AsTask(),
             _reviewsFactory.DisposeAsync().AsTask(),
             _identityFactory.DisposeAsync().AsTask(),
             _productCatalogFactory.DisposeAsync().AsTask()
@@ -359,5 +365,48 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
             await clientA.GetAsync("/api/v1/productreviews", ct)
         ).Content.ReadAsStringAsync(ct);
         bodyA.ShouldNotContain("tenant-b-review");
+    }
+
+    [Fact]
+    public async Task FileStorage_DownloadEndpoint_ReturnsAgeHeaderOnSecondRead()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = Guid.NewGuid();
+        var fileId = Guid.NewGuid();
+        HttpClient client = _fileStorageFactory.CreateClient();
+        IntegrationAuthHelper.AuthenticateAsTenantAdmin(client, tenantId);
+
+        string tenantDir = Path.Combine(Path.GetTempPath(), tenantId.ToString());
+        Directory.CreateDirectory(tenantDir);
+        string storagePath = Path.Combine(tenantDir, $"{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(storagePath, "cached-file-content", ct);
+
+        await using (AsyncServiceScope scope = _fileStorageFactory.Services.CreateAsyncScope())
+        {
+            FileStorageDbContext db =
+                scope.ServiceProvider.GetRequiredService<FileStorageDbContext>();
+            db.StoredFiles.Add(
+                new StoredFile
+                {
+                    Id = fileId,
+                    OriginalFileName = "cache.txt",
+                    StoragePath = storagePath,
+                    ContentType = "text/plain",
+                    SizeBytes = 19,
+                    Description = "cache-file",
+                    TenantId = tenantId,
+                }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        HttpResponseMessage first = await client.GetAsync($"/api/v1/files/{fileId}/download", ct);
+        string firstBody = await first.Content.ReadAsStringAsync(ct);
+        first.StatusCode.ShouldBe(HttpStatusCode.OK, firstBody);
+
+        HttpResponseMessage second = await client.GetAsync($"/api/v1/files/{fileId}/download", ct);
+        string secondBody = await second.Content.ReadAsStringAsync(ct);
+        second.StatusCode.ShouldBe(HttpStatusCode.OK, secondBody);
+        second.Headers.Age.ShouldNotBeNull();
     }
 }

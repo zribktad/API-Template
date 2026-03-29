@@ -10,6 +10,7 @@ using ProductCatalog.Infrastructure.Persistence;
 using Reviews.Domain.Entities;
 using Reviews.Infrastructure.Persistence;
 using Shouldly;
+using TestCommon;
 using Wolverine;
 using Wolverine.Tracking;
 using Xunit;
@@ -110,6 +111,8 @@ public sealed class ProductDeletionSagaIntegrationTests : IAsyncLifetime
         IHost reviewsHost = _reviewsFactory.Services.GetRequiredService<IHost>();
         IHost fileStorageHost = _fileStorageFactory.Services.GetRequiredService<IHost>();
 
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
         ITrackedSession session = await productCatalogHost
             .TrackActivity()
             .Timeout(TestConstants.TrackedSessionTimeout)
@@ -118,7 +121,6 @@ public sealed class ProductDeletionSagaIntegrationTests : IAsyncLifetime
             .AlsoTrack(fileStorageHost)
             .WaitForMessageToBeReceivedAt<ReviewsCascadeCompleted>(productCatalogHost)
             .WaitForMessageToBeReceivedAt<FilesCascadeCompleted>(productCatalogHost)
-            .DoNotAssertOnExceptionsDetected()
             .InvokeMessageAndWaitAsync(
                 new StartProductDeletionSaga(correlationId, [productId], tenantId, actorId)
             );
@@ -128,20 +130,34 @@ public sealed class ProductDeletionSagaIntegrationTests : IAsyncLifetime
         session.Received.MessagesOf<ReviewsCascadeCompleted>().ShouldNotBeEmpty();
         session.Received.MessagesOf<FilesCascadeCompleted>().ShouldNotBeEmpty();
 
-        await using (AsyncServiceScope scope = _reviewsFactory.Services.CreateAsyncScope())
-        {
-            ReviewsDbContext db = scope.ServiceProvider.GetRequiredService<ReviewsDbContext>();
+        ProductProjection projection = await AsyncPoll.UntilNotNullAsync(
+            async () =>
+            {
+                await using AsyncServiceScope scope = _reviewsFactory.Services.CreateAsyncScope();
+                ReviewsDbContext db = scope.ServiceProvider.GetRequiredService<ReviewsDbContext>();
+                ProductProjection? p = await db.ProductProjections.FirstOrDefaultAsync(
+                    x => x.ProductId == productId,
+                    ct
+                );
+                return p is { IsActive: false } ? p : null;
+            },
+            TestConstants.TrackedSessionTimeout,
+            cancellationToken: ct
+        );
+        projection.IsActive.ShouldBeFalse();
 
-            ProductProjection? projection = await db.ProductProjections.FirstOrDefaultAsync(p =>
-                p.ProductId == productId
-            );
-            projection.ShouldNotBeNull();
-            projection.IsActive.ShouldBeFalse();
-
-            int deletedReviewCount = await db
-                .ProductReviews.IgnoreQueryFilters()
-                .CountAsync(r => r.ProductId == productId && r.IsDeleted);
-            deletedReviewCount.ShouldBeGreaterThan(0);
-        }
+        await AsyncPoll.UntilTrueAsync(
+            async () =>
+            {
+                await using AsyncServiceScope scope = _reviewsFactory.Services.CreateAsyncScope();
+                ReviewsDbContext db = scope.ServiceProvider.GetRequiredService<ReviewsDbContext>();
+                int deletedReviewCount = await db
+                    .ProductReviews.IgnoreQueryFilters()
+                    .CountAsync(r => r.ProductId == productId && r.IsDeleted, ct);
+                return deletedReviewCount > 0;
+            },
+            TestConstants.TrackedSessionTimeout,
+            cancellationToken: ct
+        );
     }
 }

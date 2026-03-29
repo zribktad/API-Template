@@ -7,7 +7,7 @@ namespace Identity.Application.Sagas;
 
 public class TenantDeactivationSaga : Saga
 {
-    public string? Id { get; set; }
+    public Guid Id { get; set; }
     public Guid TenantId { get; set; }
     public bool UsersCascaded { get; set; }
     public bool ProductsCascaded { get; set; }
@@ -21,7 +21,7 @@ public class TenantDeactivationSaga : Saga
     {
         TenantDeactivationSaga saga = new()
         {
-            Id = command.CorrelationId.ToString(),
+            Id = command.CorrelationId,
             TenantId = command.TenantId,
         };
         TenantDeactivatedIntegrationEvent @event = new(

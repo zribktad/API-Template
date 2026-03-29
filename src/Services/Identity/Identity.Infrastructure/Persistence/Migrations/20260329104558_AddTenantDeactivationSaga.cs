@@ -15,11 +15,7 @@ namespace Identity.Infrastructure.Persistence.Migrations
                 name: "TenantDeactivationSagas",
                 columns: table => new
                 {
-                    Id = table.Column<string>(
-                        type: "character varying(64)",
-                        maxLength: 64,
-                        nullable: false
-                    ),
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
                     UsersCascaded = table.Column<bool>(type: "boolean", nullable: false),
                     ProductsCascaded = table.Column<bool>(type: "boolean", nullable: false),

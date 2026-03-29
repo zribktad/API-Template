@@ -22,6 +22,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Services\ProductCatalog\ProductCatalog.Api\ProductCatalog.Api.csproj" Aliases="ProductCatalogApi" />
     <ProjectReference Include="..\..\src\Services\Reviews\Reviews.Api\Reviews.Api.csproj" Aliases="ReviewsApi" />
     <ProjectReference Include="..\..\src\Services\Identity\Identity.Api\Identity.Api.csproj" Aliases="IdentityApi" />

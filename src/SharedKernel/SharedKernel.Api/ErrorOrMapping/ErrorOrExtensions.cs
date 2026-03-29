@@ -96,13 +96,13 @@ public static class ErrorOrExtensions
         ControllerBase controller
     )
     {
-        ProblemDetails problemDetails = BuildProblemDetails(errors, controller);
+        ProblemDetails problemDetails = BuildProblemDetails(errors, controller.HttpContext);
         return new ObjectResult(problemDetails) { StatusCode = problemDetails.Status };
     }
 
-    private static ProblemDetails BuildProblemDetails(
+    internal static ProblemDetails BuildProblemDetails(
         List<ErrorOr.Error> errors,
-        ControllerBase controller
+        HttpContext httpContext
     )
     {
         ErrorOr.Error firstError = errors[0];
@@ -119,12 +119,12 @@ public static class ErrorOrExtensions
             Status = statusCode,
             Title = title,
             Detail = detail,
-            Instance = controller.HttpContext.Request.Path,
+            Instance = httpContext.Request.Path,
             Type = BuildTypeUri(errorCode),
         };
 
         problemDetails.Extensions["errorCode"] = errorCode;
-        problemDetails.Extensions["traceId"] = controller.HttpContext.TraceIdentifier;
+        problemDetails.Extensions["traceId"] = httpContext.TraceIdentifier;
 
         if (firstError.Metadata is { Count: > 0 })
             problemDetails.Extensions["metadata"] = firstError.Metadata;
@@ -132,7 +132,7 @@ public static class ErrorOrExtensions
         return problemDetails;
     }
 
-    private static int MapToStatusCode(ErrorType errorType) =>
+    internal static int MapToStatusCode(ErrorType errorType) =>
         errorType switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,
@@ -143,7 +143,7 @@ public static class ErrorOrExtensions
             _ => StatusCodes.Status500InternalServerError,
         };
 
-    private static string MapToTitle(ErrorType errorType) =>
+    internal static string MapToTitle(ErrorType errorType) =>
         errorType switch
         {
             ErrorType.Validation => "Bad Request",

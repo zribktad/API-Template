@@ -2,6 +2,7 @@ using APITemplate.Api.Authorization;
 using APITemplate.Api.Controllers;
 using APITemplate.Api.ErrorOrMapping;
 using APITemplate.Api.Requests;
+using APITemplate.Application.Common.Contracts;
 using APITemplate.Application.Common.Security;
 using APITemplate.Application.Features.Examples;
 using APITemplate.Application.Features.Examples.DTOs;
@@ -17,7 +18,8 @@ namespace APITemplate.Api.Controllers.V1;
 /// Presentation-layer controller that demonstrates multipart file upload and streamed download
 /// using local file storage, limited to 10 MB per upload request.
 /// </summary>
-public sealed class FilesController(IMessageBus bus) : ApiControllerBase
+public sealed class FilesController(IMessageBus bus, IFileStorageService fileStorage)
+    : ApiControllerBase
 {
     /// <summary>
     /// Accepts a multipart form upload, streams the file to local storage via the application
@@ -65,20 +67,24 @@ public sealed class FilesController(IMessageBus bus) : ApiControllerBase
         CancellationToken ct
     )
     {
-        var result = await bus.InvokeAsync<ErrorOr<FileDownloadResult>>(
-            new DownloadFileQuery(request),
+        var result = await bus.InvokeAsync<ErrorOr<FileDownloadInfo>>(
+            new DownloadFileQuery(request.Id),
             ct
         );
         if (result.IsError)
             return result.ToErrorResult(this);
 
+        var stream = await fileStorage.OpenReadAsync(result.Value.StoragePath, ct);
+        if (stream is null)
+            return NotFound();
+
         try
         {
-            return File(result.Value.FileStream, result.Value.ContentType, result.Value.FileName);
+            return File(stream, result.Value.ContentType, result.Value.FileName);
         }
         catch
         {
-            await result.Value.FileStream.DisposeAsync();
+            await stream.DisposeAsync();
             throw;
         }
     }

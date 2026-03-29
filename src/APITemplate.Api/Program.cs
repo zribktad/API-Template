@@ -1,4 +1,5 @@
 using APITemplate.Application.Common.Middleware;
+using APITemplate.Application.Features.Examples;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Serilog;
@@ -48,6 +49,8 @@ try
         opts.Durability.Mode = DurabilityMode.Balanced;
         opts.Discovery.IncludeAssembly(typeof(CreateProductsCommand).Assembly);
         opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
+        opts.Discovery.IncludeType<UploadFileCommandHandler>();
+        opts.Discovery.IncludeType<DownloadFileQueryHandler>();
 
         // Apply ErrorOr validation middleware only to handlers returning ErrorOr<T>.
         // Event handlers (returning Task) and non-ErrorOr handlers are not affected.

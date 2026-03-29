@@ -55,6 +55,7 @@ public sealed class SharedContainers : IAsyncLifetime
         // Guard against startup races: ensure AMQP handshake succeeds before tests boot service hosts.
         ConnectionFactory factory = new() { Uri = new Uri(RabbitMqConnectionString) };
         Exception? lastError = null;
+        TimeSpan delay = TimeSpan.FromMilliseconds(100);
         for (int attempt = 1; attempt <= 30; attempt++)
         {
             try
@@ -70,7 +71,10 @@ public sealed class SharedContainers : IAsyncLifetime
                 lastError = ex;
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            await Task.Delay(delay);
+            delay = TimeSpan.FromTicks(
+                Math.Min(delay.Ticks * 3 / 2, TimeSpan.FromSeconds(2).Ticks)
+            );
         }
 
         throw new InvalidOperationException(

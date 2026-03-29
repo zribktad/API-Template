@@ -22,7 +22,7 @@ public sealed class TenantDeactivationSagaTests
             TenantDeactivationSagaTimeout timeout
         ) = TenantDeactivationSaga.Start(command, TimeProvider.System);
 
-        saga.Id.ShouldBe(correlationId.ToString());
+        saga.Id.ShouldBe(correlationId);
         saga.TenantId.ShouldBe(tenantId);
         saga.UsersCascaded.ShouldBeFalse();
         saga.ProductsCascaded.ShouldBeFalse();
@@ -111,7 +111,7 @@ public sealed class TenantDeactivationSagaTests
         TenantDeactivationSaga saga = CreateSaga();
 
         saga.Handle(
-            new TenantDeactivationSagaTimeout(Guid.Parse(saga.Id!)),
+            new TenantDeactivationSagaTimeout(saga.Id),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<TenantDeactivationSaga>.Instance
         );
 
@@ -119,5 +119,5 @@ public sealed class TenantDeactivationSagaTests
     }
 
     private static TenantDeactivationSaga CreateSaga() =>
-        new() { Id = Guid.NewGuid().ToString(), TenantId = Guid.NewGuid() };
+        new() { Id = Guid.NewGuid(), TenantId = Guid.NewGuid() };
 }
