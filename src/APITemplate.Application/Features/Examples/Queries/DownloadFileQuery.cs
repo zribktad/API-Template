@@ -1,8 +1,8 @@
 using APITemplate.Application.Common.Errors;
 using APITemplate.Application.Common.Extensions;
-using APITemplate.Application.Features.Examples.DTOs;
 using APITemplate.Domain.Interfaces;
 using ErrorOr;
+using SharedKernel.Application.DTOs;
 
 namespace APITemplate.Application.Features.Examples;
 

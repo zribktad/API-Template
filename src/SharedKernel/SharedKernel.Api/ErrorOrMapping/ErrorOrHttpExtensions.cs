@@ -34,16 +34,4 @@ public static class ErrorOrHttpExtensions
 
         return result.Errors.ToProblemDetailsIResult(httpContext);
     }
-
-    public static async Task<IResult> ToIResultAsync<T>(
-        this ErrorOr<T> result,
-        HttpContext httpContext,
-        Func<T, Task<IResult>> onSuccess
-    )
-    {
-        if (!result.IsError)
-            return await onSuccess(result.Value).ConfigureAwait(false);
-
-        return result.Errors.ToProblemDetailsIResult(httpContext);
-    }
 }

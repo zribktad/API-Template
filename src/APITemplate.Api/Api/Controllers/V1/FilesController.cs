@@ -9,6 +9,7 @@ using APITemplate.Application.Features.Examples.DTOs;
 using Asp.Versioning;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
+using SharedKernel.Application.DTOs;
 using Wolverine;
 
 namespace APITemplate.Api.Controllers.V1;

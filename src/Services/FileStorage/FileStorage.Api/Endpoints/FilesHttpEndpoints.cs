@@ -8,12 +8,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Application.Common.Events;
+using SharedKernel.Application.DTOs;
 using SharedKernel.Application.Security;
-using SharedKernel.Domain.Interfaces;
 using Wolverine;
 using Wolverine.Http;
 

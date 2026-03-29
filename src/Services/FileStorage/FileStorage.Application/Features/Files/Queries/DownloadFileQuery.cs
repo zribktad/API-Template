@@ -1,8 +1,6 @@
 using ErrorOr;
-using FileStorage.Application.Common.Errors;
-using FileStorage.Application.Features.Files.DTOs;
 using FileStorage.Domain.Interfaces;
-using SharedKernel.Application.Extensions;
+using SharedKernel.Application.DTOs;
 
 namespace FileStorage.Application.Features.Files.Queries;
 
@@ -10,25 +8,9 @@ public sealed record DownloadFileQuery(Guid Id);
 
 public sealed class DownloadFileQueryHandler
 {
-    public static async Task<ErrorOr<FileDownloadInfo>> HandleAsync(
+    public static Task<ErrorOr<FileDownloadInfo>> HandleAsync(
         DownloadFileQuery query,
         IStoredFileRepository repository,
         CancellationToken ct
-    )
-    {
-        ErrorOr<Domain.Entities.StoredFile> entityResult = await repository.GetByIdOrError(
-            query.Id,
-            DomainErrors.Files.NotFound(query.Id.ToString()),
-            ct
-        );
-        if (entityResult.IsError)
-            return entityResult.Errors;
-        Domain.Entities.StoredFile entity = entityResult.Value;
-
-        return new FileDownloadInfo(
-            entity.StoragePath,
-            entity.ContentType,
-            entity.OriginalFileName
-        );
-    }
+    ) => StoredFileDownloadMetadata.ResolveAsync(query.Id, repository, ct);
 }

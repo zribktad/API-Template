@@ -132,7 +132,7 @@ public static class ErrorOrExtensions
         return problemDetails;
     }
 
-    internal static int MapToStatusCode(ErrorType errorType) =>
+    private static int MapToStatusCode(ErrorType errorType) =>
         errorType switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,
@@ -143,7 +143,7 @@ public static class ErrorOrExtensions
             _ => StatusCodes.Status500InternalServerError,
         };
 
-    internal static string MapToTitle(ErrorType errorType) =>
+    private static string MapToTitle(ErrorType errorType) =>
         errorType switch
         {
             ErrorType.Validation => "Bad Request",

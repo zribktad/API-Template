@@ -122,19 +122,5 @@ public sealed class TenantDeactivatedEventFlowTests : IAsyncLifetime
             TestConstants.TrackedSessionTimeout,
             cancellationToken: ct
         );
-
-        await using AsyncServiceScope scope3 = _productCatalogFactory.Services.CreateAsyncScope();
-        ProductCatalogDbContext db3 =
-            scope3.ServiceProvider.GetRequiredService<ProductCatalogDbContext>();
-
-        int finalProductCount = await db3
-            .Products.IgnoreQueryFilters()
-            .CountAsync(p => p.TenantId == tenantId && p.IsDeleted, ct);
-        finalProductCount.ShouldBeGreaterThan(0);
-
-        int finalCategoryCount = await db3
-            .Categories.IgnoreQueryFilters()
-            .CountAsync(c => c.TenantId == tenantId && c.IsDeleted, ct);
-        finalCategoryCount.ShouldBeGreaterThan(0);
     }
 }

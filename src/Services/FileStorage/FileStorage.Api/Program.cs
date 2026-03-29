@@ -57,9 +57,7 @@ builder.Host.UseWolverine(opts =>
     opts.ApplySharedRetryPolicies();
 
     opts.Discovery.IncludeAssembly(typeof(UploadFileCommand).Assembly);
-    opts.Discovery.IncludeAssembly(typeof(IFileStorageService).Assembly);
     opts.Discovery.IncludeAssembly(typeof(CacheInvalidationHandler).Assembly);
-    opts.Discovery.IncludeType<UploadFileCommandHandler>();
 
     opts.PersistMessagesWithPostgresql(
         builder.Configuration.GetRequiredConnectionString("FileStorageDb"),

@@ -116,7 +116,6 @@ builder.Host.UseWolverine(opts =>
     opts.UseFluentValidation();
 
     opts.Discovery.IncludeAssembly(typeof(IKeycloakAdminService).Assembly);
-    opts.Discovery.IncludeAssembly(typeof(TenantDeactivationSaga).Assembly);
     opts.Discovery.IncludeAssembly(typeof(CacheInvalidationHandler).Assembly);
 
     opts.PersistMessagesWithPostgresql(

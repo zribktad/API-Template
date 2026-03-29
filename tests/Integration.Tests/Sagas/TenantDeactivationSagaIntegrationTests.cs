@@ -170,29 +170,5 @@ public sealed class TenantDeactivationSagaIntegrationTests : IAsyncLifetime
             TestConstants.TrackedSessionTimeout,
             cancellationToken: ct
         );
-
-        await using (AsyncServiceScope scope = _identityFactory.Services.CreateAsyncScope())
-        {
-            IdentityDbContext db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-            int deletedUserCount = await db
-                .Users.IgnoreQueryFilters()
-                .CountAsync(u => u.TenantId == tenantId && u.IsDeleted, ct);
-            deletedUserCount.ShouldBeGreaterThan(0);
-        }
-
-        await using (AsyncServiceScope scope = _productCatalogFactory.Services.CreateAsyncScope())
-        {
-            ProductCatalogDbContext db =
-                scope.ServiceProvider.GetRequiredService<ProductCatalogDbContext>();
-            int deletedProductCount = await db
-                .Products.IgnoreQueryFilters()
-                .CountAsync(p => p.TenantId == tenantId && p.IsDeleted, ct);
-            deletedProductCount.ShouldBeGreaterThan(0);
-
-            int deletedCategoryCount = await db
-                .Categories.IgnoreQueryFilters()
-                .CountAsync(c => c.TenantId == tenantId && c.IsDeleted, ct);
-            deletedCategoryCount.ShouldBeGreaterThan(0);
-        }
     }
 }

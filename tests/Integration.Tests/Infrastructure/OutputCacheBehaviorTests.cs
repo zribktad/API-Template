@@ -408,5 +408,14 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
         string secondBody = await second.Content.ReadAsStringAsync(ct);
         second.StatusCode.ShouldBe(HttpStatusCode.OK, secondBody);
         second.Headers.Age.ShouldNotBeNull();
+
+        try
+        {
+            Directory.Delete(tenantDir, recursive: true);
+        }
+        catch
+        {
+            // Best-effort cleanup; temp files are harmless if locked.
+        }
     }
 }
