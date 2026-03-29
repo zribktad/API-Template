@@ -22,6 +22,29 @@ namespace ProductCatalog.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ProductCatalog.Application.Sagas.ProductDeletionSaga", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("FilesCascaded")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ReviewsCascaded")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ProductDeletionSagas", "sagas");
+                });
+
             modelBuilder.Entity("ProductCatalog.Domain.Entities.Category", b =>
                 {
                     b.Property<Guid>("Id")

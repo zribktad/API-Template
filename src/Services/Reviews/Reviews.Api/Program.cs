@@ -1,4 +1,5 @@
 using Contracts.IntegrationEvents.Reviews;
+using Contracts.IntegrationEvents.Sagas;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Reviews.Application.Features.ProductEvents;
@@ -12,6 +13,7 @@ using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.FluentValidation;
+using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -37,6 +39,7 @@ builder.Services.AddSharedAuthorization(enablePermissionPolicies: true);
 builder.Services.AddValidatorsFromAssemblyContaining<ProductCreatedEventHandler>();
 
 builder.Services.AddControllers();
+builder.Services.AddSharedOpenApiDocumentation();
 
 builder.Services.AddHealthChecks();
 
@@ -49,6 +52,10 @@ builder.Host.UseWolverine(opts =>
 
     opts.Discovery.IncludeAssembly(typeof(ProductCreatedEventHandler).Assembly);
 
+    opts.PersistMessagesWithPostgresql(
+        builder.Configuration.GetRequiredConnectionString("ReviewsDb"),
+        "wolverine"
+    );
     opts.UseEntityFrameworkCoreTransactions();
 
     opts.UseSharedRabbitMq(builder.Configuration);
@@ -85,6 +92,10 @@ builder.Host.UseWolverine(opts =>
             queue.BindExchange(RabbitMqTopology.Exchanges.Identity);
         }
     );
+
+    // Route product deletion cascade completion back to ProductCatalog saga queue.
+    opts.PublishMessage<ReviewsCascadeCompleted>()
+        .ToRabbitQueue(RabbitMqTopology.Queues.ProductCatalog.ReviewsCascadeCompleted);
 });
 
 WebApplication app = builder.Build();
@@ -93,6 +104,7 @@ await app.MigrateDbAsync<ReviewsDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapSharedOpenApiEndpoint();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 

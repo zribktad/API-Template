@@ -44,9 +44,7 @@ namespace APITemplate.Infrastructure.Migrations.TickerQ
                         .HasColumnType("text");
 
                     b.Property<bool>("IsEnabled")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
+                        .HasColumnType("boolean");
 
                     b.Property<byte[]>("Request")
                         .HasColumnType("bytea");

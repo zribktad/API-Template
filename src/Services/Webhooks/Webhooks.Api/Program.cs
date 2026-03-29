@@ -66,6 +66,8 @@ builder
 
 // Health checks
 builder.Services.AddHealthChecks();
+builder.Services.AddSharedOpenApiDocumentation();
+builder.Services.AddWolverineHttp();
 
 // Wolverine with RabbitMQ
 builder.Host.UseWolverine(opts =>
@@ -116,6 +118,7 @@ await app.MigrateDbAsync<WebhooksDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapSharedOpenApiEndpoint();
 app.MapWolverineEndpoints();
 app.MapHealthChecks("/health").AllowAnonymous();
 

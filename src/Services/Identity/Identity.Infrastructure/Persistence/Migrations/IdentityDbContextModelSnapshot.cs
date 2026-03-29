@@ -22,6 +22,32 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Identity.Application.Sagas.TenantDeactivationSaga", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("CategoriesCascaded")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ProductsCascaded")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("UsersCascaded")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("TenantDeactivationSagas", "sagas");
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.AppUser", b =>
                 {
                     b.Property<Guid>("Id")

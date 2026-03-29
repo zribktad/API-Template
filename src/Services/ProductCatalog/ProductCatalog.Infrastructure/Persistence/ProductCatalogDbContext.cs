@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ProductCatalog.Application.Sagas;
 using ProductCatalog.Domain.Entities;
 using SharedKernel.Application.Context;
 using SharedKernel.Infrastructure.Persistence;
@@ -36,6 +37,7 @@ public sealed class ProductCatalogDbContext : TenantAuditableDbContext
     public DbSet<ProductDataLink> ProductDataLinks => Set<ProductDataLink>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<ProductCategoryStats> ProductCategoryStats => Set<ProductCategoryStats>();
+    public DbSet<ProductDeletionSaga> ProductDeletionSagas => Set<ProductDeletionSaga>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

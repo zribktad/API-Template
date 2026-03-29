@@ -36,9 +36,6 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
             _containers.PostgresServerConnectionString,
             _databaseName
         );
-
-        // Pre-warm: trigger host build so EF migrations run before tests execute.
-        _ = Services;
     }
 
     public new async ValueTask DisposeAsync()
@@ -59,7 +56,23 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
             _containers.RabbitMqConnectionString
         );
 
+        // Shared infrastructure requires this options section in every service host.
+        config["TransactionDefaults:IsolationLevel"] = "ReadCommitted";
+        config["TransactionDefaults:TimeoutSeconds"] = "30";
+        config["TransactionDefaults:RetryEnabled"] = "true";
+        config["TransactionDefaults:RetryCount"] = "3";
+        config["TransactionDefaults:RetryDelaySeconds"] = "5";
+
         ConfigureAdditionalConfiguration(config);
+
+        // Ensure values are available early for Program-time configuration reads.
+        foreach ((string key, string? value) in config)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                builder.UseSetting(key, value);
+            }
+        }
 
         builder.ConfigureAppConfiguration(
             (_, configBuilder) => configBuilder.AddInMemoryCollection(config)

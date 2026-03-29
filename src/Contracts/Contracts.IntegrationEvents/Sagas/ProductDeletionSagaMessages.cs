@@ -1,3 +1,4 @@
+using Wolverine;
 using Wolverine.Persistence.Sagas;
 
 namespace Contracts.IntegrationEvents.Sagas;
@@ -27,3 +28,9 @@ public sealed record FilesCascadeCompleted(
     [property: SagaIdentity] Guid CorrelationId,
     int DeletedCount
 );
+
+/// <summary>
+/// Timeout message for product deletion saga reliability.
+/// </summary>
+public sealed record ProductDeletionSagaTimeout([property: SagaIdentity] Guid CorrelationId)
+    : TimeoutMessage(TimeSpan.FromMinutes(5));

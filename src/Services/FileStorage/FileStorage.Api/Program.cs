@@ -1,3 +1,4 @@
+using Contracts.IntegrationEvents.Sagas;
 using FileStorage.Application.Common.Contracts;
 using FileStorage.Application.Common.Options;
 using FileStorage.Domain.Interfaces;
@@ -11,6 +12,7 @@ using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
+using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -39,6 +41,7 @@ builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Envir
 builder.Services.AddSharedAuthorization(enablePermissionPolicies: true);
 
 builder.Services.AddControllers();
+builder.Services.AddSharedOpenApiDocumentation();
 
 builder.Services.AddHealthChecks();
 
@@ -49,6 +52,10 @@ builder.Host.UseWolverine(opts =>
 
     opts.Discovery.IncludeAssembly(typeof(IFileStorageService).Assembly);
 
+    opts.PersistMessagesWithPostgresql(
+        builder.Configuration.GetRequiredConnectionString("FileStorageDb"),
+        "wolverine"
+    );
     opts.UseEntityFrameworkCoreTransactions();
 
     opts.UseSharedRabbitMq(builder.Configuration);
@@ -60,6 +67,10 @@ builder.Host.UseWolverine(opts =>
             queue.BindExchange(RabbitMqTopology.Exchanges.ProductCatalog);
         }
     );
+
+    // Route product deletion cascade completion back to ProductCatalog saga queue.
+    opts.PublishMessage<FilesCascadeCompleted>()
+        .ToRabbitQueue(RabbitMqTopology.Queues.ProductCatalog.FilesCascadeCompleted);
 });
 
 WebApplication app = builder.Build();
@@ -68,6 +79,7 @@ await app.MigrateDbAsync<FileStorageDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapSharedOpenApiEndpoint();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 

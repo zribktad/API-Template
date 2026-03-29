@@ -21,6 +21,13 @@ public static class TestBaseConfiguration
             ["SystemIdentity:DefaultActorId"] = "00000000-0000-0000-0000-000000000000",
             ["Bootstrap:Tenant:Code"] = "default",
             ["Bootstrap:Tenant:Name"] = "Default Tenant",
+            // New shared infrastructure options consumed by AddSharedInfrastructure()
+            ["TransactionDefaults:IsolationLevel"] = "ReadCommitted",
+            ["TransactionDefaults:TimeoutSeconds"] = "30",
+            ["TransactionDefaults:RetryEnabled"] = "true",
+            ["TransactionDefaults:RetryCount"] = "3",
+            ["TransactionDefaults:RetryDelaySeconds"] = "5",
+            // Backward-compatible legacy section used by older components/tests
             ["Persistence:Transactions:IsolationLevel"] = "ReadCommitted",
             ["Persistence:Transactions:TimeoutSeconds"] = "30",
             ["Persistence:Transactions:RetryEnabled"] = "true",

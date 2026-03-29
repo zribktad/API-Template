@@ -313,7 +313,19 @@
     {
       "label": "ms: test all",
       "type": "shell",
-      "command": "dotnet test ${workspaceFolder}/tests/SharedKernel.Tests && dotnet test ${workspaceFolder}/tests/ProductCatalog.Tests && dotnet test ${workspaceFolder}/tests/Reviews.Tests && dotnet test ${workspaceFolder}/tests/Identity.Tests && dotnet test ${workspaceFolder}/tests/Notifications.Tests && dotnet test ${workspaceFolder}/tests/FileStorage.Tests && dotnet test ${workspaceFolder}/tests/BackgroundJobs.Tests && dotnet test ${workspaceFolder}/tests/Webhooks.Tests",
+      "command": "dotnet test ${workspaceFolder}/tests/SharedKernel.Tests && dotnet test ${workspaceFolder}/tests/ProductCatalog.Tests && dotnet test ${workspaceFolder}/tests/Reviews.Tests && dotnet test ${workspaceFolder}/tests/Identity.Tests && dotnet test ${workspaceFolder}/tests/Notifications.Tests && dotnet test ${workspaceFolder}/tests/FileStorage.Tests && dotnet test ${workspaceFolder}/tests/BackgroundJobs.Tests && dotnet test ${workspaceFolder}/tests/Webhooks.Tests && dotnet test ${workspaceFolder}/tests/Integration.Tests --filter \"Category=Integration.SmokeStartup\"",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ms: smoke startup",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/tests/Integration.Tests/Integration.Tests.csproj",
+        "--filter",
+        "Category=Integration.SmokeStartup"
+      ],
       "problemMatcher": "$msCompile"
     },
     {

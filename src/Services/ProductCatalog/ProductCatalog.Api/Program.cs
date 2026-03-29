@@ -16,6 +16,7 @@ using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.FluentValidation;
+using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -69,6 +70,7 @@ builder.Services.AddSharedAuthorization(enablePermissionPolicies: true);
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
 
 builder.Services.AddControllers();
+builder.Services.AddSharedOpenApiDocumentation();
 
 builder.Services.AddHealthChecks();
 
@@ -81,6 +83,10 @@ builder.Host.UseWolverine(opts =>
 
     opts.Discovery.IncludeAssembly(typeof(ProductDeletionSaga).Assembly);
 
+    opts.PersistMessagesWithPostgresql(
+        builder.Configuration.GetRequiredConnectionString("ProductCatalogDb"),
+        "wolverine"
+    );
     opts.UseEntityFrameworkCoreTransactions();
 
     opts.UseSharedRabbitMq(builder.Configuration);
@@ -129,6 +135,7 @@ await app.MigrateDbAsync<ProductCatalogDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapSharedOpenApiEndpoint();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 

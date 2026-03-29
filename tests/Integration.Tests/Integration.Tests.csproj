@@ -25,7 +25,11 @@
     <ProjectReference Include="..\..\src\Services\ProductCatalog\ProductCatalog.Api\ProductCatalog.Api.csproj" Aliases="ProductCatalogApi" />
     <ProjectReference Include="..\..\src\Services\Reviews\Reviews.Api\Reviews.Api.csproj" Aliases="ReviewsApi" />
     <ProjectReference Include="..\..\src\Services\Identity\Identity.Api\Identity.Api.csproj" Aliases="IdentityApi" />
+    <ProjectReference Include="..\..\src\Services\Notifications\Notifications.Api\Notifications.Api.csproj" Aliases="NotificationsApi" />
     <ProjectReference Include="..\..\src\Services\FileStorage\FileStorage.Api\FileStorage.Api.csproj" Aliases="FileStorageApi" />
+    <ProjectReference Include="..\..\src\Services\BackgroundJobs\BackgroundJobs.Api\BackgroundJobs.Api.csproj" Aliases="BackgroundJobsApi" />
+    <ProjectReference Include="..\..\src\Services\Webhooks\Webhooks.Api\Webhooks.Api.csproj" Aliases="WebhooksApi" />
+    <ProjectReference Include="..\..\src\Gateway\Gateway.Api\Gateway.Api.csproj" Aliases="GatewayApi" />
     <ProjectReference Include="..\Tests.Common\Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\Contracts\Contracts.IntegrationEvents\Contracts.IntegrationEvents.csproj" />
     <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.Messaging\SharedKernel.Messaging.csproj" />

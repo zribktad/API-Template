@@ -8,7 +8,7 @@ All 7 microservices extracted from the monolith and running independently.
 
 ## Open TODOs
 
-### Saga Reliability — Missing EF Core Persistence Mapping
+### [x] Saga Reliability — Missing EF Core Persistence Mapping
 Neither `ProductDeletionSaga` (ProductCatalog) nor `TenantDeactivationSaga` (Identity) is mapped in the service's `DbContext`, and no EF Core migration exists for either saga table.
 With `UseEntityFrameworkCoreTransactions()`, Wolverine requires the saga type to be present in the registered `DbContext` to persist state between messages.
 Required for each saga:
@@ -16,7 +16,7 @@ Required for each saga:
 2. Add an `IEntityTypeConfiguration<XxxSaga>` that maps `Id`, status flags, and excludes global query filters (sagas are not tenant-scoped).
 3. Generate and run `dotnet ef migrations add AddXxxSaga`.
 
-### Saga Reliability — Missing Timeout Handling
+### [x] Saga Reliability — Missing Timeout Handling
 Neither `ProductDeletionSaga` nor `TenantDeactivationSaga` implement timeout/expiration.
 If a downstream service fails to publish its completion message the saga will remain in an incomplete state indefinitely with no compensation or alerting.
 Implement `ScheduleTimeout<T>(TimeSpan)` in Wolverine for both sagas, with a compensation handler that logs/alerts and optionally rolls back the parent operation.

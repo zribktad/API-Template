@@ -20,10 +20,11 @@ public class ProductDeletionSaga : Saga
     /// <summary>
     /// Starts the saga and publishes the <see cref="ProductDeletedIntegrationEvent"/> to trigger downstream cascades.
     /// </summary>
-    public static (ProductDeletionSaga, ProductDeletedIntegrationEvent) Start(
-        StartProductDeletionSaga command,
-        TimeProvider timeProvider
-    )
+    public static (
+        ProductDeletionSaga,
+        ProductDeletedIntegrationEvent,
+        ProductDeletionSagaTimeout
+    ) Start(StartProductDeletionSaga command, TimeProvider timeProvider)
     {
         ProductDeletionSaga saga = new()
         {
@@ -39,7 +40,9 @@ public class ProductDeletionSaga : Saga
             timeProvider.GetUtcNow().UtcDateTime
         );
 
-        return (saga, integrationEvent);
+        ProductDeletionSagaTimeout timeout = new(command.CorrelationId);
+
+        return (saga, integrationEvent, timeout);
     }
 
     /// <summary>
@@ -60,6 +63,25 @@ public class ProductDeletionSaga : Saga
         TryComplete();
     }
 
+    /// <summary>
+    /// Handles timeout when downstream services do not complete the cascade in time.
+    /// </summary>
+    public void Handle(ProductDeletionSagaTimeout timeout, ILogger<ProductDeletionSaga> logger)
+    {
+        if (ReviewsCascaded && FilesCascaded)
+            return;
+
+        logger.LogWarning(
+            "ProductDeletionSaga timed out for {SagaId}. Pending confirmations: ReviewsCascaded={ReviewsCascaded}, FilesCascaded={FilesCascaded}, TenantId={TenantId}",
+            timeout.CorrelationId,
+            ReviewsCascaded,
+            FilesCascaded,
+            TenantId
+        );
+
+        MarkCompleted();
+    }
+
     private void TryComplete()
     {
         if (ReviewsCascaded && FilesCascaded)
@@ -77,6 +99,16 @@ public class ProductDeletionSaga : Saga
         logger.LogWarning(
             "Received {MessageType} for unknown saga {SagaId}",
             nameof(FilesCascadeCompleted),
+            msg.CorrelationId
+        );
+
+    public static void NotFound(
+        ProductDeletionSagaTimeout msg,
+        ILogger<ProductDeletionSaga> logger
+    ) =>
+        logger.LogInformation(
+            "Received {MessageType} for already-completed or missing saga {SagaId}",
+            nameof(ProductDeletionSagaTimeout),
             msg.CorrelationId
         );
 }

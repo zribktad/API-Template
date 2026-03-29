@@ -1,7 +1,7 @@
 services:
   # Infrastructure
   rabbitmq:
-    image: rabbitmq:4-management
+    image: rabbitmq:4.2.5-management
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -12,7 +12,7 @@ services:
       retries: 5
 
   postgres:
-    image: postgres:17
+    image: postgres:18.3
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -28,26 +28,26 @@ services:
       retries: 5
 
   mongodb:
-    image: mongo:8
+    image: mongo:8.2.6-noble
     ports:
       - "27017:27017"
     volumes:
       - mongodata:/data/db
 
   dragonfly:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.37.2
     ports:
       - "6379:6379"
 
   mailpit:
-    image: axllent/mailpit
+    image: axllent/mailpit:v1.22
     ports:
       - "8025:8025"
       - "1025:1025"
 
   # Observability
   alloy:
-    image: grafana/alloy:v1.10.2
+    image: grafana/alloy:v1.11.0
     ports:
       - "4317:4317"
       - "4318:4318"
@@ -59,7 +59,7 @@ services:
       - /etc/alloy/config.alloy
 
   prometheus:
-    image: prom/prometheus:v3.4.2
+    image: prom/prometheus:v2.55.1
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -71,7 +71,7 @@ services:
       - prometheusdata:/prometheus
 
   loki:
-    image: grafana/loki:3.5.5
+    image: grafana/loki:3.4.2
     command: ["-config.file=/etc/loki/config.yml"]
     ports:
       - "3100:3100"
@@ -80,7 +80,7 @@ services:
       - lokidata:/loki
 
   tempo:
-    image: grafana/tempo:2.9.1
+    image: grafana/tempo:2.6.1
     command: ["-config.file=/etc/tempo/config.yml"]
     ports:
       - "3200:3200"
@@ -90,7 +90,7 @@ services:
       - tempodata:/var/tempo
 
   grafana:
-    image: grafana/grafana:12.3.1
+    image: grafana/grafana:12.0.0
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}

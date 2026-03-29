@@ -17,14 +17,18 @@ public sealed class ProductDeletionSagaTests
         Guid actorId = Guid.NewGuid();
         StartProductDeletionSaga command = new(correlationId, productIds, tenantId, actorId);
 
-        (ProductDeletionSaga saga, ProductDeletedIntegrationEvent @event) =
-            ProductDeletionSaga.Start(command, TimeProvider.System);
+        (
+            ProductDeletionSaga saga,
+            ProductDeletedIntegrationEvent @event,
+            ProductDeletionSagaTimeout timeout
+        ) = ProductDeletionSaga.Start(command, TimeProvider.System);
 
         saga.Id.ShouldBe(correlationId.ToString());
         saga.ProductIds.ShouldBe(productIds);
         saga.TenantId.ShouldBe(tenantId);
         saga.ReviewsCascaded.ShouldBeFalse();
         saga.FilesCascaded.ShouldBeFalse();
+        timeout.CorrelationId.ShouldBe(correlationId);
     }
 
     [Fact]
@@ -39,14 +43,16 @@ public sealed class ProductDeletionSagaTests
             Guid.NewGuid()
         );
 
-        (ProductDeletionSaga _, ProductDeletedIntegrationEvent @event) = ProductDeletionSaga.Start(
-            command,
-            TimeProvider.System
-        );
+        (
+            ProductDeletionSaga _,
+            ProductDeletedIntegrationEvent @event,
+            ProductDeletionSagaTimeout timeout
+        ) = ProductDeletionSaga.Start(command, TimeProvider.System);
 
         @event.ProductIds.ShouldBe(productIds);
         @event.TenantId.ShouldBe(tenantId);
         @event.CorrelationId.ShouldBe(command.CorrelationId);
+        timeout.CorrelationId.ShouldBe(command.CorrelationId);
     }
 
     [Fact]
@@ -88,6 +94,19 @@ public sealed class ProductDeletionSagaTests
 
         saga.Handle(new ReviewsCascadeCompleted(Guid.NewGuid(), 10));
         saga.Handle(new FilesCascadeCompleted(Guid.NewGuid(), 5));
+
+        saga.IsCompleted().ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Handle_Timeout_CompletesWhenCascadeIsIncomplete()
+    {
+        ProductDeletionSaga saga = CreateSaga();
+
+        saga.Handle(
+            new ProductDeletionSagaTimeout(Guid.Parse(saga.Id!)),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ProductDeletionSaga>.Instance
+        );
 
         saga.IsCompleted().ShouldBeTrue();
     }

@@ -16,14 +16,18 @@ public sealed class TenantDeactivationSagaTests
         Guid actorId = Guid.NewGuid();
         StartTenantDeactivationSaga command = new(correlationId, tenantId, actorId);
 
-        (TenantDeactivationSaga saga, TenantDeactivatedIntegrationEvent @event) =
-            TenantDeactivationSaga.Start(command, TimeProvider.System);
+        (
+            TenantDeactivationSaga saga,
+            TenantDeactivatedIntegrationEvent @event,
+            TenantDeactivationSagaTimeout timeout
+        ) = TenantDeactivationSaga.Start(command, TimeProvider.System);
 
         saga.Id.ShouldBe(correlationId.ToString());
         saga.TenantId.ShouldBe(tenantId);
         saga.UsersCascaded.ShouldBeFalse();
         saga.ProductsCascaded.ShouldBeFalse();
         saga.CategoriesCascaded.ShouldBeFalse();
+        timeout.CorrelationId.ShouldBe(correlationId);
     }
 
     [Fact]
@@ -34,12 +38,16 @@ public sealed class TenantDeactivationSagaTests
         Guid actorId = Guid.NewGuid();
         StartTenantDeactivationSaga command = new(correlationId, tenantId, actorId);
 
-        (TenantDeactivationSaga _, TenantDeactivatedIntegrationEvent @event) =
-            TenantDeactivationSaga.Start(command, TimeProvider.System);
+        (
+            TenantDeactivationSaga _,
+            TenantDeactivatedIntegrationEvent @event,
+            TenantDeactivationSagaTimeout timeout
+        ) = TenantDeactivationSaga.Start(command, TimeProvider.System);
 
         @event.CorrelationId.ShouldBe(correlationId);
         @event.TenantId.ShouldBe(tenantId);
         @event.ActorId.ShouldBe(actorId);
+        timeout.CorrelationId.ShouldBe(correlationId);
     }
 
     [Fact]
@@ -93,6 +101,19 @@ public sealed class TenantDeactivationSagaTests
         saga.Handle(new UsersCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 5));
         saga.Handle(new ProductsCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 3));
         saga.Handle(new CategoriesCascadeCompleted(Guid.NewGuid(), Guid.NewGuid(), 2));
+
+        saga.IsCompleted().ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Handle_Timeout_CompletesWhenCascadeIsIncomplete()
+    {
+        TenantDeactivationSaga saga = CreateSaga();
+
+        saga.Handle(
+            new TenantDeactivationSagaTimeout(Guid.Parse(saga.Id!)),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<TenantDeactivationSaga>.Instance
+        );
 
         saga.IsCompleted().ShouldBeTrue();
     }

@@ -2,7 +2,7 @@ using Contracts.IntegrationEvents.ProductCatalog;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Reviews.Application.EventHandlers;
+using Reviews.Application.Features.ProductEvents;
 using Reviews.Domain.Entities;
 using Shouldly;
 using Xunit;

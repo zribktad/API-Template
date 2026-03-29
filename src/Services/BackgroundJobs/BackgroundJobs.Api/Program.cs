@@ -22,6 +22,7 @@ using TickerQ.EntityFrameworkCore.DependencyInjection;
 using TickerQ.Utilities;
 using TickerQ.Utilities.Entities;
 using Wolverine;
+using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -39,6 +40,7 @@ string connectionString = builder.Configuration.GetRequiredConnectionString("Def
 builder.Services.AddDbContext<BackgroundJobsDbContext>(options =>
     options.UseNpgsql(connectionString)
 );
+builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<BackgroundJobsDbContext>());
 
 // Options
 builder.Services.AddValidatedOptions<BackgroundJobsOptions>(
@@ -128,6 +130,7 @@ builder.Services.AddHealthChecks();
 
 // Controllers
 builder.Services.AddControllers();
+builder.Services.AddSharedOpenApiDocumentation();
 
 // Wolverine with RabbitMQ
 builder.Host.UseWolverine(opts =>
@@ -140,6 +143,7 @@ builder.Host.UseWolverine(opts =>
     // Shared conventions
     opts.ApplySharedConventions();
     opts.ApplySharedRetryPolicies();
+    opts.PersistMessagesWithPostgresql(connectionString, "wolverine");
 
     // RabbitMQ transport
     opts.UseSharedRabbitMq(builder.Configuration);
@@ -160,6 +164,7 @@ await app.MigrateDbAsync<BackgroundJobsDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapSharedOpenApiEndpoint();
 app.MapControllers();
 app.MapHealthChecks("/health").AllowAnonymous();
 

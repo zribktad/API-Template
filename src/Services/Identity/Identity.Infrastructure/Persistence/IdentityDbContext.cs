@@ -1,9 +1,9 @@
+using Identity.Application.Sagas;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Application.Context;
 using SharedKernel.Infrastructure.Persistence;
 using SharedKernel.Infrastructure.Persistence.Auditing;
-using SharedKernel.Infrastructure.Persistence.EntityNormalization;
 using SharedKernel.Infrastructure.Persistence.SoftDelete;
 
 namespace Identity.Infrastructure.Persistence;
@@ -21,8 +21,7 @@ public sealed class IdentityDbContext : TenantAuditableDbContext
         TimeProvider timeProvider,
         IEnumerable<ISoftDeleteCascadeRule> softDeleteCascadeRules,
         IAuditableEntityStateManager entityStateManager,
-        ISoftDeleteProcessor softDeleteProcessor,
-        IEntityNormalizationService? entityNormalizationService = null
+        ISoftDeleteProcessor softDeleteProcessor
     )
         : base(
             options,
@@ -31,13 +30,13 @@ public sealed class IdentityDbContext : TenantAuditableDbContext
             timeProvider,
             softDeleteCascadeRules,
             entityStateManager,
-            softDeleteProcessor,
-            entityNormalizationService
+            softDeleteProcessor
         ) { }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
+    public DbSet<TenantDeactivationSaga> TenantDeactivationSagas => Set<TenantDeactivationSaga>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

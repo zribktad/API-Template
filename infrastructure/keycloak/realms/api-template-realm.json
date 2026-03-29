@@ -12,7 +12,7 @@
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": false,
   "editUsernameAllowed": false,
-  "passwordPolicy": "length(8) and upperCase(1) and digits(1) and forceExpiredPasswordChange(365)",
+  "passwordPolicy": "length(4)",
   "bruteForceProtected": true,
   "failureFactor": 5,
   "waitIncrementSeconds": 60,
@@ -168,7 +168,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "Admin123",
+          "value": "admin",
           "temporary": false
         }
       ],

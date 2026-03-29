@@ -1,3 +1,4 @@
+using Wolverine;
 using Wolverine.Persistence.Sagas;
 
 namespace Contracts.IntegrationEvents.Sagas;
@@ -33,3 +34,9 @@ public sealed record CategoriesCascadeCompleted(
     Guid TenantId,
     int DeletedCount
 );
+
+/// <summary>
+/// Timeout message for tenant deactivation saga reliability.
+/// </summary>
+public sealed record TenantDeactivationSagaTimeout([property: SagaIdentity] Guid CorrelationId)
+    : TimeoutMessage(TimeSpan.FromMinutes(5));

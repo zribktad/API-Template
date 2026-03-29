@@ -13,10 +13,11 @@ public class TenantDeactivationSaga : Saga
     public bool ProductsCascaded { get; set; }
     public bool CategoriesCascaded { get; set; }
 
-    public static (TenantDeactivationSaga, TenantDeactivatedIntegrationEvent) Start(
-        StartTenantDeactivationSaga command,
-        TimeProvider timeProvider
-    )
+    public static (
+        TenantDeactivationSaga,
+        TenantDeactivatedIntegrationEvent,
+        TenantDeactivationSagaTimeout
+    ) Start(StartTenantDeactivationSaga command, TimeProvider timeProvider)
     {
         TenantDeactivationSaga saga = new()
         {
@@ -29,7 +30,9 @@ public class TenantDeactivationSaga : Saga
             command.ActorId,
             timeProvider.GetUtcNow().UtcDateTime
         );
-        return (saga, @event);
+
+        TenantDeactivationSagaTimeout timeout = new(command.CorrelationId);
+        return (saga, @event, timeout);
     }
 
     public void Handle(UsersCascadeCompleted _)
@@ -48,6 +51,26 @@ public class TenantDeactivationSaga : Saga
     {
         CategoriesCascaded = true;
         TryComplete();
+    }
+
+    public void Handle(
+        TenantDeactivationSagaTimeout timeout,
+        ILogger<TenantDeactivationSaga> logger
+    )
+    {
+        if (UsersCascaded && ProductsCascaded && CategoriesCascaded)
+            return;
+
+        logger.LogWarning(
+            "TenantDeactivationSaga timed out for {SagaId}. Pending confirmations: UsersCascaded={UsersCascaded}, ProductsCascaded={ProductsCascaded}, CategoriesCascaded={CategoriesCascaded}, TenantId={TenantId}",
+            timeout.CorrelationId,
+            UsersCascaded,
+            ProductsCascaded,
+            CategoriesCascaded,
+            TenantId
+        );
+
+        MarkCompleted();
     }
 
     private void TryComplete()
@@ -83,6 +106,16 @@ public class TenantDeactivationSaga : Saga
         logger.LogWarning(
             "Received {MessageType} for unknown saga {SagaId}",
             nameof(CategoriesCascadeCompleted),
+            msg.CorrelationId
+        );
+
+    public static void NotFound(
+        TenantDeactivationSagaTimeout msg,
+        ILogger<TenantDeactivationSaga> logger
+    ) =>
+        logger.LogInformation(
+            "Received {MessageType} for already-completed or missing saga {SagaId}",
+            nameof(TenantDeactivationSagaTimeout),
             msg.CorrelationId
         );
 }

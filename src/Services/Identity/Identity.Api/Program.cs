@@ -3,6 +3,7 @@ using Contracts.IntegrationEvents.Sagas;
 using FluentValidation;
 using Identity.Api.Extensions;
 using Identity.Application.Options;
+using Identity.Application.Sagas;
 using Identity.Application.Security;
 using Identity.Domain.Interfaces;
 using Identity.Infrastructure.Persistence;
@@ -10,8 +11,10 @@ using Identity.Infrastructure.Repositories;
 using Identity.Infrastructure.Security;
 using Identity.Infrastructure.Security.Keycloak;
 using Identity.Infrastructure.Security.Tenant;
+using Keycloak.AuthServices.Sdk;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SharedKernel.Api.Extensions;
 using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
@@ -19,6 +22,7 @@ using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.FluentValidation;
+using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -56,11 +60,24 @@ builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<ITenantInvitationRepository, TenantInvitationRepository>();
 
 builder.Services.AddSingleton<IRolePermissionMap, DefaultRolePermissionMap>();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<IKeycloakAdminService, KeycloakAdminService>();
 builder.Services.AddScoped<ISecureTokenGenerator, SecureTokenGenerator>();
 builder.Services.AddScoped<IUserProvisioningService, UserProvisioningService>();
 builder.Services.AddSingleton<KeycloakAdminTokenProvider>();
 builder.Services.AddTransient<KeycloakAdminTokenHandler>();
+builder
+    .Services.AddOptions<KeycloakAdminClientOptions>()
+    .Configure<IOptions<KeycloakOptions>>(
+        (adminOpts, keycloakOpts) =>
+        {
+            adminOpts.AuthServerUrl = keycloakOpts.Value.AuthServerUrl;
+            adminOpts.Realm = keycloakOpts.Value.Realm;
+        }
+    );
+builder
+    .Services.AddKeycloakAdminHttpClient(_ => { })
+    .AddHttpMessageHandler<KeycloakAdminTokenHandler>();
 
 builder
     .Services.AddSharedKeycloakJwtBearer(
@@ -85,6 +102,7 @@ builder.Services.AddSharedAuthorization(
 builder.Services.AddValidatorsFromAssemblyContaining<IKeycloakAdminService>();
 
 builder.Services.AddControllers();
+builder.Services.AddSharedOpenApiDocumentation();
 
 builder.Services.AddHealthChecks();
 
@@ -96,7 +114,12 @@ builder.Host.UseWolverine(opts =>
     opts.UseFluentValidation();
 
     opts.Discovery.IncludeAssembly(typeof(IKeycloakAdminService).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(TenantDeactivationSaga).Assembly);
 
+    opts.PersistMessagesWithPostgresql(
+        builder.Configuration.GetRequiredConnectionString("IdentityDb"),
+        "wolverine"
+    );
     opts.UseEntityFrameworkCoreTransactions();
 
     opts.UseSharedRabbitMq(builder.Configuration);
@@ -142,6 +165,7 @@ await app.MigrateDbAsync<IdentityDbContext>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapSharedOpenApiEndpoint();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
