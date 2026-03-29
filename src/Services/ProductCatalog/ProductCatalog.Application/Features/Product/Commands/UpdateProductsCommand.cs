@@ -5,6 +5,7 @@ using ProductCatalog.Application.Features.Product.Repositories;
 using ProductCatalog.Domain.Entities;
 using ProductCatalog.Domain.Interfaces;
 using SharedKernel.Application.Batch;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Domain.Interfaces;
 using Wolverine;
@@ -61,7 +62,7 @@ public sealed class UpdateProductsCommandHandler
     }
 
     /// <summary>Applies changes and syncs product-data links in a single transaction.</summary>
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         UpdateProductsCommand command,
         EntityLookup<ProductEntity> lookup,
         IProductRepository repository,
@@ -96,6 +97,9 @@ public sealed class UpdateProductsCommandHandler
             ct
         );
 
-        return new BatchResponse([], items.Count, 0);
+        return (
+            new BatchResponse([], items.Count, 0),
+            CacheInvalidationCascades.ForTag(CacheTags.Products)
+        );
     }
 }

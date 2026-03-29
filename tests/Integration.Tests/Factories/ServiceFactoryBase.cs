@@ -40,7 +40,17 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
 
     public new async ValueTask DisposeAsync()
     {
-        await base.DisposeAsync();
+        try
+        {
+            await base.DisposeAsync();
+        }
+        catch (OperationCanceledException) { }
+        catch (AggregateException ex)
+            when (ex.InnerExceptions.All(e =>
+                    e is OperationCanceledException or TaskCanceledException
+                )
+            ) { }
+
         await TestDatabaseLifecycle.DropDatabaseAsync(
             _containers.PostgresServerConnectionString,
             _databaseName
@@ -62,6 +72,8 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
         config["TransactionDefaults:RetryEnabled"] = "true";
         config["TransactionDefaults:RetryCount"] = "3";
         config["TransactionDefaults:RetryDelaySeconds"] = "5";
+        config["ConnectionStrings:Dragonfly"] = string.Empty;
+        config["ConnectionStrings__Dragonfly"] = string.Empty;
 
         ConfigureAdditionalConfiguration(config);
 

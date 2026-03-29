@@ -15,11 +15,7 @@ namespace ProductCatalog.Infrastructure.Persistence.Migrations
                 name: "ProductDeletionSagas",
                 columns: table => new
                 {
-                    Id = table.Column<string>(
-                        type: "character varying(64)",
-                        maxLength: 64,
-                        nullable: false
-                    ),
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
                     ReviewsCascaded = table.Column<bool>(type: "boolean", nullable: false),
                     FilesCascaded = table.Column<bool>(type: "boolean", nullable: false),

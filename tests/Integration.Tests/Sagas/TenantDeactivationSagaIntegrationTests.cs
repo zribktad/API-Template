@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ProductCatalog.Infrastructure.Persistence;
 using Shouldly;
+using TestCommon;
 using Wolverine;
 using Wolverine.Tracking;
 using Xunit;
@@ -116,6 +117,8 @@ public sealed class TenantDeactivationSagaIntegrationTests : IAsyncLifetime
         IHost identityHost = _identityFactory.Services.GetRequiredService<IHost>();
         IHost productCatalogHost = _productCatalogFactory.Services.GetRequiredService<IHost>();
 
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
         ITrackedSession session = await identityHost
             .TrackActivity()
             .Timeout(TestConstants.TrackedSessionTimeout)
@@ -124,7 +127,6 @@ public sealed class TenantDeactivationSagaIntegrationTests : IAsyncLifetime
             .WaitForMessageToBeReceivedAt<UsersCascadeCompleted>(identityHost)
             .WaitForMessageToBeReceivedAt<ProductsCascadeCompleted>(identityHost)
             .WaitForMessageToBeReceivedAt<CategoriesCascadeCompleted>(identityHost)
-            .DoNotAssertOnExceptionsDetected()
             .InvokeMessageAndWaitAsync(
                 new StartTenantDeactivationSaga(correlationId, tenantId, actorId)
             );
@@ -135,28 +137,38 @@ public sealed class TenantDeactivationSagaIntegrationTests : IAsyncLifetime
         session.Received.MessagesOf<ProductsCascadeCompleted>().ShouldNotBeEmpty();
         session.Received.MessagesOf<CategoriesCascadeCompleted>().ShouldNotBeEmpty();
 
-        await using (AsyncServiceScope scope = _identityFactory.Services.CreateAsyncScope())
-        {
-            IdentityDbContext db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-            int deletedUserCount = await db
-                .Users.IgnoreQueryFilters()
-                .CountAsync(u => u.TenantId == tenantId && u.IsDeleted);
-            deletedUserCount.ShouldBeGreaterThan(0);
-        }
+        await AsyncPoll.UntilTrueAsync(
+            async () =>
+            {
+                await using AsyncServiceScope scope = _identityFactory.Services.CreateAsyncScope();
+                IdentityDbContext db =
+                    scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+                int deletedUserCount = await db
+                    .Users.IgnoreQueryFilters()
+                    .CountAsync(u => u.TenantId == tenantId && u.IsDeleted, ct);
+                return deletedUserCount > 0;
+            },
+            TestConstants.TrackedSessionTimeout,
+            cancellationToken: ct
+        );
 
-        await using (AsyncServiceScope scope = _productCatalogFactory.Services.CreateAsyncScope())
-        {
-            ProductCatalogDbContext db =
-                scope.ServiceProvider.GetRequiredService<ProductCatalogDbContext>();
-            int deletedProductCount = await db
-                .Products.IgnoreQueryFilters()
-                .CountAsync(p => p.TenantId == tenantId && p.IsDeleted);
-            deletedProductCount.ShouldBeGreaterThan(0);
-
-            int deletedCategoryCount = await db
-                .Categories.IgnoreQueryFilters()
-                .CountAsync(c => c.TenantId == tenantId && c.IsDeleted);
-            deletedCategoryCount.ShouldBeGreaterThan(0);
-        }
+        await AsyncPoll.UntilTrueAsync(
+            async () =>
+            {
+                await using AsyncServiceScope scope =
+                    _productCatalogFactory.Services.CreateAsyncScope();
+                ProductCatalogDbContext db =
+                    scope.ServiceProvider.GetRequiredService<ProductCatalogDbContext>();
+                int deletedProductCount = await db
+                    .Products.IgnoreQueryFilters()
+                    .CountAsync(p => p.TenantId == tenantId && p.IsDeleted, ct);
+                int deletedCategoryCount = await db
+                    .Categories.IgnoreQueryFilters()
+                    .CountAsync(c => c.TenantId == tenantId && c.IsDeleted, ct);
+                return deletedProductCount > 0 && deletedCategoryCount > 0;
+            },
+            TestConstants.TrackedSessionTimeout,
+            cancellationToken: ct
+        );
     }
 }

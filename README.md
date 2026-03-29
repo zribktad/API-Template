@@ -252,7 +252,7 @@ classDiagram
 *   **GraphQL Core:** HotChocolate `15.1`
 *   **Auth:** Keycloak 26 (JWT Bearer + BFF Cookie via OIDC)
 *   **Utilities:** `Serilog.AspNetCore`, `FluentValidation`, `Ardalis.Specification`, `Kot.MongoDB.Migrations`
-*   **Test Suite:** xUnit 3, `Microsoft.AspNetCore.Mvc.Testing`, Moq, Shouldly, `FluentValidation.TestHelper`, Testcontainers.PostgreSql, Respawn
+*   **Test Suite:** xUnit 3, `Microsoft.AspNetCore.Mvc.Testing`, Moq, Shouldly (exclusive assertion style; see `docs/testing.md`), `FluentValidation.TestHelper`, Testcontainers.PostgreSql, Respawn
 
 ---
 

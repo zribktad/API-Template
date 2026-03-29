@@ -162,11 +162,7 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<BackgroundJobsDbContext>();
 
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapSharedOpenApiEndpoint();
-app.MapControllers();
-app.MapHealthChecks("/health").AllowAnonymous();
+app.UseSharedMicroserviceApiPipeline(false, a => a.MapControllers());
 
 await app.RunAsync();
 

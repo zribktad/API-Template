@@ -1,8 +1,8 @@
-using ProductCatalog.Application.Common.Contracts;
 using ProductCatalog.Application.Common.Errors;
 using ProductCatalog.Application.Features.Category.Specifications;
 using ProductCatalog.Domain.Interfaces;
 using SharedKernel.Application.Batch;
+using SharedKernel.Application.Contracts;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Domain.Entities.Contracts;
 
@@ -22,7 +22,7 @@ internal static class ProductValidationHelper
         IReadOnlySet<int> failedIndices,
         CancellationToken ct
     )
-        where T : IProductRequest
+        where T : class, IProductRequest
     {
         // Category (EF Core / PostgreSQL) and product-data (MongoDB) checks use independent
         // connections, so they can safely run in parallel.

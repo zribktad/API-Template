@@ -27,9 +27,8 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Identity.Application.Sagas.TenantDeactivationSaga", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("CategoriesCascaded")
                         .HasColumnType("boolean");

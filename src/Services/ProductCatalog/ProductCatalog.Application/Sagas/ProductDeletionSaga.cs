@@ -11,7 +11,7 @@ namespace ProductCatalog.Application.Sagas;
 /// </summary>
 public class ProductDeletionSaga : Saga
 {
-    public string? Id { get; set; }
+    public Guid Id { get; set; }
     public IReadOnlyList<Guid> ProductIds { get; set; } = [];
     public Guid TenantId { get; set; }
     public bool ReviewsCascaded { get; set; }
@@ -28,7 +28,7 @@ public class ProductDeletionSaga : Saga
     {
         ProductDeletionSaga saga = new()
         {
-            Id = command.CorrelationId.ToString(),
+            Id = command.CorrelationId,
             ProductIds = command.ProductIds,
             TenantId = command.TenantId,
         };

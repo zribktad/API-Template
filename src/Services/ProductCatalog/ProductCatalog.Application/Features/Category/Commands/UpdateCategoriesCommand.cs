@@ -6,8 +6,10 @@ using ProductCatalog.Application.Features.Category.Specifications;
 using ProductCatalog.Domain.Interfaces;
 using SharedKernel.Application.Batch;
 using SharedKernel.Application.Batch.Rules;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Domain.Interfaces;
+using Wolverine;
 using CategoryEntity = ProductCatalog.Domain.Entities.Category;
 
 namespace ProductCatalog.Application.Features.Category.Commands;
@@ -18,7 +20,7 @@ public sealed record UpdateCategoriesCommand(UpdateCategoriesRequest Request);
 /// <summary>Handles <see cref="UpdateCategoriesCommand"/> by validating all items, loading categories in bulk, and updating in a single transaction.</summary>
 public sealed class UpdateCategoriesCommandHandler
 {
-    public static async Task<ErrorOr<BatchResponse>> HandleAsync(
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
         UpdateCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,
@@ -52,7 +54,7 @@ public sealed class UpdateCategoriesCommandHandler
         );
 
         if (context.HasFailures)
-            return context.ToFailureResponse();
+            return (context.ToFailureResponse(), CacheInvalidationCascades.None);
 
         // Apply changes in a single transaction
         await unitOfWork.ExecuteInTransactionAsync(
@@ -72,6 +74,9 @@ public sealed class UpdateCategoriesCommandHandler
             ct
         );
 
-        return new BatchResponse([], items.Count, 0);
+        return (
+            new BatchResponse([], items.Count, 0),
+            CacheInvalidationCascades.ForTag(CacheTags.Categories)
+        );
     }
 }

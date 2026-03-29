@@ -4,9 +4,11 @@ using Polly.Registry;
 using ProductCatalog.Application.Common.Errors;
 using ProductCatalog.Application.Common.Resilience;
 using ProductCatalog.Domain.Interfaces;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Context;
 using SharedKernel.Domain.Entities.Contracts;
 using SharedKernel.Domain.Interfaces;
+using Wolverine;
 
 namespace ProductCatalog.Application.Features.ProductData.Commands;
 
@@ -14,7 +16,7 @@ public sealed record DeleteProductDataCommand(Guid Id) : IHasId;
 
 public sealed class DeleteProductDataCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         DeleteProductDataCommand command,
         IProductDataRepository repository,
         IProductDataLinkRepository productDataLinkRepository,
@@ -35,7 +37,7 @@ public sealed class DeleteProductDataCommandHandler
         );
 
         if (data is null || data.TenantId != tenantId)
-            return DomainErrors.ProductData.NotFound(command.Id);
+            return (DomainErrors.ProductData.NotFound(command.Id), CacheInvalidationCascades.None);
 
         DateTime deletedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
         Guid actorId = actorProvider.ActorId;
@@ -74,6 +76,6 @@ public sealed class DeleteProductDataCommandHandler
             throw;
         }
 
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.ProductData));
     }
 }

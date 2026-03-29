@@ -5,10 +5,12 @@ using Identity.Application.Features.TenantInvitation.DTOs;
 using Identity.Application.Features.TenantInvitation.Queries;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
 using Wolverine;
@@ -21,16 +23,16 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
 {
     [HttpGet]
     [RequirePermission(Permission.Invitations.Read)]
-    public async Task<ActionResult<PagedResponse<TenantInvitationResponse>>> GetAll(
+    [OutputCache(PolicyName = CacheTags.TenantInvitations)]
+    public Task<ActionResult<PagedResponse<TenantInvitationResponse>>> GetAll(
         [FromQuery] TenantInvitationFilter filter,
         CancellationToken ct
-    )
-    {
-        ErrorOr<PagedResponse<TenantInvitationResponse>> result = await bus.InvokeAsync<
-            ErrorOr<PagedResponse<TenantInvitationResponse>>
-        >(new GetTenantInvitationsQuery(filter), ct);
-        return result.ToActionResult(this);
-    }
+    ) =>
+        InvokeToActionResultAsync<PagedResponse<TenantInvitationResponse>>(
+            bus,
+            new GetTenantInvitationsQuery(filter),
+            ct
+        );
 
     [HttpPost]
     [RequirePermission(Permission.Invitations.Create)]
@@ -54,37 +56,18 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
 
     [HttpPost("accept")]
     [AllowAnonymous]
-    public async Task<IActionResult> Accept(
+    public Task<IActionResult> Accept(
         [FromBody] AcceptInvitationRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<Success> result = await bus.InvokeAsync<ErrorOr<Success>>(
-            new AcceptTenantInvitationCommand(request.Token),
-            ct
-        );
-        return result.ToOkResult(this);
-    }
+    ) => InvokeToOkResultAsync(bus, new AcceptTenantInvitationCommand(request.Token), ct);
 
     [HttpPatch("{id:guid}/revoke")]
     [RequirePermission(Permission.Invitations.Revoke)]
-    public async Task<IActionResult> Revoke(Guid id, CancellationToken ct)
-    {
-        ErrorOr<Success> result = await bus.InvokeAsync<ErrorOr<Success>>(
-            new RevokeTenantInvitationCommand(id),
-            ct
-        );
-        return result.ToNoContentResult(this);
-    }
+    public Task<IActionResult> Revoke(Guid id, CancellationToken ct) =>
+        InvokeToNoContentResultAsync(bus, new RevokeTenantInvitationCommand(id), ct);
 
     [HttpPost("{id:guid}/resend")]
     [RequirePermission(Permission.Invitations.Create)]
-    public async Task<IActionResult> Resend(Guid id, CancellationToken ct)
-    {
-        ErrorOr<Success> result = await bus.InvokeAsync<ErrorOr<Success>>(
-            new ResendTenantInvitationCommand(id),
-            ct
-        );
-        return result.ToOkResult(this);
-    }
+    public Task<IActionResult> Resend(Guid id, CancellationToken ct) =>
+        InvokeToOkResultAsync(bus, new ResendTenantInvitationCommand(id), ct);
 }

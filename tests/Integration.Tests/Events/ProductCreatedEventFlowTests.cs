@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Reviews.Domain.Entities;
 using Reviews.Infrastructure.Persistence;
 using Shouldly;
+using TestCommon;
 using Wolverine;
 using Wolverine.Tracking;
 using Xunit;
@@ -64,26 +65,31 @@ public sealed class ProductCreatedEventFlowTests : IAsyncLifetime
         IHost reviewsHost = _reviewsFactory.Services.GetRequiredService<IHost>();
 
         // Act
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
         ITrackedSession session = await productCatalogHost
             .TrackActivity()
             .Timeout(TestConstants.TrackedSessionTimeout)
             .IncludeExternalTransports()
             .AlsoTrack(reviewsHost)
             .WaitForMessageToBeReceivedAt<ProductCreatedIntegrationEvent>(reviewsHost)
-            .DoNotAssertOnExceptionsDetected()
             .PublishMessageAndWaitAsync(integrationEvent);
 
         // Assert
         session.Received.MessagesOf<ProductCreatedIntegrationEvent>().ShouldNotBeEmpty();
 
-        await using AsyncServiceScope scope = _reviewsFactory.Services.CreateAsyncScope();
-        ReviewsDbContext db = scope.ServiceProvider.GetRequiredService<ReviewsDbContext>();
-
-        ProductProjection? projection = await db
-            .ProductProjections.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(p => p.ProductId == productId);
-
-        projection.ShouldNotBeNull();
+        ProductProjection projection = await AsyncPoll.UntilNotNullAsync(
+            async () =>
+            {
+                await using AsyncServiceScope scope = _reviewsFactory.Services.CreateAsyncScope();
+                ReviewsDbContext db = scope.ServiceProvider.GetRequiredService<ReviewsDbContext>();
+                return await db
+                    .ProductProjections.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(p => p.ProductId == productId, ct);
+            },
+            TestConstants.TrackedSessionTimeout,
+            cancellationToken: ct
+        );
         projection.Name.ShouldBe(productName);
         // Verifies TenantAwareEnvelopeMapper propagated x-tenant-id through RabbitMQ
         projection.TenantId.ShouldBe(tenantId);

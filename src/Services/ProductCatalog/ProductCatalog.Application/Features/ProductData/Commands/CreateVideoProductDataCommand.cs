@@ -3,7 +3,9 @@ using ProductCatalog.Application.Features.ProductData.DTOs;
 using ProductCatalog.Application.Features.ProductData.Mappings;
 using ProductCatalog.Domain.Entities.ProductData;
 using ProductCatalog.Domain.Interfaces;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Context;
+using Wolverine;
 using ProductDataEntity = ProductCatalog.Domain.Entities.ProductData.ProductData;
 
 namespace ProductCatalog.Application.Features.ProductData.Commands;
@@ -12,7 +14,7 @@ public sealed record CreateVideoProductDataCommand(CreateVideoProductDataRequest
 
 public sealed class CreateVideoProductDataCommandHandler
 {
-    public static async Task<ErrorOr<ProductDataResponse>> HandleAsync(
+    public static async Task<(ErrorOr<ProductDataResponse>, OutgoingMessages)> HandleAsync(
         CreateVideoProductDataCommand command,
         IProductDataRepository repository,
         ITenantProvider tenantProvider,
@@ -33,6 +35,6 @@ public sealed class CreateVideoProductDataCommandHandler
         };
 
         ProductDataEntity created = await repository.CreateAsync(entity, ct);
-        return created.ToResponse();
+        return (created.ToResponse(), CacheInvalidationCascades.ForTag(CacheTags.ProductData));
     }
 }

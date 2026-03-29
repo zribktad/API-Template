@@ -32,14 +32,6 @@
        ================================================================ -->
   <Folder Name="/src/">
 
-    <!-- Monolith (single deployable API template) -->
-    <Folder Name="Monolith">
-      <Project Path="src/APITemplate.Api/APITemplate.Api.csproj" />
-      <Project Path="src/APITemplate.Application/APITemplate.Application.csproj" />
-      <Project Path="src/APITemplate.Domain/APITemplate.Domain.csproj" />
-      <Project Path="src/APITemplate.Infrastructure/APITemplate.Infrastructure.csproj" />
-    </Folder>
-
     <!-- Shared kernel — cross-cutting abstractions reused by all services -->
     <Folder Name="SharedKernel">
       <Project Path="src/SharedKernel/SharedKernel.Domain/SharedKernel.Domain.csproj" />
@@ -111,7 +103,6 @@
        TESTS — unit tests per service + integration tests
        ================================================================ -->
   <Folder Name="/tests/">
-    <Project Path="tests/APITemplate.Tests/APITemplate.Tests.csproj" />
     <Project Path="tests/SharedKernel.Tests/SharedKernel.Tests.csproj" />
     <Project Path="tests/ProductCatalog.Tests/ProductCatalog.Tests.csproj" />
     <Project Path="tests/Reviews.Tests/Reviews.Tests.csproj" />

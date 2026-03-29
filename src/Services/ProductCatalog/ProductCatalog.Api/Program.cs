@@ -10,6 +10,7 @@ using ProductCatalog.Infrastructure.Persistence;
 using ProductCatalog.Infrastructure.Repositories;
 using ProductCatalog.Infrastructure.StoredProcedures;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.OutputCaching;
 using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
@@ -71,6 +72,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidat
 
 builder.Services.AddControllers();
 builder.Services.AddSharedOpenApiDocumentation();
+builder.Services.AddSharedOutputCaching(builder.Configuration);
 
 builder.Services.AddHealthChecks();
 
@@ -82,6 +84,7 @@ builder.Host.UseWolverine(opts =>
     opts.UseFluentValidation();
 
     opts.Discovery.IncludeAssembly(typeof(ProductDeletionSaga).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(CacheInvalidationHandler).Assembly);
 
     opts.PersistMessagesWithPostgresql(
         builder.Configuration.GetRequiredConnectionString("ProductCatalogDb"),
@@ -133,11 +136,7 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<ProductCatalogDbContext>();
 
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapSharedOpenApiEndpoint();
-app.MapHealthChecks("/health").AllowAnonymous();
-app.MapControllers();
+app.UseSharedMicroserviceApiPipeline(true, a => a.MapControllers());
 
 await app.RunAsync();
 

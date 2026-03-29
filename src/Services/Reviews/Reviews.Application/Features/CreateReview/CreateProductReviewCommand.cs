@@ -2,12 +2,12 @@ using System.ComponentModel.DataAnnotations;
 using Contracts.IntegrationEvents.Reviews;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
-using Reviews.Application.Common.Events;
+using Reviews.Application.Common.Errors;
 using Reviews.Application.Common.Mappings;
 using Reviews.Application.Common.Responses;
-using Reviews.Application.Common.Errors;
 using Reviews.Domain.Entities;
 using Reviews.Domain.Interfaces;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Context;
 using SharedKernel.Application.Validation;
 using SharedKernel.Domain.Interfaces;
@@ -29,7 +29,7 @@ public sealed record CreateProductReviewCommand(CreateProductReviewRequest Reque
 /// <summary>Handles <see cref="CreateProductReviewCommand"/>.</summary>
 public sealed class CreateProductReviewCommandHandler
 {
-    public static async Task<ErrorOr<ProductReviewResponse>> HandleAsync(
+    public static async Task<(ErrorOr<ProductReviewResponse>, OutgoingMessages)> HandleAsync(
         CreateProductReviewCommand command,
         IProductReviewRepository reviewRepository,
         DbContext dbContext,
@@ -47,7 +47,10 @@ public sealed class CreateProductReviewCommandHandler
             .AnyAsync(p => p.ProductId == command.Request.ProductId && p.IsActive, ct);
 
         if (!productExists)
-            return DomainErrors.Reviews.ProductNotFoundForReview(command.Request.ProductId);
+            return (
+                DomainErrors.Reviews.ProductNotFoundForReview(command.Request.ProductId),
+                CacheInvalidationCascades.None
+            );
 
         ProductReviewEntity review = await unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -78,7 +81,6 @@ public sealed class CreateProductReviewCommandHandler
             )
         );
 
-        await bus.PublishAsync(new CacheInvalidationNotification(CacheTags.Reviews));
-        return review.ToResponse();
+        return (review.ToResponse(), CacheInvalidationCascades.ForTag(CacheTags.Reviews));
     }
 }

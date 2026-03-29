@@ -5,6 +5,7 @@ using Identity.Application.Security;
 using Identity.Domain.Enums;
 using Identity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Context;
 using SharedKernel.Application.Extensions;
 using SharedKernel.Domain.Interfaces;
@@ -16,7 +17,7 @@ public sealed record ResendTenantInvitationCommand(Guid InvitationId);
 
 public sealed class ResendTenantInvitationCommandHandler
 {
-    public static async Task<ErrorOr<Success>> HandleAsync(
+    public static async Task<(ErrorOr<Success>, OutgoingMessages)> HandleAsync(
         ResendTenantInvitationCommand command,
         ITenantInvitationRepository invitationRepository,
         ITenantRepository tenantRepository,
@@ -36,15 +37,15 @@ public sealed class ResendTenantInvitationCommandHandler
                 ct
             );
         if (invitationResult.IsError)
-            return invitationResult.Errors;
+            return (invitationResult.Errors, CacheInvalidationCascades.None);
         Domain.Entities.TenantInvitation invitation = invitationResult.Value;
 
         if (invitation.Status != InvitationStatus.Pending)
-            return DomainErrors.Invitations.NotPending();
+            return (DomainErrors.Invitations.NotPending(), CacheInvalidationCascades.None);
 
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         if (invitation.ExpiresAtUtc < now)
-            return DomainErrors.Invitations.ExpiredCreateNew();
+            return (DomainErrors.Invitations.ExpiredCreateNew(), CacheInvalidationCascades.None);
 
         ErrorOr<Domain.Entities.Tenant> tenantResult = await tenantRepository.GetByIdOrError(
             tenantProvider.TenantId,
@@ -52,7 +53,7 @@ public sealed class ResendTenantInvitationCommandHandler
             ct
         );
         if (tenantResult.IsError)
-            return tenantResult.Errors;
+            return (tenantResult.Errors, CacheInvalidationCascades.None);
         Domain.Entities.Tenant tenant = tenantResult.Value;
 
         string rawToken = tokenGenerator.GenerateToken();
@@ -82,6 +83,6 @@ public sealed class ResendTenantInvitationCommandHandler
             );
         }
 
-        return Result.Success;
+        return (Result.Success, CacheInvalidationCascades.ForTag(CacheTags.TenantInvitations));
     }
 }

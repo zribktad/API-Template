@@ -23,7 +23,7 @@ public sealed class ProductDeletionSagaTests
             ProductDeletionSagaTimeout timeout
         ) = ProductDeletionSaga.Start(command, TimeProvider.System);
 
-        saga.Id.ShouldBe(correlationId.ToString());
+        saga.Id.ShouldBe(correlationId);
         saga.ProductIds.ShouldBe(productIds);
         saga.TenantId.ShouldBe(tenantId);
         saga.ReviewsCascaded.ShouldBeFalse();
@@ -104,7 +104,7 @@ public sealed class ProductDeletionSagaTests
         ProductDeletionSaga saga = CreateSaga();
 
         saga.Handle(
-            new ProductDeletionSagaTimeout(Guid.Parse(saga.Id!)),
+            new ProductDeletionSagaTimeout(saga.Id),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<ProductDeletionSaga>.Instance
         );
 
@@ -114,7 +114,7 @@ public sealed class ProductDeletionSagaTests
     private static ProductDeletionSaga CreateSaga() =>
         new()
         {
-            Id = Guid.NewGuid().ToString(),
+            Id = Guid.NewGuid(),
             ProductIds = new[] { Guid.NewGuid() },
             TenantId = Guid.NewGuid(),
         };

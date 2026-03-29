@@ -1,4 +1,5 @@
 using ProductCatalog.Application.Features.Product.DTOs;
+using SharedKernel.Application.Validation;
 
 namespace ProductCatalog.Application.Features.Product.Validation;
 

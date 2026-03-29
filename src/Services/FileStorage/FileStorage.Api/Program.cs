@@ -1,17 +1,20 @@
 using Contracts.IntegrationEvents.Sagas;
 using FileStorage.Application.Common.Contracts;
 using FileStorage.Application.Common.Options;
+using FileStorage.Application.Features.Files.Commands;
 using FileStorage.Domain.Interfaces;
 using FileStorage.Infrastructure.FileStorage;
 using FileStorage.Infrastructure.Persistence;
 using FileStorage.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.OutputCaching;
 using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
+using Wolverine.Http;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
@@ -40,17 +43,21 @@ builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
 builder.Services.AddSharedAuthorization(enablePermissionPolicies: true);
 
-builder.Services.AddControllers();
 builder.Services.AddSharedOpenApiDocumentation();
+builder.Services.AddSharedOutputCaching(builder.Configuration);
+builder.Services.AddWolverineHttp();
 
 builder.Services.AddHealthChecks();
 
 builder.Host.UseWolverine(opts =>
 {
+    opts.ApplicationAssembly = typeof(Program).Assembly;
+
     opts.ApplySharedConventions();
     opts.ApplySharedRetryPolicies();
 
-    opts.Discovery.IncludeAssembly(typeof(IFileStorageService).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(UploadFileCommand).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(CacheInvalidationHandler).Assembly);
 
     opts.PersistMessagesWithPostgresql(
         builder.Configuration.GetRequiredConnectionString("FileStorageDb"),
@@ -77,11 +84,7 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<FileStorageDbContext>();
 
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapSharedOpenApiEndpoint();
-app.MapHealthChecks("/health").AllowAnonymous();
-app.MapControllers();
+app.UseSharedMicroserviceApiPipeline(true, a => a.MapWolverineEndpoints());
 
 await app.RunAsync();
 

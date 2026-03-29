@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using ProductCatalog.Application.Common.Contracts;
+using SharedKernel.Application.Contracts;
 using SharedKernel.Application.Validation;
 
 namespace ProductCatalog.Application.Features.Product.DTOs;

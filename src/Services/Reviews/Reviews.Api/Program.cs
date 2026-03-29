@@ -7,6 +7,7 @@ using Reviews.Domain.Interfaces;
 using Reviews.Infrastructure.Persistence;
 using Reviews.Infrastructure.Repositories;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.OutputCaching;
 using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
@@ -40,6 +41,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<ProductCreatedEventHandler>
 
 builder.Services.AddControllers();
 builder.Services.AddSharedOpenApiDocumentation();
+builder.Services.AddSharedOutputCaching(builder.Configuration);
 
 builder.Services.AddHealthChecks();
 
@@ -51,6 +53,7 @@ builder.Host.UseWolverine(opts =>
     opts.UseFluentValidation();
 
     opts.Discovery.IncludeAssembly(typeof(ProductCreatedEventHandler).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(CacheInvalidationHandler).Assembly);
 
     opts.PersistMessagesWithPostgresql(
         builder.Configuration.GetRequiredConnectionString("ReviewsDb"),
@@ -102,11 +105,7 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<ReviewsDbContext>();
 
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapSharedOpenApiEndpoint();
-app.MapHealthChecks("/health").AllowAnonymous();
-app.MapControllers();
+app.UseSharedMicroserviceApiPipeline(true, a => a.MapControllers());
 
 await app.RunAsync();
 

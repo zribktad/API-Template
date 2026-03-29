@@ -1,12 +1,12 @@
 using Asp.Versioning;
-using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using ProductCatalog.Application.Features.Category.Commands;
 using ProductCatalog.Application.Features.Category.DTOs;
 using ProductCatalog.Application.Features.Category.Queries;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
-using SharedKernel.Api.ErrorOrMapping;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
@@ -23,80 +23,54 @@ public sealed class CategoriesController(IMessageBus bus) : ApiControllerBase
 {
     [HttpGet]
     [RequirePermission(Permission.Categories.Read)]
-    public async Task<ActionResult<PagedResponse<CategoryResponse>>> GetAll(
+    [OutputCache(PolicyName = CacheTags.Categories)]
+    public Task<ActionResult<PagedResponse<CategoryResponse>>> GetAll(
         [FromQuery] CategoryFilter filter,
         CancellationToken ct
-    )
-    {
-        ErrorOr<PagedResponse<CategoryResponse>> result = await bus.InvokeAsync<
-            ErrorOr<PagedResponse<CategoryResponse>>
-        >(new GetCategoriesQuery(filter), ct);
-        return result.ToActionResult(this);
-    }
+    ) =>
+        InvokeToActionResultAsync<PagedResponse<CategoryResponse>>(
+            bus,
+            new GetCategoriesQuery(filter),
+            ct
+        );
 
     [HttpGet("{id:guid}")]
     [RequirePermission(Permission.Categories.Read)]
-    public async Task<ActionResult<CategoryResponse>> GetById(Guid id, CancellationToken ct)
-    {
-        ErrorOr<CategoryResponse> result = await bus.InvokeAsync<ErrorOr<CategoryResponse>>(
-            new GetCategoryByIdQuery(id),
-            ct
-        );
-        return result.ToActionResult(this);
-    }
+    [OutputCache(PolicyName = CacheTags.Categories)]
+    public Task<ActionResult<CategoryResponse>> GetById(Guid id, CancellationToken ct) =>
+        InvokeToActionResultAsync<CategoryResponse>(bus, new GetCategoryByIdQuery(id), ct);
 
     [HttpPost]
     [RequirePermission(Permission.Categories.Create)]
-    public async Task<ActionResult<BatchResponse>> Create(
+    public Task<ActionResult<BatchResponse>> Create(
         CreateCategoriesRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<BatchResponse> result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
-            new CreateCategoriesCommand(request),
-            ct
-        );
-        return result.ToBatchResult(this);
-    }
+    ) => InvokeToBatchResultAsync(bus, new CreateCategoriesCommand(request), ct);
 
     [HttpPut]
     [RequirePermission(Permission.Categories.Update)]
-    public async Task<ActionResult<BatchResponse>> Update(
+    public Task<ActionResult<BatchResponse>> Update(
         UpdateCategoriesRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<BatchResponse> result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
-            new UpdateCategoriesCommand(request),
-            ct
-        );
-        return result.ToBatchResult(this);
-    }
+    ) => InvokeToBatchResultAsync(bus, new UpdateCategoriesCommand(request), ct);
 
     [HttpDelete]
     [RequirePermission(Permission.Categories.Delete)]
-    public async Task<ActionResult<BatchResponse>> Delete(
+    public Task<ActionResult<BatchResponse>> Delete(
         BatchDeleteRequest request,
         CancellationToken ct
-    )
-    {
-        ErrorOr<BatchResponse> result = await bus.InvokeAsync<ErrorOr<BatchResponse>>(
-            new DeleteCategoriesCommand(request),
-            ct
-        );
-        return result.ToBatchResult(this);
-    }
+    ) => InvokeToBatchResultAsync(bus, new DeleteCategoriesCommand(request), ct);
 
     [HttpGet("{id:guid}/stats")]
     [RequirePermission(Permission.Categories.Read)]
-    public async Task<ActionResult<ProductCategoryStatsResponse>> GetStats(
+    [OutputCache(PolicyName = CacheTags.Categories)]
+    public Task<ActionResult<ProductCategoryStatsResponse>> GetStats(
         Guid id,
         CancellationToken ct
-    )
-    {
-        ErrorOr<ProductCategoryStatsResponse> result = await bus.InvokeAsync<
-            ErrorOr<ProductCategoryStatsResponse>
-        >(new GetCategoryStatsQuery(id), ct);
-        return result.ToActionResult(this);
-    }
+    ) =>
+        InvokeToActionResultAsync<ProductCategoryStatsResponse>(
+            bus,
+            new GetCategoryStatsQuery(id),
+            ct
+        );
 }

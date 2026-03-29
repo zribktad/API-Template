@@ -3,7 +3,9 @@ using Identity.Application.Errors;
 using Identity.Application.Features.Tenant.DTOs;
 using Identity.Application.Features.Tenant.Mappings;
 using Identity.Domain.Interfaces;
+using SharedKernel.Application.Common.Events;
 using SharedKernel.Domain.Interfaces;
+using Wolverine;
 using TenantEntity = Identity.Domain.Entities.Tenant;
 
 namespace Identity.Application.Features.Tenant.Commands;
@@ -12,7 +14,7 @@ public sealed record CreateTenantCommand(CreateTenantRequest Request);
 
 public sealed class CreateTenantCommandHandler
 {
-    public static async Task<ErrorOr<TenantResponse>> HandleAsync(
+    public static async Task<(ErrorOr<TenantResponse>, OutgoingMessages)> HandleAsync(
         CreateTenantCommand command,
         ITenantRepository repository,
         IUnitOfWork unitOfWork,
@@ -20,7 +22,10 @@ public sealed class CreateTenantCommandHandler
     )
     {
         if (await repository.CodeExistsAsync(command.Request.Code, ct))
-            return DomainErrors.Tenants.CodeAlreadyExists(command.Request.Code);
+            return (
+                DomainErrors.Tenants.CodeAlreadyExists(command.Request.Code),
+                CacheInvalidationCascades.None
+            );
 
         TenantEntity tenant = await unitOfWork.ExecuteInTransactionAsync(
             async () =>
@@ -40,6 +45,6 @@ public sealed class CreateTenantCommandHandler
             ct
         );
 
-        return tenant.ToResponse();
+        return (tenant.ToResponse(), CacheInvalidationCascades.ForTag(CacheTags.Tenants));
     }
 }

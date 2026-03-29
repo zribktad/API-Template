@@ -14,7 +14,7 @@ public sealed class ProductCatalogDbContextDesignTimeFactory
     {
         DbContextOptionsBuilder<ProductCatalogDbContext> optionsBuilder = new();
         optionsBuilder.UseNpgsql(
-            "Host=localhost;Database=product_catalog_db;Username=postgres;Password=postgres"
+            "Host=localhost;Database=productcatalog_db;Username=postgres;Password=postgres"
         );
 
         return new ProductCatalogDbContext(

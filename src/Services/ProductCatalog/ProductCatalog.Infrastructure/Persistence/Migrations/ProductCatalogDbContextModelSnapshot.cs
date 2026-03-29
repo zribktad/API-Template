@@ -24,9 +24,8 @@ namespace ProductCatalog.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ProductCatalog.Application.Sagas.ProductDeletionSaga", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("FilesCascaded")
                         .HasColumnType("boolean");
