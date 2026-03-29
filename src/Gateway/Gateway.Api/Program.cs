@@ -1,3 +1,4 @@
+using Gateway.Api.Extensions;
 using Scalar.AspNetCore;
 using SharedKernel.Api.Extensions;
 using SharedKernel.Application.Security;
@@ -6,6 +7,8 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSharedSerilog();
 builder.Services.AddSharedObservability(builder.Configuration, builder.Environment, "gateway");
+builder.Services.AddGatewayCors(builder.Configuration);
+builder.Services.AddGatewayRateLimiting(builder.Configuration);
 
 builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
@@ -13,11 +16,17 @@ builder.Services.AddHealthChecks();
 
 WebApplication app = builder.Build();
 
+await app.WaitForKeycloakAsync();
+
+app.UseSharedRequestLogging();
+app.UseGatewayCors();
+app.UseRateLimiter();
+
 app.MapReverseProxy();
 app.MapHealthChecks("/health");
 app.MapGatewayScalarUi();
 
-app.Run();
+await app.RunAsync();
 
 public static class GatewayDocumentationExtensions
 {

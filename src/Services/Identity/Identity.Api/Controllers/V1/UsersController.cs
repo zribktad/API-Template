@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.OutputCaching;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.Filters.Idempotency;
 using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
@@ -48,6 +49,7 @@ public sealed class UsersController(IMessageBus bus) : ApiControllerBase
     }
 
     [HttpPost]
+    [Idempotent]
     [RequirePermission(Permission.Users.Create)]
     public Task<ActionResult<UserResponse>> Create(
         CreateUserRequest request,

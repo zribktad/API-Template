@@ -6,12 +6,14 @@ using SharedKernel.Api.Security;
 using SharedKernel.Application.Context;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
+using Webhooks.Api.Filters;
 using Webhooks.Application.Common.Constants;
 using Webhooks.Application.Common.Contracts;
 using Webhooks.Application.Features.Delivery.EventHandlers;
 using Webhooks.Domain.Interfaces;
 using Webhooks.Infrastructure.Delivery;
 using Webhooks.Infrastructure.Hmac;
+using Webhooks.Infrastructure.Inbound;
 using Webhooks.Infrastructure.Persistence;
 using Webhooks.Infrastructure.Repositories;
 using Wolverine;
@@ -35,8 +37,17 @@ builder.Services.AddScoped<ITenantProvider, HttpTenantProvider>();
 builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
 builder.Services.AddSharedAuthorization();
 
-// HMAC signing
+// HMAC signing & validation
 builder.Services.AddSingleton<IWebhookPayloadSigner, HmacWebhookPayloadSigner>();
+builder.Services.AddSingleton<IWebhookPayloadValidator, HmacWebhookPayloadValidator>();
+
+// Inbound webhook processing
+ChannelWebhookQueue webhookQueue = new();
+builder.Services.AddSingleton<IWebhookInboundQueue>(webhookQueue);
+builder.Services.AddSingleton<IWebhookInboundQueueReader>(webhookQueue);
+builder.Services.AddScoped<IWebhookEventHandler, LoggingWebhookEventHandler>();
+builder.Services.AddHostedService<WebhookProcessingBackgroundService>();
+builder.Services.AddScoped<WebhookSignatureResourceFilter>();
 
 // Webhook delivery
 builder.Services.AddScoped<IWebhookDeliveryService, WebhookDeliveryService>();
@@ -113,6 +124,8 @@ builder.Host.UseWolverine(opts =>
 });
 
 WebApplication app = builder.Build();
+
+await app.WaitForKeycloakAsync();
 
 await app.MigrateDbAsync<WebhooksDbContext>();
 

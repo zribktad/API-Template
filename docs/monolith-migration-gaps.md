@@ -4,43 +4,43 @@ What the old monolith (APITemplate.*) had that microservices still need, includi
 
 ## High Impact - Core Cross-Cutting Concerns
 
-### 1. CORS
+### 1. CORS [DONE]
 - No CORS config in any microservice or Gateway
 - **Recommendation:** Configure at Gateway level (YARP)
 - **How it was implemented:**
   Default CORS policy in `AuthenticationServiceCollectionExtensions.AddAuthenticationOptions()`. Options class `CorsOptions` with `string[] AllowedOrigins` bound from `Cors:AllowedOrigins`. Policy: `WithOrigins(...).AllowAnyHeader().AllowAnyMethod().AllowCredentials()`. Applied via `app.UseCors()` inside `UseSecurityPipeline()`.
 
-### 2. Rate Limiting
+### 2. Rate Limiting [DONE]
 - No rate limiting in any microservice
 - **Recommendation:** Add to Gateway or per-service via SharedKernel
 - **How it was implemented:**
   Fixed-window per-client rate limiter in `ApiServiceCollectionExtensions.AddRateLimiting()`. Options class `RateLimitingOptions` (`PermitLimit=100`, `WindowMinutes=1`) bound from `RateLimiting:Fixed`. Partition key: JWT `Identity.Name` > `RemoteIpAddress` > `"anonymous"`. Used `IConfigureOptions<RateLimiterOptions>` for deferred resolution. Recorded rejections via `ApiMetrics.RecordRateLimitRejection()`. Applied with `app.UseRateLimiter()` and `.RequireRateLimiting()` on `MapControllers()`/`MapGraphQL()`.
 
-### 3. CSRF Validation
+### 3. CSRF Validation [DONE]
 - Identity service has BFF auth but no CSRF middleware
 - **Recommendation:** Add to Identity.Api pipeline
 - **How it was implemented:**
   Custom `CsrfValidationMiddleware` (primary constructor with `RequestDelegate` + `IProblemDetailsService`). Skipped safe methods (GET/HEAD/OPTIONS) and Bearer-authenticated requests. For cookie-authenticated mutations, required `X-CSRF: 1` header (constants in `AuthConstants.Csrf.HeaderName`/`HeaderValue`). Returned RFC 7807 ProblemDetails 403 on failure. Ran after `UseAuthentication()`, before `UseAuthorization()`.
 
-### 4. Request Context Middleware
+### 4. Request Context Middleware [DONE]
 - Not present in SharedKernel pipeline or any service
 - **Recommendation:** Add to SharedKernel.Api pipeline
 - **How it was implemented:**
   `RequestContextMiddleware` resolved correlation ID from `X-Correlation-Id` header (fallback: `TraceIdentifier`). Emitted `X-Correlation-Id`, `X-Trace-Id`, `X-Elapsed-Ms` response headers. Enriched Serilog via `LogContext.PushProperty` (CorrelationId, TenantId). Tagged `IHttpMetricsTagsFeature` with `api.surface` and `authenticated`. Constants in `RequestContextConstants`.
 
-### 5. Serilog Request Logging Pipeline
+### 5. Serilog Request Logging Pipeline [DONE]
 - Microservices have basic `UseSharedSerilog` but no request-level pipeline
 - **Recommendation:** Enhance SharedKernel Serilog setup
 - **How it was implemented:**
   `UseRequestContextPipeline()` chained `UseMiddleware<RequestContextMiddleware>()` then `UseSerilogRequestLogging()`. Custom `GetLevel`: client-aborted = Info, 500+ = Error, 400+ = Warning, else Info. Enriched `DiagnosticContext` with `RequestHost`/`RequestScheme`. Also used `ActivityTraceEnricher` for trace/span ID enrichment and `AddApplicationRedaction()` for PII masking (HMAC for sensitive data, erasing for personal). Serilog sinks included `Serilog.Sinks.OpenTelemetry` with gRPC protocol.
 
-### 6. Keycloak Readiness Check
+### 6. Keycloak Readiness Check [DONE]
 - No microservice waits for Keycloak
 - **Recommendation:** Add to services that depend on Keycloak (Identity, any with JWT)
 - **How it was implemented:**
   `WaitForKeycloakAsync()` extension on `WebApplication`. Read `KeycloakOptions` (AuthServerUrl, Realm, SkipReadinessCheck). Built OIDC discovery URL via `KeycloakUrlHelper.BuildDiscoveryUrl()`. Used Polly `ResiliencePipeline` keyed `ResiliencePipelineKeys.KeycloakReadiness` for retry. HTTP GET to discovery endpoint with 5s timeout. Threw `InvalidOperationException` after `KeycloakOptions.ReadinessMaxRetries` retries. Wrapped in `StartupTelemetry.WaitForKeycloakReadinessAsync()`.
 
-### 7. Distributed BFF Session Persistence
+### 7. Distributed BFF Session Persistence [DONE]
 - Identity has BFF cookies but no distributed session store
 - **Recommendation:** Add to Identity.Api
 - **How it was implemented:**
@@ -55,13 +55,13 @@ What the old monolith (APITemplate.*) had that microservices still need, includi
 - **How it was implemented:**
   HotChocolate `AddGraphQLServer()`. Schema: `AddQueryType<ProductQueries>()` with extensions `CategoryQueries`, `ProductReviewQueries`. Mutations: `AddMutationType<ProductMutations>()` with extension `ProductReviewMutations`. Custom types: `ProductType`, `ProductReviewType`. DataLoaders: `ProductReviewsByProductDataLoader`. Instrumentation: `GraphQlExecutionMetricsListener` (diagnostic event listener). Pagination: `MaxPageSize` from `PaginationFilter.MaxPageSize`, `IncludeTotalCount=true`. Security: `AddAuthorization()`. Depth limit: `AddMaxExecutionDepthRule(5)`. Mapped via `app.MapGraphQL()` with rate limiting + `MapNitroApp("/graphql/ui")`.
 
-### 9. Observability / Telemetry (12 files)
+### 9. Observability / Telemetry (12 files) [DONE]
 - Microservices have basic `AddSharedObservability` (~55 lines) with simple OTEL setup
 - **Recommendation:** Move shared telemetry to SharedKernel, service-specific to each service
 - **How it was implemented:**
   Core: `ObservabilityConventions` (ActivitySourceName/MeterName = `"APITemplate"`), `ApiMetrics` (static `Meter` + counters for rate-limit rejections, handled exceptions). Domain-specific: `AuthTelemetry`, `CacheTelemetry`, `ConflictTelemetry`, `GraphQlTelemetry`, `ValidationTelemetry`, `StoredProcedureTelemetry`, `StartupTelemetry` — each with static methods wrapping `ActivitySource.StartActivity()`. Support: `HttpRouteResolver` (display-friendly route names), `TelemetryApiSurfaceResolver` (REST vs GraphQL classification), `HealthCheckMetricsPublisher` (health check results as metrics). Registration in `AddObservability()`: OpenTelemetry tracing (ASP.NET Core, HttpClient, HotChocolate, Redis, Npgsql, MongoDB) + metrics (runtime, process, custom histograms). Config section: `"Observability"` with `ObservabilityOptions` (ServiceName, Exporters.Aspire/Otlp/Console). Auto-detected Aspire in dev, OTLP in containers.
 
-### 10. Inbound Webhook Processing
+### 10. Inbound Webhook Processing [DONE]
 - Webhooks service only has outbound delivery
 - **Recommendation:** Add inbound processing to Webhooks service
 - **How it was implemented:**
@@ -84,23 +84,23 @@ What the old monolith (APITemplate.*) had that microservices still need, includi
 - **How it was implemented:**
   `PatchController` with `[HttpPatch("products/{id:guid}")]`. Used `SystemTextJsonPatch` library (not Newtonsoft). Received `JsonPatchDocument<PatchableProductDto>`. Sent `PatchProductCommand(id, dto => patchDocument.ApplyTo(dto))` — command carried an `Action<PatchableProductDto>` apply-delegate so the application layer controlled mutation. Returned `ErrorOr<ProductResponse>` via `ToActionResult()`. Required `Permission.Examples.Update`.
 
-### 13. Idempotent Endpoint
+### 13. Idempotent Endpoint [DONE]
 - SharedKernel has idempotency filter infrastructure, but no service endpoint uses it
 - **Recommendation:** Apply `[Idempotent]` attribute where needed
 
-### 14. Email Retry Background Job
+### 14. Email Retry Background Job [DONE]
 - Not in BackgroundJobs microservice
 - **Recommendation:** Add to BackgroundJobs service
 - **How it was implemented:**
   TickerQ recurring job: `EmailRetryRecurringJob` with `[TickerFunction(TickerQFunctionNames.EmailRetry)]`. Gated by `IDistributedJobCoordinator.ExecuteIfLeaderAsync()` for multi-node safety. Delegated to `EmailRetryService` (`IEmailRetryService`). Optimistic per-record claiming: `ClaimRetryableBatchAsync()` with owner = `"{MachineName}:{ProcessId}"` and lease timeout. Per-email commit for crash safety. Dead-lettered via `ClaimExpiredBatchAsync()`. Config: `BackgroundJobsOptions.EmailRetry` with `EmailRetryJobOptions` (Cron=`"*/15 * * * *"`, MaxRetryAttempts=5, BatchSize=50, DeadLetterAfterHours=48, ClaimLeaseMinutes=10). Used Polly `SmtpSend` pipeline for delivery retry. Stored procedures: `ClaimExpiredFailedEmailsProcedure`, `ClaimRetryableFailedEmailsProcedure`.
 
-### 15. Auth Bootstrap Seeder
+### 15. Auth Bootstrap Seeder [DONE]
 - No microservice performs auth bootstrapping
 - **Recommendation:** Add to Identity.Api startup
 - **How it was implemented:**
   `AuthBootstrapSeeder` with deps: `AppDbContext`, `IOptions<BootstrapTenantOptions>`. Seeded default tenant (hardcoded ID `00000000-0000-0000-0000-000000000001`). Config: `Bootstrap:Tenant` section with `Code` and `Name`. Used `IgnoreQueryFilters(["SoftDelete", "Tenant"])` to find existing. Restored soft-deleted/deactivated tenants. Only called `SaveChangesAsync` if changes made. Called during startup in `UseDatabaseAsync()` wrapped by `StartupTelemetry.RunAuthBootstrapSeedAsync()`.
 
-### 16. Startup Task Coordinator
+### 16. Startup Task Coordinator [DONE]
 - Prevents concurrent migrations in multi-instance deployments
 - **Recommendation:** Add to SharedKernel.Infrastructure
 - **How it was implemented:**
@@ -108,28 +108,28 @@ What the old monolith (APITemplate.*) had that microservices still need, includi
 
 ## Lower Impact - Completeness
 
-### 17. SoftDeleteCascadeRule Implementations
+### 17. SoftDeleteCascadeRule Implementations [DONE]
 - Interfaces exist in SharedKernel but no implementations in microservices
 - **Recommendation:** Implement per-service as needed
 
-### 18. Entity Normalization Service
+### 18. Entity Normalization Service [DONE]
 - Interface in SharedKernel, no implementation in Identity
 - **Recommendation:** Add to Identity.Infrastructure
 - **How it was implemented:**
   `AppUserEntityNormalizationService` (`IEntityNormalizationService`). Single method `Normalize(IAuditableTenantEntity entity)` — type-checked for `AppUser`, then set `NormalizedUsername = AppUser.NormalizeUsername(user.Username)` and `NormalizedEmail = AppUser.NormalizeEmail(user.Email)`. Normalization methods were static on the `AppUser` domain entity.
 
-### 19. MongoDB Migration Support
+### 19. MongoDB Migration Support [DONE]
 - ProductCatalog has MongoDbContext but no migration runner
 - **Recommendation:** Add to ProductCatalog.Api startup
 - **How it was implemented:**
   Used `Kot.MongoDB.Migrations` package. Called `IMigrator.MigrateAsync()` at startup in `UseDatabaseAsync()`.
 
-### 20. MongoDB Health Check
+### 20. MongoDB Health Check [DONE]
 - **Recommendation:** Add to ProductCatalog.Api
 - **How it was implemented:**
   Custom `MongoDbHealthCheck` registered via `services.AddHealthChecks().AddCheck<MongoDbHealthCheck>()`.
 
-### 21. Log Redaction / PII Classification
+### 21. Log Redaction / PII Classification [DONE]
 - **Recommendation:** Add to SharedKernel when compliance required
 - **How it was implemented:**
   `Microsoft.Extensions.Compliance.Redaction` with `AddApplicationRedaction()` in `Program.cs`. `LogDataClassifications` defined taxonomies (Sensitive, Personal). Configured HMAC redaction for sensitive data, erasing for personal data.
@@ -138,7 +138,7 @@ What the old monolith (APITemplate.*) had that microservices still need, includi
 - `IExternalIntegrationSyncService` with recurring job
 - **Recommendation:** Add when needed
 
-### 23. BackgroundJobs Options Validator
+### 23. BackgroundJobs Options Validator [DONE]
 - **Recommendation:** Add to BackgroundJobs service
 - **How it was implemented:**
   `BackgroundJobsOptionsValidator` — startup validation of job config using `IValidateOptions<T>`.

@@ -2,15 +2,19 @@ using Contracts.IntegrationEvents.Identity;
 using Contracts.IntegrationEvents.Sagas;
 using FluentValidation;
 using Identity.Api.Extensions;
+using Identity.Api.Middleware;
 using Identity.Application.Options;
 using Identity.Application.Sagas;
 using Identity.Application.Security;
 using Identity.Domain.Interfaces;
 using Identity.Infrastructure.Persistence;
+using Identity.Infrastructure.Persistence.EntityNormalization;
+using Identity.Infrastructure.Persistence.SoftDelete;
 using Identity.Infrastructure.Repositories;
 using Identity.Infrastructure.Security;
 using Identity.Infrastructure.Security.Keycloak;
 using Identity.Infrastructure.Security.Tenant;
+using Identity.Infrastructure.Seeding;
 using Keycloak.AuthServices.Sdk;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +22,8 @@ using Microsoft.Extensions.Options;
 using SharedKernel.Api.Extensions;
 using SharedKernel.Api.OutputCaching;
 using SharedKernel.Application.Security;
+using SharedKernel.Infrastructure.Persistence.EntityNormalization;
+using SharedKernel.Infrastructure.Persistence.SoftDelete;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
@@ -60,6 +66,10 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<ITenantInvitationRepository, TenantInvitationRepository>();
 
+builder.Services.AddScoped<ISoftDeleteCascadeRule, TenantSoftDeleteCascadeRule>();
+builder.Services.AddScoped<IEntityNormalizationService, AppUserEntityNormalizationService>();
+builder.Services.AddScoped<BootstrapTenantSeeder>();
+
 builder.Services.AddSingleton<IRolePermissionMap, DefaultRolePermissionMap>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IKeycloakAdminService, KeycloakAdminService>();
@@ -94,6 +104,8 @@ builder
         }
     )
     .AddIdentityBffAuthentication(builder.Configuration, builder.Environment);
+
+builder.Services.AddBffDistributedSession(builder.Configuration);
 
 builder.Services.AddSharedAuthorization(
     [JwtBearerDefaults.AuthenticationScheme, AuthConstants.BffSchemes.Cookie],
@@ -163,9 +175,22 @@ builder.Host.UseWolverine(opts =>
 
 WebApplication app = builder.Build();
 
+await app.WaitForKeycloakAsync();
+
 await app.MigrateDbAsync<IdentityDbContext>();
 
-app.UseSharedMicroserviceApiPipeline(true, a => a.MapControllers());
+await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+{
+    BootstrapTenantSeeder seeder =
+        scope.ServiceProvider.GetRequiredService<BootstrapTenantSeeder>();
+    await seeder.SeedAsync();
+}
+
+app.UseSharedMicroserviceApiPipeline(
+    true,
+    a => a.MapControllers(),
+    configureAfterAuthentication: a => a.UseMiddleware<CsrfValidationMiddleware>()
+);
 
 await app.RunAsync();
 

@@ -5,6 +5,7 @@ using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
+using SharedKernel.Api.Filters.Idempotency;
 using Wolverine;
 
 namespace BackgroundJobs.Api.Controllers;
@@ -20,6 +21,7 @@ public sealed class JobsController(IMessageBus bus) : ApiControllerBase
     /// status endpoint so the caller can poll for completion.
     /// </summary>
     [HttpPost]
+    [Idempotent]
     public async Task<IActionResult> Submit(SubmitJobRequest request, CancellationToken ct)
     {
         ErrorOr<JobStatusResponse> result = await bus.InvokeAsync<ErrorOr<JobStatusResponse>>(

@@ -11,6 +11,7 @@ using SharedKernel.Domain.Interfaces;
 using SharedKernel.Infrastructure.Persistence.Auditing;
 using SharedKernel.Infrastructure.Persistence.SoftDelete;
 using SharedKernel.Infrastructure.Persistence.UnitOfWork;
+using SharedKernel.Infrastructure.Startup;
 
 namespace SharedKernel.Api.Extensions;
 
@@ -54,6 +55,10 @@ public static class SharedServiceRegistration
         services.AddScoped<ITenantProvider, HttpTenantProvider>();
         services.AddScoped<IActorProvider, HttpActorProvider>();
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<
+            IStartupTaskCoordinator,
+            PostgresAdvisoryLockStartupTaskCoordinator
+        >();
 
         // API versioning
         services

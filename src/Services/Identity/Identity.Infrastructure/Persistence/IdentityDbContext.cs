@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SharedKernel.Application.Context;
 using SharedKernel.Infrastructure.Persistence;
 using SharedKernel.Infrastructure.Persistence.Auditing;
+using SharedKernel.Infrastructure.Persistence.EntityNormalization;
 using SharedKernel.Infrastructure.Persistence.SoftDelete;
 
 namespace Identity.Infrastructure.Persistence;
@@ -21,7 +22,8 @@ public sealed class IdentityDbContext : TenantAuditableDbContext
         TimeProvider timeProvider,
         IEnumerable<ISoftDeleteCascadeRule> softDeleteCascadeRules,
         IAuditableEntityStateManager entityStateManager,
-        ISoftDeleteProcessor softDeleteProcessor
+        ISoftDeleteProcessor softDeleteProcessor,
+        IEntityNormalizationService? entityNormalizationService = null
     )
         : base(
             options,
@@ -30,7 +32,8 @@ public sealed class IdentityDbContext : TenantAuditableDbContext
             timeProvider,
             softDeleteCascadeRules,
             entityStateManager,
-            softDeleteProcessor
+            softDeleteProcessor,
+            entityNormalizationService
         ) { }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();

@@ -39,6 +39,7 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Compliance.Abstractions" Version="10.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Compliance.Redaction" Version="10.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Telemetry" Version="10.4.0" />

@@ -10,6 +10,7 @@ using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.ErrorOrMapping;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.Filters.Idempotency;
 using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
@@ -35,6 +36,7 @@ public sealed class TenantInvitationsController(IMessageBus bus) : ApiController
         );
 
     [HttpPost]
+    [Idempotent]
     [RequirePermission(Permission.Invitations.Create)]
     public async Task<ActionResult<TenantInvitationResponse>> Create(
         CreateTenantInvitationRequest request,

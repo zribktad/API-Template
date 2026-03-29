@@ -6,6 +6,7 @@ using ProductCatalog.Application.Features.Category.DTOs;
 using ProductCatalog.Application.Features.Category.Queries;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
+using SharedKernel.Api.Filters.Idempotency;
 using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Application.Security;
@@ -41,6 +42,7 @@ public sealed class CategoriesController(IMessageBus bus) : ApiControllerBase
         InvokeToActionResultAsync<CategoryResponse>(bus, new GetCategoryByIdQuery(id), ct);
 
     [HttpPost]
+    [Idempotent]
     [RequirePermission(Permission.Categories.Create)]
     public Task<ActionResult<BatchResponse>> Create(
         CreateCategoriesRequest request,

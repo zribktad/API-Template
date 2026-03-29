@@ -11,6 +11,7 @@ using BackgroundJobs.Infrastructure.TickerQ.Coordination;
 using BackgroundJobs.Infrastructure.TickerQ.Jobs;
 using BackgroundJobs.Infrastructure.TickerQ.RecurringJobRegistrations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SharedKernel.Api.Extensions;
 using SharedKernel.Application.Security;
 using SharedKernel.Messaging.Conventions;
@@ -47,6 +48,10 @@ builder.Services.AddValidatedOptions<BackgroundJobsOptions>(
     builder.Configuration,
     BackgroundJobsOptions.SectionName
 );
+builder.Services.AddSingleton<
+    IValidateOptions<BackgroundJobsOptions>,
+    BackgroundJobsOptionsValidator
+>();
 
 BackgroundJobsOptions backgroundJobsOptions =
     builder.Configuration.GetRequiredOptions<BackgroundJobsOptions>(
@@ -69,6 +74,7 @@ builder.Services.AddHostedService<JobProcessingBackgroundService>();
 // Services
 builder.Services.AddScoped<ICleanupService, CleanupService>();
 builder.Services.AddScoped<IReindexService, ReindexService>();
+builder.Services.AddScoped<IEmailRetryService, EmailRetryService>();
 
 // TickerQ (when enabled)
 if (backgroundJobsOptions.TickerQ.Enabled)
@@ -103,6 +109,10 @@ if (backgroundJobsOptions.TickerQ.Enabled)
     builder.Services.AddScoped<
         IRecurringBackgroundJobRegistration,
         ReindexRecurringJobRegistration
+    >();
+    builder.Services.AddScoped<
+        IRecurringBackgroundJobRegistration,
+        EmailRetryRecurringJobRegistration
     >();
 
     builder.Services.AddTickerQ(tickerOptions =>
@@ -159,6 +169,8 @@ builder.Host.UseWolverine(opts =>
 });
 
 WebApplication app = builder.Build();
+
+await app.WaitForKeycloakAsync();
 
 await app.MigrateDbAsync<BackgroundJobsDbContext>();
 

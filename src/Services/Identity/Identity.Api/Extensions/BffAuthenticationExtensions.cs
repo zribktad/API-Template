@@ -1,18 +1,26 @@
 using Identity.Application.Options;
 using Identity.Application.Security;
+using Identity.Infrastructure.Security.Bff;
 using Identity.Infrastructure.Security.Tenant;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using SharedKernel.Api.Extensions;
+using StackExchange.Redis;
 
 namespace Identity.Api.Extensions;
 
 public static class BffAuthenticationExtensions
 {
+    private const string BffSessionInstanceName = "ApiTemplate:BffSession:";
+    private const string DataProtectionAppName = "identity-bff";
+
     public static AuthenticationBuilder AddIdentityBffAuthentication(
         this AuthenticationBuilder authBuilder,
         IConfiguration configuration,
@@ -69,5 +77,57 @@ public static class BffAuthenticationExtensions
                     };
                 }
             );
+    }
+
+    /// <summary>
+    /// Registers distributed session persistence (Dragonfly/Valkey-backed ticket store),
+    /// data protection, and the cookie session refresh handler for the BFF layer.
+    /// </summary>
+    public static IServiceCollection AddBffDistributedSession(
+        this IServiceCollection services,
+        IConfiguration configuration
+    )
+    {
+        string? dragonflyConnection = configuration.GetConnectionString("Dragonfly");
+
+        if (!string.IsNullOrWhiteSpace(dragonflyConnection))
+        {
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = dragonflyConnection;
+                options.InstanceName = BffSessionInstanceName;
+            });
+
+            services
+                .AddDataProtection()
+                .SetApplicationName(DataProtectionAppName)
+                .PersistKeysToStackExchangeRedis(
+                    ConnectionMultiplexer.Connect(dragonflyConnection),
+                    "DataProtection-Keys:identity-bff"
+                );
+        }
+        else
+        {
+            services.AddDistributedMemoryCache();
+
+            services.AddDataProtection().SetApplicationName(DataProtectionAppName);
+        }
+
+        services.AddSingleton<ITicketStore, ValkeyTicketStore>();
+
+        services.AddSingleton<IPostConfigureOptions<CookieAuthenticationOptions>>(sp =>
+        {
+            ITicketStore ticketStore = sp.GetRequiredService<ITicketStore>();
+            return new PostConfigureOptions<CookieAuthenticationOptions>(
+                AuthConstants.BffSchemes.Cookie,
+                options =>
+                {
+                    options.SessionStore = ticketStore;
+                    options.Events.OnValidatePrincipal = CookieSessionRefresher.OnValidatePrincipal;
+                }
+            );
+        });
+
+        return services;
     }
 }

@@ -115,6 +115,8 @@ builder.Services.AddResiliencePipeline(
 
 WebApplication app = builder.Build();
 
+await app.WaitForKeycloakAsync();
+
 await app.MigrateDbAsync<NotificationsDbContext>();
 
 app.UseSharedMicroserviceApiPipeline(false, a => a.MapWolverineEndpoints());

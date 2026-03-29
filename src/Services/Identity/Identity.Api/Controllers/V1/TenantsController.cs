@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.OutputCaching;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.Filters.Idempotency;
 using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
@@ -37,6 +38,7 @@ public sealed class TenantsController(IMessageBus bus) : ApiControllerBase
         InvokeToActionResultAsync<TenantResponse>(bus, new GetTenantByIdQuery(id), ct);
 
     [HttpPost]
+    [Idempotent]
     [RequirePermission(Permission.Tenants.Create)]
     public Task<ActionResult<TenantResponse>> Create(
         CreateTenantRequest request,

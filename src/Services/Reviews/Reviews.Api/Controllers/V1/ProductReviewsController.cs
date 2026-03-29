@@ -10,6 +10,7 @@ using Reviews.Application.Features.GetReviewsByProductId;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.Filters.Idempotency;
 using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Security;
 using SharedKernel.Domain.Common;
@@ -61,6 +62,7 @@ public sealed class ProductReviewsController(IMessageBus bus) : ApiControllerBas
         );
 
     [HttpPost]
+    [Idempotent]
     [RequirePermission(Permission.ProductReviews.Create)]
     public Task<ActionResult<ProductReviewResponse>> Create(
         CreateProductReviewRequest request,

@@ -7,6 +7,7 @@ using ProductCatalog.Application.Features.ProductData.Queries;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
 using SharedKernel.Api.Extensions;
+using SharedKernel.Api.Filters.Idempotency;
 using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.Security;
 using Wolverine;
@@ -41,6 +42,7 @@ public sealed class ProductDataController(IMessageBus bus) : ApiControllerBase
         InvokeToActionResultAsync<ProductDataResponse>(bus, new GetProductDataByIdQuery(id), ct);
 
     [HttpPost("image")]
+    [Idempotent]
     [RequirePermission(Permission.ProductData.Create)]
     public Task<ActionResult<ProductDataResponse>> CreateImage(
         CreateImageProductDataRequest request,
@@ -54,6 +56,7 @@ public sealed class ProductDataController(IMessageBus bus) : ApiControllerBase
         );
 
     [HttpPost("video")]
+    [Idempotent]
     [RequirePermission(Permission.ProductData.Create)]
     public Task<ActionResult<ProductDataResponse>> CreateVideo(
         CreateVideoProductDataRequest request,

@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Ardalis.Specification" />
     <PackageReference Include="ErrorOr" />
+    <PackageReference Include="Microsoft.Extensions.Compliance.Abstractions" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
     <PackageReference Include="WolverineFx" />
   </ItemGroup>

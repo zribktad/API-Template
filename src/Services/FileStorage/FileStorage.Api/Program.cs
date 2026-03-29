@@ -82,6 +82,8 @@ builder.Host.UseWolverine(opts =>
 
 WebApplication app = builder.Build();
 
+await app.WaitForKeycloakAsync();
+
 await app.MigrateDbAsync<FileStorageDbContext>();
 
 app.UseSharedMicroserviceApiPipeline(true, a => a.MapWolverineEndpoints());

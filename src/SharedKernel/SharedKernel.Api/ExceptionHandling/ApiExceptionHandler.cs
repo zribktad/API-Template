@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SharedKernel.Api.Observability;
 using SharedKernel.Application.Errors;
 using SharedKernel.Domain.Exceptions;
 
@@ -71,6 +72,8 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         if (statusCode >= StatusCodes.Status500InternalServerError)
         {
+            ApiMetrics.RecordUnhandledException();
+
             _logger.LogError(
                 exception,
                 "Unhandled exception. StatusCode: {StatusCode}, ErrorCode: {ErrorCode}, TraceId: {TraceId}",
@@ -81,6 +84,8 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         }
         else
         {
+            ApiMetrics.RecordHandledException(errorCode);
+
             _logger.LogWarning(
                 exception,
                 "Handled application exception. StatusCode: {StatusCode}, ErrorCode: {ErrorCode}, TraceId: {TraceId}",

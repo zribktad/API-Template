@@ -1,17 +1,22 @@
 using Contracts.IntegrationEvents.Sagas;
 using FluentValidation;
+using Kot.MongoDB.Migrations;
+using Kot.MongoDB.Migrations.DI;
 using Microsoft.EntityFrameworkCore;
 using Polly;
 using ProductCatalog.Application.Features.Product.Repositories;
 using ProductCatalog.Application.Features.Product.Validation;
 using ProductCatalog.Application.Sagas;
 using ProductCatalog.Domain.Interfaces;
+using ProductCatalog.Infrastructure.HealthChecks;
 using ProductCatalog.Infrastructure.Persistence;
+using ProductCatalog.Infrastructure.Persistence.SoftDelete;
 using ProductCatalog.Infrastructure.Repositories;
 using ProductCatalog.Infrastructure.StoredProcedures;
 using SharedKernel.Api.Extensions;
 using SharedKernel.Api.OutputCaching;
 using SharedKernel.Application.Security;
+using SharedKernel.Infrastructure.Persistence.SoftDelete;
 using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
@@ -41,8 +46,18 @@ builder.Services.AddValidatedOptions<MongoDbSettings>(
 );
 builder.Services.AddSingleton<MongoDbContext>();
 
+MongoDbSettings mongoSettings = builder
+    .Configuration.GetRequiredSection(MongoDbSettings.SectionName)
+    .Get<MongoDbSettings>()!;
+
+builder.Services.AddMongoMigrations(
+    mongoSettings.ConnectionString,
+    new MigrationOptions(mongoSettings.DatabaseName)
+);
+
 builder.Services.AddSharedInfrastructure<ProductCatalogDbContext>(builder.Configuration);
 
+builder.Services.AddScoped<ISoftDeleteCascadeRule, CategorySoftDeleteCascadeRule>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IProductDataRepository, ProductDataRepository>();
@@ -74,7 +89,7 @@ builder.Services.AddControllers();
 builder.Services.AddSharedOpenApiDocumentation();
 builder.Services.AddSharedOutputCaching(builder.Configuration);
 
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks().AddCheck<MongoDbHealthCheck>("mongodb");
 
 builder.Host.UseWolverine(opts =>
 {
@@ -134,7 +149,15 @@ builder.Host.UseWolverine(opts =>
 
 WebApplication app = builder.Build();
 
+await app.WaitForKeycloakAsync();
+
 await app.MigrateDbAsync<ProductCatalogDbContext>();
+
+await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+{
+    IMigrator mongoMigrator = scope.ServiceProvider.GetRequiredService<IMigrator>();
+    await mongoMigrator.MigrateAsync();
+}
 
 app.UseSharedMicroserviceApiPipeline(true, a => a.MapControllers());
 

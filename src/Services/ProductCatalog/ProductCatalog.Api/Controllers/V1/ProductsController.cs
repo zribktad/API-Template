@@ -6,6 +6,7 @@ using ProductCatalog.Application.Features.Product.DTOs;
 using ProductCatalog.Application.Features.Product.Queries;
 using SharedKernel.Api.Authorization;
 using SharedKernel.Api.Controllers;
+using SharedKernel.Api.Filters.Idempotency;
 using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Application.Security;
@@ -37,6 +38,7 @@ public sealed class ProductsController(IMessageBus bus) : ApiControllerBase
 
     /// <summary>Creates multiple products in a single batch operation.</summary>
     [HttpPost]
+    [Idempotent]
     [RequirePermission(Permission.Products.Create)]
     public Task<ActionResult<BatchResponse>> Create(
         CreateProductsRequest request,

@@ -21,4 +21,8 @@ public sealed class BackgroundJobsOptions
     [Required]
     [ValidateObjectMembers]
     public ReindexJobOptions Reindex { get; init; } = new();
+
+    [Required]
+    [ValidateObjectMembers]
+    public EmailRetryJobOptions EmailRetry { get; init; } = new();
 }

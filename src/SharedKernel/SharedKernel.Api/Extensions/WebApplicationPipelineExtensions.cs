@@ -12,15 +12,19 @@ public static class WebApplicationPipelineExtensions
     /// </summary>
     /// <param name="useOutputCaching">When true, registers <c>UseSharedOutputCaching</c> after authorization.</param>
     /// <param name="mapEndpoints">Map controllers, Wolverine HTTP endpoints, or both.</param>
+    /// <param name="configureAfterAuthentication">Optional hook invoked after authentication but before authorization.</param>
     public static WebApplication UseSharedMicroserviceApiPipeline(
         this WebApplication app,
         bool useOutputCaching,
-        Action<WebApplication> mapEndpoints
+        Action<WebApplication> mapEndpoints,
+        Action<WebApplication>? configureAfterAuthentication = null
     )
     {
         ArgumentNullException.ThrowIfNull(mapEndpoints);
 
+        app.UseSharedRequestLogging();
         app.UseAuthentication();
+        configureAfterAuthentication?.Invoke(app);
         app.UseAuthorization();
 
         if (useOutputCaching)
