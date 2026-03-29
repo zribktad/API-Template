@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Reviews.Domain.Entities;
 using Reviews.Infrastructure.Persistence;
 using Shouldly;
+using TestCommon;
 using Xunit;
 
 namespace Integration.Tests.Infrastructure;
@@ -103,10 +104,18 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
         );
         create.StatusCode.ShouldBe(HttpStatusCode.OK, await create.Content.ReadAsStringAsync(ct));
 
-        HttpResponseMessage readAfterWrite = await client.GetAsync("/api/v1/products", ct);
-        readAfterWrite.StatusCode.ShouldBe(HttpStatusCode.OK);
-        string body = await readAfterWrite.Content.ReadAsStringAsync(ct);
-        body.ShouldContain(productName);
+        // Cache invalidation is async (Wolverine OutgoingMessages) — poll until the eviction propagates.
+        await AsyncPoll.UntilTrueAsync(
+            async () =>
+            {
+                HttpResponseMessage r = await client.GetAsync("/api/v1/products", ct);
+                string b = await r.Content.ReadAsStringAsync(ct);
+                return b.Contains(productName, StringComparison.OrdinalIgnoreCase);
+            },
+            timeout: TimeSpan.FromSeconds(2),
+            interval: TimeSpan.FromMilliseconds(50),
+            cancellationToken: ct
+        );
     }
 
     [Fact]
