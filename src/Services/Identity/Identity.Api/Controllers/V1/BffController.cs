@@ -33,7 +33,7 @@ public sealed class BffController : ApiControllerBase
         );
     }
 
-    [HttpGet("logout")]
+    [HttpPost("logout")]
     public IActionResult Logout()
     {
         return SignOut(

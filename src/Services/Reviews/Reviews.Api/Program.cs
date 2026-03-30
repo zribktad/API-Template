@@ -105,7 +105,9 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<ReviewsDbContext>();
 
-app.UseSharedMicroserviceApiPipeline(true, a => a.MapControllers());
+app.UseSharedExceptionHandlerAndAuthentication();
+app.UseSharedAuthorizationCachingAndInfrastructure(useOutputCaching: true);
+app.MapControllers();
 
 await app.RunAsync();
 

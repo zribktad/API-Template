@@ -21,5 +21,6 @@ public static class ErrorCatalog
     public static class Auth
     {
         public const string Forbidden = "AUTH-0403";
+        public const string CsrfHeaderMissing = "AUTH-0403-CSRF";
     }
 }

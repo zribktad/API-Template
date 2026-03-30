@@ -2,6 +2,7 @@ using Contracts.IntegrationEvents.Identity;
 using Contracts.IntegrationEvents.Sagas;
 using FluentValidation;
 using Identity.Api.Extensions;
+using Identity.Api.Middleware;
 using Identity.Application.Options;
 using Identity.Application.Sagas;
 using Identity.Application.Security;
@@ -165,7 +166,10 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<IdentityDbContext>();
 
-app.UseSharedMicroserviceApiPipeline(true, a => a.MapControllers());
+app.UseSharedExceptionHandlerAndAuthentication();
+app.UseMiddleware<CsrfValidationMiddleware>();
+app.UseSharedAuthorizationCachingAndInfrastructure(useOutputCaching: true);
+app.MapControllers();
 
 await app.RunAsync();
 

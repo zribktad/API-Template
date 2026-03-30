@@ -34,6 +34,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantProvider, HttpTenantProvider>();
 builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
 builder.Services.AddSharedAuthorization();
+builder.Services.AddSharedApiErrorHandling();
 
 // HMAC signing
 builder.Services.AddSingleton<IWebhookPayloadSigner, HmacWebhookPayloadSigner>();
@@ -116,7 +117,9 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<WebhooksDbContext>();
 
-app.UseSharedMicroserviceApiPipeline(false, a => a.MapWolverineEndpoints());
+app.UseSharedExceptionHandlerAndAuthentication();
+app.UseSharedAuthorizationCachingAndInfrastructure(useOutputCaching: false);
+app.MapWolverineEndpoints();
 
 await app.RunAsync();
 

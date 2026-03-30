@@ -55,6 +55,9 @@ public static class SharedServiceRegistration
         services.AddScoped<IActorProvider, HttpActorProvider>();
         services.AddSingleton(TimeProvider.System);
 
+        // Exception handling & ProblemDetails (RFC 7807)
+        services.AddSharedApiErrorHandling();
+
         // API versioning
         services
             .AddApiVersioning(options =>

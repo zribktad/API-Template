@@ -47,6 +47,7 @@ builder.Services.AddHostedService<EmailSendingBackgroundService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
 builder.Services.AddSharedAuthorization();
+builder.Services.AddSharedApiErrorHandling();
 
 // Repository
 builder.Services.AddScoped<IFailedEmailRepository, FailedEmailRepository>();
@@ -117,7 +118,9 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<NotificationsDbContext>();
 
-app.UseSharedMicroserviceApiPipeline(false, a => a.MapWolverineEndpoints());
+app.UseSharedExceptionHandlerAndAuthentication();
+app.UseSharedAuthorizationCachingAndInfrastructure(useOutputCaching: false);
+app.MapWolverineEndpoints();
 
 await app.RunAsync();
 
