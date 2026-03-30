@@ -47,6 +47,7 @@ builder.Services.AddHostedService<EmailSendingBackgroundService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
 builder.Services.AddSharedAuthorization();
+builder.Services.AddSharedApiErrorHandling();
 
 // Repository
 builder.Services.AddScoped<IFailedEmailRepository, FailedEmailRepository>();

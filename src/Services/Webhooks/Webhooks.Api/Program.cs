@@ -34,6 +34,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantProvider, HttpTenantProvider>();
 builder.Services.AddSharedKeycloakJwtBearer(builder.Configuration, builder.Environment);
 builder.Services.AddSharedAuthorization();
+builder.Services.AddSharedApiErrorHandling();
 
 // HMAC signing
 builder.Services.AddSingleton<IWebhookPayloadSigner, HmacWebhookPayloadSigner>();
