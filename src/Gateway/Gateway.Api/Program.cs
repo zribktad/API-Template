@@ -14,7 +14,7 @@ builder.Services.AddHealthChecks();
 WebApplication app = builder.Build();
 
 app.MapReverseProxy();
-app.MapHealthChecks("/health");
+app.MapSharedHealthChecks();
 app.MapGatewayScalarUi();
 
 app.Run();

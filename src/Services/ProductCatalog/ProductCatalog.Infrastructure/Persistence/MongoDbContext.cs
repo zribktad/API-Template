@@ -10,7 +10,12 @@ namespace ProductCatalog.Infrastructure.Persistence;
 /// Thin wrapper around the MongoDB driver that configures the client with diagnostic
 /// activity tracing and exposes typed collection accessors for domain document types.
 /// </summary>
-public sealed class MongoDbContext
+public interface IMongoDbHealthProbe
+{
+    Task PingAsync(CancellationToken cancellationToken = default);
+}
+
+public sealed class MongoDbContext : IMongoDbHealthProbe
 {
     private readonly IMongoDatabase _database;
 

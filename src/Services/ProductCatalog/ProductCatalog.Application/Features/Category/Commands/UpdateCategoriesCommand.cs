@@ -1,5 +1,4 @@
 using ErrorOr;
-using FluentValidation;
 using ProductCatalog.Application.Common.Errors;
 using ProductCatalog.Application.Features.Category.DTOs;
 using ProductCatalog.Application.Features.Category.Specifications;
@@ -20,22 +19,26 @@ public sealed record UpdateCategoriesCommand(UpdateCategoriesRequest Request);
 /// <summary>Handles <see cref="UpdateCategoriesCommand"/> by validating all items, loading categories in bulk, and updating in a single transaction.</summary>
 public sealed class UpdateCategoriesCommandHandler
 {
-    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
+    /// <summary>
+    /// Wolverine compound-handler load step: validates and loads categories, short-circuiting the
+    /// handler pipeline with a failure response when any validation rule fails.
+    /// </summary>
+    public static async Task<(
+        HandlerContinuation,
+        EntityLookup<CategoryEntity>?,
+        OutgoingMessages
+    )> LoadAsync(
         UpdateCategoriesCommand command,
         ICategoryRepository repository,
-        IUnitOfWork unitOfWork,
-        IValidator<UpdateCategoryItem> itemValidator,
+        FluentValidationBatchRule<UpdateCategoryItem> batchRule,
         CancellationToken ct
     )
     {
         IReadOnlyList<UpdateCategoryItem> items = command.Request.Items;
         BatchFailureContext<UpdateCategoryItem> context = new(items);
-        await context.ApplyRulesAsync(
-            ct,
-            new FluentValidationBatchRule<UpdateCategoryItem>(itemValidator)
-        );
 
-        // Load all target categories and mark missing ones as failed
+        await context.ApplyRulesAsync(ct, batchRule);
+
         HashSet<Guid> requestedIds = items
             .Where((_, i) => !context.IsFailed(i))
             .Select(item => item.Id)
@@ -53,10 +56,33 @@ public sealed class UpdateCategoriesCommandHandler
             )
         );
 
-        if (context.HasFailures)
-            return (context.ToFailureResponse(), CacheInvalidationCascades.None);
+        OutgoingMessages messages = new();
 
-        // Apply changes in a single transaction
+        if (context.HasFailures)
+        {
+            messages.RespondToSender(context.ToFailureResponse());
+            return (HandlerContinuation.Stop, null, messages);
+        }
+
+        return (
+            HandlerContinuation.Continue,
+            new EntityLookup<CategoryEntity>(categoryMap),
+            messages
+        );
+    }
+
+    /// <summary>Applies changes in a single transaction.</summary>
+    public static async Task<(ErrorOr<BatchResponse>, OutgoingMessages)> HandleAsync(
+        UpdateCategoriesCommand command,
+        EntityLookup<CategoryEntity> lookup,
+        ICategoryRepository repository,
+        IUnitOfWork unitOfWork,
+        CancellationToken ct
+    )
+    {
+        IReadOnlyList<UpdateCategoryItem> items = command.Request.Items;
+        IReadOnlyDictionary<Guid, CategoryEntity> categoryMap = lookup.Entities;
+
         await unitOfWork.ExecuteInTransactionAsync(
             async () =>
             {

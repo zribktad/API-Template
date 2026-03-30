@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using SharedKernel.Application.Security;
+using SharedKernel.Infrastructure.Observability;
 
 namespace SharedKernel.Api.Extensions;
 
@@ -79,9 +80,25 @@ public static class KeycloakAuthExtensions
                     await existingHandler(context);
 
                 if (requireTenantClaim && !HasValidTenantClaim(context.Principal))
+                {
+                    AuthTelemetry.RecordMissingTenantClaim(
+                        context.HttpContext,
+                        JwtBearerDefaults.AuthenticationScheme
+                    );
                     context.Fail($"Missing required {SharedAuthConstants.Claims.TenantId} claim.");
+                }
             },
-            OnAuthenticationFailed = existingEvents.OnAuthenticationFailed,
+            OnAuthenticationFailed = async context =>
+            {
+                if (existingEvents.OnAuthenticationFailed is not null)
+                    await existingEvents.OnAuthenticationFailed(context);
+
+                AuthTelemetry.RecordAuthenticationFailed(
+                    context.HttpContext,
+                    JwtBearerDefaults.AuthenticationScheme,
+                    context.Exception
+                );
+            },
             OnChallenge = existingEvents.OnChallenge,
             OnForbidden = existingEvents.OnForbidden,
             OnMessageReceived = existingEvents.OnMessageReceived,

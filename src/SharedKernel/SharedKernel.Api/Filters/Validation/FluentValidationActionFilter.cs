@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using SharedKernel.Infrastructure.Observability;
 
 namespace SharedKernel.Api.Filters.Validation;
 
@@ -50,6 +51,7 @@ public sealed class FluentValidationActionFilter : IAsyncActionFilter
             if (result.IsValid)
                 continue;
 
+            ValidationTelemetry.RecordFromActionFilter(context, argumentType, result.Errors);
             foreach (FluentValidation.Results.ValidationFailure error in result.Errors)
                 context.ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
         }

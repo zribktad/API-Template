@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Application.Errors;
 using SharedKernel.Domain.Exceptions;
+using SharedKernel.Infrastructure.Observability;
 
 namespace SharedKernel.Api.ExceptionHandling;
 
@@ -55,6 +56,9 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             string errorCode,
             IReadOnlyDictionary<string, object?>? metadata
         ) = Resolve(exception);
+
+        if (statusCode >= StatusCodes.Status409Conflict)
+            ConflictTelemetry.Record(exception, errorCode);
 
         ProblemDetails problemDetails = new ProblemDetails
         {

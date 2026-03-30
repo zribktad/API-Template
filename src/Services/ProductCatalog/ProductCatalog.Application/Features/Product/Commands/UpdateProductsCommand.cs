@@ -1,10 +1,12 @@
 using ErrorOr;
-using FluentValidation;
+using ProductCatalog.Application.Common.Errors;
 using ProductCatalog.Application.Features.Product.DTOs;
 using ProductCatalog.Application.Features.Product.Repositories;
+using ProductCatalog.Application.Features.Product.Specifications;
 using ProductCatalog.Domain.Entities;
 using ProductCatalog.Domain.Interfaces;
 using SharedKernel.Application.Batch;
+using SharedKernel.Application.Batch.Rules;
 using SharedKernel.Application.Common.Events;
 using SharedKernel.Application.DTOs;
 using SharedKernel.Domain.Interfaces;
@@ -32,31 +34,53 @@ public sealed class UpdateProductsCommandHandler
         IProductRepository repository,
         ICategoryRepository categoryRepository,
         IProductDataRepository productDataRepository,
-        IValidator<UpdateProductItem> itemValidator,
+        FluentValidationBatchRule<UpdateProductItem> batchRule,
         CancellationToken ct
     )
     {
-        (BatchResponse? failure, Dictionary<Guid, ProductEntity>? productMap) =
-            await UpdateProductsValidator.ValidateAndLoadAsync(
-                command,
-                repository,
+        IReadOnlyList<UpdateProductItem> items = command.Request.Items;
+        BatchFailureContext<UpdateProductItem> context = new(items);
+
+        await context.ApplyRulesAsync(ct, batchRule);
+
+        HashSet<Guid> requestedIds = items
+            .Where((_, i) => !context.IsFailed(i))
+            .Select(item => item.Id)
+            .ToHashSet();
+        Dictionary<Guid, ProductEntity> productMap = (
+            await repository.ListAsync(new ProductsByIdsWithLinksSpecification(requestedIds), ct)
+        ).ToDictionary(p => p.Id);
+
+        await context.ApplyRulesAsync(
+            ct,
+            new MarkMissingByIdBatchRule<UpdateProductItem>(
+                item => item.Id,
+                productMap.Keys.ToHashSet(),
+                ErrorCatalog.Products.NotFoundMessage
+            )
+        );
+
+        context.AddFailures(
+            await ProductValidationHelper.CheckProductReferencesAsync(
+                items,
                 categoryRepository,
                 productDataRepository,
-                itemValidator,
+                context.FailedIndices,
                 ct
-            );
+            )
+        );
 
         OutgoingMessages messages = new();
 
-        if (failure is not null)
+        if (context.HasFailures)
         {
-            messages.RespondToSender(failure);
+            messages.RespondToSender(context.ToFailureResponse());
             return (HandlerContinuation.Stop, null, messages);
         }
 
         return (
             HandlerContinuation.Continue,
-            new EntityLookup<ProductEntity>(productMap!),
+            new EntityLookup<ProductEntity>(productMap),
             messages
         );
     }

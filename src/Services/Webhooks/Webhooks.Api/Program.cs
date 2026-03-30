@@ -66,7 +66,10 @@ builder
     );
 
 // Health checks
-builder.Services.AddHealthChecks();
+builder
+    .Services.AddHealthChecks()
+    .AddPostgreSqlHealthCheck(connectionString)
+    .AddSharedRabbitMqHealthCheck(builder.Configuration);
 builder.Services.AddSharedOpenApiDocumentation();
 builder.Services.AddWolverineHttp();
 

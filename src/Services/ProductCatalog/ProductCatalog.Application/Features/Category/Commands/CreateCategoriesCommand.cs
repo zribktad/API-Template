@@ -1,5 +1,4 @@
 using ErrorOr;
-using FluentValidation;
 using ProductCatalog.Application.Features.Category.DTOs;
 using ProductCatalog.Domain.Interfaces;
 using SharedKernel.Application.Batch;
@@ -22,17 +21,14 @@ public sealed class CreateCategoriesCommandHandler
         CreateCategoriesCommand command,
         ICategoryRepository repository,
         IUnitOfWork unitOfWork,
-        IValidator<CreateCategoryRequest> itemValidator,
+        FluentValidationBatchRule<CreateCategoryRequest> batchRule,
         CancellationToken ct
     )
     {
         IReadOnlyList<CreateCategoryRequest> items = command.Request.Items;
         BatchFailureContext<CreateCategoryRequest> context = new(items);
 
-        await context.ApplyRulesAsync(
-            ct,
-            new FluentValidationBatchRule<CreateCategoryRequest>(itemValidator)
-        );
+        await context.ApplyRulesAsync(ct, batchRule);
 
         if (context.HasFailures)
             return (context.ToFailureResponse(), CacheInvalidationCascades.None);
