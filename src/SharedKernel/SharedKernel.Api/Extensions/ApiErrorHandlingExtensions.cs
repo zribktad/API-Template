@@ -9,6 +9,9 @@ namespace SharedKernel.Api.Extensions;
 /// </summary>
 public static class ApiErrorHandlingExtensions
 {
+    /// <summary>
+    /// Registers RFC 7807 ProblemDetails and the shared <see cref="ApiExceptionHandler"/>.
+    /// </summary>
     public static IServiceCollection AddSharedApiErrorHandling(this IServiceCollection services)
     {
         services.AddProblemDetails(ApiProblemDetailsOptions.Configure);
