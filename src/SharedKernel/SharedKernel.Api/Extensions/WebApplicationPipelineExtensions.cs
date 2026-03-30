@@ -30,6 +30,7 @@ public static class WebApplicationPipelineExtensions
     )
     {
         app.UseAuthorization();
+        app.UseRequestContextPipeline();
 
         if (useOutputCaching)
             app.UseSharedOutputCaching();
