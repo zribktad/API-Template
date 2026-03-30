@@ -86,8 +86,6 @@ public abstract class RepositoryBase<T>
         return new PagedResponse<TResult>([], 0, pageNumber, pageSize);
     }
 
-    // Override write methods — do NOT call SaveChangesAsync, that is UoW responsibility.
-    // Return 0 (no rows persisted yet — UoW will commit later).
     /// <summary>Tracks <paramref name="entity"/> for insertion without flushing to the database.</summary>
     public override Task<T> AddAsync(T entity, CancellationToken ct = default)
     {

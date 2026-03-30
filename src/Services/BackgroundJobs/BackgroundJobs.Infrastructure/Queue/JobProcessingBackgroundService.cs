@@ -19,6 +19,9 @@ public sealed class JobProcessingBackgroundService : QueueConsumerBackgroundServ
     private const int SimulatedStepDelayMs = 200;
     private const int ProgressPerStep = 20;
     private const string CompletedResultSummary = "Job completed successfully";
+    private static readonly string SerializedCompletedResult = JsonSerializer.Serialize(
+        new { summary = CompletedResultSummary }
+    );
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<JobProcessingBackgroundService> _logger;
@@ -61,10 +64,7 @@ public sealed class JobProcessingBackgroundService : QueueConsumerBackgroundServ
             await uow.CommitAsync(ct);
         }
 
-        job.MarkCompleted(
-            JsonSerializer.Serialize(new { summary = CompletedResultSummary }),
-            _timeProvider
-        );
+        job.MarkCompleted(SerializedCompletedResult, _timeProvider);
         await uow.CommitAsync(ct);
     }
 
