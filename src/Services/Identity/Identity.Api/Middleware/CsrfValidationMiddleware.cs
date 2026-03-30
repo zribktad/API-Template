@@ -102,7 +102,7 @@ public sealed class CsrfValidationMiddleware(
                     Status = StatusCodes.Status403Forbidden,
                     Detail =
                         $"Cookie-authenticated requests must include the '{AuthConstants.Csrf.HeaderName}: {AuthConstants.Csrf.HeaderValue}' header.",
-                    Extensions = { ["errorCode"] = "csrf_header_missing" },
+                    Extensions = { ["errorCode"] = ErrorCatalog.Auth.CsrfHeaderMissing },
                 },
             }
         );
