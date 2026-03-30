@@ -1,7 +1,5 @@
 using Identity.Application.Security;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.Extensions.Primitives;
-using Microsoft.Net.Http.Headers;
 using SharedKernel.Application.Errors;
 
 namespace Identity.Api.Middleware;
@@ -43,15 +41,10 @@ public sealed class CsrfValidationMiddleware(
 
         // Explicit bearer tokens carry their own proof of origin; skip CSRF checks even if
         // a browser also happens to send a session cookie on the same request.
+        string? authorization = context.Request.Headers.Authorization;
         if (
-            context.Request.Headers.TryGetValue(
-                HeaderNames.Authorization,
-                out StringValues authorizationValues
-            )
-            && authorizationValues.Any(static value =>
-                !string.IsNullOrEmpty(value)
-                && value.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-            )
+            !string.IsNullOrEmpty(authorization)
+            && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
         )
         {
             await next(context);
@@ -78,19 +71,13 @@ public sealed class CsrfValidationMiddleware(
         }
 
         // Cookie-authenticated mutating request — require the custom CSRF header.
-        if (
-            context.Request.Headers.TryGetValue(
-                AuthConstants.Csrf.HeaderName,
-                out StringValues value
-            )
-            && value == AuthConstants.Csrf.HeaderValue
-        )
+        string? csrfHeader = context.Request.Headers[AuthConstants.Csrf.HeaderName];
+        if (csrfHeader == AuthConstants.Csrf.HeaderValue)
         {
             await next(context);
             return;
         }
 
-        // Header missing or wrong value — reject with 403 and RFC 7807 problem details.
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         await problemDetailsService.TryWriteAsync(
             new ProblemDetailsContext
