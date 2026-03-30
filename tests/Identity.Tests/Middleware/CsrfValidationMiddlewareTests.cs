@@ -13,9 +13,11 @@ namespace Identity.Tests.Middleware;
 public sealed class CsrfValidationMiddlewareTests
 {
     // Builds a DefaultHttpContext wired with a mock IAuthenticationService.
-    // cookieAuthResult: what AuthenticateAsync returns for the BFF cookie scheme.
-    // cookieAuthInUser: put a cookie-type identity directly into context.User.
-    private static DefaultHttpContext BuildContext(
+    // Returns both the context and the auth mock so individual tests can verify
+    // whether AuthenticateAsync was called (e.g. to assert the short-circuit path).
+    // cookieAuthInUser and cookieAuthResult are mutually exclusive: when cookieAuthInUser
+    // is true the middleware short-circuits before calling AuthenticateAsync.
+    private static (DefaultHttpContext context, Mock<IAuthenticationService> authMock) BuildContext(
         string method = "POST",
         bool withBearerToken = false,
         bool cookieAuthInUser = false,
@@ -26,6 +28,7 @@ public sealed class CsrfValidationMiddlewareTests
     {
         DefaultHttpContext context = new();
         context.Request.Method = method;
+        context.Response.Body = new MemoryStream();
 
         if (withBearerToken)
             context.Request.Headers.Authorization = "Bearer test-token";
@@ -49,7 +52,7 @@ public sealed class CsrfValidationMiddlewareTests
         services.AddSingleton(authServiceMock.Object);
         context.RequestServices = services.BuildServiceProvider();
 
-        return context;
+        return (context, authServiceMock);
     }
 
     private static RequestDelegate NextThatSets200() =>
@@ -79,7 +82,7 @@ public sealed class CsrfValidationMiddlewareTests
     [InlineData("OPTIONS")]
     public async Task SafeMethods_AlwaysPassThrough(string method)
     {
-        DefaultHttpContext context = BuildContext(method: method);
+        (DefaultHttpContext context, _) = BuildContext(method: method);
         (CsrfValidationMiddleware middleware, _) = BuildMiddleware();
 
         await middleware.InvokeAsync(context);
@@ -90,7 +93,7 @@ public sealed class CsrfValidationMiddlewareTests
     [Fact]
     public async Task Post_WithBearerToken_PassesThrough_WithoutCsrfHeader()
     {
-        DefaultHttpContext context = BuildContext(withBearerToken: true);
+        (DefaultHttpContext context, _) = BuildContext(withBearerToken: true);
         (CsrfValidationMiddleware middleware, _) = BuildMiddleware();
 
         await middleware.InvokeAsync(context);
@@ -101,7 +104,9 @@ public sealed class CsrfValidationMiddlewareTests
     [Fact]
     public async Task Post_WithNoAuth_PassesThrough()
     {
-        DefaultHttpContext context = BuildContext(cookieAuthResult: AuthenticateResult.NoResult());
+        (DefaultHttpContext context, _) = BuildContext(
+            cookieAuthResult: AuthenticateResult.NoResult()
+        );
         (CsrfValidationMiddleware middleware, _) = BuildMiddleware();
 
         await middleware.InvokeAsync(context);
@@ -110,14 +115,34 @@ public sealed class CsrfValidationMiddlewareTests
     }
 
     [Fact]
-    public async Task Post_CookieInUser_WithCsrfHeader_PassesThrough()
+    public async Task Post_WithFailedCookieAuth_PassesThrough()
     {
-        DefaultHttpContext context = BuildContext(cookieAuthInUser: true, withCsrfHeader: true);
+        (DefaultHttpContext context, _) = BuildContext(
+            cookieAuthResult: AuthenticateResult.Fail("Cookie expired")
+        );
         (CsrfValidationMiddleware middleware, _) = BuildMiddleware();
 
         await middleware.InvokeAsync(context);
 
         context.Response.StatusCode.ShouldBe(200);
+    }
+
+    [Fact]
+    public async Task Post_CookieInUser_WithCsrfHeader_PassesThrough_WithoutCallingAuthenticateAsync()
+    {
+        (DefaultHttpContext context, Mock<IAuthenticationService> authMock) = BuildContext(
+            cookieAuthInUser: true,
+            withCsrfHeader: true
+        );
+        (CsrfValidationMiddleware middleware, _) = BuildMiddleware();
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.StatusCode.ShouldBe(200);
+        authMock.Verify(
+            s => s.AuthenticateAsync(context, AuthConstants.BffSchemes.Cookie),
+            Times.Never
+        );
     }
 
     [Fact]
@@ -128,7 +153,7 @@ public sealed class CsrfValidationMiddlewareTests
             new AuthenticationTicket(new ClaimsPrincipal(identity), AuthConstants.BffSchemes.Cookie)
         );
 
-        DefaultHttpContext context = BuildContext(
+        (DefaultHttpContext context, _) = BuildContext(
             cookieAuthResult: succeeded,
             withCsrfHeader: true
         );
@@ -140,17 +165,22 @@ public sealed class CsrfValidationMiddlewareTests
     }
 
     [Fact]
-    public async Task Post_CookieInUser_WithoutCsrfHeader_Returns403()
+    public async Task Post_CookieInUser_WithoutCsrfHeader_Returns403_WithoutCallingAuthenticateAsync()
     {
-        DefaultHttpContext context = BuildContext(cookieAuthInUser: true);
-        context.Response.Body = new MemoryStream();
-        (CsrfValidationMiddleware middleware, Mock<IProblemDetailsService> mock) =
+        (DefaultHttpContext context, Mock<IAuthenticationService> authMock) = BuildContext(
+            cookieAuthInUser: true
+        );
+        (CsrfValidationMiddleware middleware, Mock<IProblemDetailsService> problemMock) =
             BuildMiddleware();
 
         await middleware.InvokeAsync(context);
 
         context.Response.StatusCode.ShouldBe(403);
-        mock.Verify(p => p.TryWriteAsync(It.IsAny<ProblemDetailsContext>()), Times.Once);
+        problemMock.Verify(p => p.TryWriteAsync(It.IsAny<ProblemDetailsContext>()), Times.Once);
+        authMock.Verify(
+            s => s.AuthenticateAsync(context, AuthConstants.BffSchemes.Cookie),
+            Times.Never
+        );
     }
 
     [Fact]
@@ -161,8 +191,7 @@ public sealed class CsrfValidationMiddlewareTests
             new AuthenticationTicket(new ClaimsPrincipal(identity), AuthConstants.BffSchemes.Cookie)
         );
 
-        DefaultHttpContext context = BuildContext(cookieAuthResult: succeeded);
-        context.Response.Body = new MemoryStream();
+        (DefaultHttpContext context, _) = BuildContext(cookieAuthResult: succeeded);
         (CsrfValidationMiddleware middleware, Mock<IProblemDetailsService> mock) =
             BuildMiddleware();
 
@@ -175,12 +204,11 @@ public sealed class CsrfValidationMiddlewareTests
     [Fact]
     public async Task Post_CookieInUser_WrongCsrfHeaderValue_Returns403()
     {
-        DefaultHttpContext context = BuildContext(
+        (DefaultHttpContext context, _) = BuildContext(
             cookieAuthInUser: true,
             withCsrfHeader: true,
             csrfHeaderValue: "wrong-value"
         );
-        context.Response.Body = new MemoryStream();
         (CsrfValidationMiddleware middleware, Mock<IProblemDetailsService> mock) =
             BuildMiddleware();
 
