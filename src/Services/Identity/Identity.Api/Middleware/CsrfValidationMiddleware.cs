@@ -1,6 +1,8 @@
 using Identity.Application.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Net.Http.Headers;
+using SharedKernel.Application.Errors;
 
 namespace Identity.Api.Middleware;
 
@@ -43,7 +45,7 @@ public sealed class CsrfValidationMiddleware(
         // a browser also happens to send a session cookie on the same request.
         if (
             context.Request.Headers.TryGetValue(
-                "Authorization",
+                HeaderNames.Authorization,
                 out StringValues authorizationValues
             )
             && authorizationValues.Any(static value =>
@@ -68,13 +70,11 @@ public sealed class CsrfValidationMiddleware(
             AuthenticateResult cookieAuthResult = await context.AuthenticateAsync(
                 AuthConstants.BffSchemes.Cookie
             );
-            isCookieAuthenticated = cookieAuthResult.Succeeded;
-        }
-
-        if (!isCookieAuthenticated)
-        {
-            await next(context);
-            return;
+            if (!cookieAuthResult.Succeeded)
+            {
+                await next(context);
+                return;
+            }
         }
 
         // Cookie-authenticated mutating request — require the custom CSRF header.
@@ -98,11 +98,11 @@ public sealed class CsrfValidationMiddleware(
                 HttpContext = context,
                 ProblemDetails =
                 {
-                    Type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                     Title = "Forbidden",
                     Status = StatusCodes.Status403Forbidden,
                     Detail =
                         $"Cookie-authenticated requests must include the '{AuthConstants.Csrf.HeaderName}: {AuthConstants.Csrf.HeaderValue}' header.",
+                    Extensions = { ["errorCode"] = "csrf_header_missing" },
                 },
             }
         );
