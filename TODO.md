@@ -66,17 +66,6 @@ Implement real-time notifications and chat using ASP.NET Core SignalR.
 - [x] Distributed locking (`SELECT ... FOR UPDATE SKIP LOCKED` or claim column) for email retry to prevent duplicate sends in multi-instance deployments.
 - [x] Migrate from `PeriodicTimer` to Quartz.NET (or TickerQ) for CRON scheduling, persistent job state, and distributed locking.
 
-## CSRF Protection
-
-- [ ] Upgrade CSRF protection from Custom Header (`X-CSRF: 1`) to Synchronizer Token Pattern.
-  - Server generates a cryptographically random token per session, stores it server-side (e.g. in the session or distributed cache).
-  - Token is exposed via `GET /api/v1/bff/csrf` and embedded in SPA on load.
-  - Client sends the token in the `X-CSRF-Token` header on every mutating request.
-  - `CsrfValidationMiddleware` verifies the token against the stored value.
-  - More robust than the current approach: does not rely on CORS being correctly configured.
-- [ ] Add explicit CORS policy on the Gateway (YARP) with a whitelist of allowed SPA origins instead of relying on implicit browser SOP enforcement.
-- [ ] Set `SameSite=Strict` and `Secure` on the BFF cookie as an additional defense-in-depth layer.
-
 ## Permissions
 
 - [ ] Add a finer-grained permissions model beyond roles.
