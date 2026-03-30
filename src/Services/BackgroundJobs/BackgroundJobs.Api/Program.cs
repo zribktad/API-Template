@@ -162,7 +162,9 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<BackgroundJobsDbContext>();
 
-app.UseSharedMicroserviceApiPipeline(false, a => a.MapControllers());
+app.UseSharedExceptionHandlerAndAuthentication();
+app.UseSharedAuthorizationCachingAndInfrastructure(useOutputCaching: false);
+app.MapControllers();
 
 await app.RunAsync();
 

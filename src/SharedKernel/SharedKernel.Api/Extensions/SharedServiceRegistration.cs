@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SharedKernel.Api.ExceptionHandling;
 using SharedKernel.Api.Security;
 using SharedKernel.Application.Context;
 using SharedKernel.Application.Options;
@@ -54,6 +55,10 @@ public static class SharedServiceRegistration
         services.AddScoped<ITenantProvider, HttpTenantProvider>();
         services.AddScoped<IActorProvider, HttpActorProvider>();
         services.AddSingleton(TimeProvider.System);
+
+        // Exception handling & ProblemDetails (RFC 7807)
+        services.AddProblemDetails(ApiProblemDetailsOptions.Configure);
+        services.AddExceptionHandler<ApiExceptionHandler>();
 
         // API versioning
         services

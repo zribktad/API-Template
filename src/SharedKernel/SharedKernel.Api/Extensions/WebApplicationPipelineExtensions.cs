@@ -3,24 +3,32 @@ using Microsoft.AspNetCore.Builder;
 namespace SharedKernel.Api.Extensions;
 
 /// <summary>
-/// Shared HTTP pipeline tail for microservice API hosts (auth, optional output cache, OpenAPI, health, endpoints).
+/// Shared HTTP pipeline helpers for microservice API hosts.
 /// </summary>
 public static class WebApplicationPipelineExtensions
 {
     /// <summary>
-    /// Applies the standard middleware order, then maps health checks and custom endpoints.
+    /// Registers the outermost exception handler and authentication middleware.
+    /// Call this first, then add any service-specific middleware (e.g. CSRF),
+    /// then call <see cref="UseSharedAuthorizationCachingAndInfrastructure"/>.
     /// </summary>
-    /// <param name="useOutputCaching">When true, registers <c>UseSharedOutputCaching</c> after authorization.</param>
-    /// <param name="mapEndpoints">Map controllers, Wolverine HTTP endpoints, or both.</param>
-    public static WebApplication UseSharedMicroserviceApiPipeline(
+    public static WebApplication UseSharedExceptionHandlerAndAuthentication(this WebApplication app)
+    {
+        app.UseExceptionHandler();
+        app.UseAuthentication();
+        return app;
+    }
+
+    /// <summary>
+    /// Registers authorization, optional output cache, OpenAPI endpoint, and health checks.
+    /// Call this after <see cref="UseSharedExceptionHandlerAndAuthentication"/> and any service-specific middleware.
+    /// Map your endpoints (MapControllers, MapWolverineEndpoints, …) after this call.
+    /// </summary>
+    public static WebApplication UseSharedAuthorizationCachingAndInfrastructure(
         this WebApplication app,
-        bool useOutputCaching,
-        Action<WebApplication> mapEndpoints
+        bool useOutputCaching
     )
     {
-        ArgumentNullException.ThrowIfNull(mapEndpoints);
-
-        app.UseAuthentication();
         app.UseAuthorization();
 
         if (useOutputCaching)
@@ -28,7 +36,6 @@ public static class WebApplicationPipelineExtensions
 
         app.MapSharedOpenApiEndpoint();
         app.MapHealthChecks("/health").AllowAnonymous();
-        mapEndpoints(app);
 
         return app;
     }

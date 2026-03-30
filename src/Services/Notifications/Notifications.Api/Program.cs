@@ -117,7 +117,9 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<NotificationsDbContext>();
 
-app.UseSharedMicroserviceApiPipeline(false, a => a.MapWolverineEndpoints());
+app.UseSharedExceptionHandlerAndAuthentication();
+app.UseSharedAuthorizationCachingAndInfrastructure(useOutputCaching: false);
+app.MapWolverineEndpoints();
 
 await app.RunAsync();
 

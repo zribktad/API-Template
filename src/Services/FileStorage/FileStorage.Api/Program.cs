@@ -84,7 +84,9 @@ WebApplication app = builder.Build();
 
 await app.MigrateDbAsync<FileStorageDbContext>();
 
-app.UseSharedMicroserviceApiPipeline(true, a => a.MapWolverineEndpoints());
+app.UseSharedExceptionHandlerAndAuthentication();
+app.UseSharedAuthorizationCachingAndInfrastructure(useOutputCaching: true);
+app.MapWolverineEndpoints();
 
 await app.RunAsync();
 
