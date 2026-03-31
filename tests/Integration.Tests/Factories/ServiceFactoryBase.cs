@@ -45,6 +45,13 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
             await base.DisposeAsync();
         }
         catch (OperationCanceledException) { }
+        catch (NullReferenceException ex)
+            when (ex.ToString()
+                    .Contains(
+                        "Wolverine.RabbitMQ.Internal.RabbitMqChannelAgent",
+                        StringComparison.Ordinal
+                    )
+            ) { }
         catch (AggregateException ex)
             when (ex.InnerExceptions.All(e =>
                     e is OperationCanceledException or TaskCanceledException
