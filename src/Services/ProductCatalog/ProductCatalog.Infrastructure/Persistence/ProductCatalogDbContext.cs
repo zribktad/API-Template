@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using ProductCatalog.Application.Sagas;
 using ProductCatalog.Domain.Entities;
+using SharedKernel.Application.Context;
 using SharedKernel.Infrastructure.Persistence;
+using SharedKernel.Infrastructure.Persistence.Auditing;
+using SharedKernel.Infrastructure.Persistence.SoftDelete;
 
 namespace ProductCatalog.Infrastructure.Persistence;
 
@@ -13,9 +16,22 @@ public sealed class ProductCatalogDbContext : TenantAuditableDbContext
 {
     public ProductCatalogDbContext(
         DbContextOptions<ProductCatalogDbContext> options,
-        TenantAuditableDbContextDependencies deps
+        ITenantProvider tenantProvider,
+        IActorProvider actorProvider,
+        TimeProvider timeProvider,
+        IEnumerable<ISoftDeleteCascadeRule> softDeleteCascadeRules,
+        IAuditableEntityStateManager entityStateManager,
+        ISoftDeleteProcessor softDeleteProcessor
     )
-        : base(options, deps) { }
+        : base(
+            options,
+            tenantProvider,
+            actorProvider,
+            timeProvider,
+            softDeleteCascadeRules,
+            entityStateManager,
+            softDeleteProcessor
+        ) { }
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductDataLink> ProductDataLinks => Set<ProductDataLink>();

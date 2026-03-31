@@ -70,19 +70,17 @@ builder.Services.AddHostedService<JobProcessingBackgroundService>();
 builder.Services.AddScoped<ICleanupService, CleanupService>();
 builder.Services.AddScoped<IReindexService, ReindexService>();
 
-string? tickerQDragonflyConnectionString = null;
-
 // TickerQ (when enabled)
 if (backgroundJobsOptions.TickerQ.Enabled)
 {
-    tickerQDragonflyConnectionString = builder.Configuration.GetConnectionString(
+    string? dragonflyConnectionString = builder.Configuration.GetConnectionString(
         backgroundJobsOptions.TickerQ.CoordinationConnection
     );
 
-    if (!string.IsNullOrWhiteSpace(tickerQDragonflyConnectionString))
+    if (!string.IsNullOrWhiteSpace(dragonflyConnectionString))
     {
         builder.Services.AddSingleton<IConnectionMultiplexer>(
-            ConnectionMultiplexer.Connect(tickerQDragonflyConnectionString)
+            ConnectionMultiplexer.Connect(dragonflyConnectionString)
         );
     }
 
@@ -128,23 +126,10 @@ if (backgroundJobsOptions.TickerQ.Enabled)
 }
 
 // Health checks
-IHealthChecksBuilder backgroundJobsHealthChecks = builder
-    .Services.AddHealthChecks()
-    .AddPostgreSqlHealthCheck(connectionString)
-    .AddSharedRabbitMqHealthCheck(builder.Configuration);
-
-if (backgroundJobsOptions.TickerQ.Enabled)
-{
-    backgroundJobsHealthChecks.AddPostgreSqlHealthCheck(
-        connectionString,
-        SharedKernel.Infrastructure.Observability.HealthCheckNames.Scheduler,
-        SharedKernel.Infrastructure.Observability.HealthCheckTags.Scheduler
-    );
-    backgroundJobsHealthChecks.AddDragonflyHealthCheck(tickerQDragonflyConnectionString);
-}
+builder.Services.AddHealthChecks();
 
 // Controllers
-builder.Services.AddSharedControllers();
+builder.Services.AddControllers();
 builder.Services.AddSharedOpenApiDocumentation();
 
 // Wolverine with RabbitMQ

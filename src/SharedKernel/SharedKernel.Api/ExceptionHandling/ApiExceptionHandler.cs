@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Application.Errors;
 using SharedKernel.Domain.Exceptions;
-using SharedKernel.Infrastructure.Observability;
 
 namespace SharedKernel.Api.ExceptionHandling;
 
@@ -57,9 +56,6 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             IReadOnlyDictionary<string, object?>? metadata
         ) = Resolve(exception);
 
-        if (statusCode >= StatusCodes.Status409Conflict)
-            ConflictTelemetry.Record(exception, errorCode);
-
         ProblemDetails problemDetails = new ProblemDetails
         {
             Status = statusCode,
@@ -75,12 +71,19 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         if (statusCode >= StatusCodes.Status500InternalServerError)
         {
-            _logger.UnhandledException(exception, statusCode, errorCode, context.TraceIdentifier);
+            _logger.LogError(
+                exception,
+                "Unhandled exception. StatusCode: {StatusCode}, ErrorCode: {ErrorCode}, TraceId: {TraceId}",
+                statusCode,
+                errorCode,
+                context.TraceIdentifier
+            );
         }
         else
         {
-            _logger.HandledApplicationException(
+            _logger.LogWarning(
                 exception,
+                "Handled application exception. StatusCode: {StatusCode}, ErrorCode: {ErrorCode}, TraceId: {TraceId}",
                 statusCode,
                 errorCode,
                 context.TraceIdentifier

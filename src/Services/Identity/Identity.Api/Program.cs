@@ -23,6 +23,7 @@ using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
+using Wolverine.FluentValidation;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
@@ -102,20 +103,18 @@ builder.Services.AddSharedAuthorization(
 
 builder.Services.AddValidatorsFromAssemblyContaining<IKeycloakAdminService>();
 
-builder.Services.AddSharedControllers();
+builder.Services.AddControllers();
 builder.Services.AddSharedOpenApiDocumentation();
 builder.Services.AddSharedOutputCaching(builder.Configuration);
 
-builder
-    .Services.AddHealthChecks()
-    .AddPostgreSqlHealthCheck(builder.Configuration.GetRequiredConnectionString("IdentityDb"))
-    .AddDragonflyHealthCheck(builder.Configuration.GetConnectionString("Dragonfly"))
-    .AddSharedRabbitMqHealthCheck(builder.Configuration);
+builder.Services.AddHealthChecks();
 
 builder.Host.UseWolverine(opts =>
 {
     opts.ApplySharedConventions();
     opts.ApplySharedRetryPolicies();
+
+    opts.UseFluentValidation();
 
     opts.Discovery.IncludeAssembly(typeof(IKeycloakAdminService).Assembly);
     opts.Discovery.IncludeAssembly(typeof(CacheInvalidationHandler).Assembly);

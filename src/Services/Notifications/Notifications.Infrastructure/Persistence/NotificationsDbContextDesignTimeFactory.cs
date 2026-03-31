@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using SharedKernel.Infrastructure.Persistence;
 
 namespace Notifications.Infrastructure.Persistence;
 
@@ -15,11 +14,7 @@ public sealed class NotificationsDbContextDesignTimeFactory
     {
         DbContextOptionsBuilder<NotificationsDbContext> optionsBuilder = new();
         optionsBuilder.UseNpgsql(
-            DesignTimeConnectionStringResolver.Resolve(
-                "src/Services/Notifications/Notifications.Api",
-                "DefaultConnection",
-                args
-            )
+            "Host=localhost;Database=notifications_db;Username=postgres;Password=postgres"
         );
 
         return new NotificationsDbContext(optionsBuilder.Options);

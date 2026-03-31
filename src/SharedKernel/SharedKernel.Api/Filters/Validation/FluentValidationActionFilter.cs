@@ -1,8 +1,6 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using SharedKernel.Application.Batch.Rules;
-using SharedKernel.Infrastructure.Observability;
 
 namespace SharedKernel.Api.Filters.Validation;
 
@@ -16,15 +14,10 @@ namespace SharedKernel.Api.Filters.Validation;
 public sealed class FluentValidationActionFilter : IAsyncActionFilter
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly IValidationMetrics _metrics;
 
-    public FluentValidationActionFilter(
-        IServiceProvider serviceProvider,
-        IValidationMetrics metrics
-    )
+    public FluentValidationActionFilter(IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
-        _metrics = metrics;
     }
 
     /// <summary>
@@ -56,12 +49,6 @@ public sealed class FluentValidationActionFilter : IAsyncActionFilter
 
             if (result.IsValid)
                 continue;
-
-            string route = context.ActionDescriptor.AttributeRouteInfo?.Template is { } template
-                ? HttpRouteResolver.ReplaceVersionToken(template, context.RouteData.Values)
-                : context.HttpContext.Request.Path.Value ?? TelemetryDefaults.Unknown;
-
-            _metrics.RecordFailure(route, argumentType, result.Errors);
 
             foreach (FluentValidation.Results.ValidationFailure error in result.Errors)
                 context.ModelState.AddModelError(error.PropertyName, error.ErrorMessage);

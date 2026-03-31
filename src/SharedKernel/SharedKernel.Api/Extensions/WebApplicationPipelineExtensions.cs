@@ -31,19 +31,10 @@ public static class WebApplicationPipelineExtensions
     {
         app.UseAuthorization();
 
-        app.UseRequestContextPipeline();
-
         if (useOutputCaching)
             app.UseSharedOutputCaching();
 
         app.MapSharedOpenApiEndpoint();
-        app.MapSharedHealthChecks();
-
-        return app;
-    }
-
-    public static WebApplication MapSharedHealthChecks(this WebApplication app)
-    {
         app.MapHealthChecks("/health").AllowAnonymous();
 
         return app;

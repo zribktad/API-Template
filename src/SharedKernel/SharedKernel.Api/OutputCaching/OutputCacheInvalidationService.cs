@@ -1,7 +1,5 @@
-using System.Diagnostics;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.Logging;
-using SharedKernel.Infrastructure.Observability;
 
 namespace SharedKernel.Api.OutputCaching;
 
@@ -29,15 +27,9 @@ public sealed class OutputCacheInvalidationService : IOutputCacheInvalidationSer
     {
         foreach (string tag in tags.Distinct(StringComparer.Ordinal))
         {
-            long startedAt = Stopwatch.GetTimestamp();
             try
             {
-                using Activity? activity = CacheTelemetry.StartOutputCacheInvalidationActivity(tag);
                 await _store.EvictByTagAsync(tag, cancellationToken);
-                CacheTelemetry.RecordOutputCacheInvalidation(
-                    tag,
-                    Stopwatch.GetElapsedTime(startedAt)
-                );
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

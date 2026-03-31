@@ -2,7 +2,6 @@ using Contracts.IntegrationEvents.Sagas;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Polly;
-using ProductCatalog.Api.Health;
 using ProductCatalog.Application.Features.Product.Repositories;
 using ProductCatalog.Application.Features.Product.Validation;
 using ProductCatalog.Application.Sagas;
@@ -17,6 +16,7 @@ using SharedKernel.Messaging.Conventions;
 using SharedKernel.Messaging.Topology;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
+using Wolverine.FluentValidation;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 
@@ -40,7 +40,6 @@ builder.Services.AddValidatedOptions<MongoDbSettings>(
     MongoDbSettings.SectionName
 );
 builder.Services.AddSingleton<MongoDbContext>();
-builder.Services.AddSingleton<IMongoDbHealthProbe>(sp => sp.GetRequiredService<MongoDbContext>());
 
 builder.Services.AddSharedInfrastructure<ProductCatalogDbContext>(builder.Configuration);
 
@@ -71,24 +70,18 @@ builder.Services.AddSharedAuthorization(enablePermissionPolicies: true);
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
 
-builder.Services.AddSharedControllers();
+builder.Services.AddControllers();
 builder.Services.AddSharedOpenApiDocumentation();
 builder.Services.AddSharedOutputCaching(builder.Configuration);
 
-builder
-    .Services.AddHealthChecks()
-    .AddPostgreSqlHealthCheck(builder.Configuration.GetRequiredConnectionString("ProductCatalogDb"))
-    .AddDragonflyHealthCheck(builder.Configuration.GetConnectionString("Dragonfly"))
-    .AddCheck<MongoDbHealthCheck>(
-        SharedKernel.Infrastructure.Observability.HealthCheckNames.MongoDb,
-        tags: SharedKernel.Infrastructure.Observability.HealthCheckTags.Database
-    )
-    .AddSharedRabbitMqHealthCheck(builder.Configuration);
+builder.Services.AddHealthChecks();
 
 builder.Host.UseWolverine(opts =>
 {
     opts.ApplySharedConventions();
     opts.ApplySharedRetryPolicies();
+
+    opts.UseFluentValidation();
 
     opts.Discovery.IncludeAssembly(typeof(ProductDeletionSaga).Assembly);
     opts.Discovery.IncludeAssembly(typeof(CacheInvalidationHandler).Assembly);

@@ -1,18 +1,13 @@
 using Asp.Versioning;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SharedKernel.Api.Filters.Validation;
 using SharedKernel.Api.Security;
-using SharedKernel.Application.Batch.Rules;
 using SharedKernel.Application.Context;
 using SharedKernel.Application.Options;
 using SharedKernel.Domain.Interfaces;
-using SharedKernel.Infrastructure.Observability;
-using SharedKernel.Infrastructure.Persistence;
 using SharedKernel.Infrastructure.Persistence.Auditing;
 using SharedKernel.Infrastructure.Persistence.SoftDelete;
 using SharedKernel.Infrastructure.Persistence.UnitOfWork;
@@ -53,17 +48,12 @@ public static class SharedServiceRegistration
         // Auditing & Soft Delete
         services.AddScoped<IAuditableEntityStateManager, AuditableEntityStateManager>();
         services.AddScoped<ISoftDeleteProcessor, SoftDeleteProcessor>();
-        services.AddScoped<TenantAuditableDbContextDependencies>();
 
         // Context providers
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantProvider, HttpTenantProvider>();
         services.AddScoped<IActorProvider, HttpActorProvider>();
         services.AddSingleton(TimeProvider.System);
-
-        // Validation metrics (IValidationMetrics → ValidationTelemetry)
-        services.AddSingleton<IValidationMetrics, ValidationTelemetry>();
-        services.AddTransient(typeof(FluentValidationBatchRule<>));
 
         // Exception handling & ProblemDetails (RFC 7807)
         services.AddSharedApiErrorHandling();
@@ -83,19 +73,5 @@ public static class SharedServiceRegistration
             });
 
         return services;
-    }
-
-    /// <summary>
-    /// Registers MVC controllers with shared global filters (FluentValidation, etc.).
-    /// Use this instead of <c>AddControllers()</c> in every API host.
-    /// </summary>
-    public static IMvcBuilder AddSharedControllers(this IServiceCollection services)
-    {
-        services.AddScoped<FluentValidationActionFilter>();
-
-        return services.AddControllers(options =>
-        {
-            options.Filters.AddService<FluentValidationActionFilter>();
-        });
     }
 }

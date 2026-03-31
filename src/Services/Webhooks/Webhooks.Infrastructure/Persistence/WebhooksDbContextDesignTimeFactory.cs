@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using SharedKernel.Infrastructure.Persistence;
 
 namespace Webhooks.Infrastructure.Persistence;
 
@@ -15,11 +14,7 @@ public sealed class WebhooksDbContextDesignTimeFactory
     {
         DbContextOptionsBuilder<WebhooksDbContext> optionsBuilder = new();
         optionsBuilder.UseNpgsql(
-            DesignTimeConnectionStringResolver.Resolve(
-                "src/Services/Webhooks/Webhooks.Api",
-                "DefaultConnection",
-                args
-            )
+            "Host=localhost;Database=webhooks_db;Username=postgres;Password=postgres"
         );
 
         return new WebhooksDbContext(optionsBuilder.Options);

@@ -1,14 +1,13 @@
 using FluentValidation;
-using FluentValidation.Results;
 using SharedKernel.Domain.Entities.Contracts;
 
 namespace SharedKernel.Application.Batch.Rules;
 
-public sealed class FluentValidationBatchRule<TItem>(
-    IValidator<TItem> validator,
-    IValidationMetrics metrics
-) : IBatchRule<TItem>
+public sealed class FluentValidationBatchRule<TItem>(IValidator<TItem> validator)
+    : IBatchRule<TItem>
 {
+    private readonly IValidator<TItem> _validator = validator;
+
     public async Task ApplyAsync(BatchFailureContext<TItem> context, CancellationToken ct)
     {
         for (int i = 0; i < context.Items.Count; i++)
@@ -16,7 +15,8 @@ public sealed class FluentValidationBatchRule<TItem>(
             if (context.IsFailed(i))
                 continue;
 
-            ValidationResult validationResult = await validator.ValidateAsync(context.Items[i], ct);
+            FluentValidation.Results.ValidationResult validationResult =
+                await _validator.ValidateAsync(context.Items[i], ct);
             if (!validationResult.IsValid)
             {
                 Guid? id = context.Items[i] is IHasId hasId ? hasId.Id : null;
@@ -24,12 +24,6 @@ public sealed class FluentValidationBatchRule<TItem>(
                     i,
                     id,
                     validationResult.Errors.Select(error => error.ErrorMessage).ToList()
-                );
-
-                metrics.RecordFailure(
-                    $"batch/{typeof(TItem).Name}",
-                    typeof(TItem),
-                    validationResult.Errors
                 );
             }
         }

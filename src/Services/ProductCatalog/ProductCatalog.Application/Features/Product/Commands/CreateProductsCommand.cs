@@ -1,5 +1,6 @@
 using Contracts.IntegrationEvents.ProductCatalog;
 using ErrorOr;
+using FluentValidation;
 using ProductCatalog.Application.Features.Product.DTOs;
 using ProductCatalog.Application.Features.Product.Repositories;
 using ProductCatalog.Domain.Entities;
@@ -27,7 +28,7 @@ public sealed class CreateProductsCommandHandler
         IProductDataRepository productDataRepository,
         IUnitOfWork unitOfWork,
         IMessageBus bus,
-        FluentValidationBatchRule<CreateProductRequest> batchRule,
+        IValidator<CreateProductRequest> itemValidator,
         TimeProvider timeProvider,
         CancellationToken ct
     )
@@ -35,7 +36,10 @@ public sealed class CreateProductsCommandHandler
         IReadOnlyList<CreateProductRequest> items = command.Request.Items;
         BatchFailureContext<CreateProductRequest> context = new(items);
 
-        await context.ApplyRulesAsync(ct, batchRule);
+        await context.ApplyRulesAsync(
+            ct,
+            new FluentValidationBatchRule<CreateProductRequest>(itemValidator)
+        );
 
         // Reference checks skip only fluent-validation failures so both category and
         // product-data issues can be reported for the same index (merged into one failure row).

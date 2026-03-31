@@ -47,11 +47,7 @@ builder.Services.AddSharedOpenApiDocumentation();
 builder.Services.AddSharedOutputCaching(builder.Configuration);
 builder.Services.AddWolverineHttp();
 
-builder
-    .Services.AddHealthChecks()
-    .AddPostgreSqlHealthCheck(builder.Configuration.GetRequiredConnectionString("FileStorageDb"))
-    .AddDragonflyHealthCheck(builder.Configuration.GetConnectionString("Dragonfly"))
-    .AddSharedRabbitMqHealthCheck(builder.Configuration);
+builder.Services.AddHealthChecks();
 
 builder.Host.UseWolverine(opts =>
 {

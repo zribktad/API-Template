@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Hosting;
 using Serilog;
-using SharedKernel.Infrastructure.Logging;
 
 namespace SharedKernel.Api.Extensions;
 
@@ -15,7 +14,6 @@ public static class SerilogExtensions
                     .ReadFrom.Configuration(context.Configuration)
                     .ReadFrom.Services(services)
                     .Enrich.FromLogContext()
-                    .Enrich.With<ActivityTraceEnricher>()
                     .Enrich.WithProperty("Application", context.HostingEnvironment.ApplicationName);
             }
         );

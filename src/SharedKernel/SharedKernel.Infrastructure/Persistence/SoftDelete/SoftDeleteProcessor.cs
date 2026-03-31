@@ -29,32 +29,41 @@ public sealed class SoftDeleteProcessor : ISoftDeleteProcessor
         CancellationToken cancellationToken
     )
     {
-        SoftDeleteOperationContext ctx = new(
+        HashSet<IAuditableTenantEntity> visited = new(ReferenceEqualityComparer.Instance);
+        return SoftDeleteWithRulesAsync(
             dbContext,
+            entry,
+            entity,
             now,
             actor,
             softDeleteCascadeRules,
-            new HashSet<IAuditableTenantEntity>(ReferenceEqualityComparer.Instance)
+            visited,
+            cancellationToken
         );
-        return SoftDeleteWithRulesAsync(ctx, entry, entity, cancellationToken);
     }
 
     private async Task SoftDeleteWithRulesAsync(
-        SoftDeleteOperationContext ctx,
+        DbContext dbContext,
         EntityEntry entry,
         IAuditableTenantEntity entity,
+        DateTime now,
+        Guid actor,
+        IReadOnlyCollection<ISoftDeleteCascadeRule> softDeleteCascadeRules,
+        HashSet<IAuditableTenantEntity> visited,
         CancellationToken cancellationToken
     )
     {
-        if (!ctx.Visited.Add(entity))
+        if (!visited.Add(entity))
             return;
 
-        _stateManager.MarkSoftDeleted(entry, entity, ctx.Now, ctx.Actor);
+        _stateManager.MarkSoftDeleted(entry, entity, now, actor);
 
-        foreach (ISoftDeleteCascadeRule rule in ctx.Rules.Where(r => r.CanHandle(entity)))
+        foreach (
+            ISoftDeleteCascadeRule rule in softDeleteCascadeRules.Where(r => r.CanHandle(entity))
+        )
         {
             IReadOnlyCollection<IAuditableTenantEntity> dependents = await rule.GetDependentsAsync(
-                ctx.DbContext,
+                dbContext,
                 entity,
                 cancellationToken
             );
@@ -63,17 +72,18 @@ public sealed class SoftDeleteProcessor : ISoftDeleteProcessor
                 if (dependent.IsDeleted || dependent.TenantId != entity.TenantId)
                     continue;
 
-                EntityEntry dependentEntry = ctx.DbContext.Entry(dependent);
-                await SoftDeleteWithRulesAsync(ctx, dependentEntry, dependent, cancellationToken);
+                EntityEntry dependentEntry = dbContext.Entry(dependent);
+                await SoftDeleteWithRulesAsync(
+                    dbContext,
+                    dependentEntry,
+                    dependent,
+                    now,
+                    actor,
+                    softDeleteCascadeRules,
+                    visited,
+                    cancellationToken
+                );
             }
         }
     }
-
-    private sealed record SoftDeleteOperationContext(
-        DbContext DbContext,
-        DateTime Now,
-        Guid Actor,
-        IReadOnlyCollection<ISoftDeleteCascadeRule> Rules,
-        HashSet<IAuditableTenantEntity> Visited
-    );
 }

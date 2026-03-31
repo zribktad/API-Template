@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using SharedKernel.Infrastructure.Persistence;
 
 namespace Identity.Infrastructure.Persistence;
 
@@ -15,16 +14,17 @@ public sealed class IdentityDbContextDesignTimeFactory
     {
         DbContextOptionsBuilder<IdentityDbContext> optionsBuilder = new();
         optionsBuilder.UseNpgsql(
-            DesignTimeConnectionStringResolver.Resolve(
-                "src/Services/Identity/Identity.Api",
-                "IdentityDb",
-                args
-            )
+            "Host=localhost;Database=identity_db;Username=postgres;Password=postgres"
         );
 
         return new IdentityDbContext(
             optionsBuilder.Options,
-            DesignTimeDbContextDefaults.CreateDependencies()
+            tenantProvider: null!,
+            actorProvider: null!,
+            timeProvider: TimeProvider.System,
+            softDeleteCascadeRules: [],
+            entityStateManager: null!,
+            softDeleteProcessor: null!
         );
     }
 }
