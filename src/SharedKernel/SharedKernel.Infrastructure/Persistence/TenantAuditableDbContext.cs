@@ -1,8 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using SharedKernel.Application.Context;
 using SharedKernel.Domain.Entities.Contracts;
-using SharedKernel.Infrastructure.Persistence.Auditing;
 using SharedKernel.Infrastructure.Persistence.EntityNormalization;
 using SharedKernel.Infrastructure.Persistence.SoftDelete;
 
@@ -14,35 +12,22 @@ namespace SharedKernel.Infrastructure.Persistence;
 /// </summary>
 public abstract class TenantAuditableDbContext : DbContext
 {
-    private readonly ITenantProvider _tenantProvider;
-    private readonly IActorProvider _actorProvider;
-    private readonly TimeProvider _timeProvider;
-    private readonly IReadOnlyCollection<ISoftDeleteCascadeRule> _softDeleteCascadeRules;
-    private readonly IAuditableEntityStateManager _entityStateManager;
-    private readonly ISoftDeleteProcessor _softDeleteProcessor;
+    private readonly TenantAuditableDbContextDependencies _deps;
+    private readonly IReadOnlyList<ISoftDeleteCascadeRule> _softDeleteCascadeRules;
     private readonly IEntityNormalizationService? _entityNormalizationService;
 
-    protected Guid CurrentTenantId => _tenantProvider.TenantId;
-    protected bool HasTenant => _tenantProvider.HasTenant;
+    protected Guid CurrentTenantId => _deps.TenantProvider.TenantId;
+    protected bool HasTenant => _deps.TenantProvider.HasTenant;
 
     protected TenantAuditableDbContext(
         DbContextOptions options,
-        ITenantProvider tenantProvider,
-        IActorProvider actorProvider,
-        TimeProvider timeProvider,
-        IEnumerable<ISoftDeleteCascadeRule> softDeleteCascadeRules,
-        IAuditableEntityStateManager entityStateManager,
-        ISoftDeleteProcessor softDeleteProcessor,
+        TenantAuditableDbContextDependencies deps,
         IEntityNormalizationService? entityNormalizationService = null
     )
         : base(options)
     {
-        _tenantProvider = tenantProvider;
-        _actorProvider = actorProvider;
-        _timeProvider = timeProvider;
-        _softDeleteCascadeRules = softDeleteCascadeRules.ToList();
-        _entityStateManager = entityStateManager;
-        _softDeleteProcessor = softDeleteProcessor;
+        _deps = deps;
+        _softDeleteCascadeRules = deps.SoftDeleteCascadeRules.ToList();
         _entityNormalizationService = entityNormalizationService;
     }
 
@@ -64,8 +49,8 @@ public abstract class TenantAuditableDbContext : DbContext
 
     private async Task ApplyEntityAuditingAsync(CancellationToken cancellationToken)
     {
-        DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
-        Guid actor = _actorProvider.ActorId;
+        DateTime now = _deps.TimeProvider.GetUtcNow().UtcDateTime;
+        Guid actor = _deps.ActorProvider.ActorId;
 
         foreach (
             EntityEntry entry in ChangeTracker
@@ -79,7 +64,7 @@ public abstract class TenantAuditableDbContext : DbContext
             {
                 case EntityState.Added:
                     _entityNormalizationService?.Normalize(entity);
-                    _entityStateManager.StampAdded(
+                    _deps.EntityStateManager.StampAdded(
                         entry,
                         entity,
                         now,
@@ -90,10 +75,10 @@ public abstract class TenantAuditableDbContext : DbContext
                     break;
                 case EntityState.Modified:
                     _entityNormalizationService?.Normalize(entity);
-                    _entityStateManager.StampModified(entity, now, actor);
+                    _deps.EntityStateManager.StampModified(entity, now, actor);
                     break;
                 case EntityState.Deleted:
-                    await _softDeleteProcessor.ProcessAsync(
+                    await _deps.SoftDeleteProcessor.ProcessAsync(
                         this,
                         entry,
                         entity,

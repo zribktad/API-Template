@@ -10,28 +10,25 @@ namespace SharedKernel.Infrastructure.Observability;
 /// </summary>
 public static class CacheTelemetry
 {
-    private static readonly ActivitySource ActivitySource = new(
-        ObservabilityConventions.ActivitySourceName
-    );
-    private static readonly Meter Meter = new(ObservabilityConventions.MeterName);
-
-    private static readonly Counter<long> OutputCacheInvalidations = Meter.CreateCounter<long>(
-        TelemetryMetricNames.OutputCacheInvalidations
-    );
+    private static readonly Counter<long> OutputCacheInvalidations =
+        ObservabilityConventions.SharedMeter.CreateCounter<long>(
+            TelemetryMetricNames.OutputCacheInvalidations
+        );
 
     private static readonly Histogram<double> OutputCacheInvalidationDurationMs =
-        Meter.CreateHistogram<double>(
+        ObservabilityConventions.SharedMeter.CreateHistogram<double>(
             TelemetryMetricNames.OutputCacheInvalidationDuration,
             unit: "ms"
         );
 
-    private static readonly Counter<long> OutputCacheOutcomes = Meter.CreateCounter<long>(
-        TelemetryMetricNames.OutputCacheOutcomes
-    );
+    private static readonly Counter<long> OutputCacheOutcomes =
+        ObservabilityConventions.SharedMeter.CreateCounter<long>(
+            TelemetryMetricNames.OutputCacheOutcomes
+        );
 
     public static Activity? StartOutputCacheInvalidationActivity(string tag)
     {
-        Activity? activity = ActivitySource.StartActivity(
+        Activity? activity = ObservabilityConventions.SharedActivitySource.StartActivity(
             TelemetryActivityNames.OutputCacheInvalidate,
             ActivityKind.Internal
         );
@@ -66,20 +63,16 @@ public static class CacheTelemetry
 
     private static void RecordCacheOutcome(OutputCacheContext context, string outcome)
     {
-        OutputCacheOutcomes.Add(
-            1,
-            [
-                new KeyValuePair<string, object?>(
-                    TelemetryTagKeys.CachePolicy,
-                    ResolvePolicyName(context)
-                ),
-                new KeyValuePair<string, object?>(
-                    TelemetryTagKeys.ApiSurface,
-                    TelemetryApiSurfaceResolver.Resolve(context.HttpContext.Request.Path)
-                ),
-                new KeyValuePair<string, object?>(TelemetryTagKeys.CacheOutcome, outcome),
-            ]
-        );
+        TagList tags = new()
+        {
+            { TelemetryTagKeys.CachePolicy, ResolvePolicyName(context) },
+            {
+                TelemetryTagKeys.ApiSurface,
+                TelemetryApiSurfaceResolver.Resolve(context.HttpContext.Request.Path)
+            },
+            { TelemetryTagKeys.CacheOutcome, outcome },
+        };
+        OutputCacheOutcomes.Add(1, tags);
     }
 
     private static string ResolvePolicyName(OutputCacheContext context)

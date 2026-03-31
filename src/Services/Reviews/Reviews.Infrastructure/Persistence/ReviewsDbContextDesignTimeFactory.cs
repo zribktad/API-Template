@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using SharedKernel.Infrastructure.Persistence;
 
 namespace Reviews.Infrastructure.Persistence;
 
@@ -14,17 +15,16 @@ public sealed class ReviewsDbContextDesignTimeFactory
     {
         DbContextOptionsBuilder<ReviewsDbContext> optionsBuilder = new();
         optionsBuilder.UseNpgsql(
-            "Host=localhost;Database=reviews_db;Username=postgres;Password=postgres"
+            DesignTimeConnectionStringResolver.Resolve(
+                "src/Services/Reviews/Reviews.Api",
+                "ReviewsDb",
+                args
+            )
         );
 
         return new ReviewsDbContext(
             optionsBuilder.Options,
-            tenantProvider: null!,
-            actorProvider: null!,
-            timeProvider: TimeProvider.System,
-            softDeleteCascadeRules: [],
-            entityStateManager: null!,
-            softDeleteProcessor: null!
+            DesignTimeDbContextDefaults.CreateDependencies()
         );
     }
 }

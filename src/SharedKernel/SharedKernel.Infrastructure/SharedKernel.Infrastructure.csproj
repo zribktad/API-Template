@@ -20,6 +20,7 @@
     <PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
+    <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Serilog" />

@@ -75,19 +75,12 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         if (statusCode >= StatusCodes.Status500InternalServerError)
         {
-            _logger.LogError(
-                exception,
-                "Unhandled exception. StatusCode: {StatusCode}, ErrorCode: {ErrorCode}, TraceId: {TraceId}",
-                statusCode,
-                errorCode,
-                context.TraceIdentifier
-            );
+            _logger.UnhandledException(exception, statusCode, errorCode, context.TraceIdentifier);
         }
         else
         {
-            _logger.LogWarning(
+            _logger.HandledApplicationException(
                 exception,
-                "Handled application exception. StatusCode: {StatusCode}, ErrorCode: {ErrorCode}, TraceId: {TraceId}",
                 statusCode,
                 errorCode,
                 context.TraceIdentifier

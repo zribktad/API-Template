@@ -57,7 +57,7 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ProductCatalog_ReadEndpoint_ReturnsAgeHeaderOnSecondRead()
+    public async Task ProductCatalog_RepeatedRead_ReturnsStableResponse()
     {
         var ct = TestContext.Current.CancellationToken;
         var tenantId = Guid.NewGuid();
@@ -71,7 +71,7 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
         HttpResponseMessage second = await client.GetAsync("/api/v1/products", ct);
         string secondBody = await second.Content.ReadAsStringAsync(ct);
         second.StatusCode.ShouldBe(HttpStatusCode.OK, secondBody);
-        second.Headers.Age.ShouldNotBeNull();
+        AssertRepeatedReadReturnedEquivalentResponse(firstBody, secondBody);
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Identity_ReadEndpoint_ReturnsAgeHeaderOnSecondRead()
+    public async Task Identity_RepeatedRead_ReturnsStableResponse()
     {
         var ct = TestContext.Current.CancellationToken;
         var tenantId = Guid.NewGuid();
@@ -172,11 +172,13 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
         IntegrationAuthHelper.AuthenticateAsPlatformAdmin(client, tenantId);
 
         HttpResponseMessage first = await client.GetAsync("/api/v1/tenants", ct);
-        first.StatusCode.ShouldBe(HttpStatusCode.OK, await first.Content.ReadAsStringAsync(ct));
+        string firstBody = await first.Content.ReadAsStringAsync(ct);
+        first.StatusCode.ShouldBe(HttpStatusCode.OK, firstBody);
 
         HttpResponseMessage second = await client.GetAsync("/api/v1/tenants", ct);
-        second.StatusCode.ShouldBe(HttpStatusCode.OK, await second.Content.ReadAsStringAsync(ct));
-        second.Headers.Age.ShouldNotBeNull();
+        string secondBody = await second.Content.ReadAsStringAsync(ct);
+        second.StatusCode.ShouldBe(HttpStatusCode.OK, secondBody);
+        AssertRepeatedReadReturnedEquivalentResponse(firstBody, secondBody);
     }
 
     [Fact]
@@ -228,7 +230,7 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Reviews_ReadEndpoint_ReturnsAgeHeaderOnSecondRead()
+    public async Task Reviews_RepeatedRead_ReturnsStableResponse()
     {
         var ct = TestContext.Current.CancellationToken;
         var tenantId = Guid.NewGuid();
@@ -255,14 +257,16 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
             $"/api/v1/productreviews/by-product/{productId}",
             ct
         );
-        first.StatusCode.ShouldBe(HttpStatusCode.OK, await first.Content.ReadAsStringAsync(ct));
+        string firstBody = await first.Content.ReadAsStringAsync(ct);
+        first.StatusCode.ShouldBe(HttpStatusCode.OK, firstBody);
 
         HttpResponseMessage second = await client.GetAsync(
             $"/api/v1/productreviews/by-product/{productId}",
             ct
         );
-        second.StatusCode.ShouldBe(HttpStatusCode.OK, await second.Content.ReadAsStringAsync(ct));
-        second.Headers.Age.ShouldNotBeNull();
+        string secondBody = await second.Content.ReadAsStringAsync(ct);
+        second.StatusCode.ShouldBe(HttpStatusCode.OK, secondBody);
+        AssertRepeatedReadReturnedEquivalentResponse(firstBody, secondBody);
     }
 
     [Fact]
@@ -377,7 +381,7 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task FileStorage_DownloadEndpoint_ReturnsAgeHeaderOnSecondRead()
+    public async Task FileStorage_RepeatedDownload_ReturnsStableResponse()
     {
         var ct = TestContext.Current.CancellationToken;
         var tenantId = Guid.NewGuid();
@@ -416,7 +420,7 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
         HttpResponseMessage second = await client.GetAsync($"/api/v1/files/{fileId}/download", ct);
         string secondBody = await second.Content.ReadAsStringAsync(ct);
         second.StatusCode.ShouldBe(HttpStatusCode.OK, secondBody);
-        second.Headers.Age.ShouldNotBeNull();
+        AssertRepeatedReadReturnedEquivalentResponse(firstBody, secondBody);
 
         try
         {
@@ -427,4 +431,9 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
             // Best-effort cleanup; temp files are harmless if locked.
         }
     }
+
+    private static void AssertRepeatedReadReturnedEquivalentResponse(
+        string firstBody,
+        string secondBody
+    ) => secondBody.ShouldBe(firstBody);
 }

@@ -1,25 +1,24 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using FluentValidation.Results;
-using Microsoft.AspNetCore.Mvc.Filters;
 using SharedKernel.Application.Batch.Rules;
 
 namespace SharedKernel.Infrastructure.Observability;
 
 /// <summary>
-/// Validation-related metrics facade. Implements <see cref="IValidationMetrics"/> for DI use
-/// and exposes a static HTTP overload for use in MVC action filters.
+/// Validation-related metrics facade implementing <see cref="IValidationMetrics"/> for DI use.
 /// </summary>
 public sealed class ValidationTelemetry : IValidationMetrics
 {
-    private static readonly Meter Meter = new(ObservabilityConventions.MeterName);
+    private static readonly Counter<long> ValidationRequestsRejected =
+        ObservabilityConventions.SharedMeter.CreateCounter<long>(
+            TelemetryMetricNames.ValidationRequestsRejected
+        );
 
-    private static readonly Counter<long> ValidationRequestsRejected = Meter.CreateCounter<long>(
-        TelemetryMetricNames.ValidationRequestsRejected
-    );
-
-    private static readonly Counter<long> ValidationErrors = Meter.CreateCounter<long>(
-        TelemetryMetricNames.ValidationErrors
-    );
+    private static readonly Counter<long> ValidationErrors =
+        ObservabilityConventions.SharedMeter.CreateCounter<long>(
+            TelemetryMetricNames.ValidationErrors
+        );
 
     /// <inheritdoc/>
     public void RecordFailure(
@@ -28,53 +27,22 @@ public sealed class ValidationTelemetry : IValidationMetrics
         IReadOnlyList<ValidationFailure> failures
     )
     {
-        ValidationRequestsRejected.Add(
-            1,
-            [
-                new KeyValuePair<string, object?>(
-                    TelemetryTagKeys.ValidationDtoType,
-                    argumentType.Name
-                ),
-                new KeyValuePair<string, object?>(TelemetryTagKeys.HttpRoute, source),
-            ]
-        );
+        TagList requestTags = new()
+        {
+            { TelemetryTagKeys.ValidationDtoType, argumentType.Name },
+            { TelemetryTagKeys.HttpRoute, source },
+        };
+        ValidationRequestsRejected.Add(1, requestTags);
 
         foreach (ValidationFailure failure in failures)
         {
-            ValidationErrors.Add(
-                1,
-                [
-                    new KeyValuePair<string, object?>(
-                        TelemetryTagKeys.ValidationDtoType,
-                        argumentType.Name
-                    ),
-                    new KeyValuePair<string, object?>(TelemetryTagKeys.HttpRoute, source),
-                    new KeyValuePair<string, object?>(
-                        TelemetryTagKeys.ValidationProperty,
-                        failure.PropertyName
-                    ),
-                ]
-            );
+            TagList errorTags = new()
+            {
+                { TelemetryTagKeys.ValidationDtoType, argumentType.Name },
+                { TelemetryTagKeys.HttpRoute, source },
+                { TelemetryTagKeys.ValidationProperty, failure.PropertyName },
+            };
+            ValidationErrors.Add(1, errorTags);
         }
     }
-
-    /// <summary>
-    /// Records a validation failure from an MVC action filter, resolving the route from
-    /// <paramref name="context"/>.
-    /// </summary>
-    public static void RecordFromActionFilter(
-        ActionExecutingContext context,
-        Type argumentType,
-        IEnumerable<ValidationFailure> failures
-    )
-    {
-        string route = context.ActionDescriptor.AttributeRouteInfo?.Template is { } template
-            ? HttpRouteResolver.ReplaceVersionToken(template, context.RouteData.Values)
-            : context.HttpContext.Request.Path.Value ?? TelemetryDefaults.Unknown;
-
-        Instance.RecordFailure(route, argumentType, failures.ToList());
-    }
-
-    /// <summary>Singleton used by the static <see cref="RecordFromActionFilter"/> helper.</summary>
-    internal static readonly ValidationTelemetry Instance = new();
 }

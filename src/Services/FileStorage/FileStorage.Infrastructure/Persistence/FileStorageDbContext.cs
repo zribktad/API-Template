@@ -1,10 +1,7 @@
 using FileStorage.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using SharedKernel.Application.Context;
 using SharedKernel.Infrastructure.Persistence;
-using SharedKernel.Infrastructure.Persistence.Auditing;
 using SharedKernel.Infrastructure.Persistence.EntityNormalization;
-using SharedKernel.Infrastructure.Persistence.SoftDelete;
 
 namespace FileStorage.Infrastructure.Persistence;
 
@@ -16,24 +13,10 @@ public sealed class FileStorageDbContext : TenantAuditableDbContext
 {
     public FileStorageDbContext(
         DbContextOptions<FileStorageDbContext> options,
-        ITenantProvider tenantProvider,
-        IActorProvider actorProvider,
-        TimeProvider timeProvider,
-        IEnumerable<ISoftDeleteCascadeRule> softDeleteCascadeRules,
-        IAuditableEntityStateManager entityStateManager,
-        ISoftDeleteProcessor softDeleteProcessor,
+        TenantAuditableDbContextDependencies deps,
         IEntityNormalizationService? entityNormalizationService = null
     )
-        : base(
-            options,
-            tenantProvider,
-            actorProvider,
-            timeProvider,
-            softDeleteCascadeRules,
-            entityStateManager,
-            softDeleteProcessor,
-            entityNormalizationService
-        ) { }
+        : base(options, deps, entityNormalizationService) { }
 
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 

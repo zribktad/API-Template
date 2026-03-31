@@ -101,10 +101,7 @@ public static class TenantClaimValidator
                 .RequestServices.GetRequiredService<ILoggerFactory>()
                 .CreateLogger(typeof(TenantClaimValidator));
 
-            logger.LogWarning(
-                ex,
-                "User provisioning failed during token validation — authentication will continue"
-            );
+            logger.UserProvisioningFailed(ex);
 
             return null;
         }
@@ -146,7 +143,7 @@ public static class TenantClaimValidator
 
         if (principal?.Identity is not ClaimsIdentity identity)
         {
-            logger.LogWarning("[{Scheme}] Token validated but no identity found", scheme);
+            logger.TokenValidatedNoIdentity(scheme);
             return;
         }
 
@@ -154,12 +151,6 @@ public static class TenantClaimValidator
         string[] roles = identity.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
         string? tenantId = identity.FindFirst(AuthConstants.Claims.TenantId)?.Value;
 
-        logger.LogInformation(
-            "[{Scheme}] Authenticated user={User}, tenant={TenantId}, roles=[{Roles}]",
-            scheme,
-            name,
-            tenantId,
-            string.Join(", ", roles)
-        );
+        logger.UserAuthenticated(scheme, name, tenantId, string.Join(", ", roles));
     }
 }

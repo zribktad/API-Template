@@ -12,6 +12,7 @@ using SharedKernel.Application.Context;
 using SharedKernel.Application.Options;
 using SharedKernel.Domain.Interfaces;
 using SharedKernel.Infrastructure.Observability;
+using SharedKernel.Infrastructure.Persistence;
 using SharedKernel.Infrastructure.Persistence.Auditing;
 using SharedKernel.Infrastructure.Persistence.SoftDelete;
 using SharedKernel.Infrastructure.Persistence.UnitOfWork;
@@ -52,6 +53,7 @@ public static class SharedServiceRegistration
         // Auditing & Soft Delete
         services.AddScoped<IAuditableEntityStateManager, AuditableEntityStateManager>();
         services.AddScoped<ISoftDeleteProcessor, SoftDeleteProcessor>();
+        services.AddScoped<TenantAuditableDbContextDependencies>();
 
         // Context providers
         services.AddHttpContextAccessor();

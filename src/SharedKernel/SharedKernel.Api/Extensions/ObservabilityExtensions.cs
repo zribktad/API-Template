@@ -24,10 +24,23 @@ public static class ObservabilityExtensions
         string serviceName
     )
     {
-        services.AddValidatedOptions<ObservabilityOptions>(
-            configuration,
+        IConfigurationSection observabilitySection = configuration.GetSection(
             ObservabilityOptions.SectionName
         );
+        if (observabilitySection.Exists())
+        {
+            services.AddValidatedOptions<ObservabilityOptions>(
+                configuration,
+                ObservabilityOptions.SectionName
+            );
+        }
+        else
+        {
+            services.AddOptions<ObservabilityOptions>().ValidateDataAnnotations().ValidateOnStart();
+        }
+
+        services.AddSharedLogRedaction(configuration);
+
         services.AddSingleton<IHealthCheckPublisher, HealthCheckMetricsPublisher>();
         services.Configure<HealthCheckPublisherOptions>(options =>
         {

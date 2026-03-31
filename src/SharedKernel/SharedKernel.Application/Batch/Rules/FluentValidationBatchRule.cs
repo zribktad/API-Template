@@ -26,7 +26,11 @@ public sealed class FluentValidationBatchRule<TItem>(
                     validationResult.Errors.Select(error => error.ErrorMessage).ToList()
                 );
 
-                metrics.RecordFailure(typeof(TItem).Name, typeof(TItem), validationResult.Errors);
+                metrics.RecordFailure(
+                    $"batch/{typeof(TItem).Name}",
+                    typeof(TItem),
+                    validationResult.Errors
+                );
             }
         }
     }

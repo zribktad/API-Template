@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using SharedKernel.Infrastructure.Persistence;
 
 namespace BackgroundJobs.Infrastructure.Persistence;
 
@@ -14,7 +15,11 @@ public sealed class BackgroundJobsDbContextDesignTimeFactory
     {
         DbContextOptionsBuilder<BackgroundJobsDbContext> optionsBuilder = new();
         optionsBuilder.UseNpgsql(
-            "Host=localhost;Database=background_jobs_db;Username=postgres;Password=postgres"
+            DesignTimeConnectionStringResolver.Resolve(
+                "src/Services/BackgroundJobs/BackgroundJobs.Api",
+                "DefaultConnection",
+                args
+            )
         );
 
         return new BackgroundJobsDbContext(optionsBuilder.Options);

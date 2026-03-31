@@ -9,17 +9,16 @@ namespace SharedKernel.Infrastructure.Observability;
 /// </summary>
 public sealed class HealthCheckMetricsPublisher : IHealthCheckPublisher
 {
-    private static readonly Meter Meter = new(ObservabilityConventions.HealthMeterName);
     private static readonly ConcurrentDictionary<string, int> Statuses = new(
         StringComparer.OrdinalIgnoreCase
     );
 
-    private readonly ObservableGauge<int> _gauge;
-
-    public HealthCheckMetricsPublisher()
-    {
-        _gauge = Meter.CreateObservableGauge(TelemetryMetricNames.HealthStatus, ObserveStatuses);
-    }
+    // Static gauge — registering multiple instances on the same Meter causes duplicate metrics.
+    private static readonly ObservableGauge<int> Gauge =
+        ObservabilityConventions.SharedHealthMeter.CreateObservableGauge(
+            TelemetryMetricNames.HealthStatus,
+            ObserveStatuses
+        );
 
     public Task PublishAsync(HealthReport report, CancellationToken cancellationToken)
     {

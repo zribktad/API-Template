@@ -25,10 +25,9 @@ public static class OutputCachingExtensions
                 options.InstanceName = RedisInstanceNames.OutputCache;
             });
         }
-        else
-        {
-            services.AddOutputCache();
-        }
+
+        services.AddSingleton<TenantAwareOutputCachePolicy>();
+        services.AddOutputCache();
 
         services.AddScoped<IOutputCacheInvalidationService, OutputCacheInvalidationService>();
 
@@ -65,10 +64,12 @@ public static class OutputCachingExtensions
                 {
                     options.AddPolicy(
                         name,
-                        new TenantAwareOutputCachePolicy(
-                            name,
-                            TimeSpan.FromSeconds(expirationSeconds)
-                        )
+                        builder =>
+                            builder
+                                .AddPolicy<TenantAwareOutputCachePolicy>()
+                                .Expire(TimeSpan.FromSeconds(expirationSeconds))
+                                .Tag(name),
+                        excludeDefaultPolicy: true
                     );
                 }
             });

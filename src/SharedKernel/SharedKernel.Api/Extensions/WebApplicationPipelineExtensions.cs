@@ -1,6 +1,4 @@
-using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 namespace SharedKernel.Api.Extensions;
 
@@ -32,6 +30,7 @@ public static class WebApplicationPipelineExtensions
     )
     {
         app.UseAuthorization();
+
         app.UseRequestContextPipeline();
 
         if (useOutputCaching)
@@ -45,14 +44,7 @@ public static class WebApplicationPipelineExtensions
 
     public static WebApplication MapSharedHealthChecks(this WebApplication app)
     {
-        app.MapHealthChecks(
-                "/health",
-                new HealthCheckOptions
-                {
-                    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse,
-                }
-            )
-            .AllowAnonymous();
+        app.MapHealthChecks("/health").AllowAnonymous();
 
         return app;
     }

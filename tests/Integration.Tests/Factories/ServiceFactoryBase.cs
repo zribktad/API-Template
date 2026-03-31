@@ -113,6 +113,7 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
                     options
                         .Registrations.Where(r =>
                             r.Name.Contains("mongodb", StringComparison.OrdinalIgnoreCase)
+                            || r.Name.Contains("mongo", StringComparison.OrdinalIgnoreCase)
                             || r.Name.Contains("keycloak", StringComparison.OrdinalIgnoreCase)
                             || r.Name.Contains("dragonfly", StringComparison.OrdinalIgnoreCase)
                         )

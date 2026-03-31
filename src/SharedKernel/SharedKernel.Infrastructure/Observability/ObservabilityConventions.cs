@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+
 namespace SharedKernel.Infrastructure.Observability;
 
 /// <summary>Shared names for the application's OpenTelemetry activity source and meters.</summary>
@@ -6,6 +9,15 @@ public static class ObservabilityConventions
     public const string ActivitySourceName = "APITemplate";
     public const string MeterName = "APITemplate";
     public const string HealthMeterName = "APITemplate.Health";
+
+    /// <summary>Shared activity source — use this instead of creating new instances per class.</summary>
+    internal static readonly ActivitySource SharedActivitySource = new(ActivitySourceName);
+
+    /// <summary>Shared meter for application metrics — use this instead of creating new instances per class.</summary>
+    internal static readonly Meter SharedMeter = new(MeterName);
+
+    /// <summary>Shared meter for health check metrics.</summary>
+    internal static readonly Meter SharedHealthMeter = new(HealthMeterName);
 }
 
 /// <summary>Canonical metric instrument names emitted by the application meter.</summary>

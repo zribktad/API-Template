@@ -9,14 +9,8 @@ namespace SharedKernel.Infrastructure.Observability;
 /// </summary>
 public static class AuthTelemetry
 {
-    private static readonly ActivitySource ActivitySource = new(
-        ObservabilityConventions.ActivitySourceName
-    );
-    private static readonly Meter Meter = new(ObservabilityConventions.MeterName);
-
-    private static readonly Counter<long> AuthFailures = Meter.CreateCounter<long>(
-        TelemetryMetricNames.AuthFailures
-    );
+    private static readonly Counter<long> AuthFailures =
+        ObservabilityConventions.SharedMeter.CreateCounter<long>(TelemetryMetricNames.AuthFailures);
 
     public static void RecordMissingTenantClaim(HttpContext httpContext, string scheme) =>
         RecordFailure(
@@ -49,14 +43,15 @@ public static class AuthTelemetry
     {
         AuthFailures.Add(
             1,
-            [
-                new KeyValuePair<string, object?>(TelemetryTagKeys.AuthScheme, scheme),
-                new KeyValuePair<string, object?>(TelemetryTagKeys.AuthFailureReason, reason),
-                new KeyValuePair<string, object?>(TelemetryTagKeys.ApiSurface, surface),
-            ]
+            new TagList
+            {
+                { TelemetryTagKeys.AuthScheme, scheme },
+                { TelemetryTagKeys.AuthFailureReason, reason },
+                { TelemetryTagKeys.ApiSurface, surface },
+            }
         );
 
-        using Activity? activity = ActivitySource.StartActivity(
+        using Activity? activity = ObservabilityConventions.SharedActivitySource.StartActivity(
             activityName,
             ActivityKind.Internal
         );

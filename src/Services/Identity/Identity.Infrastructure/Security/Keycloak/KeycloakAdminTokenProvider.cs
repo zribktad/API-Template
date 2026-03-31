@@ -94,11 +94,7 @@ public sealed class KeycloakAdminTokenProvider : IDisposable
         if (!response.IsSuccessStatusCode)
         {
             string body = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogError(
-                "Failed to acquire Keycloak admin token. Status: {Status}. Body: {Body}",
-                (int)response.StatusCode,
-                body
-            );
+            _logger.TokenAcquireFailed((int)response.StatusCode, body);
             response.EnsureSuccessStatusCode();
         }
 

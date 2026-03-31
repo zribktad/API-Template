@@ -7,10 +7,6 @@ namespace SharedKernel.Infrastructure.Observability;
 /// </summary>
 public static class StartupTelemetry
 {
-    private static readonly ActivitySource ActivitySource = new(
-        ObservabilityConventions.ActivitySourceName
-    );
-
     public static Scope StartRelationalMigration() =>
         StartStep(
             TelemetryStartupSteps.Migrate,
@@ -20,7 +16,7 @@ public static class StartupTelemetry
 
     private static Scope StartStep(string step, string component, string? dbSystem = null)
     {
-        Activity? activity = ActivitySource.StartActivity(
+        Activity? activity = ObservabilityConventions.SharedActivitySource.StartActivity(
             TelemetryActivityNames.Startup(step),
             ActivityKind.Internal
         );

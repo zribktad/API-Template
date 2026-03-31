@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using SharedKernel.Infrastructure.Persistence;
 
 namespace ProductCatalog.Infrastructure.Persistence;
 
@@ -14,17 +15,16 @@ public sealed class ProductCatalogDbContextDesignTimeFactory
     {
         DbContextOptionsBuilder<ProductCatalogDbContext> optionsBuilder = new();
         optionsBuilder.UseNpgsql(
-            "Host=localhost;Database=productcatalog_db;Username=postgres;Password=postgres"
+            DesignTimeConnectionStringResolver.Resolve(
+                "src/Services/ProductCatalog/ProductCatalog.Api",
+                "ProductCatalogDb",
+                args
+            )
         );
 
         return new ProductCatalogDbContext(
             optionsBuilder.Options,
-            tenantProvider: null!,
-            actorProvider: null!,
-            timeProvider: TimeProvider.System,
-            softDeleteCascadeRules: [],
-            entityStateManager: null!,
-            softDeleteProcessor: null!
+            DesignTimeDbContextDefaults.CreateDependencies()
         );
     }
 }

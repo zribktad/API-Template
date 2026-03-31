@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using SharedKernel.Domain.Exceptions;
 
@@ -8,15 +9,15 @@ namespace SharedKernel.Infrastructure.Observability;
 /// </summary>
 public static class ConflictTelemetry
 {
-    private static readonly Meter Meter = new(ObservabilityConventions.MeterName);
+    private static readonly Counter<long> ConcurrencyConflicts =
+        ObservabilityConventions.SharedMeter.CreateCounter<long>(
+            TelemetryMetricNames.ConcurrencyConflicts
+        );
 
-    private static readonly Counter<long> ConcurrencyConflicts = Meter.CreateCounter<long>(
-        TelemetryMetricNames.ConcurrencyConflicts
-    );
-
-    private static readonly Counter<long> DomainConflicts = Meter.CreateCounter<long>(
-        TelemetryMetricNames.DomainConflicts
-    );
+    private static readonly Counter<long> DomainConflicts =
+        ObservabilityConventions.SharedMeter.CreateCounter<long>(
+            TelemetryMetricNames.DomainConflicts
+        );
 
     public static void Record(Exception exception, string errorCode)
     {
@@ -28,10 +29,7 @@ public static class ConflictTelemetry
 
         if (exception is ConflictException)
         {
-            DomainConflicts.Add(
-                1,
-                [new KeyValuePair<string, object?>(TelemetryTagKeys.ErrorCode, errorCode)]
-            );
+            DomainConflicts.Add(1, new TagList { { TelemetryTagKeys.ErrorCode, errorCode } });
         }
     }
 }

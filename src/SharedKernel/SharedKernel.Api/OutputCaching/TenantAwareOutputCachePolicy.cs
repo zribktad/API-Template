@@ -63,6 +63,7 @@ public sealed class TenantAwareOutputCachePolicy : IOutputCachePolicy
         CancellationToken cancellationToken
     )
     {
+        context.HttpContext.Response.Headers.Age = "0";
         CacheTelemetry.RecordCacheHit(context);
         return ValueTask.CompletedTask;
     }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using SharedKernel.Infrastructure.Persistence;
 
 namespace FileStorage.Infrastructure.Persistence;
 
@@ -14,17 +15,17 @@ public sealed class FileStorageDbContextDesignTimeFactory
     {
         DbContextOptionsBuilder<FileStorageDbContext> optionsBuilder = new();
         optionsBuilder.UseNpgsql(
-            "Host=localhost;Database=file_storage_db;Username=postgres;Password=postgres"
+            DesignTimeConnectionStringResolver.Resolve(
+                "src/Services/FileStorage/FileStorage.Api",
+                "FileStorageDb",
+                args
+            )
         );
 
         return new FileStorageDbContext(
             optionsBuilder.Options,
-            tenantProvider: null!,
-            actorProvider: null!,
-            timeProvider: TimeProvider.System,
-            softDeleteCascadeRules: [],
-            entityStateManager: null!,
-            softDeleteProcessor: null!
+            DesignTimeDbContextDefaults.CreateDependencies(),
+            DesignTimeDbContextDefaults.EntityNormalizationService
         );
     }
 }

@@ -52,11 +52,7 @@ public sealed class KeycloakAdminService : IKeycloakAdminService
 
         string keycloakUserId = ExtractUserIdFromLocation(response);
 
-        _logger.LogInformation(
-            "Created Keycloak user {Username} with id {KeycloakUserId}",
-            username,
-            keycloakUserId
-        );
+        _logger.UserCreated(username, keycloakUserId);
 
         try
         {
@@ -76,11 +72,7 @@ public sealed class KeycloakAdminService : IKeycloakAdminService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(
-                ex,
-                "Failed to send setup email for Keycloak user {KeycloakUserId}. User was created but has no setup email.",
-                keycloakUserId
-            );
+            _logger.SetupEmailFailed(ex, keycloakUserId);
         }
 
         return keycloakUserId;
@@ -101,10 +93,7 @@ public sealed class KeycloakAdminService : IKeycloakAdminService
             ct
         );
 
-        _logger.LogInformation(
-            "Sent password reset email to Keycloak user {KeycloakUserId}",
-            keycloakUserId
-        );
+        _logger.PasswordResetEmailSent(keycloakUserId);
     }
 
     public async Task SetUserEnabledAsync(
@@ -116,11 +105,7 @@ public sealed class KeycloakAdminService : IKeycloakAdminService
         UserRepresentation patch = new() { Enabled = enabled };
         await _userClient.UpdateUserAsync(_realm, keycloakUserId, patch, ct);
 
-        _logger.LogInformation(
-            "Set Keycloak user {KeycloakUserId} enabled={Enabled}",
-            keycloakUserId,
-            enabled
-        );
+        _logger.UserEnabledStateChanged(keycloakUserId, enabled);
     }
 
     public async Task DeleteUserAsync(string keycloakUserId, CancellationToken ct = default)
@@ -131,14 +116,11 @@ public sealed class KeycloakAdminService : IKeycloakAdminService
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            _logger.LogWarning(
-                "Keycloak user {KeycloakUserId} was not found during delete — treating as already deleted.",
-                keycloakUserId
-            );
+            _logger.UserDeleteNotFound(keycloakUserId);
             return;
         }
 
-        _logger.LogInformation("Deleted Keycloak user {KeycloakUserId}", keycloakUserId);
+        _logger.UserDeleted(keycloakUserId);
     }
 
     private static string ExtractUserIdFromLocation(HttpResponseMessage response)
