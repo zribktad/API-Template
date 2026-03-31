@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OutputCaching;
 using SharedKernel.Application.Security;
+using SharedKernel.Infrastructure.Observability;
 
 namespace SharedKernel.Api.OutputCaching;
 
@@ -59,10 +60,18 @@ public sealed class TenantAwareOutputCachePolicy : IOutputCachePolicy
     public ValueTask ServeFromCacheAsync(
         OutputCacheContext context,
         CancellationToken cancellationToken
-    ) => ValueTask.CompletedTask;
+    )
+    {
+        CacheTelemetry.RecordCacheHit(context);
+        return ValueTask.CompletedTask;
+    }
 
     public ValueTask ServeResponseAsync(
         OutputCacheContext context,
         CancellationToken cancellationToken
-    ) => ValueTask.CompletedTask;
+    )
+    {
+        CacheTelemetry.RecordResponseOutcome(context);
+        return ValueTask.CompletedTask;
+    }
 }

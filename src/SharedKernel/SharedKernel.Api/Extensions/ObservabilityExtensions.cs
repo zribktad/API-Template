@@ -19,7 +19,11 @@ public static class ObservabilityExtensions
         string serviceName
     )
     {
-        string otlpEndpoint = configuration["Observability:Otlp:Endpoint"] ?? "http://alloy:4317";
+        ObservabilityOptions observabilityOptions = GetObservabilityOptions(configuration);
+        IReadOnlyList<string> otlpEndpoints = GetEnabledOtlpEndpoints(
+            observabilityOptions,
+            environment
+        );
 
         services
             .AddOpenTelemetry()
@@ -37,7 +41,8 @@ public static class ObservabilityExtensions
                 if (environment.IsDevelopment())
                     tracing.AddConsoleExporter();
 
-                tracing.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+                foreach (string endpoint in otlpEndpoints)
+                    tracing.AddOtlpExporter(o => o.Endpoint = new Uri(endpoint));
             })
             .WithMetrics(metrics =>
             {
@@ -48,7 +53,8 @@ public static class ObservabilityExtensions
                     .AddProcessInstrumentation()
                     .AddMeter("Wolverine");
 
-                metrics.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+                foreach (string endpoint in otlpEndpoints)
+                    metrics.AddOtlpExporter(o => o.Endpoint = new Uri(endpoint));
             });
 
         return services;
@@ -65,24 +71,55 @@ public static class ObservabilityExtensions
     {
         List<string> endpoints = [];
 
-        bool aspireEnabled = options.Exporters.Aspire.Enabled ?? environment.IsDevelopment();
-        if (aspireEnabled)
+        if (IsAspireExporterEnabled(options, environment))
         {
-            endpoints.Add(
-                string.IsNullOrWhiteSpace(options.Aspire.Endpoint)
-                    ? TelemetryDefaults.AspireOtlpEndpoint
-                    : options.Aspire.Endpoint
-            );
+            var aspireEndpoint = string.IsNullOrWhiteSpace(options.Aspire.Endpoint)
+                ? TelemetryDefaults.AspireOtlpEndpoint
+                : options.Aspire.Endpoint;
+            endpoints.Add(aspireEndpoint);
         }
 
-        bool otlpEnabled = options.Exporters.Otlp.Enabled ?? !environment.IsDevelopment();
-        if (otlpEnabled && !string.IsNullOrWhiteSpace(options.Otlp.Endpoint))
+        if (
+            IsOtlpExporterEnabled(options, environment)
+            && !string.IsNullOrWhiteSpace(options.Otlp.Endpoint)
+        )
         {
             endpoints.Add(options.Otlp.Endpoint);
         }
 
         return endpoints.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
+
+    /// <summary>
+    /// Returns whether the Aspire OTLP exporter is active: uses the explicit configuration value
+    /// when set, otherwise defaults to true in Development outside a container.
+    /// </summary>
+    internal static bool IsAspireExporterEnabled(
+        ObservabilityOptions options,
+        IHostEnvironment environment
+    ) =>
+        options.Exporters.Aspire.Enabled
+        ?? (environment.IsDevelopment() && !IsRunningInContainer());
+
+    /// <summary>
+    /// Returns whether the generic OTLP exporter is active: uses the explicit configuration value
+    /// when set, otherwise defaults to true when running in a container.
+    /// </summary>
+    internal static bool IsOtlpExporterEnabled(
+        ObservabilityOptions options,
+        IHostEnvironment environment
+    ) => options.Exporters.Otlp.Enabled ?? IsRunningInContainer();
+
+    /// <summary>Returns whether the console/stdout exporter is enabled; defaults to false.</summary>
+    internal static bool IsConsoleExporterEnabled(ObservabilityOptions options) =>
+        options.Exporters.Console.Enabled ?? false;
+
+    private static bool IsRunningInContainer() =>
+        string.Equals(
+            Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
+            "true",
+            StringComparison.OrdinalIgnoreCase
+        );
 
     internal static Dictionary<string, object> BuildResourceAttributes(
         string serviceName,

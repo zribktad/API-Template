@@ -15,7 +15,7 @@ internal static partial class ApiExceptionHandlerLogs
         Exception exception,
         int statusCode,
         [SensitiveData] string errorCode,
-        [PersonalData] string traceId
+        string traceId
     );
 
     [LoggerMessage(
@@ -28,6 +28,6 @@ internal static partial class ApiExceptionHandlerLogs
         Exception exception,
         int statusCode,
         [SensitiveData] string errorCode,
-        [PersonalData] string traceId
+        string traceId
     );
 }

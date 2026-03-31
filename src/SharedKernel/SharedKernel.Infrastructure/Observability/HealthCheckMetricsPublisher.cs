@@ -14,6 +14,9 @@ public sealed class HealthCheckMetricsPublisher : IHealthCheckPublisher
     );
 
     // Static gauge — registering multiple instances on the same Meter causes duplicate metrics.
+    // DESIGN NOTE: The gauge is static to prevent duplicate metric registrations.
+    // If Meter ever becomes instance-based, move gauge registration into constructor
+    // and ensure singleton lifecycle or use WeakReference to prevent memory leaks.
     private static readonly ObservableGauge<int> Gauge =
         ObservabilityConventions.SharedHealthMeter.CreateObservableGauge(
             TelemetryMetricNames.HealthStatus,
@@ -30,12 +33,14 @@ public sealed class HealthCheckMetricsPublisher : IHealthCheckPublisher
         return Task.CompletedTask;
     }
 
-    internal static IReadOnlyDictionary<string, int> SnapshotStatuses() =>
-        Statuses.ToDictionary(
+    internal static IReadOnlyDictionary<string, int> SnapshotStatuses()
+    {
+        return Statuses.ToDictionary(
             entry => entry.Key,
             entry => entry.Value,
             StringComparer.OrdinalIgnoreCase
         );
+    }
 
     private static IEnumerable<Measurement<int>> ObserveStatuses()
     {
