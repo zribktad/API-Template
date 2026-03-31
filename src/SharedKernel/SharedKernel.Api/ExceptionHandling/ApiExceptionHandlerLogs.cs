@@ -14,8 +14,8 @@ internal static partial class ApiExceptionHandlerLogs
         this ILogger logger,
         Exception exception,
         int statusCode,
-        [SensitiveData] string errorCode,
-        string traceId
+        [SensitiveDataAttribute] string errorCode,
+        [PersonalDataAttribute] string traceId
     );
 
     [LoggerMessage(
@@ -27,7 +27,7 @@ internal static partial class ApiExceptionHandlerLogs
         this ILogger logger,
         Exception exception,
         int statusCode,
-        [SensitiveData] string errorCode,
-        string traceId
+        [SensitiveDataAttribute] string errorCode,
+        [PersonalDataAttribute] string traceId
     );
 }

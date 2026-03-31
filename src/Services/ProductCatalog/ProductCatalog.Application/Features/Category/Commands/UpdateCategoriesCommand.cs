@@ -41,7 +41,7 @@ public sealed class UpdateCategoriesCommandHandler
             .Select(item => item.Id)
             .ToHashSet();
         Dictionary<Guid, CategoryEntity> categoryMap = (
-            await repository.ListAsync(new CategoriesByIdsSpecification(requestedIds), ct)
+            await repository.ListAsync(new CategoriesByIdsSpecification(requestedIds), ct) ?? []
         ).ToDictionary(c => c.Id);
 
         await context.ApplyRulesAsync(

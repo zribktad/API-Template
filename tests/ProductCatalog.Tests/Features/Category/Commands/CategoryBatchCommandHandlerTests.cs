@@ -28,6 +28,16 @@ public sealed class CategoryBatchCommandHandlerTests
                 )
             )
             .Returns<Func<Task>, CancellationToken, object?>((action, _, _) => action());
+
+        // Default mock behavior for repository - return empty list unless overridden
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<ISpecification<CategoryEntity>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new List<CategoryEntity>());
     }
 
     [Fact]
@@ -152,6 +162,17 @@ public sealed class CategoryBatchCommandHandlerTests
                 new UpdateCategoryItem(secondId, "New 2", null),
             ])
         );
+
+        // Override the default mock for this specific test to return the categories
+        _repositoryMock.Reset();
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<ISpecification<CategoryEntity>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([first, second]);
 
         var (result, _) = await UpdateCategoriesCommandHandler.HandleAsync(
             command,
