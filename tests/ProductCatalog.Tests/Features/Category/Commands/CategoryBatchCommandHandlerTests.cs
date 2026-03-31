@@ -5,7 +5,6 @@ using ProductCatalog.Application.Features.Category.Commands;
 using ProductCatalog.Application.Features.Category.DTOs;
 using ProductCatalog.Application.Features.Category.Validation;
 using ProductCatalog.Domain.Interfaces;
-using SharedKernel.Application.Batch.Rules;
 using SharedKernel.Domain.Interfaces;
 using Shouldly;
 using Xunit;
@@ -40,7 +39,7 @@ public sealed class CategoryBatchCommandHandlerTests
             command,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            CreateBatchRule<CreateCategoryRequest>(new CreateCategoryRequestValidator()),
+            new CreateCategoryRequestValidator(),
             CancellationToken.None
         );
 
@@ -83,7 +82,7 @@ public sealed class CategoryBatchCommandHandlerTests
             command,
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            CreateBatchRule<CreateCategoryRequest>(new CreateCategoryRequestValidator()),
+            new CreateCategoryRequestValidator(),
             CancellationToken.None
         );
 
@@ -95,7 +94,7 @@ public sealed class CategoryBatchCommandHandlerTests
     }
 
     [Fact]
-    public async Task LoadAsync_WhenCategoryIsMissing_ReturnsStopWithoutLookup()
+    public async Task HandleAsync_WhenCategoryIsMissing_ReturnsBatchFailure()
     {
         Guid missingId = Guid.NewGuid();
         UpdateCategoriesCommand command = new(
@@ -111,15 +110,22 @@ public sealed class CategoryBatchCommandHandlerTests
             )
             .ReturnsAsync([]);
 
-        var (continuation, lookup, _) = await UpdateCategoriesCommandHandler.LoadAsync(
+        var (result, _) = await UpdateCategoriesCommandHandler.HandleAsync(
             command,
             _repositoryMock.Object,
-            CreateBatchRule<UpdateCategoryItem>(new UpdateCategoryItemValidator()),
+            _unitOfWorkMock.Object,
+            new UpdateCategoryItemValidator(),
             CancellationToken.None
         );
 
-        continuation.ShouldBe(Wolverine.HandlerContinuation.Stop);
-        lookup.ShouldBeNull();
+        result.IsError.ShouldBeFalse();
+        result.Value.SuccessCount.ShouldBe(0);
+        result.Value.FailureCount.ShouldBe(1);
+        result
+            .Value.Failures[0]
+            .Errors.ShouldContain(
+                string.Format(ErrorCatalog.Categories.NotFoundMessage, missingId)
+            );
     }
 
     [Fact]
@@ -149,11 +155,9 @@ public sealed class CategoryBatchCommandHandlerTests
 
         var (result, _) = await UpdateCategoriesCommandHandler.HandleAsync(
             command,
-            new SharedKernel.Application.Batch.EntityLookup<CategoryEntity>(
-                new Dictionary<Guid, CategoryEntity> { [firstId] = first, [secondId] = second }
-            ),
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
+            new UpdateCategoryItemValidator(),
             CancellationToken.None
         );
 
@@ -167,13 +171,5 @@ public sealed class CategoryBatchCommandHandlerTests
             r => r.UpdateAsync(It.IsAny<CategoryEntity>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2)
         );
-    }
-
-    private static FluentValidationBatchRule<T> CreateBatchRule<T>(
-        FluentValidation.IValidator<T> validator
-    )
-    {
-        Mock<IValidationMetrics> metrics = new();
-        return new FluentValidationBatchRule<T>(validator, metrics.Object);
     }
 }

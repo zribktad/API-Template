@@ -9,7 +9,6 @@ using ProductCatalog.Application.Features.Product.Validation;
 using ProductCatalog.Domain.Entities;
 using ProductCatalog.Domain.Entities.ProductData;
 using ProductCatalog.Domain.Interfaces;
-using SharedKernel.Application.Batch.Rules;
 using SharedKernel.Domain.Interfaces;
 using Shouldly;
 using Wolverine;
@@ -82,7 +81,7 @@ public sealed class ProductBatchCommandHandlerTests
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
             _busMock.Object,
-            CreateBatchRule<CreateProductRequest>(new CreateProductRequestValidator()),
+            new CreateProductRequestValidator(),
             TimeProvider.System,
             CancellationToken.None
         );
@@ -161,7 +160,7 @@ public sealed class ProductBatchCommandHandlerTests
             _productDataRepositoryMock.Object,
             _unitOfWorkMock.Object,
             _busMock.Object,
-            CreateBatchRule<CreateProductRequest>(new CreateProductRequestValidator()),
+            new CreateProductRequestValidator(),
             TimeProvider.System,
             CancellationToken.None
         );
@@ -208,7 +207,7 @@ public sealed class ProductBatchCommandHandlerTests
             _productRepositoryMock.Object,
             _categoryRepositoryMock.Object,
             _productDataRepositoryMock.Object,
-            CreateBatchRule<UpdateProductItem>(new UpdateProductItemValidator()),
+            new UpdateProductItemValidator(),
             CancellationToken.None
         );
 
@@ -296,13 +295,5 @@ public sealed class ProductBatchCommandHandlerTests
                 ),
             Times.Once
         );
-    }
-
-    private static FluentValidationBatchRule<T> CreateBatchRule<T>(
-        FluentValidation.IValidator<T> validator
-    )
-    {
-        Mock<IValidationMetrics> metrics = new();
-        return new FluentValidationBatchRule<T>(validator, metrics.Object);
     }
 }

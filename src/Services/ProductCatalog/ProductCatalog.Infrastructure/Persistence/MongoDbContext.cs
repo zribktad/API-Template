@@ -6,11 +6,16 @@ using ProductCatalog.Domain.Entities.ProductData;
 
 namespace ProductCatalog.Infrastructure.Persistence;
 
+public interface IMongoDbHealthProbe
+{
+    Task PingAsync(CancellationToken cancellationToken = default);
+}
+
 /// <summary>
 /// Thin wrapper around the MongoDB driver that configures the client with diagnostic
 /// activity tracing and exposes typed collection accessors for domain document types.
 /// </summary>
-public sealed class MongoDbContext
+public sealed class MongoDbContext : IMongoDbHealthProbe
 {
     private readonly IMongoDatabase _database;
 
