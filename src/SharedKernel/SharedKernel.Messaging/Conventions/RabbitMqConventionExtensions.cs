@@ -21,13 +21,15 @@ public static class RabbitMqConventionExtensions
         IConfiguration configuration
     )
     {
-        string connectionString =
-            configuration.GetConnectionString("RabbitMQ") ?? BuildFromHostName(configuration);
+        string connectionString = ResolveConnectionString(configuration);
 
         opts.UseRabbitMq(new Uri(connectionString)).AutoProvision().EnableWolverineControlQueues();
 
         return opts;
     }
+
+    public static string ResolveConnectionString(IConfiguration configuration) =>
+        configuration.GetConnectionString("RabbitMQ") ?? BuildFromHostName(configuration);
 
     private static string BuildFromHostName(IConfiguration configuration)
     {
