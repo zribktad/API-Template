@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Compliance.Redaction;
 using Microsoft.Extensions.Configuration;
@@ -16,27 +15,13 @@ public static class LoggingRedactionExtensions
         IConfiguration configuration
     )
     {
-        IConfigurationSection redactionSection = configuration.GetSection(
-            RedactionOptions.SectionName
-        );
-        if (redactionSection.Exists())
-        {
-            services.AddValidatedOptions<RedactionOptions>(
-                configuration,
-                RedactionOptions.SectionName
-            );
-        }
-        else
-        {
-            services.AddOptions<RedactionOptions>().ValidateDataAnnotations().ValidateOnStart();
-        }
+        services
+            .AddOptions<RedactionOptions>()
+            .Bind(configuration.GetSection(RedactionOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
         RedactionOptions redactionOptions = GetRedactionOptions(configuration);
-        Validator.ValidateObject(
-            redactionOptions,
-            new ValidationContext(redactionOptions),
-            validateAllProperties: true
-        );
 
         string hmacKey = RedactionConfiguration.ResolveHmacKey(
             redactionOptions,

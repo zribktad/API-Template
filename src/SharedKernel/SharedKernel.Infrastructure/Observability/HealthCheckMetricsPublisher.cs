@@ -30,7 +30,12 @@ public sealed class HealthCheckMetricsPublisher : IHealthCheckPublisher
         return Task.CompletedTask;
     }
 
-    internal static IReadOnlyDictionary<string, int> SnapshotStatuses() => Statuses;
+    internal static IReadOnlyDictionary<string, int> SnapshotStatuses() =>
+        Statuses.ToDictionary(
+            entry => entry.Key,
+            entry => entry.Value,
+            StringComparer.OrdinalIgnoreCase
+        );
 
     private static IEnumerable<Measurement<int>> ObserveStatuses()
     {
