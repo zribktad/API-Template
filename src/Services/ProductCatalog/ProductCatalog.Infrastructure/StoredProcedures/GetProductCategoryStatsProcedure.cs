@@ -1,0 +1,14 @@
+using ProductCatalog.Domain.Entities;
+using ProductCatalog.Domain.Interfaces;
+
+namespace ProductCatalog.Infrastructure.StoredProcedures;
+
+/// <summary>
+/// Calls the <c>get_product_category_stats(p_category_id, p_tenant_id)</c> PostgreSQL function.
+/// </summary>
+public sealed record GetProductCategoryStatsProcedure(Guid CategoryId, Guid TenantId)
+    : IStoredProcedure<ProductCategoryStats>
+{
+    public FormattableString ToSql() =>
+        $"SELECT * FROM get_product_category_stats({CategoryId}, {TenantId})";
+}
