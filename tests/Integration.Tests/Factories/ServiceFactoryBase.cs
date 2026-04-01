@@ -45,14 +45,25 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
             await base.DisposeAsync();
         }
         catch (OperationCanceledException) { }
-        catch (NullReferenceException) { } // Wolverine RabbitMQ teardown bug: https://github.com/JasperFx/wolverine/issues
+        catch (NullReferenceException ex)
+            when (ex.ToString()
+                    .Contains(
+                        "Wolverine.RabbitMQ.Internal.RabbitMqChannelAgent",
+                        StringComparison.Ordinal
+                    )
+            ) { } // Wolverine RabbitMQ teardown bug
         catch (AggregateException ex)
             when (ex.Flatten()
                     .InnerExceptions.All(e =>
-                        e
-                            is OperationCanceledException
-                                or TaskCanceledException
-                                or NullReferenceException
+                        e is OperationCanceledException or TaskCanceledException
+                        || (
+                            e is NullReferenceException nre
+                            && nre.ToString()
+                                .Contains(
+                                    "Wolverine.RabbitMQ.Internal.RabbitMqChannelAgent",
+                                    StringComparison.Ordinal
+                                )
+                        )
                     )
             ) { }
 
