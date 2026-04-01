@@ -153,6 +153,15 @@ public sealed class CategoryBatchCommandHandlerTests
             ])
         );
 
+        _repositoryMock
+            .Setup(r =>
+                r.ListAsync(
+                    It.IsAny<ISpecification<ProductCatalog.Domain.Entities.Category>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([first, second]);
+
         var (result, _) = await UpdateCategoriesCommandHandler.HandleAsync(
             command,
             _repositoryMock.Object,

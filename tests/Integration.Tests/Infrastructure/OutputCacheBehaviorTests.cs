@@ -48,12 +48,10 @@ public sealed class OutputCacheBehaviorTests : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
-        await Task.WhenAll(
-            _fileStorageFactory.DisposeAsync().AsTask(),
-            _reviewsFactory.DisposeAsync().AsTask(),
-            _identityFactory.DisposeAsync().AsTask(),
-            _productCatalogFactory.DisposeAsync().AsTask()
-        );
+        await _fileStorageFactory.DisposeAsync();
+        await _reviewsFactory.DisposeAsync();
+        await _identityFactory.DisposeAsync();
+        await _productCatalogFactory.DisposeAsync();
     }
 
     [Fact]
