@@ -1,0 +1,42 @@
+{
+  "folders": [
+    {
+      "name": "src",
+      "path": "src"
+    },
+    {
+      "name": "tests",
+      "path": "tests"
+    },
+    {
+      "name": "docs",
+      "path": "docs"
+    },
+    {
+      "name": "infrastructure",
+      "path": "infrastructure"
+    }
+  ],
+  "settings": {
+    "dotnet.defaultSolution": "APITemplate.slnx",
+    "dotnet.solution.autoOpen": "APITemplate.slnx",
+    "dotnet.enableWorkspaceBasedDevelopment": false,
+    "git.openRepositoryInParentFolders": "always",
+    "files.exclude": {
+      "**/monolith": true,
+      "**/bin": true,
+      "**/obj": true
+    },
+    "search.exclude": {
+      "**/monolith": true,
+      "**/bin": true,
+      "**/obj": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-dotnettools.csdevkit",
+      "ms-dotnettools.csharp"
+    ]
+  }
+}

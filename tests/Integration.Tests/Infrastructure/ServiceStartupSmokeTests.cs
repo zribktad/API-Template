@@ -31,10 +31,13 @@ public sealed class ServiceStartupSmokeTests
         await AssertServiceHealthyAsync(new WebhooksServiceFactory(_containers));
     }
 
-    private static async Task AssertHealthyAsync(HttpClient client)
+    private static async Task AssertHealthyAsync(HttpClient client, string? serviceName = null)
     {
         HttpResponseMessage response = await client.GetAsync("/health");
-        response.IsSuccessStatusCode.ShouldBeTrue();
+        string body = await response.Content.ReadAsStringAsync();
+        response.IsSuccessStatusCode.ShouldBeTrue(
+            $"{serviceName ?? "service"} returned {(int)response.StatusCode} {response.StatusCode}. Body: {body}"
+        );
     }
 
     private static async Task AssertServiceHealthyAsync<TProgram>(
@@ -45,7 +48,7 @@ public sealed class ServiceStartupSmokeTests
         await factory.InitializeAsync();
         try
         {
-            await AssertHealthyAsync(factory.CreateClient());
+            await AssertHealthyAsync(factory.CreateClient(), typeof(TProgram).Name);
         }
         finally
         {

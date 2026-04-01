@@ -45,10 +45,26 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
             await base.DisposeAsync();
         }
         catch (OperationCanceledException) { }
+        catch (NullReferenceException ex)
+            when (ex.ToString()
+                    .Contains(
+                        "Wolverine.RabbitMQ.Internal.RabbitMqChannelAgent",
+                        StringComparison.Ordinal
+                    )
+            ) { } // Wolverine RabbitMQ teardown bug
         catch (AggregateException ex)
-            when (ex.InnerExceptions.All(e =>
-                    e is OperationCanceledException or TaskCanceledException
-                )
+            when (ex.Flatten()
+                    .InnerExceptions.All(e =>
+                        e is OperationCanceledException or TaskCanceledException
+                        || (
+                            e is NullReferenceException nre
+                            && nre.ToString()
+                                .Contains(
+                                    "Wolverine.RabbitMQ.Internal.RabbitMqChannelAgent",
+                                    StringComparison.Ordinal
+                                )
+                        )
+                    )
             ) { }
 
         await TestDatabaseLifecycle.DropDatabaseAsync(
@@ -113,6 +129,7 @@ public abstract class ServiceFactoryBase<TProgram> : WebApplicationFactory<TProg
                     options
                         .Registrations.Where(r =>
                             r.Name.Contains("mongodb", StringComparison.OrdinalIgnoreCase)
+                            || r.Name.Contains("mongo", StringComparison.OrdinalIgnoreCase)
                             || r.Name.Contains("keycloak", StringComparison.OrdinalIgnoreCase)
                             || r.Name.Contains("dragonfly", StringComparison.OrdinalIgnoreCase)
                         )

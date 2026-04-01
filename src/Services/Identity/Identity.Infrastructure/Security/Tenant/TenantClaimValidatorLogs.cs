@@ -1,0 +1,34 @@
+using Microsoft.Extensions.Logging;
+using SharedKernel.Infrastructure.Logging;
+
+namespace Identity.Infrastructure.Security.Tenant;
+
+internal static partial class TenantClaimValidatorLogs
+{
+    [LoggerMessage(
+        EventId = 2001,
+        Level = LogLevel.Warning,
+        Message = "[{Scheme}] Token validated but no identity found"
+    )]
+    public static partial void TokenValidatedNoIdentity(this ILogger logger, string scheme);
+
+    [LoggerMessage(
+        EventId = 2002,
+        Level = LogLevel.Information,
+        Message = "[{Scheme}] Authenticated user={User}, tenant={TenantId}, roles=[{Roles}]"
+    )]
+    public static partial void UserAuthenticated(
+        this ILogger logger,
+        string scheme,
+        [PersonalData] string? user,
+        [SensitiveData] string? tenantId,
+        string roles
+    );
+
+    [LoggerMessage(
+        EventId = 2003,
+        Level = LogLevel.Warning,
+        Message = "User provisioning failed during token validation — authentication will continue"
+    )]
+    public static partial void UserProvisioningFailed(this ILogger logger, Exception exception);
+}

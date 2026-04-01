@@ -1,1 +1,11 @@
-{}
+{
+  "dotnet.defaultSolution": "APITemplate.slnx",
+  "dotnet.solution.autoOpen": "APITemplate.slnx",
+  "dotnet.enableWorkspaceBasedDevelopment": false,
+  "files.exclude": {
+    "**/monolith": true
+  },
+  "search.exclude": {
+    "**/monolith": true
+  }
+}
