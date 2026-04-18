@@ -16,10 +16,10 @@
     <PackageVersion Include="ErrorOr" Version="2.1.0" />
     <PackageVersion Include="Fluid.Core" Version="2.31.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-    <PackageVersion Include="HotChocolate.AspNetCore" Version="15.1.12" />
-    <PackageVersion Include="HotChocolate.AspNetCore.Authorization" Version="15.1.12" />
-    <PackageVersion Include="HotChocolate.Data.EntityFramework" Version="15.1.12" />
-    <PackageVersion Include="HotChocolate.Diagnostics" Version="15.1.12" />
+    <PackageVersion Include="HotChocolate.AspNetCore" Version="15.1.14" />
+    <PackageVersion Include="HotChocolate.AspNetCore.Authorization" Version="15.1.14" />
+    <PackageVersion Include="HotChocolate.Data.EntityFramework" Version="15.1.14" />
+    <PackageVersion Include="HotChocolate.Diagnostics" Version="15.1.14" />
     <PackageVersion Include="Keycloak.AuthServices.Authentication" Version="2.8.0" />
     <PackageVersion Include="Keycloak.AuthServices.Authorization" Version="2.8.0" />
     <PackageVersion Include="Keycloak.AuthServices.Sdk" Version="2.8.0" />
